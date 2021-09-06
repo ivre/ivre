@@ -1498,6 +1498,8 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count + neg_count, hosts_count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchports([80, 443]))
         self.check_value("nmap_80_443_count", count)
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchports([80, 443], any_=True))
+        self.check_value("nmap_80_443_any_count", count)
         neg_count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchports([80, 443], neg=True)
         )

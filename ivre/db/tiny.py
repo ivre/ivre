@@ -644,10 +644,14 @@ class TinyDBActive(TinyDB, DBActive):
         )
 
     @classmethod
-    def searchports(cls, ports, protocol="tcp", state="open", neg=False):
+    def searchports(cls, ports, protocol="tcp", state="open", neg=False, any_=False):
         res = [
             cls.searchport(port=port, protocol=protocol, state=state) for port in ports
         ]
+        if any_:
+            if neg:
+                raise ValueError("searchports: cannot set both neg and any_")
+            return cls.flt_or(*res)
         if neg:
             # pylint: disable=invalid-unary-operand-type
             return ~cls.flt_or(*res)
