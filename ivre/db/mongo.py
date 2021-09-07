@@ -2347,17 +2347,25 @@ class MongoDBActive(MongoDB, DBActive):
             state=state,
         )
 
-    def searchports(self, ports, protocol="tcp", state="open", neg=False):
+    def searchports(self, ports, protocol="tcp", state="open", neg=False, any_=False):
         if state == "open" and not neg:
             return self.searchport(
-                {"$all": ports}, state=state, protocol=protocol, neg=neg
+                {"$in" if any_ else "$all": ports},
+                state=state,
+                protocol=protocol,
             )
         if neg:
+            if any_:
+                raise ValueError("searchports: cannot set both neg and any_")
             return self.flt_and(
                 *(
-                    self.searchport(p, protocol=protocol, state=state, neg=neg)
+                    self.searchport(p, protocol=protocol, state=state, neg=True)
                     for p in ports
                 )
+            )
+        if any_:
+            return self.searchport(
+                {"$in": ports}, protocol=protocol, state=state, neg=neg
             )
         return {
             "ports": {

@@ -128,6 +128,7 @@ flow_top_transport_api = [('192.168.122.214', '131.188.40.189'), ('192.168.122.2
 flow_top_transport = '(tcp, 443) | 3365145 '
 nmap_10-100_ports = 118
 nmap_20_ports = 1
+nmap_80_443_any_count = 383
 nmap_80_443_count = 108
 nmap_80_count = 299
 nmap_anonftp_count = 20

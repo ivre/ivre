@@ -1834,7 +1834,22 @@ class SQLDBActive(SQLDB, DBActive):
         )
 
     @classmethod
-    def searchports(cls, ports, protocol="tcp", state="open", neg=False):
+    def searchports(cls, ports, protocol="tcp", state="open", neg=False, any_=False):
+        if any_:
+            if neg:
+                raise ValueError("searchports: cannot set both neg and any_")
+            return cls.base_filter(
+                port=[
+                    (
+                        True,
+                        and_(
+                            cls.tables.port.port.in_(ports),
+                            cls.tables.port.protocol == protocol,
+                            cls.tables.port.state == state,
+                        ),
+                    ),
+                ]
+            )
         return cls.flt_and(
             *(
                 cls.searchport(port, protocol=protocol, state=state, neg=neg)
