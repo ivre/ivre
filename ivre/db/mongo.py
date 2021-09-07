@@ -2410,6 +2410,8 @@ class MongoDBActive(MongoDB, DBActive):
         """
         if srv is False:
             srv = {"$exists": False}
+        elif isinstance(srv, list):
+            srv = {"$in": srv}
         flt = {"service_name": srv}
         if port is not None:
             flt["port"] = port
@@ -4568,6 +4570,8 @@ class MongoDBPassive(MongoDB, DBPassive):
         """
         if srv is False:
             srv = {"$exists": False}
+        elif isinstance(srv, list):
+            srv = {"$in": srv}
         flt = {"infos.service_name": srv}
         if port is not None:
             flt["port"] = port

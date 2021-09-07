@@ -696,6 +696,8 @@ class TinyDBActive(TinyDB, DBActive):
         q = Query()
         if srv is False:
             flt = ~q.service_name.exists()
+        elif isinstance(srv, list):
+            flt = q.service_name.one_of(srv)
         else:
             flt = cls._searchstring_re(q.service_name, srv)
         if port is not None:
@@ -2639,6 +2641,8 @@ class TinyDBPassive(TinyDB, DBPassive):
         q = Query()
         if srv is False:
             flt = ~q.infos.service_name.exists()
+        elif isinstance(srv, list):
+            flt = q.infos.service_name.one_of(srv)
         else:
             flt = cls._searchstring_re(q.infos.service_name, srv)
         if port is not None:
