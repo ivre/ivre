@@ -1326,7 +1326,10 @@ return result;
         """Search an open port with a particular service."""
         if srv is False:
             res = ~Q("exists", field="ports.service_name")
-        res = Q("match", ports__service_name=srv)
+        elif isinstance(srv, list):
+            res = Q("terms", ports__service_name=srv)
+        else:
+            res = Q("match", ports__service_name=srv)
         if port is not None:
             res &= Q("match", ports__port=port)
         if protocol is not None:

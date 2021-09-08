@@ -1888,6 +1888,8 @@ class SQLDBActive(SQLDB, DBActive):
         """Search an open port with a particular service."""
         if srv is False:
             req = cls.tables.port.service_name == None  # noqa: E711
+        elif isinstance(srv, list):
+            req = cls.tables.port.service_name.in_(srv)
         else:
             req = cls._searchstring_re(cls.tables.port.service_name, srv)
         if port is not None:
@@ -3244,7 +3246,9 @@ class SQLDBPassive(SQLDB, DBPassive):
     def searchservice(cls, srv, port=None, protocol=None):
         """Search a port with a particular service."""
         if srv is False:
-            flt = ~cls.tables.passive.moreinfo.op("?")("service_name")
+            flt = [~cls.tables.passive.moreinfo.op("?")("service_name")]
+        elif isinstance(srv, list):
+            flt = [cls.tables.passive.moreinfo.op("->>")("service_name").in_(srv)]
         else:
             flt = [
                 cls._searchstring_re(

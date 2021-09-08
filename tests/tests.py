@@ -1506,6 +1506,19 @@ class IvreTests(unittest.TestCase):
         self.check_value("nmap_not_80_443_count", neg_count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchopenport())
         self.check_value("nmap_openport_count", count)
+
+        for service in ["ssh", "imap", "http"]:
+            res, out, _ = RUN(["ivre", "scancli", "--count", "--service", service])
+            self.assertEqual(res, 0)
+            count1 = int(out)
+            self.check_value("nmap_count_%s" % service, count1)
+            flt = ivre.db.db.nmap.searchservice(service)
+            count2 = ivre.db.db.nmap.count(flt)
+            self.assertEqual(count1, count2)
+
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchservice(["imap", "ssh"]))
+        self.check_value("nmap_count_imap_or_ssh", count)
+
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhttpauth(newscript=True, oldscript=True)
         )
@@ -2122,6 +2135,11 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(count1, count2)
             for res in ivre.db.db.passive.get(flt):
                 self.assertTrue(res["infos"]["service_name"] == service)
+
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchservice(["imap", "ssh"])
+        )
+        self.check_value("passive_count_imap_or_ssh", count)
 
         for service, port in [("ssh", 22), ("ssh", 23), ("imap", 143), ("imap", 110)]:
             res, out, _ = RUN(
