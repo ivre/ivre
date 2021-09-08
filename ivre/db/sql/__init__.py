@@ -1914,6 +1914,11 @@ class SQLDBActive(SQLDB, DBActive):
                     req,
                     cls.tables.port.service_product == None,  # noqa: E711
                 )
+            elif isinstance(product, list):
+                req = and_(
+                    req,
+                    cls.tables.port.service_product.in_(product),
+                )
             else:
                 req = and_(
                     req,
@@ -1928,6 +1933,11 @@ class SQLDBActive(SQLDB, DBActive):
                     req,
                     cls.tables.port.service_version == None,  # noqa: E711
                 )
+            elif isinstance(version, list):
+                req = and_(
+                    req,
+                    cls.tables.port.service_version.in_(version),
+                )
             else:
                 req = and_(
                     req, cls._searchstring_re(cls.tables.port.service_version, version)
@@ -1937,6 +1947,11 @@ class SQLDBActive(SQLDB, DBActive):
                 req = and_(
                     req,
                     cls.tables.port.service_name == None,  # noqa: E711
+                )
+            elif isinstance(service, list):
+                req = and_(
+                    req,
+                    cls.tables.port.service_name.in_(service),
                 )
             else:
                 req = and_(
@@ -3274,6 +3289,12 @@ class SQLDBPassive(SQLDB, DBPassive):
         if product is not None:
             if product is False:
                 flt.append(~cls.tables.passive.moreinfo.op("?")("service_product"))
+            elif isinstance(product, list):
+                flt.append(
+                    cls.tables.passive.moreinfo.op("->>")("service_product").in_(
+                        product
+                    )
+                )
             else:
                 flt.append(
                     cls._searchstring_re(
@@ -3284,6 +3305,12 @@ class SQLDBPassive(SQLDB, DBPassive):
         if version is not None:
             if version is False:
                 flt.append(~cls.tables.passive.moreinfo.op("?")("service_version"))
+            elif isinstance(version, list):
+                flt.append(
+                    cls.tables.passive.moreinfo.op("->>")("service_version").in_(
+                        version
+                    )
+                )
             else:
                 flt.append(
                     cls._searchstring_re(
@@ -3294,6 +3321,10 @@ class SQLDBPassive(SQLDB, DBPassive):
         if service is not None:
             if service is False:
                 flt.append(~cls.tables.passive.moreinfo.op("?")("service_name"))
+            elif isinstance(service, list):
+                flt.append(
+                    cls.tables.passive.moreinfo.op("->>")("service_name").in_(service)
+                )
             else:
                 flt.append(
                     cls._searchstring_re(
