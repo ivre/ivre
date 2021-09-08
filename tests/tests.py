@@ -2158,6 +2158,7 @@ class IvreTests(unittest.TestCase):
         for service, product in [
             ("ssh", "Cisco SSH"),
             ("http", "Apache httpd"),
+            ("http", ["Apache httpd", "nginx"]),
             ("imap", "Microsoft Exchange imapd"),
             ("imap", False),
         ]:
@@ -2167,13 +2168,19 @@ class IvreTests(unittest.TestCase):
                 "passive_count_%s_%s"
                 % (
                     service,
-                    (product or "UNKNOWN").replace(" ", ""),
+                    (
+                        "_or_".join(product)
+                        if isinstance(product, list)
+                        else (product or "UNKNOWN")
+                    ).replace(" ", ""),
                 ),
                 count,
             )
             for res in ivre.db.db.passive.get(flt):
                 self.assertEqual(res["infos"]["service_name"], service)
-                if product:
+                if isinstance(product, list):
+                    self.assertIn(res["infos"]["service_product"], product)
+                elif product:
                     self.assertEqual(res["infos"]["service_product"], product)
                 else:
                     self.assertFalse("service_product" in res["infos"])
@@ -2181,6 +2188,7 @@ class IvreTests(unittest.TestCase):
         for service, product, version in [
             ("ssh", "Cisco SSH", "1.25"),
             ("ssh", "OpenSSH", "3.1p1"),
+            ("ssh", "OpenSSH", ["3.1p1", "4.3"]),
             ("ssh", "OpenSSH", False),
         ]:
             flt = ivre.db.db.passive.searchproduct(
@@ -2192,14 +2200,20 @@ class IvreTests(unittest.TestCase):
                 % (
                     service,
                     product.replace(" ", ""),
-                    (version or "UNKNOWN").replace(".", "_"),
+                    (
+                        "_or_".join(version)
+                        if isinstance(version, list)
+                        else (version or "UNKNOWN")
+                    ).replace(".", "_"),
                 ),
                 count,
             )
             for res in ivre.db.db.passive.get(flt):
                 self.assertEqual(res["infos"]["service_name"], service)
                 self.assertEqual(res["infos"]["service_product"], product)
-                if version:
+                if isinstance(version, list):
+                    self.assertIn(res["infos"]["service_version"], version)
+                elif version:
                     self.assertEqual(res["infos"]["service_version"], version)
                 else:
                     self.assertFalse("service_version" in res["infos"])
@@ -5021,6 +5035,7 @@ class IvreTests(unittest.TestCase):
         for service, product in [
             ("ssh", "Cisco SSH"),
             ("http", "Apache httpd"),
+            ("http", ["Apache httpd", "nginx"]),
             ("imap", "Microsoft Exchange imapd"),
             ("imap", False),
         ]:
@@ -5030,7 +5045,11 @@ class IvreTests(unittest.TestCase):
                 "view_count_%s_%s"
                 % (
                     service,
-                    (product or "UNKNOWN").replace(" ", ""),
+                    (
+                        "_or_".join(product)
+                        if isinstance(product, list)
+                        else (product or "UNKNOWN")
+                    ).replace(" ", ""),
                 ),
                 count,
             )
@@ -5038,7 +5057,11 @@ class IvreTests(unittest.TestCase):
                 found = False
                 for port in res.get("ports", []):
                     if port.get("service_name") == service:
-                        if product:
+                        if isinstance(product, list):
+                            if port.get("service_product") in product:
+                                found = True
+                                break
+                        elif product:
                             if port.get("service_product") == product:
                                 found = True
                                 break
@@ -5050,6 +5073,7 @@ class IvreTests(unittest.TestCase):
         for service, product, version in [
             ("ssh", "Cisco SSH", "1.25"),
             ("ssh", "OpenSSH", "3.1p1"),
+            ("ssh", "OpenSSH", ["3.1p1", "4.3"]),
             ("ssh", "OpenSSH", False),
         ]:
             flt = ivre.db.db.view.searchproduct(
@@ -5061,7 +5085,11 @@ class IvreTests(unittest.TestCase):
                 % (
                     service,
                     product.replace(" ", ""),
-                    (version or "UNKNOWN").replace(".", "_"),
+                    (
+                        "_or_".join(version)
+                        if isinstance(version, list)
+                        else (version or "UNKNOWN")
+                    ).replace(".", "_"),
                 ),
                 count,
             )
@@ -5072,7 +5100,11 @@ class IvreTests(unittest.TestCase):
                         port.get("service_name") == service
                         and port.get("service_product") == product
                     ):
-                        if version:
+                        if isinstance(version, list):
+                            if port.get("service_version") in version:
+                                found = True
+                                break
+                        elif version:
                             if port.get("service_version") == version:
                                 found = True
                                 break
