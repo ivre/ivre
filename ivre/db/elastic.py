@@ -1349,16 +1349,22 @@ return result;
         if product is not None:
             if product is False:
                 res.append(~Q("exists", field="ports.service_product"))
+            elif isinstance(product, list):
+                res.append(Q("terms", ports__service_product=product))
             else:
                 res.append(Q("match", ports__service_product=product))
         if version is not None:
             if version is False:
                 res.append(~Q("exists", field="ports.service_version"))
+            elif isinstance(version, list):
+                res.append(Q("terms", ports__service_version=version))
             else:
                 res.append(Q("match", ports__service_version=version))
         if service is not None:
             if service is False:
                 res.append(~Q("exists", field="ports.service_name"))
+            elif isinstance(service, list):
+                res.append(Q("terms", ports__service_name=service))
             else:
                 res.append(Q("match", ports__service_name=service))
         if port is not None:

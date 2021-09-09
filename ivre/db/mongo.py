@@ -2437,16 +2437,22 @@ class MongoDBActive(MongoDB, DBActive):
         if product is not None:
             if product is False:
                 flt["service_product"] = {"$exists": False}
+            elif isinstance(product, list):
+                flt["service_product"] = {"$in": product}
             else:
                 flt["service_product"] = product
         if version is not None:
             if product is False:
                 flt["service_version"] = {"$exists": False}
+            elif isinstance(version, list):
+                flt["service_version"] = {"$in": version}
             else:
                 flt["service_version"] = version
         if service is not None:
             if service is False:
                 flt["service_name"] = {"$exists": False}
+            elif isinstance(service, list):
+                flt["service_name"] = {"$in": service}
             else:
                 flt["service_name"] = service
         if port is not None:
@@ -4595,16 +4601,22 @@ class MongoDBPassive(MongoDB, DBPassive):
         if product is not None:
             if product is False:
                 flt["infos.service_product"] = {"$exists": False}
+            elif isinstance(product, list):
+                flt["infos.service_product"] = {"$in": product}
             else:
                 flt["infos.service_product"] = product
         if version is not None:
             if product is False:
                 flt["infos.service_version"] = {"$exists": False}
+            elif isinstance(version, list):
+                flt["infos.service_version"] = {"$in": version}
             else:
                 flt["infos.service_version"] = version
         if service is not None:
             if service is False:
                 flt["infos.service_name"] = {"$exists": False}
+            elif isinstance(service, list):
+                flt["infos.service_name"] = {"$in": service}
             else:
                 flt["infos.service_name"] = service
         if port is not None:

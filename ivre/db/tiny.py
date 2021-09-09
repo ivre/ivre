@@ -720,16 +720,22 @@ class TinyDBActive(TinyDB, DBActive):
         if product is not None:
             if product is False:
                 res.append(~q.service_product.exists())
+            elif isinstance(product, list):
+                res.append(q.service_product.one_of(product))
             else:
                 res.append(cls._searchstring_re(q.service_product, product))
         if version is not None:
             if version is False:
                 res.append(~q.service_version.exists())
+            elif isinstance(version, list):
+                res.append(q.service_version.one_of(version))
             else:
                 res.append(cls._searchstring_re(q.service_version, version))
         if service is not None:
             if service is False:
                 res.append(~q.service_name.exists())
+            elif isinstance(service, list):
+                res.append(q.service_name.one_of(service))
             else:
                 res.append(cls._searchstring_re(q.service_name, service))
         if port is not None:
@@ -2665,16 +2671,22 @@ class TinyDBPassive(TinyDB, DBPassive):
         if product is not None:
             if product is False:
                 res.append(~q.infos.service_product.exists())
+            elif isinstance(product, list):
+                res.append(q.infos.service_product.one_of(product))
             else:
                 res.append(cls._searchstring_re(q.infos.service_product, product))
         if version is not None:
             if version is False:
                 res.append(~q.infos.service_version.exists())
+            elif isinstance(version, list):
+                res.append(q.infos.service_version.one_of(version))
             else:
                 res.append(cls._searchstring_re(q.infos.service_version, version))
         if service is not None:
             if service is False:
                 res.append(~q.infos.service_name.exists())
+            elif isinstance(service, list):
+                res.append(q.infos.service_name.one_of(service))
             else:
                 res.append(cls._searchstring_re(q.infos.service_name, service))
         if port is not None:
