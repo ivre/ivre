@@ -1315,7 +1315,7 @@ class IvreTests(unittest.TestCase):
                 ivre.db.db.nmap.searchhost(addr),
             )
         )
-        self.assertEqual(count, 1)
+        self.assertGreater(count, 0)
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchscript(
                 name="http-robots.txt",
@@ -1334,6 +1334,13 @@ class IvreTests(unittest.TestCase):
             )
         )
         self.assertEqual(ncount, hosts_count - count)
+
+        # Multiple scripts
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchscript(name=["http-robots.txt", "ftp-anon"])
+        )
+        self.assertGreater(count, 0)
+        self.check_value("nmap_robots.txt_or_ftp_anon_count", count)
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchftpanon())
         # Test case OK?

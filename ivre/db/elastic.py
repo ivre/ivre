@@ -1252,11 +1252,12 @@ return result;
     def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results."""
         req = []
-        if name is not None:
-            if isinstance(name, utils.REGEXP_T):
-                req.append(Q("regexp", **{"ports.scripts.id": cls._get_pattern(name)}))
-            else:
-                req.append(Q("match", **{"ports.scripts.id": name}))
+        if isinstance(name, list):
+            req.append(Q("terms", **{"ports.scripts.id": name}))
+        elif isinstance(name, utils.REGEXP_T):
+            req.append(Q("regexp", **{"ports.scripts.id": cls._get_pattern(name)}))
+        elif name is not None:
+            req.append(Q("match", **{"ports.scripts.id": name}))
         if output is not None:
             if isinstance(output, utils.REGEXP_T):
                 req.append(
@@ -1265,20 +1266,28 @@ return result;
             else:
                 req.append(Q("match", **{"ports.scripts.output": output}))
         if values:
-            if name is None:
+            if isinstance(name, list):
+                all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
+                if len(all_keys) != 1:
+                    raise TypeError(
+                        ".searchscript() needs similar `name` values when using a `values` arg"
+                    )
+                key = all_keys.pop()
+            elif not isinstance(name, str):
                 raise TypeError(
-                    ".searchscript() needs a `name` arg " "when using a `values` arg"
+                    ".searchscript() needs a `name` arg when using a `values` arg"
                 )
-            subfield = ALIASES_TABLE_ELEMS.get(name, name)
+            else:
+                key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, Query):
                 req.append(values)
             elif isinstance(values, str):
-                req.append(Q("match", **{"ports.scripts.%s" % subfield: values}))
+                req.append(Q("match", **{"ports.scripts.%s" % key: values}))
             elif isinstance(values, utils.REGEXP_T):
                 req.append(
                     Q(
                         "regexp",
-                        **{"ports.scripts.%s" % subfield: cls._get_pattern(values)},
+                        **{"ports.scripts.%s" % key: cls._get_pattern(values)},
                     )
                 )
             else:
@@ -1289,7 +1298,7 @@ return result;
                                 "regexp",
                                 **{
                                     "ports.scripts.%s.%s"
-                                    % (subfield, field): cls._get_pattern(value)
+                                    % (key, field): cls._get_pattern(value)
                                 },
                             )
                         )
@@ -1297,7 +1306,7 @@ return result;
                         req.append(
                             Q(
                                 "match",
-                                **{"ports.scripts.%s.%s" % (subfield, field): value},
+                                **{"ports.scripts.%s.%s" % (key, field): value},
                             )
                         )
         if not req:

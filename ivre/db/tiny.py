@@ -749,16 +749,26 @@ class TinyDBActive(TinyDB, DBActive):
         """Search a particular content in the scripts results."""
         q = Query()
         res = []
-        if name is not None:
+        if isinstance(name, list):
+            res.append(q.id.one_of(name))
+        elif name is not None:
             res.append(cls._searchstring_re(q.id, name))
         if output is not None:
             res.append(cls._searchstring_re(q.output, output))
         if values:
-            if not isinstance(name, str):
+            if isinstance(name, list):
+                all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
+                if len(all_keys) != 1:
+                    raise TypeError(
+                        ".searchscript() needs similar `name` values when using a `values` arg"
+                    )
+                key = all_keys.pop()
+            elif not isinstance(name, str):
                 raise TypeError(
-                    ".searchscript() needs a `name` arg " "when using a `values` arg"
+                    ".searchscript() needs a `name` arg when using a `values` arg"
                 )
-            key = ALIASES_TABLE_ELEMS.get(name, name)
+            else:
+                key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, dict):
                 for field, value in values.items():
                     if "ports.scripts.%s" % key in cls.list_fields:

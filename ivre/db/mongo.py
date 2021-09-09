@@ -2467,16 +2467,26 @@ class MongoDBActive(MongoDB, DBActive):
     def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results."""
         req = {}
-        if name is not None:
+        if isinstance(name, list):
+            req["id"] = {"$in": name}
+        elif name is not None:
             req["id"] = name
         if output is not None:
             req["output"] = output
         if values:
-            if not isinstance(name, str):
+            if isinstance(name, list):
+                all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
+                if len(all_keys) != 1:
+                    raise TypeError(
+                        ".searchscript() needs similar `name` values when using a `values` arg"
+                    )
+                key = all_keys.pop()
+            elif not isinstance(name, str):
                 raise TypeError(
-                    ".searchscript() needs a `name` arg " "when using a `values` arg"
+                    ".searchscript() needs a `name` arg when using a `values` arg"
                 )
-            key = ALIASES_TABLE_ELEMS.get(name, name)
+            else:
+                key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, (str, utils.REGEXP_T)):
                 req[key] = values
             else:
@@ -2591,7 +2601,7 @@ class MongoDBActive(MongoDB, DBActive):
 
     def searchhttptitle(self, title):
         return self.searchscript(
-            name={"$in": ["http-title", "html-title"]},
+            name=["http-title", "html-title"],
             output=title,
         )
 
@@ -3323,11 +3333,11 @@ class MongoDBActive(MongoDB, DBActive):
             flt = self.flt_and(flt, self.searchntlm())
             field = "ports.scripts.ntlm-info." + arg
         elif field == "script":
-            flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
+            flt = self.flt_and(flt, self.searchscript())
             field = "ports.scripts.id"
         elif field.startswith("script:"):
             scriptid = field.split(":", 1)[1]
-            flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
+            flt = self.flt_and(flt, self.searchscript())
             if ":" in scriptid:
                 port, scriptid = scriptid.split(":", 1)
                 if port.isdigit():
