@@ -1971,7 +1971,9 @@ class SQLDBActive(SQLDB, DBActive):
         least one script matching the name/output/value
         """
         req = True
-        if name is not None:
+        if isinstance(name, list):
+            req = and_(req, cls.tables.script.name.in_(name))
+        elif name is not None:
             req = and_(
                 req, cls._searchstring_re(cls.tables.script.name, name, neg=False)
             )
@@ -1980,11 +1982,19 @@ class SQLDBActive(SQLDB, DBActive):
                 req, cls._searchstring_re(cls.tables.script.output, output, neg=False)
             )
         if values:
-            if name is None:
+            if isinstance(name, list):
+                all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
+                if len(all_keys) != 1:
+                    raise TypeError(
+                        ".searchscript() needs similar `name` values when using a `values` arg"
+                    )
+                basekey = all_keys.pop()
+            elif not isinstance(name, str):
                 raise TypeError(
-                    ".searchscript() needs a `name` arg " "when using a `values` arg"
+                    ".searchscript() needs a `name` arg when using a `values` arg"
                 )
-            basekey = ALIASES_TABLE_ELEMS.get(name, name)
+            else:
+                basekey = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, (str, utils.REGEXP_T)):
                 needunwind = sorted(set(cls.needunwind_script(basekey)))
             else:
