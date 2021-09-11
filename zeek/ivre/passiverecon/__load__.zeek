@@ -535,7 +535,7 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
                                      $uid=c$uid,
                                      $host=c$id$orig_h,
                                      $recon_type=TCP_HONEYPOT_HIT,
-                                     $source=fmt("tcp/%d", c$id$resp_p),
+                                     $source=fmt("tcp/content/%d", c$id$resp_p),
                                      $value=contents]);
                 }
                 else if (! (TCP_CLIENT_BANNER_IGNORE in contents)) {
@@ -543,7 +543,7 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
                                      $uid=c$uid,
                                      $host=c$id$orig_h,
                                      $recon_type=TCP_CLIENT_BANNER,
-                                     $source=fmt("tcp/%d", c$id$resp_p),
+                                     $source=fmt("tcp/content/%d", c$id$resp_p),
                                      $value=contents]);
                 }
             }
@@ -590,16 +590,8 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
 }
 
 event connection_established(c: connection) {
-    if (c$id$resp_h in HONEYPOTS) {
-        Log::write(LOG, [$ts=c$start_time,
-                         $uid=c$uid,
-                         $host=c$id$orig_h,
-                         $recon_type=TCP_HONEYPOT_HIT,
-                         $source=fmt("tcp/%d", c$id$resp_p),
-                         $value=""]);
-    }
-    else if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
-        "irc-dcc-data" !in c$service) {
+    if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
+        "irc-dcc-data" !in c$service && c$id$resp_h !in HONEYPOTS) {
         Log::write(LOG, [$ts=c$start_time,
                          $host=c$id$resp_h,
                          $recon_type=OPEN_PORT,
@@ -610,14 +602,14 @@ event connection_established(c: connection) {
     }
 }
 
-event connection_attempt(c: connection) {
+event connection_SYN_packet(c: connection, pkt: SYN_packet) {
     if (c$id$resp_h in HONEYPOTS) {
         Log::write(LOG, [$ts=c$start_time,
                          $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=TCP_HONEYPOT_HIT,
-                         $source=fmt("tcp/%d", c$id$resp_p),
-                         $value=""]);
+                         $source=fmt("tcp/syn/%d", c$id$resp_p),
+                         $value=fmt("%d/%d/%d/%d/%d/%d/%d", pkt$DF, pkt$win_size, pkt$win_scale, pkt$MSS, pkt$SACK_OK, pkt$TSval, pkt$TSecr)]);
     }
 }
 
