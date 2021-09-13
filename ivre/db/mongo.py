@@ -2540,6 +2540,8 @@ class MongoDBActive(MongoDB, DBActive):
         """
         if fname is None:
             fname = {"$exists": True}
+        elif isinstance(fname, list):
+            fname = {"$in": fname}
         if scripts is None:
             return {"ports.scripts.ls.volumes.files.filename": fname}
         if isinstance(scripts, str):
