@@ -2169,7 +2169,7 @@ class SQLDBActive(SQLDB, DBActive):
                 '{"ls": {"volumes": [{"files": []}]}}'
             )
         else:
-            if isinstance(fname, utils.REGEXP_T):
+            if isinstance(fname, (utils.REGEXP_T, list)):
                 base1 = (
                     select(
                         [
@@ -2190,14 +2190,16 @@ class SQLDBActive(SQLDB, DBActive):
                     )
                     .cte("base1")
                 )
+                if isinstance(fname, list):
+                    where_clause = column("filename").in_(fname)
+                else:
+                    where_clause = column("filename").op(
+                        "~*" if (fname.flags & re.IGNORECASE) else "~"
+                    )(fname.pattern)
                 base2 = (
                     select([column("port", Integer)])
                     .select_from(base1)
-                    .where(
-                        column("filename").op(
-                            "~*" if (fname.flags & re.IGNORECASE) else "~"
-                        )(fname.pattern)
-                    )
+                    .where(where_clause)
                 )
                 return cls.base_filter(port=[(True, cls.tables.port.id.in_(base2))])
             req = cls.tables.script.data.op("@>")(

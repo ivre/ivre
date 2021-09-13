@@ -843,6 +843,8 @@ class TinyDBActive(TinyDB, DBActive):
         q = Query()
         if fname is None:
             fname = q.filename.exists()
+        elif isinstance(fname, list):
+            fname = q.filename.one_of(fname)
         else:
             fname = self._searchstring_re(q.filename, fname)
         if scripts is None:
