@@ -4016,7 +4016,7 @@ class MetaDB:
 
     def __init__(self, url=None, urls=None):
         self.url = url
-        self.urls = urls
+        self.urls = urls or {}
 
     @property
     def nmap(self):
