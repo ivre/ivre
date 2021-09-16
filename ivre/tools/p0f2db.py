@@ -37,7 +37,7 @@ def rec_iter(
     filenames: List[str],
     sensor: Optional[str],
     ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
-) -> Generator[Record, None, None]:
+) -> Generator[Tuple[Optional[int], Record], None, None]:
     ignorenets = ignore_rules.get("IGNORENETS", {})
     neverignore = ignore_rules.get("NEVERIGNORE", {})
     for fname in filenames:
@@ -65,7 +65,7 @@ def rec_iter(
                     infos["params"] = line["params"]
                 host = line[line["subj"]].split("/")[0]
                 srvport = int(line["srv"].split("/")[1])
-                for rec in handle_rec(
+                for tstamp, rec in handle_rec(
                     # sensor
                     sensor,
                     # ignorenets,
@@ -89,8 +89,9 @@ def rec_iter(
                     # targetval
                     targetval=None,
                 ):
-                    rec[1]["infos"] = infos
-                    yield rec
+                    if infos:
+                        rec["infos"] = infos
+                    yield (tstamp, rec)
 
 
 def main() -> None:
