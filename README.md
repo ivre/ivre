@@ -118,8 +118,7 @@ on the domain `ivre.rocks`.
 
 If you are using IVRE in you research, please cite it as follows:
 
-Pierre Lalet, Emma Leroy, Florent Monjalet, Camille Mougey, Vincent
-Ruello and Vivien Venuti. *IVRE, a network recon framework*.
+IVRE contributors. *IVRE, a network recon framework*.
 [https://github.com/ivre/ivre](https://github.com/ivre/ivre),
 2011-2021.
 
@@ -127,7 +126,7 @@ Here is the appropriate bibtex entry:
 
     @MISC{ivre,
         title = {{IVRE}, a network recon framework},
-        author={Lalet, Pierre and Leroy, Emma and Monjalet, Florent and Mougey, Camille and Ruello, Vincent and Venuti, Viven},
+        author={IVRE contributors},
         url = {https://ivre.rocks/},
         howpublished = {\url{https://github.com/ivre/ivre/}},
         institution = {{ANSSI}: the National Cybersecurity Agency of France and
