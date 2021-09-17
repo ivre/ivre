@@ -42,6 +42,13 @@ import bson  # type: ignore
 from pymongo.errors import BulkWriteError  # type: ignore
 import pymongo  # type: ignore
 
+try:
+    import krbV  # type: ignore
+except ImportError:
+    HAS_KRBV = False
+else:
+    HAS_KRBV = True
+
 
 from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import (
@@ -93,12 +100,9 @@ class MongoDB(DB):
                 self.username, self.password = (
                     unquote(val) for val in username.split(":", 1)
                 )
-            else:
+            elif HAS_KRBV:
                 username = unquote(username)
                 if username == "GSSAPI":
-                    # pylint: disable=import-outside-toplevel
-                    import krbV  # type: ignore
-
                     self.username = (
                         krbV.default_context().default_ccache().principal().name
                     )
@@ -107,6 +111,8 @@ class MongoDB(DB):
                     self.username = username
                     if "@" in username:
                         self.mechanism = "GSSAPI"
+            else:
+                self.username = username
         else:
             self.host = url.netloc
         if not self.host:
