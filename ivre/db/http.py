@@ -24,10 +24,19 @@ instance via an HTTP server.
 
 from datetime import datetime
 from functools import partial
+from io import BytesIO
 import json
 import re
 from urllib.parse import quote
 from urllib.request import URLopener
+
+
+try:
+    import pycurl
+except ImportError:
+    HAS_CURL = False
+else:
+    HAS_CURL = True
 
 
 from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBView
@@ -54,6 +63,68 @@ def serialize(obj):
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
+class HttpFetcher:
+    def __init__(self, url):
+        self.baseurl = url._replace(fragment="").geturl()
+
+    @staticmethod
+    def from_url(url):
+        if HAS_CURL and "@" in url.netloc:
+            username, netloc = url.netloc.split("@", 1)
+            if username == "GSSAPI":
+                return HttpFetcherCurlGssapi(url._replace(netloc=netloc))
+        return HttpFetcherBasic(url)
+
+
+class HttpFetcherBasic(HttpFetcher):
+    def __init__(self, url):
+        super().__init__(url)
+        self.urlop = URLopener()
+        for hdr, val in (
+            tuple(x.split("=", 1)) if "=" in x else (x, "")
+            for x in url.fragment.split("&")
+            if x
+        ):
+            self.urlop.addheader(hdr, val)
+
+    def open(self, url):
+        return self.urlop.open(url)
+
+
+if HAS_CURL:
+
+    class HttpFetcherCurl(HttpFetcher):
+        def __init__(self, url):
+            super().__init__(url)
+            self.headers = [
+                "%s: %s" % (tuple(x.split("=", 1)) if "=" in x else (x, ""))
+                for x in url.fragment.split("&")
+                if x
+            ]
+
+        def _set_opts(self, curl):
+            curl.setopt(pycurl.HTTPHEADER, self.headers)
+
+        def open(self, url):
+            fdesc = BytesIO()
+            curl = pycurl.Curl()
+            curl.setopt(pycurl.URL, url)
+            curl.setopt(pycurl.WRITEDATA, fdesc)
+            self._set_opts(curl)
+            curl.perform()
+            status_code = curl.getinfo(pycurl.HTTP_CODE)
+            if status_code != 200:
+                raise Exception("HTTP Error %d" % status_code)
+            fdesc.read = fdesc.getvalue
+            return fdesc
+
+    class HttpFetcherCurlGssapi(HttpFetcherCurl):
+        def _set_opts(self, curl):
+            super()._set_opts(curl)
+            curl.setopt(pycurl.USERNAME, "")
+            curl.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_GSSNEGOTIATE)
+
+
 class HttpDB(DB):
 
     flt_empty = {}
@@ -61,14 +132,7 @@ class HttpDB(DB):
 
     def __init__(self, url):
         super().__init__()
-        self.baseurl = url._replace(fragment="").geturl()
-        self.db = urlop = URLopener()
-        for hdr, val in (
-            tuple(x.split("=", 1)) if "=" in x else (x, "")
-            for x in url.fragment.split("&")
-            if x
-        ):
-            urlop.addheader(hdr, val)
+        self.db = HttpFetcher.from_url(url)
 
     @staticmethod
     def _output_filter(spec):
@@ -78,7 +142,7 @@ class HttpDB(DB):
 
     def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
         url = "%s/%s?f=%s&q=skip:" % (
-            self.baseurl,
+            self.db.baseurl,
             self.route,
             self._output_filter(spec),
         )
@@ -115,7 +179,7 @@ class HttpDB(DB):
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         url = "%s/%s/distinct/%s?f=%s&format=ndjson&q=limit:%d" % (
-            self.baseurl,
+            self.db.baseurl,
             self.route,
             field,
             self._output_filter(flt or {}),
@@ -128,7 +192,11 @@ class HttpDB(DB):
             yield json.loads(line)
 
     def count(self, spec, **kargs):
-        url = "%s/%s/count?f=%s" % (self.baseurl, self.route, self._output_filter(spec))
+        url = "%s/%s/count?f=%s" % (
+            self.db.baseurl,
+            self.route,
+            self._output_filter(spec),
+        )
         req = self.db.open(url)
         return int(req.read().rstrip(b"\n"))
 
@@ -143,7 +211,7 @@ class HttpDB(DB):
         least=False,
     ):
         url = "%s/%s/top/%s%s:%d?f=%s" % (
-            self.baseurl,
+            self.db.baseurl,
             self.route,
             "-" if least else "",
             quote(field),
@@ -244,7 +312,7 @@ class HttpDBData(HttpDB, DBData):
     route = "ipdata"
 
     def infos_byip(self, addr):
-        url = "%s/%s/%s" % (self.baseurl, self.route, addr)
+        url = "%s/%s/%s" % (self.db.baseurl, self.route, addr)
         req = self.db.open(url)
         return {
             k: tuple(v) if isinstance(v, list) else v for k, v in json.load(req).items()
