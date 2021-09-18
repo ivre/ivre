@@ -48,6 +48,7 @@ def main() -> None:
         "psycopg2",
         "cryptography",
         "krbV",
+        "pycurl",
         "PIL",
         "MySQLdb",
         "dbus",
