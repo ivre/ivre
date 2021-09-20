@@ -1999,7 +1999,7 @@ class IvreTests(unittest.TestCase):
         zeekenv["LOG_PATH"] = "logs/TEST"
 
         for fname in self.pcap_files:
-            zeekprocess = subprocess.Popen(
+            subprocess.check_call(
                 [
                     "zeek",
                     "-C",
@@ -2018,9 +2018,18 @@ class IvreTests(unittest.TestCase):
                 ],
                 env=zeekenv,
             )
-            zeekprocess.wait()
 
         run_passiverecon_worker(bulk_mode=bulk_mode)
+
+        for fname in self.pcap_files:
+            outf = f"{fname}.p0f.log"
+            subprocess.check_call(
+                ["p0f", "-r", fname, "-o", outf], stdout=open(os.devnull)
+            )
+            ret, out, err = RUN(["ivre", "p0f2db", "-s", "TEST", bulk_mode, outf])
+            self.assertEqual(ret, 0)
+            self.assertFalse(out)
+            self.assertFalse(err)
 
         # Counting
         total_count = ivre.db.db.passive.count(ivre.db.db.passive.flt_empty)
@@ -3236,7 +3245,7 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         for pcapfname in self.pcap_files:
             with tempfile.TemporaryDirectory() as tmpdir:
-                zeekprocess = subprocess.Popen(
+                subprocess.check_call(
                     [
                         "zeek",
                         "-C",
@@ -3249,7 +3258,6 @@ class IvreTests(unittest.TestCase):
                     ],
                     cwd=tmpdir,
                 )
-                zeekprocess.wait()
                 res, out, _ = RUN(
                     ["ivre", "zeek2db"]
                     + [
