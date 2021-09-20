@@ -38,6 +38,7 @@ __all__ = [
     "iphost",
     "localscan",
     "macinfo",
+    "p0f2db",
     "passiverecon2db",
     "passivereconworker",
     "plotdb",
