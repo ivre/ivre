@@ -1,81 +1,38 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8" />
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>Agents &mdash; IVRE  documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-
-    
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Usage" href="../usage/index.html" />
     <link rel="prev" title="Docker" href="docker.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="../index.html" class="icon icon-home"> IVRE
-          
-
-          
-            
             <img src="../_static/logo.png" class="logo" alt="Logo"/>
-          
           </a>
-
-          
-            
-            
               <div class="version">
                 0.9.16.dev
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -83,18 +40,7 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
@@ -123,81 +69,39 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Licenses:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">IVRE</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-        
           <li><a href="index.html">Installation</a> &raquo;</li>
-        
       <li>Agents</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="../_sources/install/agents.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <div class="section" id="agents">
-<h1>Agents<a class="headerlink" href="#agents" title="Permalink to this headline">¶</a></h1>
+<h1>Agents<a class="headerlink" href="#agents" title="Permalink to this headline"></a></h1>
 <p>IVRE agent may be run in an environment not totally controlled (e.g.,
 during a pentest, on a machine you have just owned and want to use to
 do some network recon without installing IVRE), since it has a reduced
@@ -206,7 +110,7 @@ number of dependencies.</p>
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> (plus <code class="docutils literal notranslate"><span class="pre">/bin/sh</span></code> and basic shell utils, including
 <code class="docutils literal notranslate"><span class="pre">grep</span></code>).</p>
 <div class="section" id="set-up">
-<h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this headline">¶</a></h2>
+<h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this headline"></a></h2>
 <p>On the “master”, install IVRE following the
 <a class="reference internal" href="installation.html#installation-guidelines"><span class="std std-ref">Installation guidelines</span></a>. Install also
 <code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or <code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach”
@@ -215,7 +119,7 @@ from the <code class="docutils literal notranslate"><span class="pre">agent</spa
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
 </div>
 <div class="section" id="run-the-worker-s">
-<h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Permalink to this headline">¶</a></h2>
+<h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Permalink to this headline"></a></h2>
 <p>The computer running IVRE (the “master”) needs to be able to access via
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> the data directory of the agents (to add targets and to
 retrieve results): this is not an issue if you are running the agent and
@@ -239,7 +143,7 @@ using other scan templates using <code class="docutils literal notranslate"><spa
 parent <code class="docutils literal notranslate"><span class="pre">agent</span></code> process.</p>
 </div>
 <div class="section" id="run-the-master">
-<h2>Run the master<a class="headerlink" href="#run-the-master" title="Permalink to this headline">¶</a></h2>
+<h2>Run the master<a class="headerlink" href="#run-the-master" title="Permalink to this headline"></a></h2>
 <p>You need to make sure the user running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> on the “master” can access (without password)
 to the agents data directories.</p>
@@ -253,7 +157,7 @@ results by yourself.</p>
 <p>On the other hand, the second one (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>) will use
 the DB to manage the agents, but is still experimental.</p>
 <div class="section" id="runscansagent-the-old-school-one">
-<h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Permalink to this headline">¶</a></h3>
+<h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Permalink to this headline"></a></h3>
 <p>You have to specify the agent(s) data directory. For example, run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagent --routable --limit 1000 \
 &gt;     agenthost1:/path/to/agent/dir      \
@@ -265,7 +169,7 @@ the DB to manage the agents, but is still experimental.</p>
 <code class="docutils literal notranslate"><span class="pre">agentsdata/output/</span></code></p>
 </div>
 <div class="section" id="runscansagentdb-the-modern-but-probably-broken-one">
-<h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Permalink to this headline">¶</a></h3>
+<h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Permalink to this headline"></a></h3>
 <p>Please note that it is important to run all the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>
 from the same host (the “master”, which does not need to be the same
 host than the database server), since it relies on local directories.</p>
@@ -343,50 +247,33 @@ check the scan evolution by issuing
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="../usage/index.html" class="btn btn-neutral float-right" title="Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="docker.html" class="btn btn-neutral float-left" title="Docker" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../usage/index.html" class="btn btn-neutral float-right" title="Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright 2011 - 2021, Pierre LALET.
-
-    </p>
+    <p>&#169; Copyright 2011 - 2021, Pierre LALET.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>
