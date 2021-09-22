@@ -337,14 +337,6 @@ setup(
             ],
         ),
         (
-            "share/ivre/web/static/doc/_static/fonts",
-            [
-                os.path.join("web/static/doc/_static/fonts", x)
-                for x in os.listdir("web/static/doc/_static/fonts")
-                if x.startswith("fontawesome-webfont.")
-            ],
-        ),
-        (
             "share/ivre/web/static/doc/_static/js",
             [
                 os.path.join("web/static/doc/_static/js", x)

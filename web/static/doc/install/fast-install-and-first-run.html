@@ -1,81 +1,38 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8" />
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>Fast install &amp; first run &mdash; IVRE  documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-
-    
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Docker" href="docker.html" />
     <link rel="prev" title="Configuration" href="config.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="../index.html" class="icon icon-home"> IVRE
-          
-
-          
-            
             <img src="../_static/logo.png" class="logo" alt="Logo"/>
-          
           </a>
-
-          
-            
-            
               <div class="version">
                 0.9.16.dev
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -83,18 +40,7 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
@@ -121,81 +67,39 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Licenses:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">IVRE</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-        
           <li><a href="index.html">Installation</a> &raquo;</li>
-        
       <li>Fast install &amp; first run</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="../_sources/install/fast-install-and-first-run.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <div class="section" id="fast-install-first-run">
-<h1>Fast install &amp; first run<a class="headerlink" href="#fast-install-first-run" title="Permalink to this headline">¶</a></h1>
+<h1>Fast install &amp; first run<a class="headerlink" href="#fast-install-first-run" title="Permalink to this headline"></a></h1>
 <p>This file describes the steps to install IVRE, run the first scans and
 add the results to the database with all components (scanner, web
 server, database server) on the same (Debian or Ubuntu) machine.</p>
@@ -211,7 +115,7 @@ getting them via <code class="docutils literal notranslate"><span class="pre">ap
 <p>For another way to run IVRE easily (probably even more easily), see
 <a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a>.</p>
 <div class="section" id="install">
-<h2>Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
+<h2>Install<a class="headerlink" href="#install" title="Permalink to this headline"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
 &gt;   python3-crypto python3-bottle apache2 libapache2-mod-wsgi-py3 dokuwiki
 $ git clone https://github.com/ivre/ivre
@@ -222,7 +126,7 @@ $ sudo python3 setup.py install
 </div>
 </div>
 <div class="section" id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo -s
 # cd /var/www/html ## or depending on your version /var/www
 # rm index.html
@@ -255,7 +159,7 @@ IVRE Web UI should show up, with no result of course. Click the HELP
 button to check if everything works.</p>
 </div>
 <div class="section" id="database-init-data-download-importation">
-<h2>Database init, data download &amp; importation<a class="headerlink" href="#database-init-data-download-importation" title="Permalink to this headline">¶</a></h2>
+<h2>Database init, data download &amp; importation<a class="headerlink" href="#database-init-data-download-importation" title="Permalink to this headline"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ yes | ivre ipinfo --init
 $ yes | ivre scancli --init
 $ yes | ivre view --init
@@ -266,7 +170,7 @@ $ sudo ivre ipdata --download
 </div>
 </div>
 <div class="section" id="run-a-first-scan">
-<h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Permalink to this headline">¶</a></h2>
+<h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Permalink to this headline"></a></h2>
 <p>Against 1k (routable) IP addresses, with a single nmap process:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000
 </pre></div>
@@ -293,7 +197,7 @@ differences depending on where the scans are run from.</p>
 <p>Go back to the Web UI and browse your first scan results!</p>
 </div>
 <div class="section" id="some-remarks">
-<h2>Some remarks<a class="headerlink" href="#some-remarks" title="Permalink to this headline">¶</a></h2>
+<h2>Some remarks<a class="headerlink" href="#some-remarks" title="Permalink to this headline"></a></h2>
 <p>There is no tool (for now) to automatically import scan results to the
 database. It is your job to do so, according to your settings.</p>
 <p>If you run very large scans (particularly against random hosts on the
@@ -307,50 +211,33 @@ and the <code class="docutils literal notranslate"><span class="pre">ivre</span>
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="docker.html" class="btn btn-neutral float-right" title="Docker" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="config.html" class="btn btn-neutral float-left" title="Configuration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="docker.html" class="btn btn-neutral float-right" title="Docker" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright 2011 - 2021, Pierre LALET.
-
-    </p>
+    <p>&#169; Copyright 2011 - 2021, Pierre LALET.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

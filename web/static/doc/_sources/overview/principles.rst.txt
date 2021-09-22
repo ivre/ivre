@@ -108,36 +108,40 @@ from IVRE's databases back into your hands.
    digraph {
       db_data [label="db.data" shape="box" style="filled"];
       db_flow [label="db.flow" shape="box" style="filled"];
-      db_passive [label="db.passive" shape="box" style="filled"];
+      db_nmap [label="db.nmap" shape="box" style="filled"];
       web_api_data [label="Web API\n/ipdata"];
       web_api_flows [label="Web API\n/flows"];
+      web_api_scans [label="Web API\n/scans"];
       web_ui_flow [label="Web UI\n/flow.html"];
       cli_ipdata [label="CLI\nipdata"];
       cli_flow [label="CLI\nflowcli"];
-      cli_ipinfo [label="CLI\nipinfo"];
-      cli_iphost [label="CLI\niphost"];
+      cli_scancli [label="CLI\nscancli"];
       db_data -> web_api_data;
       db_flow -> web_api_flows;
       db_flow -> cli_flow;
-      db_passive -> cli_ipinfo;
-      db_passive -> cli_iphost;
+      db_nmap -> web_api_scans;
       web_api_flows -> web_ui_flow;
       db_data -> cli_ipdata;
+      db_nmap -> cli_scancli;
   }
 
 .. graphviz::
 
    digraph {
-      db_nmap [label="db.nmap" shape="box" style="filled"];
+      db_passive [label="db.passive" shape="box" style="filled"];
       db_view [label="db.view" shape="box" style="filled"];
-      web_api_scans [label="Web API\n/scans"];
+      web_api_passive [label="Web API\n/passive"];
+      web_api_passivedns [label="Web API\n/passivedns"];
       web_api_view [label="Web API\n/view"];
       web_ui_view [label="Web UI /"];
-      cli_scancli [label="CLI\nscancli"];
+      cli_ipinfo [label="CLI\nipinfo"];
+      cli_iphost [label="CLI\niphost"];
       cli_view [label="CLI\nview"];
-      db_nmap -> web_api_scans;
       db_view -> web_api_view;
       web_api_view -> web_ui_view;
-      db_nmap -> cli_scancli;
       db_view -> cli_view;
+      db_passive -> web_api_passive;
+      db_passive -> web_api_passivedns;
+      db_passive -> cli_ipinfo;
+      db_passive -> cli_iphost;
   }
