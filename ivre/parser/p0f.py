@@ -28,6 +28,7 @@ from ivre.utils import LOGGER
 
 
 CONTAINER_TYPE = re.compile(b"^(table|set|vector)\\[([a-z]+)\\]$")
+LINE_RE = re.compile(r"^\[(?P<time>[^\]]+)\] (?P<data>.*)$")
 
 
 class P0fFile(Parser):
@@ -50,18 +51,14 @@ class P0fFile(Parser):
         return self.parse_line(next(self.fdesc).strip())
 
     def parse_line(self, line: bytes) -> Dict[str, Any]:
-        line_s = line.decode()
-        LINE_RE = re.compile(r"^\[(?P<time>[^\]]+)\] (?P<data>.*)$")
-        m = LINE_RE.match(line_s)
+        m = LINE_RE.match(line.decode())
         if not m:
             return {}
         res: Dict[str, Any] = {}
         # time of event
-        time = m.group("time")
-        res["ts"] = datetime.datetime.strptime("%s" % time, "%Y/%m/%d %H:%M:%S")
+        res["ts"] = datetime.datetime.strptime(m.group("time"), "%Y/%m/%d %H:%M:%S")
         # data of event
-        data = m.group("data")
-        for entry in data.split("|"):
+        for entry in m.group("data").split("|"):
             k, v = entry.split("=", 1)
             if k in res:
                 LOGGER.warning("Duplicate key in line [%r]", line)
