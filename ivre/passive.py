@@ -299,30 +299,44 @@ def _prepare_rec(spec, ignorenets, neverignore):
             spec["value"] = utils.nmap_encode_data(newvalue)
     elif spec["recontype"] in {"TCP_CLIENT_BANNER", "TCP_HONEYPOT_HIT"}:
         if spec["value"]:
-            data = utils.nmap_decode_data(spec["value"])
-            if data in scanners.TCP_PROBES:
-                scanner, probe = scanners.TCP_PROBES[data]
-                info = {
-                    "service_name": "scanner",
-                    "service_product": scanner,
-                }
-                if probe is not None:
-                    info["service_extrainfo"] = "TCP probe %s" % probe
-                spec.setdefault("infos", {}).update(info)
-            else:
-                probe = utils.get_nmap_probes("tcp").get(data)
-                if probe is not None:
-                    spec.setdefault("infos", {}).update(
-                        {
-                            "service_name": "scanner",
-                            "service_product": "Nmap",
-                            "service_extrainfo": "TCP probe %s" % probe,
-                        }
-                    )
+            if spec["source"].startswith("tcp/content"):
+                data = utils.nmap_decode_data(spec["value"])
+                if data in scanners.TCP_PAYLOAD_PROBES:
+                    scanner, probe = scanners.TCP_PAYLOAD_PROBES[data]
+                    info = {"service_name": "scanner", "service_product": scanner}
+                    if probe is not None:
+                        info["service_extrainfo"] = "TCP probe %s" % probe
+                    spec.setdefault("infos", {}).update(info)
+                else:
+                    probe = utils.get_nmap_probes("tcp").get(data)
+                    if probe is not None:
+                        spec.setdefault("infos", {}).update(
+                            {
+                                "service_name": "scanner",
+                                "service_product": "Nmap",
+                                "service_extrainfo": "TCP probe %s" % probe,
+                            }
+                        )
+            elif spec["source"].startswith("tcp/syn"):
+                # DF, win_size, win_scale, MSS, SACK_OK, TSval, TSecr
+                tcpquery = tuple(map(int, spec["value"].split("/")))
+                if tcpquery in scanners.TCP_FLAGS_PROBES:
+                    scanner, probe = scanners.TCP_FLAGS_PROBES[tcpquery]
+                    extrainfo = spec.get("infos", {}).get("service_extrainfo", "")
+                    if extrainfo:
+                        extrainfo += ", %s" % probe
+                    else:
+                        extrainfo = "TCP SYN probe %s" % probe
+                    info = {
+                        "service_name": "scanner",
+                        "service_product": scanner,
+                        "service_extrainfo": extrainfo,
+                    }
+                    spec.setdefault("infos", {}).update(info)
     elif spec["recontype"] == "UDP_HONEYPOT_HIT":
         data = utils.nmap_decode_data(spec["value"])
-        if data in scanners.UDP_PROBES:
-            scanner, probe = scanners.UDP_PROBES[data]
+        if data in scanners.UDP_PAYLOAD_PROBES:
+            scanner, probe = scanners.UDP_PAYLOAD_PROBES[data]
             info = {
                 "service_name": "scanner",
                 "service_product": scanner,
