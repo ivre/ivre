@@ -4571,7 +4571,17 @@ class MongoDBPassive(MongoDB, DBPassive):
         if neg:
             if isinstance(sensor, utils.REGEXP_T):
                 return {"sensor": {"$not": sensor}}
+            if isinstance(sensor, list):
+                if len(sensor) == 1:
+                    sensor = sensor[0]
+                else:
+                    return {"sensor": {"$nin": sensor}}
             return {"sensor": {"$ne": sensor}}
+        if isinstance(sensor, list):
+            if len(sensor) == 1:
+                sensor = sensor[0]
+            else:
+                return {"sensor": {"$in": sensor}}
         return {"sensor": sensor}
 
     @staticmethod

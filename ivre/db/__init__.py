@@ -3069,6 +3069,19 @@ class DBPassive(DB):
                 )
                 self.remove(old_spec["_id"])
 
+    @staticmethod
+    def searchsensor(sensor, neg=False):
+        raise NotImplementedError
+
+    @classmethod
+    def searchcategory(cls, cat, neg=False):
+        """Filters (if `neg` == True, filters out) one particular category
+        (records may have zero, one or more categories). We use the
+        "sensor" field as a category equivalent for passive DB.
+
+        """
+        return cls.searchsensor(cat, neg=neg)
+
 
 class DBData(DB):
     country_codes = None
