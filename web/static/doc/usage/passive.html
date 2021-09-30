@@ -53,6 +53,7 @@
 <li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Passive</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#with-zeek">With Zeek</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#with-p0f">With p0f</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#enjoying-the-results">Enjoying the results</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#cli">CLI</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#python-module">Python module</a></li>
@@ -136,6 +137,13 @@ intermediate files:</p>
 &gt;   | ivre passiverecon2db
 </pre></div>
 </div>
+</div>
+<div class="section" id="with-p0f">
+<h2>With p0f<a class="headerlink" href="#with-p0f" title="Permalink to this headline"></a></h2>
+<p>You need to install <a class="reference external" href="https://lcamtuf.coredump.cx/p0f3/">p0f v3</a>, and
+use it with the option <code class="docutils literal notranslate"><span class="pre">-o</span></code> to produce an output file. Then, provide
+that output file to <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">p0f2db</span></code>.</p>
+<p>For now, only <code class="docutils literal notranslate"><span class="pre">syn</span></code> and <code class="docutils literal notranslate"><span class="pre">syn+ack</span></code> modes are supported.</p>
 </div>
 <div class="section" id="enjoying-the-results">
 <h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this headline"></a></h2>

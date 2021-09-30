@@ -45,6 +45,15 @@ intermediate files:
    $ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \
    >   | ivre passiverecon2db
 
+With p0f
+--------
+
+You need to install `p0f v3 <https://lcamtuf.coredump.cx/p0f3/>`_, and
+use it with the option ``-o`` to produce an output file. Then, provide
+that output file to ``ivre p0f2db``.
+
+For now, only ``syn`` and ``syn+ack`` modes are supported.
+
 Enjoying the results
 --------------------
 

@@ -135,7 +135,12 @@ using a <a class="reference external" href="https://www.zeek.org/">Zeek</a> dedi
 <div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.passive</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code>
 module.</p></li>
-<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code> tool.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">iphost</span></code> tools. The
+latter is dedicated to passive DNS queries.</p></li>
+<li><p>Web (JSON) APIs: the <code class="docutils literal notranslate"><span class="pre">/cgi/passive</span></code> and <code class="docutils literal notranslate"><span class="pre">/cgi/passivedns</span></code>
+URLs. The latter is dedicated to passive DNS and is compatible
+with the <a class="reference external" href="https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/">Common Output Format</a>
+implemented for example in CIRCL’s <a class="reference external" href="https://github.com/CIRCL/PyPDNS">PyPDNS</a>.</p></li>
 </ul>
 </div></blockquote>
 </li>
@@ -170,33 +175,63 @@ your favorite open-source tools to IVRE’s databases.</p>
 </div>
 <div class="section" id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline"></a></h2>
-<div class="graphviz"><img src="../_images/graphviz-31f85517c4675bbe52bfed004b37192e5d888e53.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-e3f26cc103e5ff7a120ac3c807d751387b52c7e3.png" alt="digraph {
+   graph [rankdir=LR];
+
    &quot;maxmind.com&quot;;
-   FLOWS [label=&quot;flow files&quot;];
-   FLOW_LOG [label=&quot;.log files&quot;];
-   PASS_LOG [label=&quot;passive_recon.log&quot;];
+   &quot;Nmap&quot;;
+   &quot;Masscan&quot;;
+   &quot;Zgrab2&quot;;
+   &quot;Nuclei&quot;;
+   &quot;Airodump-ng&quot;;
+   &quot;p0f&quot;;
+   &quot;Zeek&quot;;
+   &quot;Zeek&quot;;
+   &quot;Argus&quot;;
+   &quot;Nfdump&quot;;
+
    XML [label=&quot;XML scan result&quot;];
    JSON [label=&quot;JSON scan result&quot;];
+   CSV_LOG [label=&quot;airodump .csv files&quot;];
+   P0F_LOG [label=&quot;p0f output files&quot;];
+   PASS_LOG [label=&quot;passive_recon.log&quot;];
+   FLOW_LOG [label=&quot;.log files&quot;];
+   FLOWS [label=&quot;flow files&quot;];
+
    db_data [label=&quot;db.data&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
-   db_flow [label=&quot;db.flow&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
-   db_passive [label=&quot;db.passive&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
    db_nmap [label=&quot;db.nmap&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_passive [label=&quot;db.passive&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_flow [label=&quot;db.flow&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
    db_view [label=&quot;db.view&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+
    &quot;maxmind.com&quot; -&gt; db_data [label=&quot;ivre\nipdata&quot;];
-   &quot;Argus&quot; -&gt; FLOWS;
-   &quot;Nfdump&quot; -&gt; FLOWS;
-   &quot;Zeek&quot; -&gt; FLOW_LOG;
-   &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
-   FLOWS -&gt; db_flow [label=&quot;ivre\nflow2db&quot;];
    &quot;Nmap&quot; -&gt; XML [label=&quot;-oX&quot;];
    &quot;Masscan&quot; -&gt; XML [label=&quot;-oX&quot;];
    &quot;Zgrab2&quot; -&gt; JSON [label=&quot;-o&quot;];
-   FLOW_LOG -&gt; db_flow [label=&quot;ivre\nzeek2db&quot;];
-   PASS_LOG -&gt; db_passive [label=&quot;ivre\npassiverecon2db&quot;];
+   &quot;Nuclei&quot; -&gt; JSON [label=&quot;-o&quot;];
+   &quot;Airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
+   &quot;p0f&quot; -&gt; P0F_LOG [label=&quot;-o&quot;];
+   &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
+   &quot;Zeek&quot; -&gt; FLOW_LOG;
+   &quot;Argus&quot; -&gt; FLOWS;
+   &quot;Nfdump&quot; -&gt; FLOWS;
+
    XML -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
    JSON -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
+   CSV_LOG -&gt; db_passive [label=&quot;ivre\nairodump2db&quot;];
+   P0F_LOG -&gt; db_passive [label=&quot;ivre\np0f2db&quot;];
+   PASS_LOG -&gt; db_passive [label=&quot;ivre\npassiverecon2db&quot;];
+   FLOW_LOG -&gt; db_flow [label=&quot;ivre\nzeek2db&quot;];
+   FLOWS -&gt; db_flow [label=&quot;ivre\nflow2db&quot;];
    db_passive -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
    db_nmap -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
+
+   {
+     rank = same;
+     edge[style=invis];
+     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;Airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
+     rankdir = UD;
+   }
 }" class="graphviz" /></div>
 </div>
 <div class="section" id="accessing-data">

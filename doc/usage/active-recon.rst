@@ -8,14 +8,17 @@ With Nmap, Masscan or Zgrab2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can use directly `Nmap <http://nmap.org/>`_, `Masscan
-<https://github.com/robertdavidgraham/masscan/>`_ or `Zgrab2
-<https://zmap.io/>`_ to run the scans. Use ``-oX`` to produce an XML
-output with Nmap or Masscan, and ``-o`` to produce a JSON output with
-Zgrab2.
+<https://github.com/robertdavidgraham/masscan/>`_, `Zgrab2
+<https://zmap.io/>`_, `ZDNS <https://github.com/zmap/zdns>`_ or
+`Nuclei <https://github.com/projectdiscovery/nuclei>`_ to run the
+scans. IVRE can use XML output files for Nmap and Masscan, and JSON
+output files for Zgrab2, ZDNS and Nuclei.
 
-Then, provide that output to the command line tool ``ivre scan2db``;
-if you want to use the :ref:`usage/web-ui:Web User Interface`, use
-``ivre db2view nmap`` and you're good!
+Then, provide the output files produced to the command line tool
+``ivre scan2db``. You can (and should!) insert scan results from
+different tools, then use ``ivre db2view nmap`` and you're ready to
+explore your results with the the :ref:`usage/web-ui:Web User
+Interface`, the ``ivre view`` command line tool or the Python API.
 
 With IVRE
 ~~~~~~~~~
@@ -65,12 +68,13 @@ You have several options, depending on what you want to do:
 
 - Python API: use the ``db.nmap`` object of the ``ivre.db`` module.
 
-- Web interface:
+- Web API: ``/cgi/scans``.
 
-   - Using ``ivre db2view``, you can create or update a view from the
-     scan data, that can then be accessed by the ``view`` purpose (see
-     :ref:`overview/principles:Purposes`), which includes the
-     :ref:`usage/web-ui:Web User Interface`.
+If you want to combine several tools, for example Masscan and Nuclei
+results, you need to use a view: run ``ivre db2view nmap`` to create
+or update a view from the scan data, that can then be accessed by the
+``view`` purpose (see :ref:`overview/principles:Purposes`), which
+includes the :ref:`usage/web-ui:Web User Interface`.
 
 CLI
 ~~~
