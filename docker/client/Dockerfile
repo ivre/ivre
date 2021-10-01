@@ -32,7 +32,7 @@ RUN apt-get -q update && \
 # #34 (https://github.com/nmap/nmap/issues/34) since we do not know
 # which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.91.tgz ./nmap.tar.gz
+ADD https://nmap.org/dist/nmap-7.92.tgz ./nmap.tar.gz
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install build-essential libssl-dev flex bison && \
     tar zxf nmap.tar.gz && \
