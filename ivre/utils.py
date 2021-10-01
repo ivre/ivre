@@ -189,6 +189,25 @@ NMAP_FINGERPRINT_IVRE_KEY = {
 logging.basicConfig()
 
 
+def is_valid_ip(ipstr: AnyStr) -> bool:
+    """Return True iff `ipstr` is a valid IP address."""
+    if isinstance(ipstr, bytes):
+        data = ipstr.decode()
+    else:
+        data = ipstr
+    try:
+        socket.inet_aton(data)
+    except socket.error:
+        pass
+    else:
+        return True
+    try:
+        socket.inet_pton(socket.AF_INET6, data)
+    except socket.error:
+        return False
+    return True
+
+
 def ip2int(ipstr: AnyStr) -> int:
     """Converts the classical decimal, dot-separated, string
     representation of an IPv4 address, or the hexadecimal,
