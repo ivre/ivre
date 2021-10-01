@@ -82,6 +82,7 @@ that, from the ``docker/`` directory, run:
 ::
 
    $ docker pull debian:stable
+   $ docker pull debian:buster
    $ for img in base client agent db web ; do
    > docker build -t "ivre/$img" "$img"
    > done
