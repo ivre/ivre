@@ -24,6 +24,7 @@ instance via an HTTP server.
 
 from datetime import datetime
 from functools import partial
+from getpass import getpass
 from io import BytesIO
 import json
 import re
@@ -73,6 +74,18 @@ class HttpFetcher:
             username, netloc = url.netloc.split("@", 1)
             if username == "GSSAPI":
                 return HttpFetcherCurlGssapi(url._replace(netloc=netloc))
+            if username == "PKCS11":
+                return HttpFetcherCurlClientCertPkcs11(url._replace(netloc=netloc))
+            if username.startswith("PKCS11:"):
+                username = username[7:]
+                if ":" in username:
+                    username, pincode = username.split(":", 1)
+                    return HttpFetcherCurlClientCertPkcs11(
+                        url._replace(netloc=netloc), username=username, pincode=pincode
+                    )
+                return HttpFetcherCurlClientCertPkcs11(
+                    url._replace(netloc=netloc), username=username
+                )
         return HttpFetcherBasic(url)
 
 
@@ -123,6 +136,41 @@ if HAS_CURL:
             super()._set_opts(curl)
             curl.setopt(pycurl.USERNAME, "")
             curl.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_GSSNEGOTIATE)
+
+    class HttpFetcherCurlClientCertPkcs11(HttpFetcherCurl):
+        def __init__(self, url, username=None, pincode=None):
+            super().__init__(url)
+            if username is not None:
+                self._username = username
+            if pincode is not None:
+                self._pincode = pincode
+
+        def _set_opts(self, curl):
+            super()._set_opts(curl)
+            curl.setopt(pycurl.USERNAME, "")
+            curl.setopt(pycurl.SSLENGINE, "pkcs11")
+            curl.setopt(pycurl.SSLCERTTYPE, "eng")
+            curl.setopt(
+                pycurl.SSLCERT,
+                "pkcs11:manufacturer=piv_II;token=%s;pin-value=%s"
+                % (self.username, self.pincode),
+            )
+
+        @property
+        def username(self):
+            try:
+                return self._username
+            except AttributeError:
+                self._username = input("username> ")
+            return self._username
+
+        @property
+        def pincode(self):
+            try:
+                return self._pincode
+            except AttributeError:
+                self._pincode = getpass("pincode> ")
+            return self._pincode
 
 
 class HttpDB(DB):
