@@ -110,12 +110,14 @@
 <h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline"></a></h2>
 <div class="section" id="with-nmap-masscan-or-zgrab2">
 <h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Permalink to this headline"></a></h3>
-<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> or <a class="reference external" href="https://zmap.io/">Zgrab2</a> to run the scans. Use <code class="docutils literal notranslate"><span class="pre">-oX</span></code> to produce an XML
-output with Nmap or Masscan, and <code class="docutils literal notranslate"><span class="pre">-o</span></code> to produce a JSON output with
-Zgrab2.</p>
-<p>Then, provide that output to the command line tool <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>;
-if you want to use the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, use
-<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re good!</p>
+<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a> or
+<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a> to run the
+scans. IVRE can use XML output files for Nmap and Masscan, and JSON
+output files for Zgrab2, ZDNS and Nuclei.</p>
+<p>Then, provide the output files produced to the command line tool
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>. You can (and should!) insert scan results from
+different tools, then use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re ready to
+explore your results with the the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> command line tool or the Python API.</p>
 </div>
 <div class="section" id="with-ivre">
 <h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this headline"></a></h3>
@@ -152,20 +154,16 @@ $ ivre db2view nmap
 <div class="section" id="enjoying-the-results">
 <h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this headline"></a></h2>
 <p>You have several options, depending on what you want to do:</p>
-<ul>
+<ul class="simple">
 <li><p>Command line interfaces: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code> tool.</p></li>
 <li><p>Python API: use the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object of the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
-<li><p>Web interface:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>Using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span></code>, you can create or update a view from the
-scan data, that can then be accessed by the <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see
-<a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>), which includes the
-<a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p></li>
+<li><p>Web API: <code class="docutils literal notranslate"><span class="pre">/cgi/scans</span></code>.</p></li>
 </ul>
-</div></blockquote>
-</li>
-</ul>
+<p>If you want to combine several tools, for example Masscan and Nuclei
+results, you need to use a view: run <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> to create
+or update a view from the scan data, that can then be accessed by the
+<code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>), which
+includes the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>
 <div class="section" id="cli">
 <h3>CLI<a class="headerlink" href="#cli" title="Permalink to this headline"></a></h3>
 <p>To get all the hosts with the port 22 open:</p>

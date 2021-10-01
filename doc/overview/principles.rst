@@ -38,7 +38,14 @@ types of data IVRE handles), which can be stored by one or more
 
    - Python API: the ``db.passive`` object from the ``ivre.db``
      module.
-   - Command line: the ``ivre ipinfo`` tool.
+   - Command line: the ``ivre ipinfo`` and ``ivre iphost`` tools. The
+     latter is dedicated to passive DNS queries.
+   - Web (JSON) APIs: the ``/cgi/passive`` and ``/cgi/passivedns``
+     URLs. The latter is dedicated to passive DNS and is compatible
+     with the `Common Output Format
+     <https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>`_
+     implemented for example in CIRCL's `PyPDNS
+     <https://github.com/CIRCL/PyPDNS>`_.
 
 - ``view``: contains a consolidated view of hosts based on data from
   ``nmap`` and ``passive``. The structure of the records is similar to
@@ -69,32 +76,62 @@ Storing data
 .. graphviz::
 
    digraph {
+      graph [rankdir=LR];
+
       "maxmind.com";
-      FLOWS [label="flow files"];
-      FLOW_LOG [label=".log files"];
-      PASS_LOG [label="passive_recon.log"];
+      "Nmap";
+      "Masscan";
+      "Zgrab2";
+      "Nuclei";
+      "Airodump-ng";
+      "p0f";
+      "Zeek";
+      "Zeek";
+      "Argus";
+      "Nfdump";
+
       XML [label="XML scan result"];
       JSON [label="JSON scan result"];
+      CSV_LOG [label="airodump .csv files"];
+      P0F_LOG [label="p0f output files"];
+      PASS_LOG [label="passive_recon.log"];
+      FLOW_LOG [label=".log files"];
+      FLOWS [label="flow files"];
+
       db_data [label="db.data" shape="box" style="filled"];
-      db_flow [label="db.flow" shape="box" style="filled"];
-      db_passive [label="db.passive" shape="box" style="filled"];
       db_nmap [label="db.nmap" shape="box" style="filled"];
+      db_passive [label="db.passive" shape="box" style="filled"];
+      db_flow [label="db.flow" shape="box" style="filled"];
       db_view [label="db.view" shape="box" style="filled"];
+
       "maxmind.com" -> db_data [label="ivre\nipdata"];
-      "Argus" -> FLOWS;
-      "Nfdump" -> FLOWS;
-      "Zeek" -> FLOW_LOG;
-      "Zeek" -> PASS_LOG [label="passiverecon"];
-      FLOWS -> db_flow [label="ivre\nflow2db"];
       "Nmap" -> XML [label="-oX"];
       "Masscan" -> XML [label="-oX"];
       "Zgrab2" -> JSON [label="-o"];
-      FLOW_LOG -> db_flow [label="ivre\nzeek2db"];
-      PASS_LOG -> db_passive [label="ivre\npassiverecon2db"];
+      "Nuclei" -> JSON [label="-o"];
+      "Airodump-ng" -> CSV_LOG [label="-w"];
+      "p0f" -> P0F_LOG [label="-o"];
+      "Zeek" -> PASS_LOG [label="passiverecon"];
+      "Zeek" -> FLOW_LOG;
+      "Argus" -> FLOWS;
+      "Nfdump" -> FLOWS;
+
       XML -> db_nmap [label="ivre\nscan2db"];
       JSON -> db_nmap [label="ivre\nscan2db"];
+      CSV_LOG -> db_passive [label="ivre\nairodump2db"];
+      P0F_LOG -> db_passive [label="ivre\np0f2db"];
+      PASS_LOG -> db_passive [label="ivre\npassiverecon2db"];
+      FLOW_LOG -> db_flow [label="ivre\nzeek2db"];
+      FLOWS -> db_flow [label="ivre\nflow2db"];
       db_passive -> db_view [label="ivre\ndb2view"];
       db_nmap -> db_view [label="ivre\ndb2view"];
+
+      {
+        rank = same;
+        edge[style=invis];
+        "maxmind.com" -> "Nmap" -> "Masscan" -> "Zgrab2" -> "Nuclei" -> "Airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
+        rankdir = UD;
+      }
    }
 
 Accessing data
