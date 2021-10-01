@@ -22,7 +22,7 @@ ENV DEBIAN_FRONTEND noninteractive
 # Dependencies
 RUN echo "deb http://deb.debian.org/debian stable-backports main" >> /etc/apt/sources.list
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3-pymongo python3-crypto \
+    apt-get -qy --no-install-recommends install python3-pymongo python3-cryptography \
         python3-setuptools python3-bottle python3-openssl ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

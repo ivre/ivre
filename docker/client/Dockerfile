@@ -49,8 +49,8 @@ RUN apt-get -q update && \
 # Install Zeek
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install gnupg wget && \
-    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_10/ /' > /etc/apt/sources.list.d/zeek.list && \
-    wget -qO - https://download.opensuse.org/repositories/security:zeek/Raspbian_10/Release.key | apt-key add - && \
+    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_11/ /' > /etc/apt/sources.list.d/zeek.list && \
+    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_11/Release.key | apt-key add - && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
     apt-get -qy --purge autoremove gnupg wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
