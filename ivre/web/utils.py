@@ -172,7 +172,9 @@ def get_anonymized_user():
         secret = config.WEB_SECRET.encode()
     except AttributeError:
         secret = config.WEB_SECRET
-    return utils.encode_b64(hmac.new(secret, msg=get_user().encode()).digest()[:9])
+    return utils.encode_b64(
+        hmac.new(secret, msg=get_user().encode(), digestmod="sha256").digest()[:9]
+    )
 
 
 def _parse_query(dbase, query):
