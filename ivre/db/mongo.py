@@ -2620,6 +2620,7 @@ class MongoDBActive(MongoDB, DBActive):
                 {"os.osclass.vendor": txt},
                 {"os.osclass.osfamily": txt},
                 {"os.osclass.osgen": txt},
+                {"os.osclass.type": txt},
             ]
         }
 

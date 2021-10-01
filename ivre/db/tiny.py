@@ -883,7 +883,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         q = Query()
         return q.os.osclass.any(
-            _match(q.vendor) | _match(q.osfamily) | _match(q.osclass)
+            _match(q.vendor) | _match(q.osfamily) | _match(q.osclass) | _match(q.type)
         )
 
     @staticmethod
