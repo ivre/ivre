@@ -27,7 +27,7 @@ import sys
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 
-import ivre.db
+from ivre.db import db, DBPassive
 import ivre.passive
 import ivre.parser.zeek
 from ivre.types import Record
@@ -77,28 +77,17 @@ def rec_iter(
 
 
 def main() -> None:
-    parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--sensor", "-s", help="Sensor name")
-    parser.add_argument("--ignore-spec", "-i", help="Filename containing ignore rules")
-    parser.add_argument(
-        "--bulk", action="store_true", help="Use DB bulk inserts (this is the default)"
-    )
-    parser.add_argument(
-        "--local-bulk", action="store_true", help="Use local (memory) bulk inserts"
-    )
-    parser.add_argument(
-        "--no-bulk", action="store_true", help="Do not use bulk inserts"
-    )
+    parser = ArgumentParser(description=__doc__, parents=[db.passive.argparser_insert])
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
     if (not (args.no_bulk or args.local_bulk)) or args.bulk:
-        function = ivre.db.db.passive.insert_or_update_bulk
+        function = db.passive.insert_or_update_bulk
     elif args.local_bulk:
-        function = ivre.db.db.passive.insert_or_update_local_bulk
+        function = db.passive.insert_or_update_local_bulk
     else:
         function = functools.partial(
-            ivre.db.DBPassive.insert_or_update_bulk,
-            ivre.db.db.passive,
+            DBPassive.insert_or_update_bulk,
+            db.passive,
         )
     zeek_parser = ivre.parser.zeek.ZeekFile(sys.stdin.buffer)
     function(
