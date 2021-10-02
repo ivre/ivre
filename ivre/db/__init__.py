@@ -2851,6 +2851,22 @@ class DBPassive(DB):
             const=False,
             default=None,
         )
+        self.argparser_insert = ArgumentParser(add_help=False)
+        self.argparser_insert.add_argument("--sensor", "-s", help="Sensor name")
+        self.argparser_insert.add_argument(
+            "--ignore-spec", "-i", help="Filename containing ignore rules"
+        )
+        self.argparser_insert.add_argument(
+            "--bulk",
+            action="store_true",
+            help="Use DB bulk inserts (this is the default)",
+        )
+        self.argparser_insert.add_argument(
+            "--local-bulk", action="store_true", help="Use local (memory) bulk inserts"
+        )
+        self.argparser_insert.add_argument(
+            "--no-bulk", action="store_true", help="Do not use bulk inserts"
+        )
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)

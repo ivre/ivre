@@ -96,18 +96,7 @@ def rec_iter(
 
 def main() -> None:
     """Update the flow database from p0f log files"""
-    parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--sensor", "-s", help="Sensor name")
-    parser.add_argument("--ignore-spec", "-i", help="Filename containing ignore rules")
-    parser.add_argument(
-        "--bulk", action="store_true", help="Use DB bulk inserts (this is the default)"
-    )
-    parser.add_argument(
-        "--local-bulk", action="store_true", help="Use local (memory) bulk inserts"
-    )
-    parser.add_argument(
-        "--no-bulk", action="store_true", help="Do not use bulk inserts"
-    )
+    parser = ArgumentParser(description=__doc__, parents=[db.passive.argparser_insert])
     parser.add_argument("files", nargs="*", metavar="FILE", help="p0f log files")
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
