@@ -2871,7 +2871,7 @@ class DBPassive(DB):
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
         if args.sensor is not None:
-            flt = self.flt_and(flt, self.searchsensor(args.sensor))
+            flt = self.flt_and(flt, self.searchsensor(utils.str2list(args.sensor)))
         if args.torcert:
             flt = self.flt_and(flt, self.searchtorcert())
         if args.basicauth:

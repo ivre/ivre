@@ -116,7 +116,9 @@ def main() -> None:
         sys.exit(-1)
     for o, a in opts:
         if o in ["-s", "--sensor"]:
-            baseflt = db.passive.flt_and(baseflt, db.passive.searchsensor(a))
+            baseflt = db.passive.flt_and(
+                baseflt, db.passive.searchsensor(utils.str2list(a))
+            )
         elif o == "--sub":
             subdomains = True
         elif o in ["-h", "--help"]:
