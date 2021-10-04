@@ -150,7 +150,9 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
         scripts.append(
             {
                 "id": "scanner",
-                "output": "Scanner: %s" % scanner,
+                "output": "Scanner: \n - %s" % scanner + " [%s/http]" % probe
+                if probe is not None
+                else "",
                 "scanner": structured_output,
             }
         )
@@ -207,7 +209,11 @@ def _extract_passive_HONEYPOT_HIT(rec):
                 ],
             }
         ]
-        output += "\nScanner: %s" % rec["infos"]["service_product"]
+        output += "\nScanner:\n - %s [%s/%s]" % (
+            rec["infos"]["service_product"],
+            rec["infos"]["service_extrainfo"],
+            scanned_proto,
+        )
     if rec.get("value"):
         structured_output["probes"] = [{"proto": scanned_proto, "value": rec["value"]}]
     return {
@@ -526,7 +532,7 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
         port["scripts"].append(
             {
                 "id": "scanner",
-                "output": "Scanner: %s" % scanner,
+                "output": "Scanner:\n - %s [%s/tls]" % (scanner, rec["value"]),
                 "scanner": structured_output,
             }
         )

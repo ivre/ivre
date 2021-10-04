@@ -498,11 +498,20 @@ def merge_scanner_scripts(
             )
         )
     if scanners:
+
+        def _fmt_sc(sc: Dict[str, Any]) -> str:
+            res = sc["name"]  # type: str
+            if "probes" in sc:
+                res += " [%s]" % ", ".join(
+                    "%s/%s" % (x["name"], x["proto"]) for x in sc["probes"]
+                )
+            return res
+
         output.append(
-            "Scanner%s: %s"
+            "Scanner%s: \n - %s"
             % (
                 "s" if len(scanners) > 1 else "",
-                ", ".join(scanner["name"] for scanner in scanners),
+                "\n - ".join(_fmt_sc(scanner) for scanner in scanners),
             )
         )
     curscript["output"] = "\n".join(output)
