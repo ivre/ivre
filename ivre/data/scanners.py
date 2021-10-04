@@ -38,12 +38,17 @@ JA3_CLIENT_VALUES = {
 
 
 USER_AGENT_VALUES = {
+    # Nmap NSE
     "Mozilla/5.0 (compatible; Nmap Scripting Engine; "
     "https://nmap.org/book/nse.html)": ("Nmap", None),
     "Mozilla/5.0 (compatible; Nmap Scripting Engine; "
     "http://nmap.org/book/nse.html)": ("Nmap", None),
     "Mozilla/5.0 zgrab/0.x": ("Zgrab", None),
+    # Masscann: Banners (--banners) probes
     "masscan/1.0 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
+    "masscan/1.1 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
+    "masscan/1.2 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
+    "masscan/1.3 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
     "HTTP Banner Detection (https://security.ipip.net)": ("ipip.net", None),
     "Mozilla/5.0 (compatible; CensysInspect/1.1; +https://about.censys.io/)": (
         "Censys",
