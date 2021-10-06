@@ -2409,6 +2409,11 @@ class MongoDBActive(MongoDB, DBActive):
         return {"ports.state_state": {"$nin": ["open"]} if neg else "open"}
 
     @staticmethod
+    def searchhoneypot(neg=False):
+        "Filters records that are labelled with honeypot."
+        return {"synack_honeypot": {"$exists": False} if neg else {"$exists": True}}
+
+    @staticmethod
     def searchservice(srv, port=None, protocol=None):
         """Search an open port with a particular service. False means the
         service is unknown.

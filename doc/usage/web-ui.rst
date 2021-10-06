@@ -138,6 +138,7 @@ Filters
 
 - ``[!]host:[IP address]`` filter a specific IP address. Using the IP
   address directly (without ``host:``) is equivalent.
+- ``[!]honeypot`` filter for results that are labelled as a honeypot.
 - ``[!]net:[IP address/netmask]`` filter a specific network (CIDR
   notation). Using the CIDR notation directly (without ``net:``) is
   equivalent.

@@ -257,6 +257,8 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(
                 flt, dbase.searchobjectid(value.replace("-", ",").split(","), neg=neg)
             )
+        elif param == "honeypot":
+            flt = dbase.flt_and(flt, dbase.searchhoneypot(neg=neg))
         elif param == "host":
             flt = dbase.flt_and(flt, dbase.searchhost(value, neg=neg))
         elif param == "net":

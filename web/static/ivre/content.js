@@ -104,6 +104,10 @@ var HELP_FILTERS = {
 	    "title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
 	    "content": "Look for results with a matching hostname ([FQDN] can be specified as the exact value or a /regexp/).",
 	},
+	"honeypot:": {
+	 	"title": "<b>(!)</b>honeypot",
+		"content": "Look for hosts that are possibly a honeypot.",
+	},
 	"domain:": {
 	    "title": "<b>(!)</b>domain:<b>[FQDN]</b>",
 	    "content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as the exact value or a /regexp/).",
