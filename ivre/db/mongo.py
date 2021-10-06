@@ -2411,7 +2411,7 @@ class MongoDBActive(MongoDB, DBActive):
     @staticmethod
     def searchhoneypot(neg=False):
         "Filters records that are labelled with honeypot."
-        return {"synack_honeypot": {"$exists": False} if neg else {"$exists": True}}
+        return {"synack_honeypot": {"$exists": False} if neg else True}
 
     @staticmethod
     def searchservice(srv, port=None, protocol=None):
