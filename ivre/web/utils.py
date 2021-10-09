@@ -300,7 +300,9 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt, dbase.searchasname(utils.str2regexp(value), neg=neg)
             )
         elif param == "source":
-            flt = dbase.flt_and(flt, dbase.searchsource(value, neg=neg))
+            flt = dbase.flt_and(
+                flt, dbase.searchsource(utils.str2regexp(value), neg=neg)
+            )
         elif param == "timerange":
             flt = dbase.flt_and(
                 flt,

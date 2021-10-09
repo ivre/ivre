@@ -129,7 +129,7 @@ var HELP_FILTERS = {
 	    "content": "Look for hosts assigned to a specific AS given its name. See also <code>asnum:</code>.",
 	},
 	"source:": {
-	    "title": "<b>(!)</b>source:<b>[name]</b>",
+	    "title": "<b>(!)</b>source:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for results obtained from a specific source.",
 	},
 	"timerange:": {
