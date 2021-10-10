@@ -218,11 +218,19 @@ class HttpDB(DB):
                     break
             skip += len(data)
 
+    @staticmethod
+    def fix_rec(rec):
+        """This function may be used by purpose-specific subclasses to fix the
+        record before it is sent to the user.
+
+        """
+
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
         for rec in self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields):
             for fld in self.datetime_fields:
                 if fld in rec:
                     rec[fld] = datetime.fromtimestamp(rec[fld])
+            self.fix_rec(rec)
             yield rec
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
@@ -336,8 +344,17 @@ class HttpDB(DB):
 
 
 class HttpDBActive(HttpDB, DBActive):
+    @staticmethod
+    def fix_rec(rec):
+        """This function may be used by purpose-specific subclasses to fix the
+        record before it is sent to the user.
 
-    pass
+        """
+        if "addresses" not in rec:
+            return
+        if "mac" not in rec["addresses"]:
+            return
+        rec["addresses"]["mac"] = [mac["addr"] for mac in rec["addresses"]["mac"]]
 
 
 class HttpDBNmap(HttpDBActive, DBNmap):
