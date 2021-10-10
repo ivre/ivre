@@ -406,7 +406,7 @@ class ElasticDBActive(ElasticDB, DBActive):
           - screenwords
           - file.* / file.*:scriptid
           - hop
-
+          - scanner.name / scanner.port:tcp / scanner.port:udp
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1124,6 +1124,12 @@ return result;
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
             field = {"field": "ports.scripts.s7-info." + subfield}
+        elif field.startswith("scanner.port:"):
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = {"field": "ports.scripts.scanner.ports.%s.ports" % field[13:]}
+        elif field == "scanner.name":
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = {"field": "ports.scripts.scanner.scanners.name"}
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}

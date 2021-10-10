@@ -1085,6 +1085,7 @@ class TinyDBActive(TinyDB, DBActive):
           - screenwords
           - file.* / file.*:scriptid
           - hop
+          - scanner.name / scanner.port:tcp / scanner.port:udp
         """
         q = Query()
         if flt is None:
@@ -2076,6 +2077,12 @@ class TinyDBActive(TinyDB, DBActive):
                             if _match(hop):
                                 yield hop["ipaddr"]
 
+        elif field.startswith("scanner.port:"):
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = "ports.scripts.scanner.ports.%s.ports" % field[13:]
+        elif field == "scanner.name":
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = "ports.scripts.scanner.scanners.name"
         return [
             {"_id": _outputproc(val), "count": count}
             for val, count in Counter(

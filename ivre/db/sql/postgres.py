@@ -355,6 +355,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
           - screenwords
           - file.* / file.*:scriptid
           - hop
+          - scanner.name / scanner.port:tcp / scanner.port:udp
         """
         if flt is None:
             flt = self.flt_empty
@@ -1025,6 +1026,31 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         elif field == "schema_version":
             field = self._topstructure(
                 self.tables.scan, [self.tables.scan.schema_version]
+            )
+        elif field.startswith("scanner.port:"):
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["scanner"]["ports"][field[13:]]["ports"]],
+                and_(
+                    self.tables.script.name == "scanner",
+                    self.tables.script.data["scanner"].has_key("ports"),  # noqa: W601
+                    self.tables.script.data["scanner"]["ports"].has_key(
+                        field[13:]
+                    ),  # noqa: W601
+                ),
+            )
+        elif field == "scanner.name":
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["scanner"]["scanners"]["name"]],
+                and_(
+                    self.tables.script.name == "scanner",
+                    self.tables.script.data["scanner"].has_key(  # noqa: W601
+                        "scanners"
+                    ),
+                ),
             )
         else:
             raise NotImplementedError()
@@ -1803,8 +1829,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         "targetval",
                         "info",
                     ],
-                    index_where=self.tables.passive.addr == None,
-                    # noqa: E711 (BinaryExpression)
+                    index_where=self.tables.passive.addr == None,  # noqa: E711
+                    # (BinaryExpression)
                     set_={
                         "firstseen": func.least(
                             self.tables.passive.firstseen,

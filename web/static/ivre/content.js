@@ -705,6 +705,18 @@ var HELP_TOPVALUES = {
 	    "content": "net(:mask)",
 	    "title": "<b>(!)</b>net:",
 	},
+	"scanner.name": {
+	    "content": "scanner.name",
+	    "title": "<b>(!)</b>scanner.name",
+	},
+	"scanner.port:tcp": {
+	    "content": "scanner.port:tcp",
+	    "title": "<b>(!)</b>scanner.port:tcp",
+	},
+	"scanner.port:udp": {
+	    "content": "scanner.port:udp",
+	    "title": "<b>(!)</b>scanner.port:udp",
+	},
 	"screenwords": {
 	    "content": "screenwords",
 	    "title": "<b>(!)</b>screenwords"
