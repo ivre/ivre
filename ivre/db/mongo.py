@@ -2876,6 +2876,7 @@ class MongoDBActive(MongoDB, DBActive):
           - screenwords
           - file.* / file.*:scriptid
           - hop
+          - scanner.name / scanner.port:tcp / scanner.port:udp
         """
 
         def null_if_empty(val):
@@ -3774,6 +3775,12 @@ class MongoDBActive(MongoDB, DBActive):
                 return {"count": x["count"], "_id": self.internal2ip(x["_id"])}
 
             field = "traces.hops.ipaddr"
+        elif field.startswith("scanner.port:"):
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = "ports.scripts.scanner.ports.%s.ports" % field[13:]
+        elif field == "scanner.name":
+            flt = self.flt_and(flt, self.searchscript(name="scanner"))
+            field = "ports.scripts.scanner.scanners.name"
         pipeline = self._topvalues(
             field,
             flt=flt,
