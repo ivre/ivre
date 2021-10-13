@@ -44,6 +44,9 @@ from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBView
 from ivre import utils
 
 
+RESULTS_COUNT = 200
+
+
 def serialize(obj):
     """Return a JSON-compatible representation for `obj`"""
     if isinstance(obj, utils.REGEXP_T):
@@ -106,6 +109,16 @@ class HttpFetcherBasic(HttpFetcher):
 
 if HAS_CURL:
 
+    class FakeFdesc:
+        def __init__(self, bytesio):
+            self.bytesio = bytesio
+
+        def __iter__(self):
+            return (line for line in self.bytesio.getvalue().splitlines())
+
+        def read(self, *args):
+            return self.bytesio.getvalue()
+
     class HttpFetcherCurl(HttpFetcher):
         def __init__(self, url):
             super().__init__(url)
@@ -128,8 +141,7 @@ if HAS_CURL:
             status_code = curl.getinfo(pycurl.HTTP_CODE)
             if status_code != 200:
                 raise Exception("HTTP Error %d" % status_code)
-            fdesc.read = fdesc.getvalue
-            return fdesc
+            return FakeFdesc(fdesc)
 
     class HttpFetcherCurlGssapi(HttpFetcherCurl):
         def _set_opts(self, curl):
@@ -201,6 +213,8 @@ class HttpDB(DB):
             cururl = "%s%d" % (url, skip)
             if limit is not None:
                 cururl += "%%20limit:%d" % limit
+            else:
+                cururl += "%%20limit:%d" % RESULTS_COUNT
             req = self.db.open(cururl)
             data = json.loads(req.read().decode())
             if not data:
