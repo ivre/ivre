@@ -215,6 +215,9 @@ def get_init_flt(dbase):
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
 
 
+PORT = re.compile("^(?:(tcp|udp)[/_])?([0-9]+)$")
+
+
 def flt_from_query(dbase, query, base_flt=None):
     """Return a tuple (`flt`, `sortby`, `unused`, `skip`, `limit`):
 
@@ -733,16 +736,11 @@ def flt_from_query(dbase, query, base_flt=None):
             # ignore this parameter
             pass
         elif value is None:
-            if (
-                param.startswith("tcp_")
-                or param.startswith("tcp/")
-                or param.startswith("udp_")
-                or param.startswith("udp/")
-            ):
-                proto, port = param.replace("_", "/").split("/", 1)
-                port = int(port)
+            if PORT.search(param) is not None:
+                # Python >= 3.8: if (match := PORT.search(param)) is not None
+                proto, port = PORT.search(param).groups()
                 flt = dbase.flt_and(
-                    flt, dbase.searchport(port, protocol=proto, neg=neg)
+                    flt, dbase.searchport(int(port), protocol=proto or "tcp", neg=neg)
                 )
             elif param == "openport":
                 flt = dbase.flt_and(flt, dbase.searchopenport(neg=neg))
@@ -756,13 +754,24 @@ def flt_from_query(dbase, query, base_flt=None):
                     flt = dbase.flt_and(flt, dbase.searchipv4())
                 else:
                     flt = dbase.flt_and(flt, dbase.searchipv6())
-            elif param.isdigit():
-                flt = dbase.flt_and(flt, dbase.searchport(int(param), neg=neg))
-            elif all(x.isdigit() for x in param.split(",")):
-                flt = dbase.flt_and(
-                    flt,
-                    dbase.searchports([int(val) for val in param.split(",")], neg=neg),
-                )
+            elif all(PORT.search(x) is not None for x in param.split(",")):
+                proto_ports = {}
+                for port in param.split(","):
+                    proto, port = PORT.search(port).groups()
+                    proto_ports.setdefault(proto or "tcp", set()).add(int(port))
+                for proto, ports in proto_ports.items():
+                    if len(ports) > 1:
+                        flt = dbase.flt_and(
+                            flt,
+                            dbase.searchports(list(ports), protocol=proto, neg=neg),
+                        )
+                    else:
+                        flt = dbase.flt_and(
+                            flt,
+                            dbase.searchport(
+                                next(iter(ports)), protocol=proto, neg=neg
+                            ),
+                        )
             elif utils.IPADDR.search(param):
                 flt = dbase.flt_and(flt, dbase.searchhost(param, neg=neg))
             elif utils.NETADDR.search(param):
