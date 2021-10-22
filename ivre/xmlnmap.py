@@ -42,7 +42,7 @@ from ivre.active.data import (
     create_ssl_output,
     handle_http_headers,
 )
-from ivre.analyzer import dicom, ike
+from ivre.analyzer import dicom, ike, ja3
 from ivre.types import ParsedCertificate, NmapServiceMatch
 from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
@@ -2210,6 +2210,11 @@ class NmapHandler(ContentHandler):
                         match,
                         self._curhost.setdefault("hostnames", []),
                     )
+                    if match.get("service_name") == "reverse-ssl":
+                        # Attempt to compute the JA3c value
+                        script = ja3.banner2script(raw_output)
+                        if script:
+                            self._curport.setdefault("scripts", []).append(script)
                 return
             for attr in attrs.keys():
                 self._curport["service_%s" % attr] = attrs[attr]
