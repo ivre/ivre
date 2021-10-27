@@ -627,23 +627,22 @@ def _extract_passive_STUN_HONEYPOT_REQUEST(rec):
     except ValueError:
         utils.LOGGER.warning("Cannot parse record [%r]", rec)
         return {}
-    # hack to be MongoDB-compatible
-    tid_lo = tid_lo & 0x7FFFFFFFFFFFFFFF
+    # store TID as string
+    tid = "%016x%016x" % (tid_hi, tid_lo)
     # special case when first int of tid is magic
     if tid_hi >> 32 == 0x2112A442:
         magic = 0x2112A442
     else:
         magic = None
-    output = "Scanned port: %s: %d\nSTUN request (%stid [lower QWORD]: 0x%x)" % (
+    output = "Scanned port: %s: %d\nSTUN request (%stid: %s)" % (
         proto,
         port,
-        # only the lower QWORD of tid because Mongo does not handle 128bit integers
         ("magic: 0x%08x, " % magic) if magic else "",
-        tid_lo,
+        tid,
     )
     structured_output = {
         "ports": {"count": 1, proto: {"count": 1, "ports": [port]}},
-        "stun_queries": [{"magic": magic, "tid": tid_lo, "len": len_, "type": type_}],
+        "stun_queries": [{"magic": magic, "tid": tid, "len": len_, "type": type_}],
     }
     return {
         "ports": [
