@@ -1,0 +1,86 @@
+#! /usr/bin/env python
+
+# This file is part of IVRE.
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+"""This script fetches Microsoft Exchange build values and creates a
+JSON document that matches a build number as reported by OWA a result
+such as "Exchange Server 2019 CU6".
+
+This can be used to enrich data reported by IVRE "fake" Nmap script
+"http-app".
+
+"""
+
+import os
+import re
+import sys
+from urllib.request import urlopen
+
+# Previous expressions kept just in case...
+# VERSION = re.compile(b'<tr>\\\n<td style="text-align: left;">(?:<a [^>]*>)?([^<]*)(?:</a>)?</td>\\\n<td style="text-align: left;">([^<]*)</td>\\\n<td style="text-align: left;">([^<]*)</td>\\\n(?:<td style="text-align: left;">([^<]*)</td>\\\n)?</tr>\\\n')
+# VERSION = re.compile(b'<tr>\\\n<td>(?:<a [^>]*>)?([^<]*)(?:</a>)?</td>\\\n<td>([^<]*)</td>\\\n<td>([^<]*)</td>\\\n(?:<td>([^<]*)</td>\\\n)?</tr>\\\n')
+VERSION = re.compile(
+    b"<tr>\\\n<td>(?:<a [^>]*>)?([^<]*)(?:</a>)?</td>\\\n<td[^>]*>([^<]*)</td>\\\n<td[^>]*>([^<]*)</td>\\\n(?:<td[^>]*>([^<]*)</td>\\\n)?</tr>\\\n"
+)
+
+
+def get_versions():
+    result = {}
+    uop = urlopen(
+        "https://docs.microsoft.com/en-us/exchange/new-features/build-numbers-and-release-dates"
+    )
+    for m in VERSION.finditer(uop.read()):
+        key = m.group(3).decode()
+        if not key:
+            continue
+        if key.startswith("15."):
+            # OWA does not report the last number
+            key = ".".join(key.split(".", 3)[:3])
+        value = m.group(1).decode()
+        if value.startswith("[") and value.endswith("]"):
+            value = value[1:-1]
+        result.setdefault(key, set()).add(value)
+    return result
+
+
+def update_file(fname):
+    result = get_versions()
+    with open(fname) as fdesc:
+        content = fdesc.read().split("# GENERATED_DATA_EXCHANGE_BUILD\n", 2)
+    with open(fname, "w") as fdesc:
+        fdesc.write(content[0])
+        fdesc.write("# GENERATED_DATA_EXCHANGE_BUILD\n")
+        for k in sorted(result, key=lambda v: [int(x) for x in v.split(".")]):
+            v = result[k]
+            if len(v) != 1:
+                sys.stderr.write("WARNING: %r has %d values %r\n" % (k, len(v), v))
+            fdesc.write(f'    "{k}": "{" / ".join(sorted(v))}",\n')
+        fdesc.write("    # GENERATED_DATA_EXCHANGE_BUILD\n")
+        fdesc.write(content[2])
+
+
+if __name__ == "__main__":
+    update_file(
+        os.path.join(
+            os.path.dirname(__file__),
+            os.path.pardir,
+            "ivre",
+            "data",
+            "microsoft",
+            "exchange.py",
+        ),
+    )
