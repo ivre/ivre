@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,8 +19,7 @@
 
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2021 Pierre LALET <pierre.lalet@cea.fr>
+This sub-module contains data to match Windows versions to build numbers
 """
 
 # Sources

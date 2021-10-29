@@ -43,10 +43,10 @@ from ivre.active.data import (
     handle_http_headers,
 )
 from ivre.analyzer import dicom, ike, ja3
+from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
 from ivre.types import ParsedCertificate, NmapServiceMatch
 from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
-from ivre.data.windows import WINDOWS_VERSION_TO_BUILD
 
 
 SCHEMA_VERSION = 19
