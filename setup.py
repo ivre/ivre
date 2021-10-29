@@ -180,6 +180,7 @@ setup(
         "ivre/active",
         "ivre/analyzer",
         "ivre/data",
+        "ivre/data/microsoft",
         "ivre/db",
         "ivre/db/sql",
         "ivre/parser",
