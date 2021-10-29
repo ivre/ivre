@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Set, Union, cast
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
+from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import ParsedCertificate
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
@@ -292,11 +293,17 @@ def merge_http_app_scripts(
         )
 
     def http_app_output(app: Dict[str, Any], script_id: str) -> str:
-        return "%s: path %s%s" % (
-            app["application"],
-            app["path"],
-            ("" if app.get("version") is None else (", version %s" % app["version"])),
-        )
+        output = ["%(application)s: path %(path)s" % app]
+        if app.get("version") is not None:
+            output.append(", version %(version)s" % app)
+            if app.get("parsed_version") is not None:
+                output.append(" (%(parsed_version)s)" % app)
+            elif app.get("application") == "OWA":
+                app["parsed_version"] = EXCHANGE_BUILDS.get(
+                    app["version"], "unknown build number"
+                )
+                output.append(" (%(parsed_version)s)" % app)
+        return "".join(output)
 
     return _merge_scripts(
         curscript, script, script_id, http_app_equals, http_app_output

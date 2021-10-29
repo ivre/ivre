@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, cast
 from ivre.analyzer import ntlm
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import handle_http_headers
+from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
 from ivre.types.active import HttpHeader, NmapHost, NmapPort
 from ivre import utils
@@ -184,19 +185,37 @@ def zgrap_parser_http(
             )
             res["port"] = port
             path = url["path"][:-15]
-            if len(version_set) > 1:
-                output = "OWA: path %s, version %s (multiple versions found!)" % (
-                    path,
-                    " / ".join(version_list),
+            if version_list:
+                parsed_version = EXCHANGE_BUILDS.get(
+                    version_list[0], "unknown build number"
                 )
-            else:
-                output = "OWA: path %s, version %s" % (path, version_list[0])
+                if len(version_list) > 1:
+                    version_list = [
+                        "%s (%s)"
+                        % (vers, EXCHANGE_BUILDS.get(vers, "unknown build number"))
+                        for vers in version_list
+                    ]
+                    output = "OWA: path %s, version %s (multiple versions found!)" % (
+                        path,
+                        " / ".join(version_list),
+                    )
+                else:
+                    output = "OWA: path %s, version %s (%s)" % (
+                        path,
+                        version_list[0],
+                        parsed_version,
+                    )
             res.setdefault("scripts", []).append(
                 {
                     "id": "http-app",
                     "output": output,
                     "http-app": [
-                        {"path": path, "application": "OWA", "version": version_list[0]}
+                        {
+                            "path": path,
+                            "application": "OWA",
+                            "version": version_list[0],
+                            "parsed_version": parsed_version,
+                        }
                     ],
                 }
             )
