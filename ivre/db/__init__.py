@@ -1921,8 +1921,11 @@ class DBNmap(DBActive):
                     raise ValueError("Unknown file type %s" % fname)
                 if "addr" in firstres:
                     store_scan_function = self.store_scan_json_ivre
-                elif "matched" in firstres and (
-                    "template" in firstres or "templateID" in firstres
+                elif any(
+                    mtch in firstres for mtch in ["matched", "matched-at"]
+                ) and any(
+                    tmpl in firstres
+                    for tmpl in ["template", "templateID", "template-id"]
                 ):
                     store_scan_function = self.store_scan_json_nuclei
                 elif "ip" in firstres:
@@ -2559,6 +2562,9 @@ class DBNmap(DBActive):
                         rec.get("type"),
                     )
                     continue
+                # new vs old format
+                if "matched-at" in rec:
+                    rec["matched"] = rec.pop("matched-at")
                 try:
                     url = rec.get("matched", rec["host"])
                 except KeyError:
@@ -2583,8 +2589,11 @@ class DBNmap(DBActive):
                 # new vs old format
                 if "info" in rec:
                     rec.update(rec.pop("info"))
+                # new-new vs new vs old format...
                 if "templateID" in rec:
                     rec["template"] = rec.pop("templateID")
+                elif "template-id" in rec:
+                    rec["template"] = rec.pop("template-id")
                 name = rec["name"]
                 if "matcher_name" in rec:
                     name += " (%s)" % rec["matcher_name"]
