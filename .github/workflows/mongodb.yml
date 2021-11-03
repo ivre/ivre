@@ -55,3 +55,6 @@ jobs:
       env:
         CI: true
         DB: mongo
+
+    - run: cat /tmp/webserver.log
+      if: failure()

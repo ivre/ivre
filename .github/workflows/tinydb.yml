@@ -49,3 +49,6 @@ jobs:
       env:
         CI: true
         DB: tinydb
+
+    - run: cat /tmp/webserver.log
+      if: failure()

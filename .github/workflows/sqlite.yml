@@ -49,3 +49,6 @@ jobs:
       env:
         CI: true
         DB: sqlite
+
+    - run: cat /tmp/webserver.log
+      if: failure()
