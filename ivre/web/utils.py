@@ -29,6 +29,7 @@ import os
 import re
 import shlex
 import sys
+from typing import List, Optional
 
 try:
     import MySQLdb  # type: ignore
@@ -123,6 +124,17 @@ def _find_get_notepad_pages():
 get_notepad_pages = _find_get_notepad_pages()
 
 
+def _split_param(pval: str) -> List[Optional[str]]:
+    # This is needed for IPv6 filters
+    if utils.IPADDR.search(pval):
+        return [pval, None]
+    if utils.NETADDR.search(pval):
+        return [pval, None]
+    if ":" in pval:
+        return pval.split(":", 1)
+    return [pval, None]
+
+
 def query_from_params(params):
     """This function *consumes* the 'q' parameter (if it exists) and
     returns the query as a list of three elements list: [boolean
@@ -139,7 +151,7 @@ def query_from_params(params):
     try:
         query = query.replace("\\", "\\\\")
         return [
-            [neg] + pval.split(":", 1) if ":" in pval else [neg, pval, None]
+            [neg] + _split_param(pval)
             for neg, pval in (
                 (True, x[1:]) if x[:1] in "!-" else (False, x)
                 for x in shlex.split(query)
