@@ -60,3 +60,6 @@ jobs:
       env:
         CI: true
         DB: postgres
+
+    - run: cat /tmp/webserver.log
+      if: failure()

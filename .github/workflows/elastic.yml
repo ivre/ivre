@@ -67,3 +67,6 @@ jobs:
       env:
         CI: true
         DB: elastic
+
+    - run: cat /tmp/webserver.log
+      if: failure()
