@@ -270,19 +270,22 @@ def zgrap_parser_http(
                 return {}
             body = resp["body"]
             res["port"] = port
+            parsed: Dict[str, List[str]] = {}
+            for line in body.splitlines():
+                line = line.strip().split("#", 1)[0]
+                if not line:
+                    continue
+                if ":" not in line:
+                    utils.LOGGER.warning("Invalid line in security.txt file [%r]", line)
+                    continue
+                key, value = line.split(":", 1)
+                parsed.setdefault(key.strip().lower(), []).append(value.strip())
             res.setdefault("scripts", []).append(
                 {
                     "id": "http-securitytxt",
                     "output": body,
                     "http-securitytxt": {
-                        key.lower().strip(): value.strip()
-                        for key, value in (
-                            line.split(": ", 1)
-                            for line in (
-                                line.split("#", 1)[0] for line in body.splitlines()
-                            )
-                            if ": " in line
-                        )
+                        key: " / ".join(value) for key, value in parsed.items()
                     },
                 }
             )
