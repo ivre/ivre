@@ -256,6 +256,37 @@ def zgrap_parser_http(
                 }
             )
             return res
+        if url.get("path").endswith("/.well-known/security.txt"):
+            if resp.get("status_code") != 200:
+                return {}
+            if not resp.get("headers"):
+                return {}
+            if not any(
+                ctype.split(";", 1)[0].lower() == "text/plain"
+                for ctype in resp["headers"].get("content_type", [])
+            ):
+                return {}
+            if not resp.get("body"):
+                return {}
+            body = resp["body"]
+            res["port"] = port
+            res.setdefault("scripts", []).append(
+                {
+                    "id": "http-securitytxt",
+                    "output": body,
+                    "http-securitytxt": {
+                        key.lower().strip(): value.strip()
+                        for key, value in (
+                            line.split(": ", 1)
+                            for line in (
+                                line.split("#", 1)[0] for line in body.splitlines()
+                            )
+                            if ": " in line
+                        )
+                    },
+                }
+            )
+            return res
         if url.get("path") != "/":
             utils.LOGGER.warning("URL path not supported yet: %s", url.get("path"))
             return {}
