@@ -2556,29 +2556,46 @@ class DBNmap(DBActive):
                 except (UnicodeDecodeError, json.JSONDecodeError):
                     utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
                     continue
-                if rec.get("type") != "http":
+                # new vs old format
+                if "matched-at" in rec:
+                    rec["matched"] = rec.pop("matched-at")
+                if rec.get("type") == "http":
+                    try:
+                        url = rec.get("matched", rec["host"])
+                    except KeyError:
+                        utils.LOGGER.warning("No URL found [%r]", rec)
+                        continue
+                    is_ssl = False
+                    try:
+                        addr, port = utils.url2hostport(url)
+                    except ValueError:
+                        utils.LOGGER.warning("Invalid URL %r", url)
+                        continue
+                    else:
+                        if url.startswith("https:"):
+                            is_ssl = True
+                elif rec.get("type") == "network":
+                    try:
+                        url = rec.get("matched", rec["host"])
+                    except KeyError:
+                        utils.LOGGER.warning("No URL found [%r]", rec)
+                        continue
+                    try:
+                        addr, port = url.split(":", 1)
+                    except ValueError:
+                        utils.LOGGER.warning("Invalid URL [%r]", url)
+                        continue
+                    try:
+                        port = int(port)
+                    except ValueError:
+                        utils.LOGGER.warning("Invalid URL [%r]", url)
+                        continue
+                else:
                     utils.LOGGER.warning(
                         "Data type %r from nuclei not (yet) supported",
                         rec.get("type"),
                     )
                     continue
-                # new vs old format
-                if "matched-at" in rec:
-                    rec["matched"] = rec.pop("matched-at")
-                try:
-                    url = rec.get("matched", rec["host"])
-                except KeyError:
-                    utils.LOGGER.warning("No URL found [%r]", rec)
-                    continue
-                is_ssl = False
-                try:
-                    addr, port = utils.url2hostport(url)
-                except ValueError:
-                    utils.LOGGER.warning("Invalid URL %r", url)
-                    continue
-                else:
-                    if url.startswith("https:"):
-                        is_ssl = True
                 if "ip" in rec:
                     addr = rec["ip"]
                 try:
