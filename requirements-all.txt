@@ -2,6 +2,7 @@ black
 bottle
 codespell
 cryptography
+docutils!=0.18
 elasticsearch
 elasticsearch-dsl
 flake8
