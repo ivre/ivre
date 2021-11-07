@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Code linting &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -93,7 +94,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="code-linting">
+  <section id="code-linting">
 <h1>Code linting<a class="headerlink" href="#code-linting" title="Permalink to this headline"></a></h1>
 <p>IVRE uses code linters to prevent some easy-to-spot (for a computer)
 mistakes and to enforce a consistent code style (or at least, attempt
@@ -102,7 +103,7 @@ to do so).</p>
 capabilities to the Zeek scripts (<cite>zeek/</cite>), LUA (<cite>nmap_scripts/</cite>) and
 JavaScript / HTML (<cite>web/static/</cite>) could be a good PR idea!</p>
 <p>For all the code and the documentation, we also use <a class="reference external" href="https://github.com/codespell-project/codespell">Codespell</a> to prevent typos.</p>
-<div class="section" id="running-the-linters">
+<section id="running-the-linters">
 <h2>Running the linters<a class="headerlink" href="#running-the-linters" title="Permalink to this headline"></a></h2>
 <p>To install the Python code linters and Codespell you can simply use
 the <cite>requirements-linting.txt</cite> file with Pip, or use any method to
@@ -110,16 +111,16 @@ install the latest versions of the <cite>black</cite>, <cite>codespell</cite>, <
 <cite>pylint</cite> Python modules.</p>
 <p>The script <cite>pkg/runchecks</cite> will run all the tests for you with the
 expected options and exceptions.</p>
-</div>
-<div class="section" id="github-actions">
+</section>
+<section id="github-actions">
 <h2>GitHub actions<a class="headerlink" href="#github-actions" title="Permalink to this headline"></a></h2>
 <p>Code linting and spell checking is performed in a dedicated <a class="reference external" href="https://github.com/ivre/ivre/actions/workflows/linting.yml">GitHub
 action</a>
 (see <a class="reference internal" href="tests.html#github-actions"><span class="std std-ref">GitHub actions</span></a>), togethter with the Maxmind
 tests. Pylint and Codespell only run with Python 3.9, while Flake8
 runs with all Python versions.</p>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>

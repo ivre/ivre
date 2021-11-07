@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Active recon &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -104,11 +105,11 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="active-recon">
+  <section id="active-recon">
 <h1>Active recon<a class="headerlink" href="#active-recon" title="Permalink to this headline"></a></h1>
-<div class="section" id="scanning">
+<section id="scanning">
 <h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline"></a></h2>
-<div class="section" id="with-nmap-masscan-or-zgrab2">
+<section id="with-nmap-masscan-or-zgrab2">
 <h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Permalink to this headline"></a></h3>
 <p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a> or
 <a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a> to run the
@@ -118,8 +119,8 @@ output files for Zgrab2, ZDNS and Nuclei.</p>
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>. You can (and should!) insert scan results from
 different tools, then use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re ready to
 explore your results with the the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> command line tool or the Python API.</p>
-</div>
-<div class="section" id="with-ivre">
+</section>
+<section id="with-ivre">
 <h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this headline"></a></h3>
 <p>Masscan does not provide results as complete as Nmap, when using the
 “interesting” options (for example, <code class="docutils literal notranslate"><span class="pre">-vv</span> <span class="pre">-A</span></code>) or scripts. That being
@@ -149,9 +150,9 @@ to run the scan):</p>
 $ ivre db2view nmap
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="enjoying-the-results">
+</section>
+</section>
+<section id="enjoying-the-results">
 <h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this headline"></a></h2>
 <p>You have several options, depending on what you want to do:</p>
 <ul class="simple">
@@ -164,15 +165,15 @@ results, you need to use a view: run <code class="docutils literal notranslate">
 or update a view from the scan data, that can then be accessed by the
 <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>), which
 includes the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>
-<div class="section" id="cli">
+<section id="cli">
 <h3>CLI<a class="headerlink" href="#cli" title="Permalink to this headline"></a></h3>
 <p>To get all the hosts with the port 22 open:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scancli --port 22
 </pre></div>
 </div>
 <p>See the output of <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">scancli</span></code>.</p>
-</div>
-<div class="section" id="python-module">
+</section>
+<section id="python-module">
 <h3>Python module<a class="headerlink" href="#python-module" title="Permalink to this headline"></a></h3>
 <p>To use the Python module, run for example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python
@@ -181,9 +182,9 @@ includes the <a class="reference internal" href="web-ui.html#web-user-interface"
 </pre></div>
 </div>
 <p>For more, run <code class="docutils literal notranslate"><span class="pre">help(db.nmap)</span></code> from the Python shell.</p>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>

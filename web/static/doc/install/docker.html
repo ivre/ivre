@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Docker &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -99,9 +100,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="docker">
+  <section id="docker">
 <h1>Docker<a class="headerlink" href="#docker" title="Permalink to this headline"></a></h1>
-<div class="section" id="using-vagrant">
+<section id="using-vagrant">
 <h2>Using Vagrant<a class="headerlink" href="#using-vagrant" title="Permalink to this headline"></a></h2>
 <p>If you already manage your Docker containers using
 <a class="reference external" href="https://www.vagrantup.com/">Vagrant</a>, or if you want to give it a
@@ -142,23 +143,23 @@ root@fd983ba5e6fd:/#
 <p>To initialize the database and start playing with IVRE, you need to
 enter some commands described in the <a class="reference external" href="#a-command-line-client">related section
 below</a>.</p>
-</div>
-<div class="section" id="without-vagrant">
+</section>
+<section id="without-vagrant">
 <h2>Without Vagrant<a class="headerlink" href="#without-vagrant" title="Permalink to this headline"></a></h2>
-<div class="section" id="getting-the-images">
+<section id="getting-the-images">
 <h3>Getting the images<a class="headerlink" href="#getting-the-images" title="Permalink to this headline"></a></h3>
 <p>You can either get the images from a repository on the Internet or build
 them. I’ll consider you are on a computer with Docker installed and an
 access to the Internet.</p>
-<div class="section" id="from-the-internet">
+<section id="from-the-internet">
 <h4>From the Internet<a class="headerlink" href="#from-the-internet" title="Permalink to this headline"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in agent base client db web ; do
 &gt; docker pull &quot;ivre/$img&quot;
 &gt; done
 </pre></div>
 </div>
-</div>
-<div class="section" id="build-the-images">
+</section>
+<section id="build-the-images">
 <h4>Build the images<a class="headerlink" href="#build-the-images" title="Permalink to this headline"></a></h4>
 <p>You can also build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
@@ -170,10 +171,10 @@ $ for img in base client agent db web ; do
 </pre></div>
 </div>
 <p>This might take a long time.</p>
-</div>
-<div class="section" id="alternative-builds-for-the-base-image">
+</section>
+<section id="alternative-builds-for-the-base-image">
 <h4>Alternative builds for the base image<a class="headerlink" href="#alternative-builds-for-the-base-image" title="Permalink to this headline"></a></h4>
-<div class="section" id="local-archive">
+<section id="local-archive">
 <h5>Local archive<a class="headerlink" href="#local-archive" title="Permalink to this headline"></a></h5>
 <p>It is also possible to build the <code class="docutils literal notranslate"><span class="pre">ivre/base</span></code> image without fetching
 the <em>tarball</em> from GitHub, by creating it locally and using the
@@ -187,8 +188,8 @@ $ docker pull debian:stable
 $ docker build -t ivre/base docker/base-local
 </pre></div>
 </div>
-</div>
-<div class="section" id="using-pip">
+</section>
+<section id="using-pip">
 <h5>Using pip<a class="headerlink" href="#using-pip" title="Permalink to this headline"></a></h5>
 <p>Another way to create the <code class="docutils literal notranslate"><span class="pre">ivre/base</span></code> image is to use
 <a class="reference external" href="https://pypi.python.org/pypi/pip">pip</a> and thus get IVRE from
@@ -199,9 +200,9 @@ note that the version of IVRE on PyPI is not always up-to-date. From the
 $ docker build -t ivre/base base-pip
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="alternative-build-for-the-web-image-using-apache">
+</section>
+</section>
+<section id="alternative-build-for-the-web-image-using-apache">
 <h4>Alternative build for the web image using Apache<a class="headerlink" href="#alternative-build-for-the-web-image-using-apache" title="Permalink to this headline"></a></h4>
 <p>To use Apache (rather than Nginx) for the <code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> image, simply
 run, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory:</p>
@@ -214,11 +215,11 @@ package to install Dokuwiki (the Debian package for Dokuwiki can only be
 used with Apache and the default <code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> image uses Nginx). This
 can explain some differences one could experience between the two
 images.</p>
-</div>
-</div>
-<div class="section" id="running">
+</section>
+</section>
+<section id="running">
 <h3>Running<a class="headerlink" href="#running" title="Permalink to this headline"></a></h3>
-<div class="section" id="the-database-server">
+<section id="the-database-server">
 <h4>The database server<a class="headerlink" href="#the-database-server" title="Permalink to this headline"></a></h4>
 <p>To create the volume to store MongoDB data, run (<code class="docutils literal notranslate"><span class="pre">chmod</span></code>-ing to
 <code class="docutils literal notranslate"><span class="pre">1777</span></code> is a bit overkill, <code class="docutils literal notranslate"><span class="pre">chown</span></code>-ing it to the UID of the MongoDB
@@ -237,8 +238,8 @@ name later):</p>
 </div>
 <p>You can add the option <code class="docutils literal notranslate"><span class="pre">-p</span> <span class="pre">27017:27017</span></code> to have the MongoDB service
 accessible through the host’s TCP port 27017.</p>
-</div>
-<div class="section" id="the-web-server">
+</section>
+<section id="the-web-server">
 <h4>The web server<a class="headerlink" href="#the-web-server" title="Permalink to this headline"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run -d --name ivreweb --hostname ivreweb \
 &gt;        --link ivredb:ivredb --publish 80:80 ivre/web
@@ -254,8 +255,8 @@ server accessible through the host’s TCP port 80.</p>
 &gt;        --link ivredb:ivredb --publish 80:80 ivre/web
 </pre></div>
 </div>
-</div>
-<div class="section" id="a-command-line-client">
+</section>
+<section id="a-command-line-client">
 <h4>A command line client<a class="headerlink" href="#a-command-line-client" title="Permalink to this headline"></a></h4>
 <p>First, place Nmap result files (XML format) in a specific directory:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir -m 1777 ivre-share
@@ -298,10 +299,10 @@ root@ivreclient:/#
 <p>If you do not want to exit the shell but only detach from it, use
 <code class="docutils literal notranslate"><span class="pre">C-p</span> <span class="pre">C-q</span></code>. You can attach to it again later by issuing
 <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">attach</span> <span class="pre">ivreclient</span></code>.</p>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
            </div>

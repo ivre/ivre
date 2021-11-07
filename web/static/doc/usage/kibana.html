@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IVRE with Kibana &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -102,7 +103,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="ivre-with-kibana">
+  <section id="ivre-with-kibana">
 <h1>IVRE with Kibana<a class="headerlink" href="#ivre-with-kibana" title="Permalink to this headline"></a></h1>
 <p>IVRE has an <em>experimental</em> backend for Elasticsearch for the <code class="docutils literal notranslate"><span class="pre">view</span></code>
 purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>). Only Elasticsearch
@@ -110,17 +111,17 @@ purpose (see <a class="reference internal" href="../overview/principles.html#pur
 <p>While this backend lacks a lot of features, it is enough to create a
 view into an Elasticsearch cluster. Other tools using Elasticsearch
 can then use IVRE’s data.</p>
-<div class="section" id="installation">
+<section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
 <p>As stated in the installation page (see the
 <a class="reference internal" href="../install/installation.html#python"><span class="std std-ref">Python</span></a> section), you will need to install
 the <a class="reference external" href="https://github.com/elastic/elasticsearch-py">elasticsearch</a> and
 <a class="reference external" href="https://github.com/elastic/elasticsearch-dsl-py">elasticsearch-dsl</a>
 Python packages.</p>
-</div>
-<div class="section" id="view-creation">
+</section>
+<section id="view-creation">
 <h2>View creation<a class="headerlink" href="#view-creation" title="Permalink to this headline"></a></h2>
-<div class="section" id="about-views">
+<section id="about-views">
 <h3>About views<a class="headerlink" href="#about-views" title="Permalink to this headline"></a></h3>
 <p>Views are created from Nmap, Masscan or Zgrab2 scan results (stored in
 the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> purpose) and passive host intelligence collected by Zeek
@@ -131,8 +132,8 @@ creation so if you have not read it yet, you should go read
 <p>You can check you have data in the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and/or <code class="docutils literal notranslate"><span class="pre">passive</span></code>
 purposes using the command line: <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span> <span class="pre">--count</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span>
 <span class="pre">ipinfo</span> <span class="pre">--count</span></code>.</p>
-</div>
-<div class="section" id="configuration">
+</section>
+<section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h3>
 <p>We need to configure IVRE to use the Elasticsearch database for the
 <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose. Since we want to do that only to create the view, we
@@ -147,8 +148,8 @@ the <code class="docutils literal notranslate"><span class="pre">IVRE_CONF</span
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre view --count
 </pre></div>
 </div>
-</div>
-<div class="section" id="index-creation-data-insertion">
+</section>
+<section id="index-creation-data-insertion">
 <h3>Index creation &amp; Data insertion<a class="headerlink" href="#index-creation-data-insertion" title="Permalink to this headline"></a></h3>
 <p>So now, we can create a view as we would do with any other
 backend. For example, if we want to create a view using all the
@@ -159,9 +160,9 @@ records from the <code class="docutils literal notranslate"><span class="pre">nm
 </div>
 <p>The first command will drop any existing data, and create the index
 and mapping, and the second will create the view itself.</p>
-</div>
-</div>
-<div class="section" id="using-kibana">
+</section>
+</section>
+<section id="using-kibana">
 <h2>Using Kibana<a class="headerlink" href="#using-kibana" title="Permalink to this headline"></a></h2>
 <p>From Kibana, you will have to create an index pattern (this can only
 be done after the view creation). The default index name from view is
@@ -177,8 +178,8 @@ data see the <a class="reference internal" href="../overview/screenshots.html#ki
 the screenshot gallery for examples of useful visualizations.</p>
 <p>If you have any troubles with Kibana, please refer to <a class="reference external" href="https://www.elastic.co/guide/en/kibana/current/index.html">its
 documentation</a>.</p>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
