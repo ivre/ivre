@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agents &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -100,7 +101,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="agents">
+  <section id="agents">
 <h1>Agents<a class="headerlink" href="#agents" title="Permalink to this headline"></a></h1>
 <p>IVRE agent may be run in an environment not totally controlled (e.g.,
 during a pentest, on a machine you have just owned and want to use to
@@ -109,7 +110,7 @@ number of dependencies.</p>
 <p>IVRE agent only requires <code class="docutils literal notranslate"><span class="pre">nmap</span></code> (of course), <code class="docutils literal notranslate"><span class="pre">screen</span></code> and
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> (plus <code class="docutils literal notranslate"><span class="pre">/bin/sh</span></code> and basic shell utils, including
 <code class="docutils literal notranslate"><span class="pre">grep</span></code>).</p>
-<div class="section" id="set-up">
+<section id="set-up">
 <h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this headline"></a></h2>
 <p>On the “master”, install IVRE following the
 <a class="reference internal" href="installation.html#installation-guidelines"><span class="std std-ref">Installation guidelines</span></a>. Install also
@@ -117,8 +118,8 @@ number of dependencies.</p>
 from the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script (which is not a daemon).</p>
 <p>On the “worker(s)”, the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script must be deployed, together with
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
-</div>
-<div class="section" id="run-the-worker-s">
+</section>
+<section id="run-the-worker-s">
 <h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Permalink to this headline"></a></h2>
 <p>The computer running IVRE (the “master”) needs to be able to access via
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> the data directory of the agents (to add targets and to
@@ -141,8 +142,8 @@ using other scan templates using <code class="docutils literal notranslate"><spa
 <p>Then just run the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script.</p>
 <p>When the scan is over, to stop the agent, type <code class="docutils literal notranslate"><span class="pre">C-c</span></code> or kill the
 parent <code class="docutils literal notranslate"><span class="pre">agent</span></code> process.</p>
-</div>
-<div class="section" id="run-the-master">
+</section>
+<section id="run-the-master">
 <h2>Run the master<a class="headerlink" href="#run-the-master" title="Permalink to this headline"></a></h2>
 <p>You need to make sure the user running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> on the “master” can access (without password)
@@ -156,7 +157,7 @@ results under <code class="docutils literal notranslate"><span class="pre">./age
 results by yourself.</p>
 <p>On the other hand, the second one (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>) will use
 the DB to manage the agents, but is still experimental.</p>
-<div class="section" id="runscansagent-the-old-school-one">
+<section id="runscansagent-the-old-school-one">
 <h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Permalink to this headline"></a></h3>
 <p>You have to specify the agent(s) data directory. For example, run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagent --routable --limit 1000 \
@@ -167,8 +168,8 @@ the DB to manage the agents, but is still experimental.</p>
 <p>You can now import the results as if you had run the “regular” <code class="docutils literal notranslate"><span class="pre">ivre</span>
 <span class="pre">runscans</span></code> program to scan locally. The results are stored under
 <code class="docutils literal notranslate"><span class="pre">agentsdata/output/</span></code></p>
-</div>
-<div class="section" id="runscansagentdb-the-modern-but-probably-broken-one">
+</section>
+<section id="runscansagentdb-the-modern-but-probably-broken-one">
 <h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Permalink to this headline"></a></h3>
 <p>Please note that it is important to run all the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>
 from the same host (the “master”, which does not need to be the same
@@ -241,9 +242,9 @@ will do).</p>
 disassociated from the scan so that another scan can use them. You can
 check the scan evolution by issuing
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span> <span class="pre">--list-scans</span></code>.</p>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
            </div>

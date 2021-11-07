@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flow &mdash; IVRE  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -99,7 +100,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="flow">
+  <section id="flow">
 <h1>Flow<a class="headerlink" href="#flow" title="Permalink to this headline"></a></h1>
 <p>IVRE flow is a beta feature meant to analyze network flows between
 hosts. It can be seen as:</p>
@@ -110,9 +111,9 @@ in IVRE/DRUNK)</p></li>
 known network (but there is no such thing as a “known network”)</p></li>
 <li><p>a monitoring tool to spot unwanted flows in your network</p></li>
 </ul>
-<div class="section" id="usage">
+<section id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline"></a></h2>
-<div class="section" id="data-insertion">
+<section id="data-insertion">
 <h3>Data insertion<a class="headerlink" href="#data-insertion" title="Permalink to this headline"></a></h3>
 <p>There are two tools for data insertion, the first is based on Zeek
 (previously known as Bro):</p>
@@ -135,12 +136,12 @@ $ ivre flow2db flows.argus
 </pre></div>
 </div>
 <p>Any of these tools can be called with ‘–init’ to reinitialize the DB.</p>
-</div>
-<div class="section" id="data-exploration">
+</section>
+<section id="data-exploration">
 <h3>Data exploration<a class="headerlink" href="#data-exploration" title="Permalink to this headline"></a></h3>
 <p>The main exploration tool are the CLI (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>) and the Web UI
 (<code class="docutils literal notranslate"><span class="pre">&lt;ivre-web-root&gt;/flow.html</span></code>).</p>
-<div class="section" id="cli">
+<section id="cli">
 <h4>CLI<a class="headerlink" href="#cli" title="Permalink to this headline"></a></h4>
 <p>You can access the CLI through <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>. Features include:</p>
 <ul class="simple">
@@ -150,10 +151,10 @@ section of this document)</p></li>
 <li><p>Plotting flows amounts over hours of days, on average.</p></li>
 </ul>
 <p>See <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span> <span class="pre">-h</span></code> for usage details.</p>
-</div>
-<div class="section" id="web-ui">
+</section>
+<section id="web-ui">
 <h4>Web UI<a class="headerlink" href="#web-ui" title="Permalink to this headline"></a></h4>
-<div class="section" id="overview">
+<section id="overview">
 <h5>Overview<a class="headerlink" href="#overview" title="Permalink to this headline"></a></h5>
 <p>The central view is a graph representing the network:</p>
 <ul class="simple">
@@ -181,8 +182,8 @@ servers can also be counted as clients if they have outgoing flows.</p></li>
 nodes and edges, timeline precision).</p></li>
 <li><p><strong>Details:</strong> Details on the currently selected item.</p></li>
 </ul>
-</div>
-<div class="section" id="interaction">
+</section>
+<section id="interaction">
 <h5>Interaction<a class="headerlink" href="#interaction" title="Permalink to this headline"></a></h5>
 <p>Hover nodes and edges to display their basic properties in the
 <strong>Details</strong> tab. Click on an edge or a node to query the database for
@@ -211,9 +212,9 @@ visible.</p>
 represent on the timeline (capped by the actual time precision set in
 <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>). The timeline can also be played on the graph by clicking
 the ‘Play timeline’ button.</p>
-</div>
-</div>
-<div class="section" id="flow-filters">
+</section>
+</section>
+<section id="flow-filters">
 <h4>Flow Filters<a class="headerlink" href="#flow-filters" title="Permalink to this headline"></a></h4>
 <p>To write filters, the syntax is as follows:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>[!][ANY|ALL|ONE|LEN ][src.|dst.][meta.]&lt;attribute&gt; [&lt;operator&gt; &lt;value&gt;]
@@ -259,10 +260,10 @@ matches <code class="docutils literal notranslate"><span class="pre">'.*example.
 <li><p><code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">=~</span></code></p></li>
 </ul>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
            </div>
