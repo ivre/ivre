@@ -53,7 +53,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
+from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
     merge_host_docs,
@@ -3175,14 +3175,15 @@ class DBPassive(DB):
     def _update_dns_blacklist(old_spec):
         """Create a new dns blacklist entry based on the value of
         the old dns entry"""
-        spec = {}
         dnsbl_val = old_spec["value"]
-        spec["recontype"] = "DNS_BLACKLIST"
-        spec["value"] = old_spec["addr"]
-        spec["source"] = "%s-%s" % (dnsbl_val.split(".", 4)[4], old_spec["source"])
-        spec["addr"] = ".".join(dnsbl_val.split(".")[3::-1])
-        spec["count"] = old_spec["count"]
-        return spec
+        return {
+            "recontype": "DNS_BLACKLIST",
+            "value": old_spec["addr"],
+            "source": "%s-%s" % (dnsbl_val.split(".", 4)[4], old_spec["source"]),
+            "addr": ".".join(dnsbl_val.split(".")[3::-1]),
+            "count": old_spec["count"],
+            "schema_version": passive.SCHEMA_VERSION,
+        }
 
     def update_dns_blacklist(self):
         """Update the current database to detect blacklist domains.
