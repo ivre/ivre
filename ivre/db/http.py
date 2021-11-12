@@ -201,14 +201,20 @@ class HttpDB(DB):
         )
 
     def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        url = "%s/%s?f=%s&q=skip:" % (
-            self.db.baseurl,
-            self.route,
-            self._output_filter(spec),
-        )
+        url_l = [
+            "%s/%s?f=%s&q="
+            % (
+                self.db.baseurl,
+                self.route,
+                self._output_filter(spec),
+            )
+        ]
+        for s_field, direction in sort or []:
+            url_l.append("%ssortby:%s%%20" % ("-" if direction < 0 else "", s_field))
+        url_l.append("skip:")
+        url = "".join(url_l)
         if skip is None:
             skip = 0
-        # TODO: sort
         while True:
             cururl = "%s%d" % (url, skip)
             if limit is not None:
@@ -248,16 +254,21 @@ class HttpDB(DB):
             yield rec
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
-        url = "%s/%s/distinct/%s?f=%s&format=ndjson&q=limit:%d" % (
-            self.db.baseurl,
-            self.route,
-            field,
-            self._output_filter(flt or {}),
-            limit or 0,
-        )
+        url_l = [
+            "%s/%s/distinct/%s?f=%s&format=ndjson&q=limit:%d"
+            % (
+                self.db.baseurl,
+                self.route,
+                field,
+                self._output_filter(flt or {}),
+                limit or 0,
+            )
+        ]
+        for s_field, direction in sort or []:
+            url_l.append("%%20%ssortby:%s" % ("-" if direction < 0 else "", s_field))
         if skip is not None:
-            url += "%20skip:%d" % skip
-        # TODO: sort
+            url_l.append("%%20skip:%d" % skip)
+        url = "".join(url_l)
         for line in self.db.open(url):
             yield json.loads(line)
 
