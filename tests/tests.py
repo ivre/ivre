@@ -62,6 +62,13 @@ HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
 
 
+# See https://bugs.python.org/issue45235
+PYTHON_BUG_45235 = {
+    (3, 9, 8),
+}
+HAS_PYTHON_BUG_45235 = sys.version_info[:3] in PYTHON_BUG_45235
+
+
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
 @contextmanager
 def capture(function, *args, **kwargs):
@@ -4782,33 +4789,34 @@ class IvreTests(unittest.TestCase):
         # One entry in test should actually be one entry at the end.
         self.check_value("view_count_active", len(out.splitlines()))
 
-        # Test passive filters
-        # FIXME : positionnal IP filter is broken
-        # ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
-        #                    "10.0.0.1"])
-        ret, out, _ = RUN(
-            ["ivre", "db2view", "--test", "passive", "--net", "192.168.0.0/16"]
-        )
-        self.assertEqual(ret, 0)
-        self.check_value("view_test_network", len(out.splitlines()))
-        ret, out, _ = RUN(
-            [
-                "ivre",
-                "db2view",
-                "--test",
-                "passive",
-                "--range",
-                "192.168.0.0",
-                "192.168.255.255",
-            ]
-        )
-        self.assertEqual(ret, 0)
-        self.check_value("view_test_range", len(out.splitlines()))
-        ret, out, _ = RUN(
-            ["ivre", "db2view", "--test", "passive", "--host", "10.0.0.1"]
-        )
-        self.assertEqual(ret, 0)
-        self.assertEqual(len(out.splitlines()), 1)
+        if not HAS_PYTHON_BUG_45235:
+            # Test passive filters
+            # FIXME : positionnal IP filter is broken
+            # ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+            #                    "10.0.0.1"])
+            ret, out, _ = RUN(
+                ["ivre", "db2view", "--test", "passive", "--net", "192.168.0.0/16"]
+            )
+            self.assertEqual(ret, 0)
+            self.check_value("view_test_network", len(out.splitlines()))
+            ret, out, _ = RUN(
+                [
+                    "ivre",
+                    "db2view",
+                    "--test",
+                    "passive",
+                    "--range",
+                    "192.168.0.0",
+                    "192.168.255.255",
+                ]
+            )
+            self.assertEqual(ret, 0)
+            self.check_value("view_test_range", len(out.splitlines()))
+            ret, out, _ = RUN(
+                ["ivre", "db2view", "--test", "passive", "--host", "10.0.0.1"]
+            )
+            self.assertEqual(ret, 0)
+            self.assertEqual(len(out.splitlines()), 1)
 
         print("Counting")
         view_count = 0
