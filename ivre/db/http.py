@@ -405,7 +405,8 @@ class HttpDBData(HttpDB, DBData):
         url = "%s/%s/%s" % (self.db.baseurl, self.route, addr)
         req = self.db.open(url)
         return {
-            k: tuple(v) if isinstance(v, list) else v for k, v in json.load(req).items()
+            k: tuple(v) if isinstance(v, list) else v
+            for k, v in (json.load(req) or {}).items()
         }
 
     def _infos_byip(self, fields, addr):
