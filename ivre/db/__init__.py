@@ -753,7 +753,12 @@ class DB:
 class DBActive(DB):
 
     ipaddr_fields = ["addr", "traces.hops.ipaddr", "ports.state_reason_ip"]
-    datetime_fields = ["starttime", "endtime"]
+    datetime_fields = [
+        "starttime",
+        "endtime",
+        "ports.scripts.ssl-cert.not_after",
+        "ports.scripts.ssl-cert.not_before",
+    ]
     list_fields = [
         "categories",
         "cpes",
@@ -2842,7 +2847,7 @@ class _RecInfo:
 class DBPassive(DB):
 
     ipaddr_fields = ["addr"]
-    datetime_fields = ["firstseen", "lastseen"]
+    datetime_fields = ["firstseen", "lastseen", "infos.not_after", "infos.not_before"]
     list_fields = ["infos.domain", "infos.domaintarget", "infos.san"]
 
     def __init__(self):

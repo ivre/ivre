@@ -271,6 +271,23 @@ class ElasticDBActive(ElasticDB, DBActive):
             ignore_unavailable=True,
         )["count"]
 
+    def _set_datetime_field(self, record, field, current=None):
+        if current is None:
+            current = []
+        if "." not in field:
+            if field in record:
+                record[field] = utils.all2datetime(record[field])
+            return
+        nextfield, field = field.split(".", 1)
+        if nextfield not in record:
+            return
+        current.append(nextfield)
+        if ".".join(current) in self.list_fields:
+            for subrecord in record[nextfield]:
+                self._set_datetime_field(subrecord, field, current=current)
+        else:
+            self._set_datetime_field(record[nextfield], field, current=current)
+
     def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
         query = {"query": spec.to_dict()}
@@ -283,8 +300,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             if "coordinates" in host.get("infos", {}):
                 host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
             for field in self.datetime_fields:
-                if field in host:
-                    host[field] = utils.all2datetime(host[field])
+                self._set_datetime_field(host, field)
             yield host
 
     def remove(self, host):

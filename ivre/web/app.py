@@ -532,6 +532,24 @@ def get_distinct(subdb, field):
         yield "\n]);\n"
 
 
+def _set_datetime_field(dbase, record, field, current=None):
+    if current is None:
+        current = []
+    if "." not in field:
+        if field in record:
+            record[field] = int(record[field].timestamp())
+        return
+    nextfield, field = field.split(".", 1)
+    if nextfield not in record:
+        return
+    current.append(nextfield)
+    if ".".join(current) in dbase.list_fields:
+        for subrecord in record[nextfield]:
+            _set_datetime_field(dbase, subrecord, field, current=current)
+    else:
+        _set_datetime_field(dbase, record[nextfield], field, current=current)
+
+
 @application.get("/<subdb:re:scans|view>")
 @check_referer
 def get_nmap(subdb):
@@ -597,10 +615,8 @@ def get_nmap(subdb):
                 pass
         if flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
-        for field in ["starttime", "endtime"]:
-            if field in rec:
-                if not flt_params.datesasstrings:
-                    rec[field] = int(rec[field].timestamp())
+        for field in subdb.datetime_fields:
+            _set_datetime_field(subdb, rec, field)
         for port in rec.get("ports", []):
             if "screendata" in port:
                 port["screendata"] = utils.encode_b64(port["screendata"])
@@ -987,10 +1003,8 @@ def get_passive():
             pass
         if "addr" in rec and flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
-        for field in ["firstseen", "lastseen"]:
-            if field in rec:
-                if not flt_params.datesasstrings:
-                    rec[field] = int(rec[field].timestamp())
+        for field in db.passive.datetime_fields:
+            _set_datetime_field(db.passive, rec, field)
         if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
             "cert",
             "cacert",
