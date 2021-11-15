@@ -250,12 +250,17 @@ class HttpDB(DB):
             current = []
         if "." not in field:
             if field in record:
-                record[field] = datetime.fromtimestamp(record[field])
+                if ".".join(current + [field]) in self.list_fields:
+                    record[field] = [
+                        datetime.fromtimestamp(value) for value in record[field]
+                    ]
+                else:
+                    record[field] = datetime.fromtimestamp(record[field])
             return
         nextfield, field = field.split(".", 1)
         if nextfield not in record:
             return
-        current.append(nextfield)
+        current = current + [nextfield]
         if ".".join(current) in self.list_fields:
             for subrecord in record[nextfield]:
                 self._set_datetime_field(subrecord, field, current=current)
