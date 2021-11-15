@@ -245,11 +245,27 @@ class HttpDB(DB):
 
         """
 
+    def _set_datetime_field(self, record, field, current=None):
+        if current is None:
+            current = []
+        if "." not in field:
+            if field in record:
+                record[field] = datetime.fromtimestamp(record[field])
+            return
+        nextfield, field = field.split(".", 1)
+        if nextfield not in record:
+            return
+        current.append(nextfield)
+        if ".".join(current) in self.list_fields:
+            for subrecord in record[nextfield]:
+                self._set_datetime_field(subrecord, field, current=current)
+        else:
+            self._set_datetime_field(record[nextfield], field, current=current)
+
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
         for rec in self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields):
             for fld in self.datetime_fields:
-                if fld in rec:
-                    rec[fld] = datetime.fromtimestamp(rec[fld])
+                self._set_datetime_field(rec, fld)
             self.fix_rec(rec)
             yield rec
 
