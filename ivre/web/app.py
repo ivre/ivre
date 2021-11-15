@@ -537,12 +537,15 @@ def _set_datetime_field(dbase, record, field, current=None):
         current = []
     if "." not in field:
         if field in record:
-            record[field] = int(record[field].timestamp())
+            if ".".join(current + [field]) in dbase.list_fields:
+                record[field] = [int(value.timestamp()) for value in record[field]]
+            else:
+                record[field] = int(record[field].timestamp())
         return
     nextfield, field = field.split(".", 1)
     if nextfield not in record:
         return
-    current.append(nextfield)
+    current = current + [nextfield]
     if ".".join(current) in dbase.list_fields:
         for subrecord in record[nextfield]:
             _set_datetime_field(dbase, subrecord, field, current=current)
@@ -615,8 +618,9 @@ def get_nmap(subdb):
                 pass
         if flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
-        for field in subdb.datetime_fields:
-            _set_datetime_field(subdb, rec, field)
+        if not flt_params.datesasstrings:
+            for field in subdb.datetime_fields:
+                _set_datetime_field(subdb, rec, field)
         for port in rec.get("ports", []):
             if "screendata" in port:
                 port["screendata"] = utils.encode_b64(port["screendata"])
@@ -1003,8 +1007,9 @@ def get_passive():
             pass
         if "addr" in rec and flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
-        for field in db.passive.datetime_fields:
-            _set_datetime_field(db.passive, rec, field)
+        if not flt_params.datesasstrings:
+            for field in db.passive.datetime_fields:
+                _set_datetime_field(db.passive, rec, field)
         if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
             "cert",
             "cacert",
