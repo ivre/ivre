@@ -2450,6 +2450,10 @@ class SQLDBNmap(SQLDBActive, DBNmap):
 
     @classmethod
     def searchsource(cls, src, neg=False):
+        if isinstance(src, list):
+            if neg:
+                return cls.base_filter(main=(cls.tables.scan.source.notin_(src)))
+            return cls.base_filter(main=(cls.tables.scan.source.in_(src)))
         return cls.base_filter(
             main=cls._searchstring_re(cls.tables.scan.source, src, neg=neg)
         )
@@ -2956,8 +2960,16 @@ class SQLDBPassive(SQLDB, DBPassive):
         return cls.flt_empty if neg else cls.searchnonexistent()
 
     @classmethod
-    def searchrecontype(cls, rectype):
-        return PassiveFilter(main=(cls.tables.passive.recontype == rectype))
+    def searchrecontype(cls, rectype, neg=False):
+        if isinstance(rectype, list):
+            if neg:
+                return PassiveFilter(
+                    main=(cls.tables.passive.recontype.notin_(rectype))
+                )
+            return PassiveFilter(main=(cls.tables.passive.recontype.in_(rectype)))
+        return PassiveFilter(
+            main=cls._searchstring_re(cls.tables.passive.recontype, rectype, neg=neg)
+        )
 
     @classmethod
     def searchdns(cls, name=None, reverse=False, dnstype=None, subdomains=False):

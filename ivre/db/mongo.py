@@ -2304,8 +2304,20 @@ class MongoDBActive(MongoDB, DBActive):
 
         """
         if neg:
-            return {"source": {"$not": {"$in": [src]}}}
-        return {"source": {"$in": [src]}}
+            if isinstance(src, utils.REGEXP_T):
+                return {"source": {"$not": src}}
+            if isinstance(src, list):
+                if len(src) == 1:
+                    src = src[0]
+                else:
+                    return {"source": {"$nin": src}}
+            return {"source": {"$ne": src}}
+        if isinstance(src, list):
+            if len(src) == 1:
+                src = src[0]
+            else:
+                return {"source": {"$in": src}}
+        return {"source": src}
 
     @staticmethod
     def searchport(port, protocol="tcp", state="open", neg=False):
@@ -4571,7 +4583,24 @@ class MongoDBPassive(MongoDB, DBPassive):
         )
 
     @staticmethod
-    def searchrecontype(rectype):
+    def searchrecontype(rectype, neg=False):
+        """
+        Filters (if `neg` == True, filters out) one particular recontype.
+        """
+        if neg:
+            if isinstance(rectype, utils.REGEXP_T):
+                return {"recontype": {"$not": rectype}}
+            if isinstance(rectype, list):
+                if len(rectype) == 1:
+                    rectype = rectype[0]
+                else:
+                    return {"recontype": {"$nin": rectype}}
+            return {"recontype": {"$ne": rectype}}
+        if isinstance(rectype, list):
+            if len(rectype) == 1:
+                rectype = rectype[0]
+            else:
+                return {"recontype": {"$in": rectype}}
         return {"recontype": rectype}
 
     @staticmethod
