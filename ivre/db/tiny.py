@@ -610,7 +610,13 @@ class TinyDBActive(TinyDB, DBActive):
         source.
 
         """
-        return cls._searchstring_re(Query().source, src, neg=neg)
+        q = Query()
+        if isinstance(src, list):
+            res = q.source.one_of(src)
+            if neg:
+                return ~res
+            return res
+        return cls._searchstring_re(q.source, src, neg=neg)
 
     @staticmethod
     def searchport(port, protocol="tcp", state="open", neg=False):
@@ -2639,8 +2645,14 @@ class TinyDBPassive(TinyDB, DBPassive):
         return sorted(res, key=lambda val: [utils.key_sort_none(v) for v in val])
 
     @classmethod
-    def searchrecontype(cls, rectype):
-        return cls._searchstring_re(Query().recontype, rectype)
+    def searchrecontype(cls, rectype, neg=False):
+        q = Query()
+        if isinstance(rectype, list):
+            res = q.recontype.one_of(rectype)
+            if neg:
+                return ~res
+            return res
+        return cls._searchstring_re(q.recontype, rectype, neg=neg)
 
     @classmethod
     def searchsensor(cls, sensor, neg=False):
