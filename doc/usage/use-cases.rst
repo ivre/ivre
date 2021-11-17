@@ -89,7 +89,7 @@ To learn more about this plugin, have a look at `its documentation
 
 |yeti_investigation|
 
-Cortex Analyzer
+Cortex analyzer
 ---------------
 
 `Cortex <https://thehive-project.org/>`_ is a tool to analyze
@@ -104,6 +104,23 @@ To learn more about this analyzer, have a look at `its documentation
 <https://github.com/TheHive-Project/Cortex-Analyzers/blob/develop/analyzers/IVRE/README.md>`__.
 
 |cortex_analyzer_template|
+
+OpenCTI connector
+-----------------
+
+`OpenCTI <https://www.opencti.io/>`_ is an open-source cyber threat
+intelligence (CTI) platform.
+
+It comes with an "internal enrichment connector" that uses IVRE's data
+to create links between IP addresses, MAC addresses, hostnames,
+certificates, AS numbers and locations.
+
+To learn more about this connector, have a look at `its documentation
+<https://github.com/p-l-/connectors/blob/ivre/internal-enrichment/ivre/README.md>`__.
+
+|opencti_connector_scans|
+
+|opencti_connector_passive|
 
 Blog posts and other resources
 ------------------------------
@@ -155,3 +172,5 @@ so that we can add a link here!
 
 .. |yeti_investigation| image:: ../screenshots/yeti_investigation.png
 .. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png
+.. |opencti_connector_scans| image:: ../screenshots/opencti-connector-scans.png
+.. |opencti_connector_passive| image:: ../screenshots/opencti-connector-passive.png
