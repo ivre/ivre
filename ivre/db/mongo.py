@@ -2224,6 +2224,19 @@ class MongoDBActive(MongoDB, DBActive):
             {"hostnames.name": name},
         )
 
+    @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        if mac is not None:
+            if isinstance(mac, utils.REGEXP_T):
+                mac = re.compile(mac.pattern, mac.flags | re.I)
+                if neg:
+                    return {"addresses.mac": {"$not": mac}}
+                return {"addresses.mac": mac}
+            if neg:
+                return {"addresses.mac": {"$ne": mac.lower()}}
+            return {"addresses.mac": mac.lower()}
+        return {"addresses.mac": {"$exists": not neg}}
+
     @staticmethod
     def searchcategory(cat, neg=False):
         """
@@ -4698,20 +4711,19 @@ class MongoDBPassive(MongoDB, DBPassive):
         return {"infos.service_hostname": hostname}
 
     @classmethod
-    def searchmac(cls, mac=None, reverse=False, neg=False):
+    def searchmac(cls, mac=None, neg=False):
         res = {"recontype": "MAC_ADDRESS"}
-        value = "targetval" if reverse else "value"
         if mac is not None:
             if isinstance(mac, utils.REGEXP_T):
                 mac = re.compile(mac.pattern, mac.flags | re.I)
                 if neg:
-                    res[value] = {"$not": mac}
+                    res["value"] = {"$not": mac}
                 else:
-                    res[value] = mac
+                    res["value"] = mac
             elif neg:
-                res[value] = {"$ne": mac.lower()}
+                res["value"] = {"$ne": mac.lower()}
             else:
-                res[value] = mac.lower()
+                res["value"] = mac.lower()
         elif neg:
             return {"recontype": {"$not": "MAC_ADDRESS"}}
         return res

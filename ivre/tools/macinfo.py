@@ -61,20 +61,12 @@ def main() -> None:
             neg = False
         match = MAC_ADDR.search(arg)
         if match:
-            flts[0].extend(
-                [
-                    db.passive.searchmac(mac=arg.lower(), neg=neg),
-                    db.passive.searchmac(mac=arg.lower(), reverse=True, neg=neg),
-                ]
+            flts[0].append(
+                db.passive.searchmac(mac=arg.lower(), neg=neg),
             )
         elif arg.startswith("/") and "/" in arg[1:]:
-            flts[0].extend(
-                [
-                    db.passive.searchmac(mac=utils.str2regexp(arg.lower()), neg=neg),
-                    db.passive.searchmac(
-                        mac=utils.str2regexp(arg.lower()), reverse=True, neg=neg
-                    ),
-                ]
+            flts[0].append(
+                db.passive.searchmac(mac=utils.str2regexp(arg.lower()), neg=neg),
             )
         elif "/" in arg:
             flts[1].append(db.passive.searchnet(arg, neg=neg))
