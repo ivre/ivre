@@ -541,6 +541,20 @@ class TinyDBActive(TinyDB, DBActive):
         return res
 
     @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        q_mac = Query().addresses.mac
+        if mac is not None:
+            if isinstance(mac, utils.REGEXP_T):
+                mac = re.compile(mac.pattern, mac.flags | re.I)
+            else:
+                mac = mac.lower()
+            return cls._searchstring_re(q_mac, mac, neg=neg)
+        res = q_mac.exists()
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
     def searchcategory(cls, cat, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular category
@@ -2734,7 +2748,7 @@ class TinyDBPassive(TinyDB, DBPassive):
         return cls._searchstring_re(Query().infos.service_hostname, hostname)
 
     @classmethod
-    def searchmac(cls, mac=None, reverse=False, neg=False):
+    def searchmac(cls, mac=None, neg=False):
         q = Query()
         res = q.recontype == "MAC_ADDRESS"
         if mac is not None:
@@ -2742,9 +2756,7 @@ class TinyDBPassive(TinyDB, DBPassive):
                 mac = re.compile(mac.pattern, mac.flags | re.I)
             else:
                 mac = mac.lower()
-            res &= cls._searchstring_re(
-                q.targetval if reverse else q.value, mac, neg=neg
-            )
+            res &= cls._searchstring_re(q.value, mac, neg=neg)
         elif neg:
             return q.recontype != "MAC_ADDRESS"
         return res
