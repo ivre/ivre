@@ -786,6 +786,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {},
             ),
+            ([("addresses.mac", pymongo.ASCENDING)], {"sparse": True}),
             ([("starttime", pymongo.ASCENDING)], {}),
             ([("endtime", pymongo.ASCENDING)], {}),
             ([("source", pymongo.ASCENDING)], {}),
