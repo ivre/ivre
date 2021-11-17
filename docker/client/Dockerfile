@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -53,6 +53,11 @@ RUN apt-get -q update && \
     wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_11/Release.key | apt-key add - && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
     apt-get -qy --purge autoremove gnupg wget && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install p0f
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install p0f && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
