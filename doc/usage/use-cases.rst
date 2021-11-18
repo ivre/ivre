@@ -116,7 +116,7 @@ to create links between IP addresses, MAC addresses, hostnames,
 certificates, AS numbers and locations.
 
 To learn more about this connector, have a look at `its documentation
-<https://github.com/p-l-/connectors/blob/ivre/internal-enrichment/ivre/README.md>`__.
+<https://github.com/OpenCTI-Platform/connectors/blob/master/internal-enrichment/ivre/README.md>`__.
 
 |opencti_connector_scans|
 
