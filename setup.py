@@ -174,6 +174,7 @@ setup(
         "MediaWiki integration": ["MySQL-python"],
         "3D traceroute graphs": ["dbus-python"],
         "Plots": ["matplotlib"],
+        "JA3 fingerprints from reverse-ssl services": ["scapy"],
     },
     packages=[
         "ivre",

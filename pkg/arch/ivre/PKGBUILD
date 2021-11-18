@@ -130,7 +130,7 @@ package_python-ivre-git() {
               'python-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
               'python-cryptography: extract data from public keys ("ivre getmoduli")'
-              'python-scapy: parse PCAP files for ARP inspection (flow analysis)'
+              'python-scapy: compute JA3 fingerprints from reverse-ssl services'
               'python-matplotlib: create graphs from command line tools'
               'python-dbus: 3D traceroute graphs'
               'mongodb: database server'

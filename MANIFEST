@@ -193,6 +193,8 @@ web/static/doc/_images/kibana-index-creation-1.png
 web/static/doc/_images/kibana-index-creation-2.png
 web/static/doc/_images/kibana-pie-countries_ASnums.png
 web/static/doc/_images/kibana-worldmap.png
+web/static/doc/_images/opencti-connector-passive.png
+web/static/doc/_images/opencti-connector-scans.png
 web/static/doc/_images/passive-cli.svg
 web/static/doc/_images/passive-view-cli.svg
 web/static/doc/_images/webui-details-heatmapzoom.png
