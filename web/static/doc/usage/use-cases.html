@@ -54,7 +54,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#your-own-passive-dns-service">Your own Passive DNS service</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#yeti-plugin">YETI plugin</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#cortex-analyzer">Cortex Analyzer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cortex-analyzer">Cortex analyzer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#opencti-connector">OpenCTI connector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#blog-posts-and-other-resources">Blog posts and other resources</a></li>
 </ul>
 </li>
@@ -168,7 +169,7 @@ links between IP addresses, hostnames, certificates, etc.</p>
 <p><img alt="yeti_investigation" src="../_images/yeti_investigation.png" /></p>
 </section>
 <section id="cortex-analyzer">
-<h2>Cortex Analyzer<a class="headerlink" href="#cortex-analyzer" title="Permalink to this headline"></a></h2>
+<h2>Cortex analyzer<a class="headerlink" href="#cortex-analyzer" title="Permalink to this headline"></a></h2>
 <p><a class="reference external" href="https://thehive-project.org/">Cortex</a> is a tool to analyze
 observables for SOCs, CSIRTs and security researchers; it integrates
 well with TheHive.</p>
@@ -177,6 +178,17 @@ intelligence about Autonomous Systems, certificates, domain and host
 names, IP addresses, networks, open ports, etc.</p>
 <p>To learn more about this analyzer, have a look at <a class="reference external" href="https://github.com/TheHive-Project/Cortex-Analyzers/blob/develop/analyzers/IVRE/README.md">its documentation</a>.</p>
 <p><img alt="cortex_analyzer_template" src="../_images/cortex-analyzer-template.png" /></p>
+</section>
+<section id="opencti-connector">
+<h2>OpenCTI connector<a class="headerlink" href="#opencti-connector" title="Permalink to this headline"></a></h2>
+<p><a class="reference external" href="https://www.opencti.io/">OpenCTI</a> is an open-source cyber threat
+intelligence (CTI) platform.</p>
+<p>It comes with an “internal enrichment connector” that uses IVRE’s data
+to create links between IP addresses, MAC addresses, hostnames,
+certificates, AS numbers and locations.</p>
+<p>To learn more about this connector, have a look at <a class="reference external" href="https://github.com/p-l-/connectors/blob/ivre/internal-enrichment/ivre/README.md">its documentation</a>.</p>
+<p><img alt="opencti_connector_scans" src="../_images/opencti-connector-scans.png" /></p>
+<p><img alt="opencti_connector_passive" src="../_images/opencti-connector-passive.png" /></p>
 </section>
 <section id="blog-posts-and-other-resources">
 <h2>Blog posts and other resources<a class="headerlink" href="#blog-posts-and-other-resources" title="Permalink to this headline"></a></h2>
