@@ -2346,7 +2346,7 @@ else:
         pubkey = decode_b64(b"".join(pubkey.splitlines()[1:-1]))
         for hashtype in ["md5", "sha1", "sha256"]:
             result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
-        result["pubkey"]["raw"] = encode_b64(pubkey)
+        result["pubkey"]["raw"] = encode_b64(pubkey).decode()
         return result
 
 
