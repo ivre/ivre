@@ -28,8 +28,8 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 
 from ivre.db import db, DBPassive
-import ivre.passive
-import ivre.parser.zeek
+from ivre.passive import getinfos, handle_rec
+from ivre.parser.zeek import ZeekFile
 from ivre.types import Record
 from ivre.utils import force_ip2int
 
@@ -68,7 +68,7 @@ def rec_iter(
         line["timestamp"] = line.pop("ts")
         # skip PassiveRecon::
         line["recon_type"] = line["recon_type"][14:]
-        yield from ivre.passive.handle_rec(
+        yield from handle_rec(
             sensor,
             ignore_rules.get("IGNORENETS", {}),
             ignore_rules.get("NEVERIGNORE", {}),
@@ -78,6 +78,9 @@ def rec_iter(
 
 def main() -> None:
     parser = ArgumentParser(description=__doc__, parents=[db.passive.argparser_insert])
+    parser.add_argument(
+        "files", nargs="*", metavar="FILE", help="passive_recon log files"
+    )
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
     if (not (args.no_bulk or args.local_bulk)) or args.bulk:
@@ -89,7 +92,7 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
-    zeek_parser = ivre.parser.zeek.ZeekFile(sys.stdin.buffer)
-    function(
-        rec_iter(zeek_parser, args.sensor, ignore_rules), getinfos=ivre.passive.getinfos
-    )
+    for fdesc in args.files or [sys.stdin.buffer]:
+        function(
+            rec_iter(ZeekFile(fdesc), args.sensor, ignore_rules), getinfos=getinfos
+        )
