@@ -28,6 +28,12 @@ mkdir -p usr/local/wireshark/share/wireshark
 wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
 wget -q -O - https://github.com/ivre/ivre-test-samples/archive/0951ba6fc0eee158546e04fbce84c560950023d6.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
 
+USE_PYOPENSSL="$((RANDOM % 2))"
+echo "USE_PYOPENSSL: ${USE_PYOPENSSL}"
+if [ "${USE_PYOPENSSL}" = "0" ]; then
+    pip uninstall -y pyOpenSSL
+fi
+
 zeek_v[0]="3.0.6"
 zeek_v[1]="3.1.3"
 zeek_v[2]="3.2.4"
