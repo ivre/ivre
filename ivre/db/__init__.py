@@ -2564,13 +2564,13 @@ class DBNmap(DBActive):
                 # new vs old format
                 if "matched-at" in rec:
                     rec["matched"] = rec.pop("matched-at")
+                is_ssl = False
                 if rec.get("type") == "http":
                     try:
                         url = rec.get("matched", rec["host"])
                     except KeyError:
                         utils.LOGGER.warning("No URL found [%r]", rec)
                         continue
-                    is_ssl = False
                     try:
                         addr, port = utils.url2hostport(url)
                     except ValueError:
