@@ -3404,7 +3404,19 @@ class MongoDBActive(MongoDB, DBActive):
             field = "hostnames.domains"
             aggrflt = {"field": re.compile("^([^\\.]+\\.){%d}[^\\.]+$" % level)}
         elif field.startswith("cert."):
+            flt = self.flt_and(flt, self.searchcert())
             field = "ports.scripts.ssl-cert." + field[5:]
+            specialproj = {"_id": 0, "ports.scripts.id": 1, field: 1}
+            specialflt = [
+                {"$match": {"ports.scripts.id": "ssl-cert"}},
+            ]
+        elif field.startswith("cacert."):
+            flt = self.flt_and(flt, self.searchcert(cacert=True))
+            field = "ports.scripts.ssl-cert." + field[7:]
+            specialproj = {"_id": 0, "ports.scripts.id": 1, field: 1}
+            specialflt = [
+                {"$match": {"ports.scripts.id": "ssl-cacert"}},
+            ]
         elif field == "useragent" or field.startswith("useragent:"):
             if field == "useragent":
                 flt = self.flt_and(flt, self.searchuseragent())

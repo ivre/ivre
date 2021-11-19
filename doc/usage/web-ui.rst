@@ -66,6 +66,8 @@ displayed in the rightmost part of the screen.
      ``smb.dnsdomain``, ``smb.forest``, ``smb.workgroup``
    - ``cert.issuer``, ``cert.subject``, ``cert.md5``, ``cert.sha1``,
      ``cert.sha256``
+   - ``cacert.issuer``, ``cacert.subject``, ``cacert.md5``,
+     ``cacert.sha1``, ``cacert.sha256``
    - ``sshkey.type``, ``sshkey.bits``, ``sshkey.fingerprint``
    - ``ike.notification``, ``ike.transforms``,
      ``ike.transforms.Authentication``, ``ike.transforms.Encryption``,
@@ -214,6 +216,8 @@ Filters
 - ``sshkey:`` look for a particular SSH key.
 - ``cert.md5:``, ``cert.sha1:``, ``cert.sha256:`` look for a
   particular certificate.
+- ``cacert.md5:``, ``cacert.sha1:``, ``cacert.sha256:`` look for a
+  particular CA certificate.
 - ``torcert`` look for Tor certificates.
 - ``webfiles`` look for "typical" web files in the shared folders.
 - ``webmin`` look for Webmin servers.
