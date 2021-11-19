@@ -32,7 +32,7 @@
             <img src="../_static/logo.png" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                0.9.16.dev
+                0.9.17.dev
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -170,6 +170,8 @@ will show top vendor names in CPEs that start with an <code class="docutils lite
 <code class="docutils literal notranslate"><span class="pre">smb.dnsdomain</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.forest</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.workgroup</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cert.issuer</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.subject</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.md5</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.sha1</span></code>,
 <code class="docutils literal notranslate"><span class="pre">cert.sha256</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cacert.issuer</span></code>, <code class="docutils literal notranslate"><span class="pre">cacert.subject</span></code>, <code class="docutils literal notranslate"><span class="pre">cacert.md5</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cacert.sha1</span></code>, <code class="docutils literal notranslate"><span class="pre">cacert.sha256</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sshkey.type</span></code>, <code class="docutils literal notranslate"><span class="pre">sshkey.bits</span></code>, <code class="docutils literal notranslate"><span class="pre">sshkey.fingerprint</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ike.notification</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms</span></code>,
 <code class="docutils literal notranslate"><span class="pre">ike.transforms.Authentication</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms.Encryption</span></code>,
@@ -313,6 +315,8 @@ shares with anonymous access. Access can be ‘r’, ‘w’ or ‘rw’
 <li><p><code class="docutils literal notranslate"><span class="pre">sshkey:</span></code> look for a particular SSH key.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cert.md5:</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.sha1:</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.sha256:</span></code> look for a
 particular certificate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cacert.md5:</span></code>, <code class="docutils literal notranslate"><span class="pre">cacert.sha1:</span></code>, <code class="docutils literal notranslate"><span class="pre">cacert.sha256:</span></code> look for a
+particular CA certificate.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">torcert</span></code> look for Tor certificates.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">webfiles</span></code> look for “typical” web files in the shared folders.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">webmin</span></code> look for Webmin servers.</p></li>

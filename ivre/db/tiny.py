@@ -1691,17 +1691,75 @@ class TinyDBActive(TinyDB, DBActive):
             subfld = field[5:]
             field = "ports.scripts.ssl-cert." + subfld
 
+            def _newflt(field):
+                return self.searchcert()
+
             if subfld in ["issuer", "subject"]:
 
-                def _extractor(flt, field):
-                    for rec in self._get(
-                        flt, sort=sort, limit=limit, skip=skip, fields=[field]
-                    ):
-                        for val in self._generate_field_values(rec, field):
-                            yield tuple(sorted(val.items()))
+                def _subextractor(val):
+                    return tuple(sorted(val.items()))
 
                 def _outputproc(val):
                     return dict(val)
+
+            else:
+
+                def _subextractor(val):
+                    return val
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["ports.scripts.id", "ports.scripts.ssl-cert"],
+                ):
+                    for port in rec["ports"]:
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-cert":
+                                for cert in script.get("ssl-cert", []):
+                                    for val in self._generate_field_values(
+                                        cert, subfld
+                                    ):
+                                        yield _subextractor(val)
+
+        elif field.startswith("cacert."):
+            subfld = field[7:]
+            field = "ports.scripts.ssl-cert." + subfld
+
+            def _newflt(field):
+                return self.searchcert(cacert=True)
+
+            if subfld in ["issuer", "subject"]:
+
+                def _subextractor(val):
+                    return tuple(sorted(val.items()))
+
+                def _outputproc(val):
+                    return dict(val)
+
+            else:
+
+                def _subextractor(val):
+                    return val
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["ports.scripts.id", "ports.scripts.ssl-cert"],
+                ):
+                    for port in rec["ports"]:
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-cert":
+                                for cert in script.get("ssl-cert", []):
+                                    for val in self._generate_field_values(
+                                        cert, subfld
+                                    ):
+                                        yield _subextractor(val)
 
         elif field == "useragent" or field.startswith("useragent:"):
             if field == "useragent":

@@ -401,6 +401,46 @@ var HELP_FILTERS = {
             "title": "cert.pksha256:[SHA256 hash or /SHA256 hash regexp/]",
             "content": "Look for a particular certificate public key, based on the SHA256 hash.",
         },
+        "cacert.keytype:": {
+            "title": "cacert.keytype:[exact value or /regexp/]",
+            "content": "Look for a particular CA certificate public key type.",
+        },
+        "cacert.self_signed": {
+            "title": "<b>(!)</b>cacert.self_signed",
+            "content": "Look for self signed CA certificates.",
+        },
+        "cacert.subject:": {
+            "title": "cacert.subject:[exact value or /regexp/]",
+            "content": "Look for a particular CA certificate subject.",
+        },
+        "cacert.issuer:": {
+            "title": "cacert.subject:[exact value or /regexp/]",
+            "content": "Look for a particular CA certificate issuer.",
+        },
+        "cacert.md5:": {
+            "title": "cacert.md5:[MD5 hash or /MD5 hash regexp/]",
+            "content": "Look for a particular CA certificate, based on the MD5 hash.",
+        },
+        "cacert.sha1:": {
+            "title": "cacert.sha1:[SHA1 hash or /SHA1 hash regexp/]",
+            "content": "Look for a particular CA certificate, based on the SHA1 hash.",
+        },
+        "cacert.sha256:": {
+            "title": "cacert.sha256:[SHA256 hash or /SHA256 hash regexp/]",
+            "content": "Look for a particular CA certificate, based on the SHA256 hash.",
+        },
+        "cacert.pkmd5:": {
+            "title": "cacert.pkmd5:[MD5 hash or /MD5 hash regexp/]",
+            "content": "Look for a particular CA certificate public key, based on the MD5 hash.",
+        },
+        "cacert.pksha1:": {
+            "title": "cacert.pksha1:[SHA1 hash or /SHA1 hash regexp/]",
+            "content": "Look for a particular CA certificate public key, based on the SHA1 hash.",
+        },
+        "cacert.pksha256:": {
+            "title": "cacert.pksha256:[SHA256 hash or /SHA256 hash regexp/]",
+            "content": "Look for a particular CA certificate public key, based on the SHA256 hash.",
+        },
 	"ssl-ja3-client": {
 	    "title": "(!)ssl-ja3-client<b>(:[JA3])</b>",
 	    "content": "Look for hosts with a JA3 or with the given JA3.",

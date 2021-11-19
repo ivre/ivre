@@ -735,6 +735,17 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 self.tables.script.name == "ssl-cert",
             )
+        elif field.startswith("cacert."):
+            subfield = field[5:]
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    func.jsonb_array_elements(self.tables.script.data["ssl-cert"],).op(
+                        "->" if subfield in ["subject", "issuer", "pubkey"] else "->>"
+                    )(subfield)
+                ],
+                self.tables.script.name == "ssl-cacert",
+            )
         elif field == "useragent" or field.startswith("useragent:"):
             if field == "useragent":
                 flt = self.flt_and(flt, self.searchuseragent())
