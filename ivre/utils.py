@@ -2074,79 +2074,6 @@ PUBKEY_TYPES = {
 PUBKEY_REV_TYPES = dict((val, key) for key, val in PUBKEY_TYPES.items())
 
 
-def _parse_cert_subject(subject: str) -> Generator[Tuple[str, str], None, None]:
-    status = 0
-    curkey = []
-    curvalue = []
-    for char in subject:
-        if status == -1:
-            # reading space before the key
-            if char == " ":
-                continue
-            curkey.append(char)
-            status += 1
-        elif status == 0:
-            # reading key
-            if char == " ":
-                status += 1
-                continue
-            if char == "=":
-                status += 2
-                continue
-            curkey.append(char)
-        elif status == 1:
-            # reading '='
-            if char != "=":
-                return
-            status += 1
-        elif status == 2:
-            # reading space after '='
-            if char == " ":
-                continue
-            # reading beginning of value
-            if char == '"':
-                status += 2
-                continue
-            curvalue.append(char)
-            status += 1
-        elif status == 3:
-            # reading value without quotes
-            if char == ",":
-                yield "".join(curkey), "".join(curvalue)
-                curkey = []
-                curvalue = []
-                status = -1
-                continue
-            curvalue.append(char)
-        elif status == 4:
-            # reading value with quotes
-            if char == '"':
-                status -= 1
-                continue
-            if char == "\\":
-                status += 1
-                continue
-            curvalue.append(char)
-        elif status == 5:
-            curvalue.append(char)
-            status -= 1
-    yield "".join(curkey), "".join(curvalue)
-
-
-def _parse_subject(subject: osslc.X509Name) -> Tuple[str, Dict[str, str]]:
-    """Parses an X509Name object (from pyOpenSSL module) and returns a
-    text and a dict suitable for use by get_cert_info().
-
-    """
-    components = []
-    for k, v in subject.get_components():
-        k = printable(k).decode()
-        v = printable(v).decode()
-        k = _CERTKEYS.get(k, k)
-        components.append((k, v))
-    return "/".join("%s=%s" % kv for kv in components), dict(components)
-
-
 if STRPTIME_SUPPORTS_TZ:
 
     def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
@@ -2170,6 +2097,19 @@ else:
 
 
 if USE_PYOPENSSL:
+
+    def _parse_subject(subject: osslc.X509Name) -> Tuple[str, Dict[str, str]]:
+        """Parses an X509Name object (from pyOpenSSL module) and returns a
+        text and a dict suitable for use by get_cert_info().
+
+        """
+        components = []
+        for k, v in subject.get_components():
+            k = printable(k).decode()
+            v = printable(v).decode()
+            k = _CERTKEYS.get(k, k)
+            components.append((k, v))
+        return "/".join("%s=%s" % kv for kv in components), dict(components)
 
     def get_cert_info(cert: bytes) -> Dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
@@ -2231,6 +2171,64 @@ if USE_PYOPENSSL:
 
 
 else:
+
+    def _parse_cert_subject(subject: str) -> Generator[Tuple[str, str], None, None]:
+        status = 0
+        curkey = []
+        curvalue = []
+        for char in subject:
+            if status == -1:
+                # reading space before the key
+                if char == " ":
+                    continue
+                curkey.append(char)
+                status += 1
+            elif status == 0:
+                # reading key
+                if char == " ":
+                    status += 1
+                    continue
+                if char == "=":
+                    status += 2
+                    continue
+                curkey.append(char)
+            elif status == 1:
+                # reading '='
+                if char != "=":
+                    return
+                status += 1
+            elif status == 2:
+                # reading space after '='
+                if char == " ":
+                    continue
+                # reading beginning of value
+                if char == '"':
+                    status += 2
+                    continue
+                curvalue.append(char)
+                status += 1
+            elif status == 3:
+                # reading value without quotes
+                if char == ",":
+                    yield "".join(curkey), "".join(curvalue)
+                    curkey = []
+                    curvalue = []
+                    status = -1
+                    continue
+                curvalue.append(char)
+            elif status == 4:
+                # reading value with quotes
+                if char == '"':
+                    status -= 1
+                    continue
+                if char == "\\":
+                    status += 1
+                    continue
+                curvalue.append(char)
+            elif status == 5:
+                curvalue.append(char)
+                status -= 1
+        yield "".join(curkey), "".join(curvalue)
 
     def get_cert_info(cert: bytes) -> Dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
@@ -2348,7 +2346,7 @@ else:
         pubkey = decode_b64(b"".join(pubkey.splitlines()[1:-1]))
         for hashtype in ["md5", "sha1", "sha256"]:
             result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
-        result["pubkey"]["raw"] = encode_b64(pubkey)
+        result["pubkey"]["raw"] = encode_b64(pubkey).decode()
         return result
 
 
