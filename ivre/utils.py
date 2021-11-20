@@ -2150,6 +2150,9 @@ if USE_PYOPENSSL:
                 result["lifetime"] = int(lifetime.total_seconds())
         elif not_after is not None:
             result["not_after"] = not_after
+        result["serial_number"] = str(data.get_serial_number())
+        result["version"] = data.get_version()
+        result["signature_algorithm"] = data.get_signature_algorithm().decode()
         result["pubkey"] = {}
         pubkey = data.get_pubkey()
         pubkeytype = pubkey.type()
@@ -2298,7 +2301,7 @@ else:
                         )
                     )
                 elif field in ["not_before", "not_after"]:
-                    if STRPTIME_SUPPORTS_TZ:
+                    if STRPTIME_SUPPORTS_TZ and fdata_str.count(" ") == 4:
                         try:
                             result[field] = datetime.datetime.strptime(
                                 fdata_str,
@@ -2306,12 +2309,12 @@ else:
                             )
                         except ValueError:
                             result[field] = datetime.datetime.strptime(
-                                fdata_str[:-4],
+                                " ".join(fdata_str.split(" ", 4)[:4]),
                                 "%b %d %H:%M:%S %Y",
                             )
                     else:
                         result[field] = datetime.datetime.strptime(
-                            fdata_str[:-4],
+                            " ".join(fdata_str.split(" ", 4)[:4]),
                             "%b %d %H:%M:%S %Y",
                         )
                 else:
