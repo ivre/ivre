@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@ ENV DEBIAN_FRONTEND noninteractive
 # Dependencies
 RUN echo "deb http://deb.debian.org/debian stable-backports main" >> /etc/apt/sources.list
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3-pymongo python3-crypto \
-        python3-setuptools python3-bottle ca-certificates && \
+    apt-get -qy --no-install-recommends install python3-pymongo python3-cryptography \
+        python3-setuptools python3-bottle python3-openssl ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # IVRE

@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM ivre/base
+ARG TAG=latest
+FROM ivre/base:${TAG}
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Tools
