@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 # This file is part of IVRE.
 # Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
@@ -16,15 +16,50 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-cd `dirname $0`/../docker
 docker pull debian:stable
 docker pull debian:buster
-for img in base client agent db web web-apache ; do
-    docker build --no-cache -t "ivre/$img" "$img" || break
+
+# Create ivre/VERSION if needed
+VERSION="`python3 setup.py --version 2>/dev/null`"
+
+case "$VERSION" in
+    *.dev*)
+	branch="`git rev-parse --abbrev-ref HEAD`"
+	case "$branch" in
+	    master)
+		tag="latest"
+		;;
+	    HEAD)
+		tag="commit-`git rev-parse HEAD | cut -c -8`"
+		echo "WARNING: version $VERSION / HEAD" >&2
+		;;
+	    *)
+		tag="branch-$branch"
+		;;
+	esac
+	;;
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+	tag="commit-$VERSION"
+	echo "WARNING: version $VERSION" >&2
+	;;
+    *.*.*)
+	tag="v$VERSION"
+	;;
+esac
+
+git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
+tar --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/VERSION
+
+cd `dirname $0`/../docker
+
+docker build --no-cache -t "ivre/base:$tag" "base-local" || exit $?
+
+for img in client agent db web web-apache ; do
+    docker build --no-cache --build-arg TAG="$tag" -t "ivre/$img:$tag" "$img" || exit $?
 done
 
 # Uncomment to push images
 # docker login
 # for img in base client agent db web web-apache ; do
-#     docker push "ivre/$img"
+#     docker push "ivre/$img:$tag"
 # done

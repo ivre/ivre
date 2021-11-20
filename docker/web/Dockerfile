@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -14,7 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM ivre/base
+ARG TAG=latest
+FROM ivre/base:${TAG}
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Install & configure Nginx
