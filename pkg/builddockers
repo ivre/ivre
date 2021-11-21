@@ -48,7 +48,7 @@ case "$VERSION" in
 esac
 
 git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
-tar --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/VERSION
+tar --owner=root:0 --group=root:0 --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/VERSION
 
 cd `dirname $0`/../docker
 

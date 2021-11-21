@@ -51,6 +51,7 @@
 <li class="toctree-l2"><a class="reference internal" href="config.html">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Docker</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#versions">Versions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-vagrant">Using Vagrant</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#without-vagrant">Without Vagrant</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#getting-the-images">Getting the images</a></li>
@@ -102,6 +103,13 @@
              
   <section id="docker">
 <h1>Docker<a class="headerlink" href="#docker" title="Permalink to this headline"></a></h1>
+<section id="versions">
+<h2>Versions<a class="headerlink" href="#versions" title="Permalink to this headline"></a></h2>
+<p>The images published on Docker hub are built from the current
+<code class="docutils literal notranslate"><span class="pre">master</span></code> repository branch (tag <code class="docutils literal notranslate"><span class="pre">latest</span></code>, will be used by default)
+and from the current release (tag <code class="docutils literal notranslate"><span class="pre">vX.Y.Z</span></code>, use
+<code class="docutils literal notranslate"><span class="pre">ivre/&lt;imagename&gt;:vX.Y.Z</span></code> to use it).</p>
+</section>
 <section id="using-vagrant">
 <h2>Using Vagrant<a class="headerlink" href="#using-vagrant" title="Permalink to this headline"></a></h2>
 <p>If you already manage your Docker containers using
