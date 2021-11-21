@@ -1,6 +1,14 @@
 Docker
 ======
 
+Versions
+--------
+
+The images published on Docker hub are built from the current
+``master`` repository branch (tag ``latest``, will be used by default)
+and from the current release (tag ``vX.Y.Z``, use
+``ivre/<imagename>:vX.Y.Z`` to use it).
+
 Using Vagrant
 -------------
 
