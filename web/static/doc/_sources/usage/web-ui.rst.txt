@@ -45,7 +45,8 @@ displayed in the rightmost part of the screen.
    - ``category``, ``source``
    - ``country``, ``city``, ``as``
    - ``net``, ``net:[mask]``
-   - ``domains``, ``domains:[level]``
+   - ``domains``, ``domains:[level]``, ``domains:[domain]``,
+     ``domains:[domain]:[level]``
    - ``hop``, ``hop:[number]``
    - ``port``, ``port:[open/closed/filtered]``, ``port:[service]``
      ``portlist:[open/closed/filtered]``,

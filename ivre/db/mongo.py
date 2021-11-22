@@ -2903,6 +2903,7 @@ class MongoDBActive(MongoDB, DBActive):
           - file.* / file.*:scriptid
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
+          - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
         """
 
         def null_if_empty(val):
@@ -3399,10 +3400,27 @@ class MongoDBActive(MongoDB, DBActive):
             flt = self.flt_and(flt, self.searchdomain({"$exists": True}))
             field = "hostnames.domains"
         elif field.startswith("domains:"):
-            flt = self.flt_and(flt, self.searchdomain({"$exists": True}))
-            level = int(field[8:]) - 1
+            subfield = field[8:]
             field = "hostnames.domains"
-            aggrflt = {"field": re.compile("^([^\\.]+\\.){%d}[^\\.]+$" % level)}
+            if subfield.isdigit():
+                flt = self.flt_and(flt, self.searchdomain({"$exists": True}))
+                aggrflt = {
+                    "field": re.compile(
+                        "^([^\\.]+\\.){%d}[^\\.]+$" % (int(subfield) - 1)
+                    )
+                }
+            elif ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                aggrflt = {
+                    "field": re.compile(
+                        "^([^\\.]+\\.){%d}%s$"
+                        % (int(level) - subfield.count(".") - 1, re.escape(subfield))
+                    )
+                }
+            else:
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                aggrflt = {"field": re.compile("\\.%s$" % re.escape(subfield))}
         elif field.startswith("cert."):
             flt = self.flt_and(flt, self.searchcert())
             field = "ports.scripts.ssl-cert." + field[5:]
@@ -4569,10 +4587,27 @@ class MongoDBPassive(MongoDB, DBPassive):
             flt = self.flt_and(flt, self.searchdns())
             field = "infos.domain"
         elif field.startswith("domains:"):
-            flt = self.flt_and(flt, self.searchdns())
-            level = int(field[8:]) - 1
+            subfield = field[8:]
             field = "infos.domain"
-            aggrflt = {"field": re.compile("^([^\\.]+\\.){%d}[^\\.]+$" % level)}
+            if subfield.isdigit():
+                flt = self.flt_and(flt, self.searchdns())
+                aggrflt = {
+                    "field": re.compile(
+                        "^([^\\.]+\\.){%d}[^\\.]+$" % (int(subfield) - 1)
+                    )
+                }
+            elif ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
+                aggrflt = {
+                    "field": re.compile(
+                        "^([^\\.]+\\.){%d}%s$"
+                        % (int(level) - subfield.count(".") - 1, re.escape(subfield))
+                    )
+                }
+            else:
+                flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
+                aggrflt = {"field": re.compile("\\.%s$" % re.escape(subfield))}
         pipeline = self._topvalues(
             field, flt=flt, aggrflt=aggrflt, specialproj=specialproj, **kargs
         )

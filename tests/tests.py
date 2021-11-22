@@ -1649,10 +1649,16 @@ class IvreTests(unittest.TestCase):
             "nmap_top_devtype_80", "devicetype:80", database=ivre.db.db.nmap
         )
         self._check_top_value_api(
-            "nmap_top_domain", "domains", database=ivre.db.db.nmap
+            "nmap_top_domains", "domains", database=ivre.db.db.nmap
         )
         self._check_top_value_api(
-            "nmap_top_domain_1", "domains:1", database=ivre.db.db.nmap
+            "nmap_top_domains_1", "domains:1", database=ivre.db.db.nmap
+        )
+        self._check_top_value_api(
+            "nmap_top_domains_com", "domains:com", database=ivre.db.db.nmap
+        )
+        self._check_top_value_api(
+            "nmap_top_domains_com_2", "domains:com:2", database=ivre.db.db.nmap
         )
         self._check_top_value_api("nmap_top_hop", "hop", database=ivre.db.db.nmap)
         self._check_top_value_api(
@@ -2280,7 +2286,13 @@ class IvreTests(unittest.TestCase):
 
         # Top values
         for distinct in [True, False]:
-            for field in ["addr", "domains", "domains:2"]:
+            for field in [
+                "addr",
+                "domains",
+                "domains:2",
+                "domains:com",
+                "domains:com:2",
+            ]:
                 if DATABASE == "sqlite" and field.startswith("domains"):
                     # BUG in sqlite backend: cannot use topvalues with
                     # JSON fields
@@ -5025,8 +5037,10 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value("view_top_modbus_deviceids", "modbus.deviceid")
         self.check_view_top_value("view_top_devtype", "devicetype")
         self.check_view_top_value("view_top_devtype_80", "devicetype:80")
-        self.check_view_top_value("view_top_domain", "domains")
-        self.check_view_top_value("view_top_domain_1", "domains:1")
+        self.check_view_top_value("view_top_domains", "domains")
+        self.check_view_top_value("view_top_domains_1", "domains:1")
+        self.check_view_top_value("view_top_domains_com", "domains:com")
+        self.check_view_top_value("view_top_domains_com_2", "domains:com:2")
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
 
