@@ -1675,17 +1675,60 @@ class TinyDBActive(TinyDB, DBActive):
         elif field == "domains":
             field = "hostnames.domains"
         elif field.startswith("domains:"):
-            level = int(field[8:]) - 1
+            subfield = field[8:]
             field = "hostnames.domains"
+            if subfield.isdigit():
 
-            def _extractor(flt, field):
-                for rec in self._get(
-                    flt, sort=sort, limit=limit, skip=skip, fields=["hostnames.domains"]
-                ):
-                    for host in rec["hostnames"]:
-                        for dom in host.get("domains", []):
-                            if dom.count(".") == level:
-                                yield dom
+                def _extractor(flt, field):
+                    for rec in self._get(
+                        flt,
+                        sort=sort,
+                        limit=limit,
+                        skip=skip,
+                        fields=["hostnames.domains"],
+                    ):
+                        for host in rec["hostnames"]:
+                            for dom in host.get("domains", []):
+                                if dom.count(".") == int(subfield) - 1:
+                                    yield dom
+
+            elif ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                subfield = ".%s" % subfield
+
+                def _extractor(flt, field):
+                    for rec in self._get(
+                        flt,
+                        sort=sort,
+                        limit=limit,
+                        skip=skip,
+                        fields=["hostnames.domains"],
+                    ):
+                        for host in rec["hostnames"]:
+                            for dom in host.get("domains", []):
+                                if (
+                                    dom.endswith(subfield)
+                                    and dom.count(".") == int(level) - 1
+                                ):
+                                    yield dom
+
+            else:
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                subfield = ".%s" % subfield
+
+                def _extractor(flt, field):
+                    for rec in self._get(
+                        flt,
+                        sort=sort,
+                        limit=limit,
+                        skip=skip,
+                        fields=["hostnames.domains"],
+                    ):
+                        for host in rec["hostnames"]:
+                            for dom in host.get("domains", []):
+                                if dom.endswith(subfield):
+                                    yield dom
 
         elif field.startswith("cert."):
             subfld = field[5:]
@@ -2625,33 +2668,95 @@ class TinyDBPassive(TinyDB, DBPassive):
                 return self.searchdns()
 
         elif field.startswith("domains:"):
-            level = int(field[8:]) - 1
+            subfield = field[8:]
             field = "infos.domain"
 
-            def _newflt(field):  # noqa: F811
-                return self.searchdns()
+            if subfield.isdigit():
 
-            def _extractor(flt, field):  # noqa: F811
-                # We cannot use limit= or skip= here, since we are filtering
-                # the results
-                i = 0
-                j = skip or 0
-                fields = [field] if distinct else [field, "count"]
-                for rec in self._get(flt, sort=sort, fields=fields):
-                    for val in self._generate_field_values(rec, field):
-                        if val.count(".") == level:
-                            if j:
-                                j -= 1
-                                continue
-                            i += 1
-                            if distinct:
-                                yield val
-                            else:
-                                yield (val, rec.get("count"))
+                def _newflt(field):  # noqa: F811
+                    return self.searchdns()
+
+                def _extractor(flt, field):  # noqa: F811
+                    # We cannot use limit= or skip= here, since we are filtering
+                    # the results
+                    i = 0
+                    j = skip or 0
+                    fields = [field] if distinct else [field, "count"]
+                    for rec in self._get(flt, sort=sort, fields=fields):
+                        for val in self._generate_field_values(rec, field):
+                            if val.count(".") == int(subfield) - 1:
+                                if j:
+                                    j -= 1
+                                    continue
+                                i += 1
+                                if distinct:
+                                    yield val
+                                else:
+                                    yield (val, rec.get("count"))
+                            if limit is not None and i >= limit:
+                                break
                         if limit is not None and i >= limit:
                             break
-                    if limit is not None and i >= limit:
-                        break
+
+            elif ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                dot_subfield = ".%s" % subfield
+
+                def _newflt(field):  # noqa: F811
+                    return self.searchdns(subfield, subdomains=True)
+
+                def _extractor(flt, field):  # noqa: F811
+                    # We cannot use limit= or skip= here, since we are filtering
+                    # the results
+                    i = 0
+                    j = skip or 0
+                    fields = [field] if distinct else [field, "count"]
+                    for rec in self._get(flt, sort=sort, fields=fields):
+                        for val in self._generate_field_values(rec, field):
+                            if (
+                                val.endswith(dot_subfield)
+                                and val.count(".") == int(level) - 1
+                            ):
+                                if j:
+                                    j -= 1
+                                    continue
+                                i += 1
+                                if distinct:
+                                    yield val
+                                else:
+                                    yield (val, rec.get("count"))
+                            if limit is not None and i >= limit:
+                                break
+                        if limit is not None and i >= limit:
+                            break
+
+            else:
+                dot_subfield = ".%s" % subfield
+
+                def _newflt(field):  # noqa: F811
+                    return self.searchdns(subfield, subdomains=True)
+
+                def _extractor(flt, field):  # noqa: F811
+                    # We cannot use limit= or skip= here, since we are filtering
+                    # the results
+                    i = 0
+                    j = skip or 0
+                    fields = [field] if distinct else [field, "count"]
+                    for rec in self._get(flt, sort=sort, fields=fields):
+                        for val in self._generate_field_values(rec, field):
+                            if val.endswith(dot_subfield):
+                                if j:
+                                    j -= 1
+                                    continue
+                                i += 1
+                                if distinct:
+                                    yield val
+                                else:
+                                    yield (val, rec.get("count"))
+                            if limit is not None and i >= limit:
+                                break
+                        if limit is not None and i >= limit:
+                            break
 
         if distinct:
             return [

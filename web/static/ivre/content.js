@@ -650,8 +650,8 @@ var HELP_TOPVALUES = {
 	    "content": "NTLM versions.",
 	},
 	"domains": {
-	    "title": "<b>(!)</b>domains<b>(:[level])</b>:",
-	    "content": "DNS domains (optionally limited to the specified level).",
+	    "title": "<b>(!)</b>domains<b>(:[domain])(:[level])</b>:",
+	    "content": "DNS domains (optionally limited to the specified domain and/or the specific level).",
 	},
 	"file.filename": {
 	    "title": "<b>(!)</b>file<b>(:[script id](,[script id](,[...])))</b> or <b>(!)</b>file.filename<b>([...])</b>",

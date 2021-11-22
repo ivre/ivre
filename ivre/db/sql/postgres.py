@@ -28,6 +28,7 @@ databases.
 
 
 import datetime
+import re
 import time
 
 
@@ -356,6 +357,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
           - file.* / file.*:scriptid
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
+          - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
         """
         if flt is None:
             flt = self.flt_empty
@@ -876,7 +878,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 self.tables.hostname, [func.unnest(self.tables.hostname.domains)]
             )
         elif field.startswith("domains:"):
-            level = int(field[8:]) - 1
+            subfield = field[8:]
+            field = "hostnames.domains"
             base1 = (
                 select([func.unnest(self.tables.hostname.domains).label("domains")])
                 .where(
@@ -888,11 +891,48 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 )
                 .cte("base1")
             )
+            if subfield.isdigit():
+                return (
+                    {"count": result[1], "_id": result[0]}
+                    for result in self.db.execute(
+                        select([base1.c.domains, func.count().label("count")])
+                        .where(
+                            base1.c.domains.op("~")(
+                                "^([^\\.]+\\.){%d}[^\\.]+$" % (int(subfield) - 1)
+                            )
+                        )
+                        .group_by(base1.c.domains)
+                        .order_by(order)
+                        .limit(topnbr)
+                    )
+                )
+            if ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                return (
+                    {"count": result[1], "_id": result[0]}
+                    for result in self.db.execute(
+                        select([base1.c.domains, func.count().label("count")])
+                        .where(
+                            base1.c.domains.op("~")(
+                                "^([^\\.]+\\.){%d}%s$"
+                                % (
+                                    int(level) - subfield.count(".") - 1,
+                                    re.escape(subfield),
+                                )
+                            )
+                        )
+                        .group_by(base1.c.domains)
+                        .order_by(order)
+                        .limit(topnbr)
+                    )
+                )
+            flt = self.flt_and(flt, self.searchdomain(subfield))
             return (
                 {"count": result[1], "_id": result[0]}
                 for result in self.db.execute(
                     select([base1.c.domains, func.count().label("count")])
-                    .where(base1.c.domains.op("~")("^([^\\.]+\\.){%d}[^\\.]+$" % level))
+                    .where(base1.c.domains.op("~")("\\.%s$" % re.escape(subfield)))
                     .group_by(base1.c.domains)
                     .order_by(order)
                     .limit(topnbr)

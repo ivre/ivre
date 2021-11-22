@@ -2772,29 +2772,49 @@ class SQLDBPassive(SQLDB, DBPassive):
         if flt is None:
             flt = PassiveFilter()
         if field == "domains":
+            flt = self.flt_and(flt, self.searchdns())
             field = func.jsonb_array_elements(self.tables.passive.moreinfo["domain"])
         elif field.startswith("domains:"):
-            level = int(field[8:]) - 1
+            subfield = field[8:]
             field = func.jsonb_array_elements_text(
                 self.tables.passive.moreinfo["domain"]
             ).label("field")
+            if subfield.isdigit():
+                flt = self.flt_and(flt, self.searchdns())
 
-            def more_filter(base):
-                return (
-                    func.length(base.field)
-                    - func.length(func.replace(base.field, ".", ""))
-                    == level
-                )
+                def more_filter(base):
+                    return (
+                        func.length(base.field)
+                        - func.length(func.replace(base.field, ".", ""))
+                        == int(subfield) - 1
+                    )
+
+                # another option would be:
+                # def more_filter(base):
+                #     return base.field.op("~")("^([^\\.]+\\.){%d}[^\\.]+$" %
+                #                               (int(subfield) - 1))
+
+            elif ":" in subfield:
+                subfield, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
+
+                def more_filter(base):
+                    return base.field.op("~")(
+                        "^([^\\.]+\\.){%d}%s$"
+                        % (int(level) - subfield.count(".") - 1, re.escape(subfield))
+                    )
+
+            else:
+                flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
+
+                def more_filter(base):
+                    return base.field.op("~")("\\.%s$" % re.escape(subfield))
 
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
             info = int(info) if info else 24
             field = func.set_masklen(text("addr::cidr"), info)
 
-            # another option would be:
-            # def more_filter(base):
-            #     return base.field.op('~')('^([^\\.]+\\.){%d}[^\\.]+$' %
-            #                               level)
         if isinstance(field, str):
             field = self.fields[field]
 
