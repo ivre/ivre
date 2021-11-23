@@ -50,6 +50,7 @@ from sqlalchemy import (
     or_,
     select,
     text,
+    true,
     update,
     insert,
 )
@@ -530,6 +531,56 @@ class SQLDB(DB):
         if neg:
             return field != value
         return field == value
+
+    @classmethod
+    def _searchcert(
+        cls,
+        base,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+    ):
+        req = true()
+        if keytype is not None:
+            req &= base.op("->")("pubkey").op("->>")("type") == keytype
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[hashtype]
+            if hashval is None:
+                continue
+            key = base.op("->>")(hashtype)
+            if isinstance(hashval, utils.REGEXP_T):
+                req &= key.op("~*")(hashval.pattern)
+                continue
+            if isinstance(hashval, list):
+                req &= key.in_([val.lower() for val in hashval])
+                continue
+            req &= key == hashval.lower()
+        if subject is not None:
+            req &= cls._searchstring_re(base.op("->>")("subject_text"), subject)
+        if issuer is not None:
+            req &= cls._searchstring_re(base.op("->>")("issuer_text"), issuer)
+        if self_signed is not None:
+            req &= base.op("->")(".self_signed") == self_signed
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[f"pk{hashtype}"]
+            if hashval is None:
+                continue
+            key = base.op("->>")("pk{hashtype}")
+            if isinstance(hashval, utils.REGEXP_T):
+                req &= key.op("~*")(hashval.pattern)
+                continue
+            if isinstance(hashval, list):
+                req &= key.in_([val.lower() for val in hashval])
+                continue
+            req &= key == hashval.lower()
+        return req
 
 
 class SQLDBFlow(SQLDB, DBFlow):
@@ -3139,57 +3190,25 @@ class SQLDBPassive(SQLDB, DBPassive):
         pksha256=None,
         cacert=False,
     ):
-        res = (cls.tables.passive.recontype == "SSL_SERVER") & (
-            cls.tables.passive.source == ("cacert" if cacert else "cert")
+        return PassiveFilter(
+            main=(cls.tables.passive.recontype == "SSL_SERVER")
+            & (cls.tables.passive.source == ("cacert" if cacert else "cert"))
+            & (
+                cls._searchcert(
+                    cls.tables.passive.moreinfo,
+                    keytype=keytype,
+                    md5=md5,
+                    sha1=sha1,
+                    sha256=sha256,
+                    subject=subject,
+                    issuer=issuer,
+                    self_signed=self_signed,
+                    pkmd5=pkmd5,
+                    pksha1=pksha1,
+                    pksha256=pksha256,
+                )
+            )
         )
-        if keytype is not None:
-            res &= (
-                cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("type")
-                == keytype
-            )
-        if md5 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->>")("md5"),
-                md5.lower(),
-            )
-        if sha1 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->>")("sha1"),
-                sha1.lower(),
-            )
-        if sha256 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->>")("sha256"),
-                sha256.lower(),
-            )
-        if subject is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->>")("subject_text"),
-                subject,
-            )
-        if issuer is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->>")("issuer_text"),
-                issuer,
-            )
-        if self_signed is not None:
-            res &= cls.tables.passive.self_signed == self_signed
-        if pkmd5 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("md5"),
-                pkmd5.lower(),
-            )
-        if pksha1 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("sha1"),
-                pksha1.lower(),
-            )
-        if pksha256 is not None:
-            res &= cls._searchstring_re(
-                cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("sha256"),
-                pksha256.lower(),
-            )
-        return PassiveFilter(main=res)
 
     @classmethod
     def _searchja3(cls, value_or_hash=None):

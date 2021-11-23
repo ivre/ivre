@@ -769,6 +769,56 @@ class MongoDB(DB):
             )
         )
 
+    @staticmethod
+    def _searchcert(
+        prefix="",
+        base=None,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+    ):
+        res = base or {}
+        if keytype is not None:
+            res[f"{prefix}pubkey.type"] = keytype
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[hashtype]
+            if hashval is None:
+                continue
+            key = f"{prefix}{hashtype}"
+            if isinstance(hashval, utils.REGEXP_T):
+                res[key] = re.compile(hashval.pattern, hashval.flags | re.I)
+                continue
+            if isinstance(hashval, list):
+                res[key] = {"$in": [val.lower() for val in hashval]}
+                continue
+            res[key] = hashval.lower()
+        if subject is not None:
+            res[f"{prefix}subject_text"] = subject
+        if issuer is not None:
+            res[f"{prefix}issuer_text"] = issuer
+        if self_signed is not None:
+            res[f"{prefix}self_signed"] = self_signed
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[f"pk{hashtype}"]
+            if hashval is None:
+                continue
+            key = f"{prefix}pk{hashtype}"
+            if isinstance(hashval, utils.REGEXP_T):
+                res[key] = re.compile(hashval.pattern, hashval.flags | re.I)
+                continue
+            if isinstance(hashval, list):
+                res[key] = {"$in": [val.lower() for val in hashval]}
+                continue
+            res[key] = hashval.lower()
+        return res
+
 
 class MongoDBActive(MongoDB, DBActive):
 
@@ -2631,6 +2681,37 @@ class MongoDBActive(MongoDB, DBActive):
                     }
                 }
             },
+        )
+
+    @classmethod
+    def searchcert(
+        cls,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+        cacert=False,
+    ):
+        return cls.searchscript(
+            name="ssl-cacert" if cacert else "ssl-cert",
+            values=cls._searchcert(
+                keytype=keytype,
+                md5=md5,
+                sha1=sha1,
+                sha256=sha256,
+                subject=subject,
+                issuer=issuer,
+                self_signed=self_signed,
+                pkmd5=pkmd5,
+                pksha1=pksha1,
+                pksha256=pksha256,
+            ),
         )
 
     def searchhttptitle(self, title):
@@ -4815,8 +4896,9 @@ class MongoDBPassive(MongoDB, DBPassive):
             res["source"] = re.compile("^%s-" % dnstype.upper())
         return res
 
-    @staticmethod
+    @classmethod
     def searchcert(
+        cls,
         keytype=None,
         md5=None,
         sha1=None,
@@ -4829,28 +4911,20 @@ class MongoDBPassive(MongoDB, DBPassive):
         pksha256=None,
         cacert=False,
     ):
-        res = {"recontype": "SSL_SERVER", "source": "cacert" if cacert else "cert"}
-        if keytype is not None:
-            res["infos.pubkey.type"] = keytype
-        if md5 is not None:
-            res["infos.md5"] = md5.lower()
-        if sha1 is not None:
-            res["infos.sha1"] = sha1.lower()
-        if sha256 is not None:
-            res["infos.sha256"] = sha256.lower()
-        if subject is not None:
-            res["infos.subject_text"] = subject
-        if issuer is not None:
-            res["infos.issuer_text"] = issuer
-        if self_signed is not None:
-            res["infos.self_signed"] = self_signed
-        if pkmd5 is not None:
-            res["infos.pubkey.md5"] = pkmd5.lower()
-        if pksha1 is not None:
-            res["infos.pubkey.sha1"] = pksha1.lower()
-        if pksha256 is not None:
-            res["infos.pubkey.sha256"] = pksha256.lower()
-        return res
+        return cls._searchcert(
+            base={"recontype": "SSL_SERVER", "source": "cacert" if cacert else "cert"},
+            prefix="infos.",
+            keytype=keytype,
+            md5=md5,
+            sha1=sha1,
+            sha256=sha256,
+            subject=subject,
+            issuer=issuer,
+            self_signed=self_signed,
+            pkmd5=pkmd5,
+            pksha1=pksha1,
+            pksha256=pksha256,
+        )
 
     @classmethod
     def _searchja3(cls, value_or_hash):
