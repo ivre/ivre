@@ -35,6 +35,7 @@ import re
 
 
 from sqlalchemy import (
+    Boolean,
     Integer,
     and_,
     cast,
@@ -567,7 +568,7 @@ class SQLDB(DB):
         if issuer is not None:
             req &= cls._searchstring_re(base.op("->>")("issuer_text"), issuer)
         if self_signed is not None:
-            req &= base.op("->")(".self_signed") == self_signed
+            req &= base.op("->")("self_signed").cast(Boolean) == self_signed
         for hashtype in ["md5", "sha1", "sha256"]:
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
@@ -2104,6 +2105,14 @@ class SQLDBActive(SQLDB, DBActive):
                             req,
                             cls._searchstring_re(base, value, neg=False),
                         )
+                    elif isinstance(value, bool):
+                        base = cls.tables.script.data.op("->")(basekey)
+                        for subkey in key.split():
+                            base = base.op("->")(key)
+                        if neg:
+                            req = and_(req, base.cast(Boolean) != value)
+                        else:
+                            req = and_(req, base.cast(Boolean) == value)
                     else:
                         req = and_(
                             req,
@@ -2130,6 +2139,16 @@ class SQLDBActive(SQLDB, DBActive):
                         .op("->")(firstpart)
                         .op("@>")(cast(_to_json(tail, value), JSONB)),
                     )
+                elif isinstance(value, bool):
+                    base = (
+                        column(subkey[0].replace(".", "_").replace("-", "_"))
+                        .op("->")(subkey[1])
+                        .cast(Boolean)
+                    )
+                    if neg:
+                        req = and_(req, base != value)
+                    else:
+                        req = and_(req, base == value)
                 else:
                     req = and_(
                         req,
@@ -2636,6 +2655,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         "infos.issuer_text": Passive.moreinfo.op("->>")("issuer_text"),
         "infos.md5": Passive.moreinfo.op("->>")("md5"),
         "infos.pubkey.type": (Passive.moreinfo.op("->")("pubkey").op("->>")("type")),
+        "infos.self_signed": Passive.moreinfo.op("->")("self_signed"),
         "infos.san": Passive.moreinfo.op("->>")("san"),
         "infos.sha1": Passive.moreinfo.op("->>")("sha1"),
         "infos.sha256": Passive.moreinfo.op("->>")("sha256"),
