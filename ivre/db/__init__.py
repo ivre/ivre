@@ -636,6 +636,7 @@ class DB:
         return cls.searchcert(
             subject=expr,
             issuer=expr,
+            self_signed=False,
         )
 
     @classmethod
