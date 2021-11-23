@@ -2105,6 +2105,14 @@ class SQLDBActive(SQLDB, DBActive):
                             req,
                             cls._searchstring_re(base, value, neg=False),
                         )
+                    elif isinstance(value, bool):
+                        base = cls.tables.script.data.op("->")(basekey)
+                        for subkey in key.split():
+                            base = base.op("->")(key)
+                        if neg:
+                            req = and_(req, base.cast(Boolean) != value)
+                        else:
+                            req = and_(req, base.cast(Boolean) == value)
                     else:
                         req = and_(
                             req,
@@ -2131,6 +2139,16 @@ class SQLDBActive(SQLDB, DBActive):
                         .op("->")(firstpart)
                         .op("@>")(cast(_to_json(tail, value), JSONB)),
                     )
+                elif isinstance(value, bool):
+                    base = (
+                        column(subkey[0].replace(".", "_").replace("-", "_"))
+                        .op("->")(subkey[1])
+                        .cast(Boolean)
+                    )
+                    if neg:
+                        req = and_(req, base != value)
+                    else:
+                        req = and_(req, base == value)
                 else:
                     req = and_(
                         req,
