@@ -620,6 +620,8 @@ def change_ls_migrate(table):
 
     """
     for volume in table.get("volumes", []):
+        if not volume:
+            continue
         for fileentry in volume.get("files", []):
             if "size" in fileentry and fileentry["size"] == "<DIR>":
                 del fileentry["size"]
