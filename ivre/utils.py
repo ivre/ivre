@@ -2309,12 +2309,12 @@ else:
                             )
                         except ValueError:
                             result[field] = datetime.datetime.strptime(
-                                " ".join(fdata_str.split(" ", 4)[:4]),
+                                " ".join(fdata_str.split(None, 4)[:4]),
                                 "%b %d %H:%M:%S %Y",
                             )
                     else:
                         result[field] = datetime.datetime.strptime(
-                            " ".join(fdata_str.split(" ", 4)[:4]),
+                            " ".join(fdata_str.split(None, 4)[:4]),
                             "%b %d %H:%M:%S %Y",
                         )
                 else:
