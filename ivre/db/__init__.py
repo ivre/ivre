@@ -1610,27 +1610,36 @@ class DBActive(DB):
         pksha256=None,
         cacert=False,
     ):
+        # This method exists for backends with no specific
+        # implementation. It has the drawback of not being capable of
+        # looking for several values at once (e.g.,
+        # `.searchcert(sha1=[val1, val2])` won't work).
         values = {}
         if keytype is not None:
             values["pubkey.type"] = keytype
-        if md5 is not None:
-            values["md5"] = md5.lower()
-        if sha1 is not None:
-            values["sha1"] = sha1.lower()
-        if sha256 is not None:
-            values["sha256"] = sha256.lower()
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[hashtype]
+            if hashval is None:
+                continue
+            if isinstance(hashval, utils.REGEXP_T):
+                values[hashtype] = re.compile(hashval.pattern, hashval.flags | re.I)
+                continue
+            values[hashtype] = hashval.lower()
         if subject is not None:
             values["subject_text"] = subject
         if issuer is not None:
             values["issuer_text"] = issuer
         if self_signed is not None:
             values["self_signed"] = self_signed
-        if pkmd5 is not None:
-            values["pubkey.md5"] = pkmd5.lower()
-        if pksha1 is not None:
-            values["pubkey.sha1"] = pksha1.lower()
-        if pksha256 is not None:
-            values["pubkey.sha256"] = pksha256.lower()
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[f"pk{hashtype}"]
+            if hashval is None:
+                continue
+            key = f"pk{hashtype}"
+            if isinstance(hashval, utils.REGEXP_T):
+                values[key] = re.compile(hashval.pattern, hashval.flags | re.I)
+                continue
+            values[key] = hashval.lower()
         return cls.searchscript(
             name="ssl-cacert" if cacert else "ssl-cert", values=values
         )

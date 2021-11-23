@@ -169,7 +169,7 @@ class ElasticDB(DB):
         # PostgreSQL.
         pattern, flags = utils.regexp2pattern(regexp)
         if flags & ~re.UNICODE:
-            # is a flag, other than re.UNICODE, is set, issue a
+            # if a flag, other than re.UNICODE, is set, issue a
             # warning as it will not be used
             utils.LOGGER.warning(
                 "Elasticsearch does not support flags in regular "
@@ -240,6 +240,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         "ports.scripts",
         "ports.scripts.http-app",
         "ports.scripts.http-headers",
+        "ports.scripts.ssl-cert",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
     ]
@@ -1403,6 +1404,111 @@ return result;
         if protocol is not None:
             res.append(Q("match", ports__protocol=protocol))
         return Q("nested", path="ports", query=cls.flt_and(*res))
+
+    @classmethod
+    def searchcert(
+        cls,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+        cacert=False,
+    ):
+        req = []
+        if keytype is not None:
+            req.append(Q("match", **{"ports.scripts.ssl-cert.pubkey.type": keytype}))
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[hashtype]
+            if hashval is None:
+                continue
+            key = f"ports.scripts.ssl-cert.{hashtype}"
+            if isinstance(hashval, utils.REGEXP_T):
+                req.append(Q("regexp", **{key: cls._get_pattern(hashval).lower()}))
+                continue
+            if isinstance(hashval, list):
+                req.append(Q("terms", **{key: [val.lower() for val in hashval]}))
+                continue
+            req.append(Q("match", **{key: hashval.lower()}))
+        if subject is not None:
+            if isinstance(subject, utils.REGEXP_T):
+                req.append(
+                    Q(
+                        "regexp",
+                        **{
+                            "ports.scripts.ssl-cert.subject_text": cls._get_pattern(
+                                subject
+                            )
+                        },
+                    )
+                )
+            else:
+                req.append(
+                    Q("match", **{"ports.scripts.ssl-cert.subject_text": subject})
+                )
+        if issuer is not None:
+            if isinstance(issuer, utils.REGEXP_T):
+                req.append(
+                    Q(
+                        "regexp",
+                        **{
+                            "ports.scripts.ssl-cert.issuer_text": cls._get_pattern(
+                                issuer
+                            )
+                        },
+                    )
+                )
+            else:
+                req.append(Q("match", **{"ports.scripts.ssl-cert.issuer_text": issuer}))
+        if self_signed is not None:
+            req.append(
+                Q("match", **{"ports.scripts.ssl-cert.self_signed": self_signed})
+            )
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[f"pk{hashtype}"]
+            if hashval is None:
+                continue
+            key = f"ports.scripts.ssl-cert.pk{hashtype}"
+            if isinstance(hashval, utils.REGEXP_T):
+                req.append(Q("regexp", **{key: cls._get_pattern(hashval).lower()}))
+                continue
+            if isinstance(hashval, list):
+                req.append(Q("terms", **{key: [val.lower() for val in hashval]}))
+                continue
+            req.append(Q("match", **{key: hashval.lower()}))
+        if not req:
+            return Q(
+                "nested",
+                path="ports",
+                query=Q(
+                    "nested",
+                    path="ports.scripts",
+                    query=Q(
+                        "match",
+                        **{"ports.scripts.id": "ssl-cacert" if cacert else "ssl-cert"},
+                    ),
+                ),
+            )
+        return Q(
+            "nested",
+            path="ports",
+            query=Q(
+                "nested",
+                path="ports.scripts",
+                query=cls.flt_and(
+                    Q(
+                        "match",
+                        **{"ports.scripts.id": "ssl-cacert" if cacert else "ssl-cert"},
+                    ),
+                    Q("nested", path="ports.scripts.ssl-cert", query=cls.flt_and(*req)),
+                ),
+            ),
+        )
 
 
 class ElasticDBView(ElasticDBActive, DBView):

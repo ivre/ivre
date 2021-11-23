@@ -432,6 +432,62 @@ class TinyDB(DB):
             )
         )
 
+    @classmethod
+    def _searchcert(
+        cls,
+        base,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+    ):
+        res = cls.flt_empty
+        if keytype is not None:
+            res &= base.pubkey.type == keytype
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[hashtype]
+            if hashval is None:
+                continue
+            key = getattr(base, hashtype)
+            if isinstance(hashval, utils.REGEXP_T):
+                res &= key.search(hashval.pattern, flags=hashval.flags | re.I)
+                continue
+            if isinstance(hashval, list):
+                res &= key.one_of([val.lower() for val in hashval])
+                continue
+            res &= key == hashval.lower()
+        if subject is not None:
+            if isinstance(subject, utils.REGEXP_T):
+                res &= base.subject_text.search(subject.pattern, flags=subject.flags)
+            else:
+                res &= base.subject_text == subject
+        if issuer is not None:
+            if isinstance(issuer, utils.REGEXP_T):
+                res &= base.issuer_text.search(issuer.pattern, flags=issuer.flags)
+            else:
+                res &= base.issuer_text == issuer
+        if self_signed is not None:
+            res &= base.self_signed == self_signed
+        for hashtype in ["md5", "sha1", "sha256"]:
+            hashval = locals()[f"pk{hashtype}"]
+            if hashval is None:
+                continue
+            key = getattr(base, f"pk{hashtype}")
+            if isinstance(hashval, utils.REGEXP_T):
+                res &= key.search(hashval.pattern, flags=hashval.flags | re.I)
+                continue
+            if isinstance(hashval, list):
+                res &= key.one_of([val.lower() for val in hashval])
+                continue
+            res &= key == hashval.lower()
+        return res
+
 
 class TinyDBActive(TinyDB, DBActive):
 
@@ -879,6 +935,43 @@ class TinyDBActive(TinyDB, DBActive):
             )
         return q.ports.any(
             q.scripts.any(q.id.one_of(scripts) & q.ls.volumes.any(q.files.any(fname)))
+        )
+
+    @classmethod
+    def searchcert(
+        cls,
+        keytype=None,
+        md5=None,
+        sha1=None,
+        sha256=None,
+        subject=None,
+        issuer=None,
+        self_signed=None,
+        pkmd5=None,
+        pksha1=None,
+        pksha256=None,
+        cacert=False,
+    ):
+        q = Query()
+        return q.ports.any(
+            q.scripts.any(
+                (q.id == ("ssl-cacert" if cacert else "ssl-cert"))
+                & getattr(q, "ssl-cert").any(
+                    cls._searchcert(
+                        q,
+                        keytype=keytype,
+                        md5=md5,
+                        sha1=sha1,
+                        sha256=sha256,
+                        subject=subject,
+                        issuer=issuer,
+                        self_signed=self_signed,
+                        pkmd5=pkmd5,
+                        pksha1=pksha1,
+                        pksha256=pksha256,
+                    )
+                )
+            )
         )
 
     @classmethod
@@ -2982,30 +3075,23 @@ class TinyDBPassive(TinyDB, DBPassive):
         cacert=False,
     ):
         q = Query()
-        res = (q.recontype == "SSL_SERVER") & (
-            q.source == ("cacert" if cacert else "cert")
+        return (
+            (q.recontype == "SSL_SERVER")
+            & (q.source == ("cacert" if cacert else "cert"))
+            & cls._searchcert(
+                q.infos,
+                keytype=keytype,
+                md5=md5,
+                sha1=sha1,
+                sha256=sha256,
+                subject=subject,
+                issuer=issuer,
+                self_signed=self_signed,
+                pkmd5=pkmd5,
+                pksha1=pksha1,
+                pksha256=pksha256,
+            )
         )
-        if keytype is not None:
-            res &= q.infos.pubkey.type == keytype
-        if md5 is not None:
-            res &= cls._searchstring_re(q.infos.md5, md5.lower())
-        if sha1 is not None:
-            res &= cls._searchstring_re(q.infos.sha1, sha1.lower())
-        if sha256 is not None:
-            res &= cls._searchstring_re(q.infos.sha256, sha256.lower())
-        if subject is not None:
-            res &= cls._searchstring_re(q.infos.subject_text, subject)
-        if issuer is not None:
-            res &= cls._searchstring_re(q.infos.issuer_text, issuer)
-        if self_signed is not None:
-            res &= q.infos.self_signed == self_signed
-        if pkmd5 is not None:
-            res &= cls._searchstring_re(q.infos.pubkey.md5, pkmd5.lower())
-        if pksha1 is not None:
-            res &= cls._searchstring_re(q.infos.pubkey.sha1, pksha1.lower())
-        if pksha256 is not None:
-            res &= cls._searchstring_re(q.infos.pubkey.sha256, pksha256.lower())
-        return res
 
     @classmethod
     def _searchja3(cls, query, value_or_hash):
