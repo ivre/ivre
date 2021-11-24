@@ -211,6 +211,8 @@ class HttpDB(DB):
         ]
         for s_field, direction in sort or []:
             url_l.append("%ssortby:%s%%20" % ("-" if direction < 0 else "", s_field))
+        if fields is not None:
+            url_l.append("fields:%s%%20" % quote(",".join(fields)))
         url_l.append("skip:")
         url = "".join(url_l)
         if skip is None:

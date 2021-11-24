@@ -251,7 +251,7 @@ class MongoDB(DB):
         e.g.  .explain()) based on the column and a filter.
 
         """
-        if "fields" in kargs and any(
+        if kargs.get("fields") is not None and any(
             fld in kargs["fields"] for fld in self.ipaddr_fields
         ):
             fields = []
@@ -261,7 +261,7 @@ class MongoDB(DB):
                 else:
                     fields.append(fld)
             kargs["fields"] = fields
-        if "sort" in kargs and any(
+        if kargs.get("sort") and any(
             fld in (field for field, _ in kargs["sort"]) for fld in self.ipaddr_fields
         ):
             sort = []
