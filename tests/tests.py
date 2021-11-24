@@ -4329,7 +4329,6 @@ class IvreTests(unittest.TestCase):
             os.unlink(fdesc.name)
             self.assertEqual(res, 0)
             out = out.decode().splitlines()
-            self.assertEqual(len(out), 48)
             found_zone_transfer = False
             found_dns_servers = set()
             found_dns_tls_rpt = set()
