@@ -231,7 +231,7 @@ PORT = re.compile("^(?:(tcp|udp)[/_])?([0-9]+)$")
 
 
 def flt_from_query(dbase, query, base_flt=None):
-    """Return a tuple (`flt`, `sortby`, `unused`, `skip`, `limit`):
+    """Return a tuple (`flt`, `sortby`, `unused`, `skip`, `limit`, `fields`):
 
     - a filter based on the query
 
@@ -248,6 +248,7 @@ def flt_from_query(dbase, query, base_flt=None):
     sortby = []
     skip = 0
     limit = None
+    fields = None
     flt = get_init_flt(dbase) if base_flt is None else base_flt
 
     def add_unused(neg, param, value):
@@ -268,6 +269,8 @@ def flt_from_query(dbase, query, base_flt=None):
             skip = int(value)
         elif not neg and param == "limit":
             limit = int(value)
+        elif not neg and param == "fields":
+            fields = value.split(",")
         elif param == "id":
             flt = dbase.flt_and(
                 flt, dbase.searchobjectid(value.replace("-", ",").split(","), neg=neg)
@@ -824,7 +827,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 add_unused(neg, param, value)
         else:
             add_unused(neg, param, value)
-    return flt, sortby, unused, skip, limit
+    return flt, sortby, unused, skip, limit, fields
 
 
 def parse_arg(data):

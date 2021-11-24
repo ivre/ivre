@@ -143,6 +143,7 @@ FilterParams = namedtuple(
         "unused",
         "skip",
         "limit",
+        "fields",
         "callback",
         "ipsasnumbers",
         "datesasstrings",
@@ -155,7 +156,7 @@ def get_base(dbase):
     # we can get filters from either q= (web interface) or f= (API);
     # both are used (logical and)
     query = webutils.query_from_params(request.params)
-    flt, sortby, unused, skip, limit = webutils.flt_from_query(dbase, query)
+    flt, sortby, unused, skip, limit, fields = webutils.flt_from_query(dbase, query)
     flt = dbase.flt_and(
         flt, webutils.parse_filter(dbase, json.loads(request.params.pop("f", "{}")))
     )
@@ -184,7 +185,16 @@ def get_base(dbase):
             "Content-Disposition", 'attachment; filename="IVRE-results.%s"' % fmt
         )
     return FilterParams(
-        flt, sortby, unused, skip, limit, callback, ipsasnumbers, datesasstrings, fmt
+        flt,
+        sortby,
+        unused,
+        skip,
+        limit,
+        fields,
+        callback,
+        ipsasnumbers,
+        datesasstrings,
+        fmt,
     )
 
 
@@ -580,7 +590,12 @@ def get_nmap(subdb):
     # XXX-WORKAROUND-PGSQL).
     # result = subdb.get(flt_params.flt, limit=flt_params.limit,
     #                    skip=flt_params.skip, sort=flt_params.sortby)
-    result = subdb.get(flt_params.flt, skip=flt_params.skip, sort=flt_params.sortby)
+    result = subdb.get(
+        flt_params.flt,
+        skip=flt_params.skip,
+        sort=flt_params.sortby,
+        fields=flt_params.fields,
+    )
 
     if flt_params.unused:
         msg = "Option%s not understood: %s" % (
@@ -991,7 +1006,10 @@ def get_passive():
     # result = db.passive.get(flt_params.flt, limit=flt_params.limit,
     #                         skip=flt_params.skip, sort=flt_params.sortby)
     result = db.passive.get(
-        flt_params.flt, skip=flt_params.skip, sort=flt_params.sortby
+        flt_params.flt,
+        skip=flt_params.skip,
+        sort=flt_params.sortby,
+        fields=flt_params.fields,
     )
     if flt_params.callback is None:
         if flt_params.fmt == "json":
