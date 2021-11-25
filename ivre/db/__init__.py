@@ -1746,6 +1746,10 @@ class DBActive(DB):
             return cls.searchscript(name="http-user-agent", neg=neg)
         return cls.searchscript(name="http-user-agent", values=useragent, neg=neg)
 
+    @classmethod
+    def searchjarm(cls, value=None, neg=False):
+        return cls.searchscript(name="ssl-jarm", output=value, neg=neg)
+
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
         if args.category is not None:
