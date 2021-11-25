@@ -2985,6 +2985,7 @@ class MongoDBActive(MongoDB, DBActive):
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
         """
 
         def null_if_empty(val):
@@ -3611,6 +3612,28 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {"count": x["count"], "_id": tuple(x["_id"])}
 
+        elif field == "jarm":
+            flt = self.flt_and(flt, self.searchjarm())
+            field = "ports.scripts.output"
+            specialproj = {"_id": 0, "ports.scripts.id": 1, "ports.scripts.output": 1}
+            specialflt = [
+                {"$match": {"ports.scripts.id": "ssl-jarm"}},
+                {"$project": {"ports.scripts.output": 1}},
+            ]
+        elif field.startswith("jarm:"):
+            port = int(field[5:])
+            flt = self.flt_and(flt, self.searchjarm(), self.searchport(port))
+            field = "ports.scripts.output"
+            specialproj = {
+                "_id": 0,
+                "ports.port": 1,
+                "ports.scripts.id": 1,
+                "ports.scripts.output": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.port": port, "ports.scripts.id": "ssl-jarm"}},
+                {"$project": {"ports.scripts.output": 1}},
+            ]
         elif field == "sshkey.bits":
             flt = self.flt_and(flt, self.searchsshkey())
             specialproj = {

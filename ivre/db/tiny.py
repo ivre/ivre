@@ -2036,6 +2036,50 @@ class TinyDBActive(TinyDB, DBActive):
                                         continue
                                 yield (ja3srv.get(subfield), ja3cli.get(subfield))
 
+        elif field == "jarm":
+
+            def _newflt(field):
+                return self.searchjarm()
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["ports.scripts.id", "ports.scripts.output"],
+                ):
+                    for port in rec["ports"]:
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-jarm":
+                                yield script["output"]
+
+        elif field.startswith("jarm:"):
+            portnum = int(field[5:])
+
+            def _newflt(field):
+                return self.flt_and(self.searchjarm(), self.searchport(portnum))
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=[
+                        "ports.port",
+                        "ports.protocol",
+                        "ports.scripts.id",
+                        "ports.scripts.output",
+                    ],
+                ):
+                    for port in rec["ports"]:
+                        if port["port"] != portnum or port["protocol"] != "tcp":
+                            continue
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-jarm":
+                                yield script["output"]
+
         elif field == "sshkey.bits":
 
             def _newflt(field):

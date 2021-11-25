@@ -1636,6 +1636,9 @@ class IvreTests(unittest.TestCase):
         self.check_nmap_top_value("nmap_top_categories_TEST", "categories:TEST")
         self.check_nmap_top_value("nmap_top_categories_TEST", "categories:/^TEST$/")
 
+        self.check_nmap_top_value("nmap_top_jarm", "jarm")
+        self.check_nmap_top_value("nmap_top_jarm_443", "jarm:443")
+
         self._check_top_value_api(
             "nmap_top_service_80", "service:80", database=ivre.db.db.nmap
         )
@@ -4998,6 +5001,9 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value(
             "view_top_categories_PASSIVE", "categories:/^PASSIVE$/"
         )
+
+        self.check_view_top_value("view_top_jarm", "jarm")
+        self.check_view_top_value("view_top_jarm_443", "jarm:443")
 
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a

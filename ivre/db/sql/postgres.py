@@ -871,6 +871,22 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     self.tables.script.data["ssl-ja3-server"],
                 ).alias("ssl_ja3_server"),
             )
+        elif field == "jarm":
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.output],
+                self.tables.script.name == "ssl-jarm",
+            )
+        elif field.startswith("jarm:"):
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.output],
+                (
+                    (self.tables.script.name == "ssl-jarm")
+                    & (self.tables.port.port == int(field[5:]))
+                    & (self.tables.port.protocol == "tcp")
+                ),
+            )
         elif field == "source":
             field = self._topstructure(self.tables.scan, [self.tables.scan.source])
         elif field == "domains":

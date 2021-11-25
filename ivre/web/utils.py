@@ -617,6 +617,13 @@ def flt_from_query(dbase, query, base_flt=None):
                             neg=neg,
                         ),
                     )
+        elif param == "ssl-jarm":
+            if value is None:
+                flt = dbase.flt_and(flt, dbase.searchjarm(neg=neg))
+            else:
+                flt = dbase.flt_and(
+                    flt, dbase.searchjarm(value=utils.str2regexp(value), neg=neg)
+                )
         elif param == "useragent":
             if value:
                 flt = dbase.flt_and(
