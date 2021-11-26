@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.6', '3.9']
+        python-version: ['3.7', '3.9']
         postgresql-version: ['12', '13']
 
     steps:

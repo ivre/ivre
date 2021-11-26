@@ -24,6 +24,7 @@ sub-module or script.
 """
 
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 import ast
 import argparse
 from bisect import bisect_left
@@ -770,7 +771,7 @@ class FileOpener(BinaryIO):
         # even when self.close is False.
         self.fdesc.close()
 
-    def __enter__(self) -> "FileOpener":
+    def __enter__(self) -> FileOpener:
         return self
 
     def __exit__(
@@ -782,7 +783,7 @@ class FileOpener(BinaryIO):
         if self.needsclose:
             self.fdesc.close()
 
-    def __iter__(self) -> "FileOpener":
+    def __iter__(self) -> FileOpener:
         return self
 
     def __next__(self) -> bytes:

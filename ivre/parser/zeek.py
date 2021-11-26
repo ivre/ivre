@@ -18,6 +18,7 @@
 
 """Support for Zeek log files"""
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 import datetime
 import re
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
@@ -54,7 +55,7 @@ class ZeekFile(Parser):
                 break
             self.parse_header_line(line)
 
-    def __enter__(self) -> "ZeekFile":
+    def __enter__(self) -> ZeekFile:
         return self
 
     def __next__(self) -> Dict[str, Any]:

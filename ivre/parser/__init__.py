@@ -19,6 +19,7 @@
 """Parsers for file formats / tool outputs"""
 
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 import subprocess
 from types import TracebackType
 from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Type, Union, cast
@@ -49,7 +50,7 @@ class Parser:
     def close(self) -> None:
         self.fdesc.close()
 
-    def __enter__(self) -> "Parser":
+    def __enter__(self) -> Parser:
         return self
 
     def __exit__(
