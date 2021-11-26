@@ -87,6 +87,6 @@ GitHub actions
 
 Tests are run with several MongoDB and PostgreSQL versions, as well as
 TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
-with Python 3.6 to 3.9.
+with Python 3.7 to 3.9.
 
 The configurations are in the `.github/workflows/*.yml` YAML files.

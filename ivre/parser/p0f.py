@@ -18,6 +18,7 @@
 
 """Support for p0f log files"""
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 import datetime
 import re
 from typing import Any, BinaryIO, Dict, List, Optional, Union
@@ -44,7 +45,7 @@ class P0fFile(Parser):
         self.path: Optional[str] = None
         super().__init__(fname)
 
-    def __enter__(self) -> "P0fFile":
+    def __enter__(self) -> P0fFile:
         return self
 
     def __next__(self) -> Dict[str, Any]:

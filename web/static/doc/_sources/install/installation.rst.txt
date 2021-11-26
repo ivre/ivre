@@ -40,7 +40,7 @@ your needs:
 Python
 ~~~~~~
   
-To install IVRE, you'll need `Python <http://www.python.org/>`__ 3.6
+To install IVRE, you'll need `Python <http://www.python.org/>`__ 3.7
 minimum, with the following modules:
 
 - `bottle <https://bottlepy.org/>`_.

@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 from typing import Any, Callable, Optional, TypeVar
 
 class Bottle:
-    def mount(self, prefix: str, app: "Bottle") -> None: ...
+    def mount(self, prefix: str, app: Bottle) -> None: ...
 
 class HTTPResponse: ...
 

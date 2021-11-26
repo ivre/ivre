@@ -23,6 +23,7 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 """
 
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 import codecs
 import csv
 import os.path
@@ -290,7 +291,7 @@ class IPRanges:
         self.ranges[self.length] = (start, length)
         self.length += int(length)  # in case it's a long
 
-    def union(self, *others: "IPRanges") -> "IPRanges":
+    def union(self, *others: IPRanges) -> IPRanges:
         res = IPRanges()
         gens = [self.iter_int_ranges()] + [o.iter_int_ranges() for o in others]
         curs = []
