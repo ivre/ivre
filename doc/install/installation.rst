@@ -45,7 +45,7 @@ minimum, with the following modules:
 
 - `bottle <https://bottlepy.org/>`_.
 - `cryptography <https://cryptography.io/en/latest/>`_.
-- `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
+- `pymongo <http://api.mongodb.org/python/>`_ version 3.7 minimum.
 - `tinydb <https://tinydb.readthedocs.io/>`_, to use the
   **experimental** TinyDB backend (this does not require a database
   server).
@@ -67,7 +67,7 @@ Databases
 ~~~~~~~~~
 
 IVRE's reference backend service is `MongoDB
-<https://www.mongodb.org/>`_, version 3.2 minimum. It is highly
+<https://www.mongodb.org/>`_, version 3.6 minimum. It is highly
 suggested that you use the latest stable release (the performances
 tend to improve a lot).
 
