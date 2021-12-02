@@ -143,13 +143,12 @@ class MongoDB(DB):
             cur.max_time_ms(self.maxtime)
         return cur
 
-    @classmethod
-    def get_hint(cls, spec):
+    def get_hint(self, spec):
         """Given a query spec, return an appropriate index in a form
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in cls.hint_indexes[cls.column_passive].items():
+        for fieldname, hint in self.hint_indexes[self.column_passive].items():
             if fieldname in spec:
                 return hint
         return None
@@ -193,74 +192,23 @@ class MongoDB(DB):
             self._server_info = self.db_client.server_info()
             return self._server_info
 
-    @property
-    def find(self):
-        """Wrapper around column .find() method, depending on pymongo
-        version.
-
-        """
-        try:
-            return self._find
-        except AttributeError:
-            if pymongo.version_tuple[0] > 2:
-
-                def _find(colname, *args, **kargs):
-                    if "spec" in kargs:
-                        kargs["filter"] = kargs.pop("spec")
-                    if "fields" in kargs:
-                        kargs["projection"] = kargs.pop("fields")
-                    return self.db[colname].find(*args, **kargs)
-
-            else:
-
-                def _find(colname, *args, **kargs):
-                    return self.db[colname].find(*args, **kargs)
-
-            self._find = _find
-            return self._find
-
-    @property
-    def find_one(self):
-        """Wrapper around collection .find_one() method, depending on
-        pymongo version.
-
-        """
-        try:
-            return self._find_one
-        except AttributeError:
-            if pymongo.version_tuple[0] > 2:
-
-                def _find_one(colname, *args, **kargs):
-                    if "spec_or_id" in kargs:
-                        kargs["filter_or_id"] = kargs.pop("spec_or_id")
-                    if "fields" in kargs:
-                        kargs["projection"] = kargs.pop("fields")
-                    return self.db[colname].find_one(*args, **kargs)
-
-                self._find_one = _find_one
-            else:
-
-                def _find_one(colname, *args, **kargs):
-                    return self.db[colname].find_one(*args, **kargs)
-
-                self._find_one = _find_one
-            return self._find_one
-
     def _get_cursor(self, column, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
         e.g.  .explain()) based on the column and a filter.
 
         """
-        if kargs.get("fields") is not None and any(
-            fld in kargs["fields"] for fld in self.ipaddr_fields
+        if "fields" in kargs:
+            kargs["projection"] = kargs.pop("fields")
+        if kargs.get("projection") is not None and any(
+            fld in kargs["projection"] for fld in self.ipaddr_fields
         ):
             fields = []
-            for fld in kargs["fields"]:
+            for fld in kargs["projection"]:
                 if fld in self.ipaddr_fields:
                     fields.extend(["%s_0" % fld, "%s_1" % fld])
                 else:
                     fields.append(fld)
-            kargs["fields"] = fields
+            kargs["projection"] = fields
         if kargs.get("sort") and any(
             fld in (field for field, _ in kargs["sort"]) for fld in self.ipaddr_fields
         ):
@@ -271,10 +219,7 @@ class MongoDB(DB):
                 else:
                     sort.append((fld, way))
             kargs["sort"] = sort
-        return self.set_limits(self.find(column, flt, **kargs))
-
-    def count(self, *args, **kargs):
-        return self._get(*args, **kargs).count()
+        return self.set_limits(self.db[column].find(flt, **kargs))
 
     @staticmethod
     def ip2internal(addr):
@@ -322,7 +267,7 @@ class MongoDB(DB):
         want to do something special here, e.g., mix with other records.
 
         """
-        return self.db[colname].update({"_id": recid}, update)
+        return self.db[colname].update_one({"_id": recid}, update)
 
     def migrate_schema(self, colnum, version):
         """Process to schema migrations in column `colname` starting
@@ -365,11 +310,12 @@ class MongoDB(DB):
             updated = False
             # unlimited find()!
             for i, record in enumerate(
-                self.find(
-                    self.columns[colnum],
+                self.db[self.columns[colnum]]
+                .find(
                     self.searchversion(version),
                     no_cursor_timeout=True,
-                ).batch_size(50000)
+                )
+                .batch_size(50000)
             ):
                 try:
                     update = migration_function(record)
@@ -1859,13 +1805,16 @@ class MongoDBActive(MongoDB, DBActive):
         """Queries the active column with the provided filter "spec",
         and returns a MongoDB cursor.
 
-        This should be very fast, as no operation is done (the cursor is only
-        returned). Next operations (e.g., .count(), enumeration, etc.) might
-        take a long time, depending on both the operations and the filter.
+        This should be very fast, as no operation is done (the cursor
+        is only returned). Next operations (e.g., enumeration) might
+        take a long time, depending on both the operations and the
+        filter.
 
         Any keyword argument is passed to the .find() method of the Mongodb
         column object, without any validation (and might have no effect if
-        it is not expected)."""
+        it is not expected).
+
+        """
         # Convert IP addresses to internal DB format
         for host in self._get(spec, **kargs):
             try:
@@ -1907,6 +1856,10 @@ class MongoDBActive(MongoDB, DBActive):
             return scanids
         return [scanids]
 
+    def count(self, flt):
+        """Count documents in hosts column."""
+        return self.db[self.columns[self.column_hosts]].count_documents(flt)
+
     def setscreenshot(self, host, port, data, protocol="tcp", overwrite=False):
         """Sets the content of a port's screenshot."""
         try:
@@ -1923,7 +1876,7 @@ class MongoDBActive(MongoDB, DBActive):
         if trim_result is False:
             # Image no longer exists after trim
             port["screenshot"] = "empty"
-            self.db[self.columns[self.column_hosts]].update(
+            self.db[self.columns[self.column_hosts]].update_one(
                 {"_id": host["_id"]}, {"$set": {"ports": host["ports"]}}
             )
             return
@@ -1935,7 +1888,7 @@ class MongoDBActive(MongoDB, DBActive):
         screenwords = utils.screenwords(data)
         if screenwords is not None:
             port["screenwords"] = screenwords
-        self.db[self.columns[self.column_hosts]].update(
+        self.db[self.columns[self.column_hosts]].update_one(
             {"_id": host["_id"]}, {"$set": {"ports": host["ports"]}}
         )
 
@@ -1984,7 +1937,7 @@ class MongoDBActive(MongoDB, DBActive):
                 portdoc["screenwords"] = screenwords
                 updated = True
         if updated:
-            self.db[self.columns[self.column_hosts]].update(
+            self.db[self.columns[self.column_hosts]].update_one(
                 {"_id": host["_id"]}, {"$set": {"ports": host["ports"]}}
             )
 
@@ -2002,7 +1955,7 @@ class MongoDBActive(MongoDB, DBActive):
                     del p["screenshot"]
                     changed = True
         if changed:
-            self.db[self.columns[self.column_hosts]].update(
+            self.db[self.columns[self.column_hosts]].update_one(
                 {"_id": host["_id"]}, {"$set": {"ports": host["ports"]}}
             )
 
@@ -2037,30 +1990,20 @@ class MongoDBActive(MongoDB, DBActive):
         )
 
     def get_ips(self, flt, limit=None, skip=None):
-        cur = self._get(
-            flt, fields=["addr_0", "addr_1"], limit=limit or 0, skip=skip or 0
-        )
         return (
-            (
-                dict(res, addr=self.internal2ip([res["addr_0"], res["addr_1"]]))
-                for res in cur
-            ),
-            cur.count(),
+            self.get(flt, fields=["addr"], limit=limit or 0, skip=skip or 0),
+            self.count(flt),
         )
 
     def get_open_port_count(self, flt, limit=None, skip=None):
-        cur = self._get(
-            flt,
-            fields=["addr_0", "addr_1", "starttime", "openports.count"],
-            limit=limit or 0,
-            skip=skip or 0,
-        )
         return (
-            (
-                dict(res, addr=self.internal2ip([res["addr_0"], res["addr_1"]]))
-                for res in cur
+            self.get(
+                flt,
+                fields=["addr", "starttime", "openports.count"],
+                limit=limit or 0,
+                skip=skip or 0,
             ),
-            cur.count(),
+            self.count(flt),
         )
 
     def store_host(self, host):
@@ -2095,7 +2038,9 @@ class MongoDBActive(MongoDB, DBActive):
                 "coordinates": host["infos"].pop("coordinates")[::-1],
             }
         try:
-            ident = self.db[self.columns[self.column_hosts]].insert(host)
+            ident = (
+                self.db[self.columns[self.column_hosts]].insert_one(host).inserted_id
+            )
         except Exception:
             utils.LOGGER.warning("Cannot insert host %r", host, exc_info=True)
             return None
@@ -4073,17 +4018,16 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         self.output_function = None
 
     def store_scan_doc(self, scan):
-        ident = self.db[self.columns[self.column_scans]].insert(scan)
+        ident = self.db[self.columns[self.column_scans]].insert_one(scan).inserted_id
         utils.LOGGER.debug(
             "SCAN STORED: %r in %r", ident, self.columns[self.column_scans]
         )
         return ident
 
     def update_scan_doc(self, scan_id, data):
-        self.db[self.columns[self.column_scans]].update(
+        self.db[self.columns[self.column_scans]].update_one(
             {"_id": scan_id},
-            {"set": data},
-            multi=False,
+            {"$set": data},
         )
 
     def store_or_merge_host(self, host):
@@ -4098,11 +4042,13 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         return self.cmp_schema_version(self.column_scans, scan)
 
     def getscan(self, scanid):
-        return self.find_one(self.columns[self.column_scans], {"_id": scanid})
+        return self.db[self.columns[self.column_scans]].find_one({"_id": scanid})
 
     def is_scan_present(self, scanid):
         if (
-            self.find_one(self.columns[self.column_scans], {"_id": scanid}, fields=[])
+            self.db[self.columns[self.column_scans]].find_one(
+                {"_id": scanid}, projection=[]
+            )
             is not None
         ):
             return True
@@ -4120,7 +4066,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         super().remove(host)
         for scanid in self.getscanids(host):
             if (
-                self.find_one(self.columns[self.column_hosts], {"scanid": scanid})
+                self.db[self.columns[self.column_hosts]].find_one({"scanid": scanid})
                 is None
             ):
                 self.db[self.columns[self.column_scans]].delete_one({"_id": scanid})
@@ -4137,7 +4083,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         super().remove_many(flt)
         for scanid in scanids:
             if (
-                self.find_one(self.columns[self.column_hosts], {"scanid": scanid})
+                self.db[self.columns[self.column_hosts]].find_one({"scanid": scanid})
                 is None
             ):
                 self.db[self.columns[self.column_scans]].delete_one({"_id": scanid})
@@ -4300,7 +4246,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if colname == self.columns[self.column_passive]:  # just in case
             del update["_id"]
             self.insert_or_update_mix(update, getinfos=passive.getinfos)
-            self.remove(recid)
+            self.db[self.columns[self.column_passive]].delete_one({"_id": recid})
             return None
         return super()._migrate_update_record(colname, recid, update)
 
@@ -4399,13 +4345,16 @@ class MongoDBPassive(MongoDB, DBPassive):
         """Queries the passive column with the provided filter "spec", and
         returns a MongoDB cursor.
 
-        This should be very fast, as no operation is done (the cursor is only
-        returned). Next operations (e.g., .count(), enumeration, etc.) might
-        take a long time, depending on both the operations and the filter.
+        This should be very fast, as no operation is done (the cursor
+        is only returned). Next operations (e.g., enumeration) might
+        take a long time, depending on both the operations and the
+        filter.
 
         Any keyword argument is passed to the .find() method of the Mongodb
         column object, without any validation (and might have no effect if it
-        is not expected)."""
+        is not expected).
+
+        """
         cursor = self._get(spec, **kargs)
         if hint is not None:
             cursor.hint(hint)
@@ -4419,11 +4368,17 @@ class MongoDBPassive(MongoDB, DBPassive):
 
         Unlike get(), this function might take a long time, depending
         on "spec" and the indexes set on passive column."""
+        if "fields" in kargs:
+            kargs["projection"] = kargs.pop("fields")
         # TODO: check limits
-        rec = self.find_one(self.columns[self.column_passive], spec, **kargs)
+        rec = self.db[self.columns[self.column_passive]].find_one(spec, **kargs)
         if rec is None:
             return None
         return self.internal2rec(rec)
+
+    def count(self, flt):
+        """Count documents in the passive column."""
+        return self.db[self.columns[self.column_passive]].count_documents(flt)
 
     def update(self, spec, **kargs):
         """Updates the first record matching "spec" in the "passive" column,
@@ -4465,7 +4420,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if getinfos is not None:
             spec.update(getinfos(spec))
         spec = self.rec2internal(spec)
-        self.db[self.columns[self.column_passive]].insert(spec)
+        self.db[self.columns[self.column_passive]].insert_one(spec)
 
     def insert_or_update(
         self, timestamp, spec, getinfos=None, lastseen=None, replacecount=False
@@ -4493,7 +4448,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         else:
             updatespec["$inc"] = {"count": spec.pop("count", 1)}
         if current is not None:
-            self.db[self.columns[self.column_passive]].update(
+            self.db[self.columns[self.column_passive]].update_one(
                 {"_id": current["_id"]},
                 updatespec,
             )
@@ -4507,7 +4462,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 else:
                     self._fix_sizes(infos)
                     updatespec["$setOnInsert"] = infos
-            self.db[self.columns[self.column_passive]].update(
+            self.db[self.columns[self.column_passive]].update_one(
                 spec,
                 updatespec,
                 upsert=True,
@@ -4528,8 +4483,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         method.
 
         """
-        bulk = self.db[self.columns[self.column_passive]].initialize_unordered_bulk_op()
-        count = 0
+        bulk = []
 
         if separated_timestamps:
 
@@ -4573,20 +4527,18 @@ class MongoDBPassive(MongoDB, DBPassive):
                         del findspec[key]
                     except KeyError:
                         pass
-                bulk.find(findspec).upsert().update(updatespec)
-                count += 1
-                if count >= config.MONGODB_BATCH_SIZE:
-                    utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
-                    bulk.execute()
-                    bulk = self.db[
-                        self.columns[self.column_passive]
-                    ].initialize_unordered_bulk_op()
-                    count = 0
+                bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
+                if len(bulk) >= config.MONGODB_BATCH_SIZE:
+                    utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(bulk))
+                    self.db[self.columns[self.column_passive]].bulk_write(
+                        bulk, ordered=False
+                    )
+                    bulk = []
         except IOError:
             pass
-        if count > 0:
-            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", count)
-            bulk.execute()
+        if bulk:
+            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", len(bulk))
+            self.db[self.columns[self.column_passive]].bulk_write(bulk, ordered=False)
 
     def insert_or_update_mix(self, spec, getinfos=None, replacecount=False):
         """Updates the first record matching "spec" (without
@@ -4617,7 +4569,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 }
         current = self.get_one(spec, fields=[])
         if current:
-            self.db[self.columns[self.column_passive]].update(
+            self.db[self.columns[self.column_passive]].update_one(
                 {"_id": current["_id"]},
                 updatespec,
             )
@@ -4626,14 +4578,17 @@ class MongoDBPassive(MongoDB, DBPassive):
                 infos = getinfos(spec)
                 if infos:
                     updatespec["$setOnInsert"] = infos
-            self.db[self.columns[self.column_passive]].update(
+            self.db[self.columns[self.column_passive]].update_one(
                 spec,
                 updatespec,
                 upsert=True,
             )
 
-    def remove(self, spec_or_id):
-        self.db[self.columns[self.column_passive]].remove(spec_or_id=spec_or_id)
+    def remove(self, flt):
+        if not isinstance(flt, dict):
+            self.db[self.columns[self.column_passive]].delete_one({"_id": flt})
+        else:
+            self.db[self.columns[self.column_passive]].delete_many(flt)
 
     def topvalues(self, field, flt=None, distinct=True, **kargs):
         """This method makes use of the aggregation framework to
@@ -5064,17 +5019,17 @@ class MongoDBAgent(MongoDB, DBAgent):
         ]
 
     def _add_agent(self, agent):
-        return self.db[self.columns[self.column_agents]].insert(agent)
+        return self.db[self.columns[self.column_agents]].insert_one(agent).inserted_id
 
     def get_agent(self, agentid):
-        return self.find_one(self.columns[self.column_agents], {"_id": agentid})
+        return self.db[self.columns[self.column_agents]].find_one({"_id": agentid})
 
     def get_free_agents(self):
         return (
             x["_id"]
             for x in self.set_limits(
-                self.find(
-                    self.columns[self.column_agents], {"scan": None}, fields=["_id"]
+                self.db[self.columns[self.column_agents]].find(
+                    {"scan": None}, projection=["_id"]
                 )
             )
         )
@@ -5083,10 +5038,9 @@ class MongoDBAgent(MongoDB, DBAgent):
         return (
             x["_id"]
             for x in self.set_limits(
-                self.find(
-                    self.columns[self.column_agents],
+                self.db[self.columns[self.column_agents]].find(
                     {"master": masterid},
-                    fields=["_id"],
+                    projection=["_id"],
                 )
             )
         )
@@ -5095,7 +5049,7 @@ class MongoDBAgent(MongoDB, DBAgent):
         return (
             x["_id"]
             for x in self.set_limits(
-                self.find(self.columns[self.column_agents], fields=["_id"])
+                self.db[self.columns[self.column_agents]].find(projection=["_id"])
             )
         )
 
@@ -5105,12 +5059,12 @@ class MongoDBAgent(MongoDB, DBAgent):
             flt["scan"] = None
         elif not force:
             flt["scan"] = {"$ne": False}
-        self.db[self.columns[self.column_agents]].update(
+        self.db[self.columns[self.column_agents]].update_one(
             flt, {"$set": {"scan": scanid}}
         )
         agent = self.get_agent(agentid)
         if scanid is not None and scanid is not False and scanid == agent["scan"]:
-            self.db[self.columns[self.column_scans]].update(
+            self.db[self.columns[self.column_scans]].update_one(
                 {"_id": scanid, "agents": {"$ne": agentid}},
                 {"$push": {"agents": agentid}},
             )
@@ -5119,7 +5073,7 @@ class MongoDBAgent(MongoDB, DBAgent):
         agent = self.get_agent(agentid)
         scanid = agent["scan"]
         if scanid is not None:
-            self.db[self.columns[self.column_scans]].update(
+            self.db[self.columns[self.column_scans]].update_one(
                 {"_id": scanid, "agents": agentid}, {"$pull": {"agents": agentid}}
             )
         if dont_reuse:
@@ -5128,14 +5082,14 @@ class MongoDBAgent(MongoDB, DBAgent):
             self.assign_agent(agentid, None, force=True)
 
     def _del_agent(self, agentid):
-        return self.db[self.columns[self.column_agents]].remove(spec_or_id=agentid)
+        return self.db[self.columns[self.column_agents]].delete_one({"_id": agentid})
 
     def _add_scan(self, scan):
-        return self.db[self.columns[self.column_scans]].insert(scan)
+        return self.db[self.columns[self.column_scans]].insert_one(scan).inserted_id
 
     def get_scan(self, scanid):
-        scan = self.find_one(
-            self.columns[self.column_scans], {"_id": scanid}, fields={"target": 0}
+        scan = self.db[self.columns[self.column_scans]].find_one(
+            {"_id": scanid}, projection={"target": 0}
         )
         if scan.get("lock") is not None:
             scan["lock"] = uuid.UUID(bytes=scan["lock"])
@@ -5143,7 +5097,7 @@ class MongoDBAgent(MongoDB, DBAgent):
             target = self.get_scan_target(scanid)
             if target is not None:
                 target_info = target.target.infos
-                self.db[self.columns[self.column_scans]].update(
+                self.db[self.columns[self.column_scans]].update_one(
                     {"_id": scanid},
                     {"$set": {"target_info": target_info}},
                 )
@@ -5151,10 +5105,9 @@ class MongoDBAgent(MongoDB, DBAgent):
         return scan
 
     def _get_scan_target(self, scanid):
-        scan = self.find_one(
-            self.columns[self.column_scans],
+        scan = self.db[self.columns[self.column_scans]].find_one(
             {"_id": scanid},
-            fields={"target": 1, "_id": 0},
+            projection={"target": 1, "_id": 0},
         )
         return None if scan is None else scan["target"]
 
@@ -5167,7 +5120,7 @@ class MongoDBAgent(MongoDB, DBAgent):
             oldlockid = bson.Binary(oldlockid)
         if newlockid is not None:
             newlockid = bson.Binary(newlockid)
-        scan = self.db[self.columns[self.column_scans]].find_and_modify(
+        scan = self.db[self.columns[self.column_scans]].find_one_and_update(
             {
                 "_id": scanid,
                 "lock": oldlockid,
@@ -5175,10 +5128,9 @@ class MongoDBAgent(MongoDB, DBAgent):
             {
                 "$set": {"lock": newlockid, "pid": os.getpid()},
             },
-            full_response=True,
-            fields={"target": False},
+            projection={"target": False},
             new=True,
-        )["value"]
+        )
         if scan is None:
             if oldlockid is None:
                 raise LockError("Cannot acquire lock for %r" % scanid)
@@ -5192,7 +5144,7 @@ class MongoDBAgent(MongoDB, DBAgent):
             target = self.get_scan_target(scanid)
             if target is not None:
                 target_info = target.target.infos
-                self.db[self.columns[self.column_scans]].update(
+                self.db[self.columns[self.column_scans]].update_one(
                     {"_id": scanid},
                     {"$set": {"target_info": target_info}},
                 )
@@ -5205,31 +5157,31 @@ class MongoDBAgent(MongoDB, DBAgent):
         return (
             x["_id"]
             for x in self.set_limits(
-                self.find(self.columns[self.column_scans], fields=["_id"])
+                self.db[self.columns[self.column_scans]].find(projection=["_id"])
             )
         )
 
     def _update_scan_target(self, scanid, target):
-        return self.db[self.columns[self.column_scans]].update(
+        return self.db[self.columns[self.column_scans]].update_one(
             {"_id": scanid}, {"$set": {"target": target}}
         )
 
     def incr_scan_results(self, scanid):
-        return self.db[self.columns[self.column_scans]].update(
+        return self.db[self.columns[self.column_scans]].update_one(
             {"_id": scanid}, {"$inc": {"results": 1}}
         )
 
     def _add_master(self, master):
-        return self.db[self.columns[self.column_masters]].insert(master)
+        return self.db[self.columns[self.column_masters]].insert_one(master).inserted_id
 
     def get_master(self, masterid):
-        return self.find_one(self.columns[self.column_masters], {"_id": masterid})
+        return self.db[self.columns[self.column_masters]].find_one({"_id": masterid})
 
     def get_masters(self):
         return (
             x["_id"]
             for x in self.set_limits(
-                self.find(self.columns[self.column_masters], fields=["_id"])
+                self.db[self.columns[self.column_masters]].find(projection=["_id"])
             )
         )
 
@@ -5278,13 +5230,14 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         super().__init__(url)
         self.columns = ["flows"]
 
-    def start_bulk_insert(self):
+    @staticmethod
+    def start_bulk_insert():
         """
         Initialize bulks for inserting data in MongoDB.
         Returns flow_bulk
         """
         utils.LOGGER.debug("start_bulk_insert called")
-        return self.db[self.columns[self.column_flow]].initialize_unordered_bulk_op()
+        return []
 
     @staticmethod
     def _get_flow_key(rec):
@@ -5356,8 +5309,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     ]
 
         cls._update_timeslots(updatespec, rec)
-
-        bulk.find(findspec).upsert().update(updatespec)
+        bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
 
     @classmethod
     def conn2flow(cls, bulk, rec):
@@ -5386,8 +5338,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
         elif rec["proto"] == "icmp":
             updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
-
-        bulk.find(findspec).upsert().update(updatespec)
+        bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
 
     @classmethod
     def flow2flow(cls, bulk, rec):
@@ -5416,23 +5367,19 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
         elif rec["proto"] == "icmp":
             updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
+        bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
 
-        bulk.find(findspec).upsert().update(updatespec)
-
-    @staticmethod
-    def bulk_commit(bulk):
+    def bulk_commit(self, bulk):
         try:
             start_time = time.time()
-            result = bulk.execute()
+            result = self.db[self.columns[self.column_flow]].bulk_write(
+                bulk, ordered=False
+            )
             newtime = time.time()
-            insert_rate = result.get("nInserted") / float(newtime - start_time)
-            upsert_rate = result.get("nUpserted") / float(newtime - start_time)
-            utils.LOGGER.debug(
-                "%d inserts, %f/sec", result.get("nInserted"), insert_rate
-            )
-            utils.LOGGER.debug(
-                "%d upserts, %f/sec", result.get("nUpserted"), upsert_rate
-            )
+            insert_rate = result.inserted_count / float(newtime - start_time)
+            upsert_rate = result.upserted_count / float(newtime - start_time)
+            utils.LOGGER.debug("%d inserts, %f/sec", result.inserted_count, insert_rate)
+            utils.LOGGER.debug("%d upserts, %f/sec", result.upserted_count, upsert_rate)
 
         except BulkWriteError:
             utils.LOGGER.error("Bulk Write Error", exc_info=True)
@@ -5486,7 +5433,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         """
         sources = 0
         destinations = 0
-        flows = self.db[self.columns[self.column_flow]].count(flt)
+        flows = self.db[self.columns[self.column_flow]].count_documents(flt)
         if flows > 0:
             pipeline = [
                 {"$match": flt},
@@ -6102,12 +6049,11 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         }
         """
         g = {"elt": {}}
-        res = self.db[self.columns[self.column_flow]].find(
+        row = self.db[self.columns[self.column_flow]].find_one(
             {"_id": bson.ObjectId(flow_id)}
         )
-        if res.count() != 1:
+        if row is None:
             return None
-        row = res[0]
         g["elt"] = self._edge2json_default(row)["data"]
         g["elt"]["firstseen"] = row.get("firstseen")
         g["elt"]["lastseen"] = row.get("lastseen")
@@ -6229,7 +6175,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 )
 
         # Create the update bulk
-        bulk = self.db[self.columns[self.column_flow]].initialize_unordered_bulk_op()
+        bulk = []
 
         if flt is None:
             flt = self.flt_empty
@@ -6265,16 +6211,16 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 {"start": timeslot[0], "duration": timeslot[1]}
                 for timeslot in new_times
             ]
-            bulk.find({"_id": flw["_id"]}).update({"$set": {"times": timeslots}})
+            bulk.append(
+                pymongo.UpdateOne({"_id": flw["_id"]}, {"$set": {"times": timeslots}})
+            )
         # Execute bulk
         try:
             start_time = time.time()
-            result = bulk.execute()
+            result = self.db[self.columns[self.column_flow]].bulk_write(bulk)
             newtime = time.time()
-            update_rate = result.get("nModified") / float(newtime - start_time)
-            utils.LOGGER.debug(
-                "%d updates, %f/sec", result.get("nModified"), update_rate
-            )
+            update_rate = result.modified_count / float(newtime - start_time)
+            utils.LOGGER.debug("%d updates, %f/sec", result.modified_count, update_rate)
         except pymongo.errors.InvalidOperation:
             utils.LOGGER.debug("No operation to execute.")
 
@@ -6354,7 +6300,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             },
         ]
         res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
-        bulk = self.start_bulk_insert()
+        bulk = []
         counter = 0
         for rec in res:
             rec["_id"]["src_addr"] = self.internal2ip(
@@ -6405,8 +6351,8 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     )
                     utils.LOGGER.debug("Switch flow hosts: %s", f_str)
 
-                bulk.find(findspec).upsert().update(updatespec)
-                bulk.find(removespec).remove()
+                bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
+                bulk.append(pymongo.DeleteMany(removespec))
                 counter += len(rec["_ids"])
 
         self.bulk_commit(bulk)
