@@ -23,8 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # https://docs.mongodb.com/drivers/pymongo/#compatibility
         python-version: ['3.7', '3.9']
-        mongodb-version: ['3.2', '4.4']
+        mongodb-version: ['3.6', '5.0']
 
     steps:
 

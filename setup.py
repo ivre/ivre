@@ -159,7 +159,7 @@ setup(
     python_requires=">=3.7, <4",
     install_requires=[
         "cryptography",
-        "pymongo>=2.7.2",
+        "pymongo>=3.7",
         "pyOpenSSL>=16.1.0",
         "bottle",
     ],
