@@ -23,7 +23,7 @@ instance via an HTTP server.
 
 
 from datetime import datetime
-from functools import partial
+from functools import update_wrapper
 from getpass import getpass
 from io import BytesIO
 import json
@@ -41,6 +41,15 @@ else:
 
 
 from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBView
+
+try:
+    from ivre.db.maxmind import MaxMindDBData
+except ImportError:
+    MaxMindDBData = None
+try:
+    from ivre.db.mongo import MongoDBActive, MongoDBNmap, MongoDBPassive, MongoDBView
+except ImportError:
+    MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBView = None
 from ivre import utils
 
 
@@ -387,11 +396,30 @@ class HttpDB(DB):
 
     def __getattribute__(self, attr):
         if attr.startswith("search") and attr[6:]:
-            return partial(self._search, attr[6:])
+            try:
+                return getattr(self, f"_{attr}")
+            except AttributeError:
+                pass
+
+            # avoid using partial here because it returns an object
+            # and it breaks the help() output
+            def function(*args, **kargs):
+                return self._search(attr[6:], *args, **kargs)
+
+            try:
+                reference = getattr(self.reference, attr)
+            except AttributeError:
+                pass
+            else:
+                update_wrapper(function, reference)
+            setattr(self, f"_{attr}", function)
+            return function
         return super().__getattribute__(attr)
 
 
 class HttpDBActive(HttpDB, DBActive):
+    reference = MongoDBActive
+
     @staticmethod
     def fix_rec(rec):
         """This function may be used by purpose-specific subclasses to fix the
@@ -406,21 +434,25 @@ class HttpDBActive(HttpDB, DBActive):
 
 
 class HttpDBNmap(HttpDBActive, DBNmap):
+    reference = MongoDBNmap
 
     route = "scans"
 
 
 class HttpDBView(HttpDBActive, DBView):
+    reference = MongoDBView
 
     route = "view"
 
 
 class HttpDBPassive(HttpDB, DBPassive):
+    reference = MongoDBPassive
 
     route = "passive"
 
 
 class HttpDBData(HttpDB, DBData):
+    reference = MaxMindDBData
 
     route = "ipdata"
 
