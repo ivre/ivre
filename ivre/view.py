@@ -22,6 +22,7 @@
 
 from datetime import datetime
 from textwrap import wrap
+import struct
 
 
 from ivre.active.cpe import add_cpe_values
@@ -617,6 +618,48 @@ def _extract_passive_SMB_SESSION_SETUP(rec):
     return {"ports": [port]}
 
 
+def _extract_passive_STUN_HONEYPOT_REQUEST(rec):
+    """Handle STUN_HONEYPOT_REQUEST records"""
+    try:
+        type_, len_, tid_hi, tid_lo = struct.unpack(">HHQQ", rec["value"][:20])
+        proto, port = rec["source"].split("/", 1)
+        port = int(port)
+    except ValueError:
+        utils.LOGGER.warning("Cannot parse record [%r]", rec)
+        return {}
+    # store TID as string
+    tid = "%016x%016x" % (tid_hi, tid_lo)
+    # special case when first int of tid is magic
+    if tid_hi >> 32 == 0x2112A442:
+        magic = 0x2112A442
+    else:
+        magic = None
+    output = "Scanned port: %s: %d\nSTUN request (%stid: %s)" % (
+        proto,
+        port,
+        ("magic: 0x%08x, " % magic) if magic else "",
+        tid,
+    )
+    structured_output = {
+        "ports": {"count": 1, proto: {"count": 1, "ports": [port]}},
+        "stun_queries": [{"magic": magic, "tid": tid, "len": len_, "type": type_}],
+    }
+    return {
+        "ports": [
+            {
+                "port": -1,
+                "scripts": [
+                    {
+                        "id": "scanner",
+                        "output": output,
+                        "scanner": structured_output,
+                    }
+                ],
+            }
+        ]
+    }
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     "HTTP_CLIENT_HEADER": _extract_passive_HTTP_CLIENT_HEADER,
@@ -640,6 +683,7 @@ _EXTRACTORS = {
     "NTLM_CHALLENGE": _extract_passive_NTLM,
     "NTLM_AUTHENTICATE": _extract_passive_NTLM,
     "SMB": _extract_passive_SMB_SESSION_SETUP,
+    "STUN_HONEYPOT_REQUEST": _extract_passive_STUN_HONEYPOT_REQUEST,
 }
 
 

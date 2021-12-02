@@ -355,6 +355,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
                             "service_extrainfo": "UDP payload %s" % payload,
                         }
                     )
+    elif spec["recontype"] == "STUN_HONEYPOT_REQUEST":
+        spec["value"] = utils.nmap_decode_data(spec["value"])
     # SSL_{CLIENT,SERVER} JA3
     elif (spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja3") or (
         spec["recontype"] == "SSL_SERVER" and spec["source"].startswith("ja3-")

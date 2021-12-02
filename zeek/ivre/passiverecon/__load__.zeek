@@ -72,6 +72,7 @@ export {
         NTLM_SERVER_FLAGS,
         NTLM_CLIENT_FLAGS,
         SMB,
+        STUN_HONEYPOT_REQUEST,
     };
 
     type Info: record {
@@ -150,6 +151,9 @@ export {
     # Ignore thttpd UNKNOWN timeout answer
     # Ignore SSH banners (from scripts/base/protocols/ssh/dpd.sig)
     const TCP_SERVER_BANNER_IGNORE: pattern = /^(HTTP\/[0-9]|UNKNOWN 408|[sS][sS][hH]-[12]\.)/;
+
+    const STUN_CLIENT_REQUEST: pattern = /^\x00\x01..\x21\x12\xa4\x42/;
+    const STUN_CLIENT_REQUEST_RELAXED: pattern = /^\x00\x01\x00\x08.{16}\x00\x03\x00\x04\x00\x00\x00/;
 
     option HONEYPOTS: set[addr] = {};
 }
@@ -621,14 +625,28 @@ event connection_attempt(c: connection) {
     }
 }
 
-event udp_contents (u: connection, is_orig: bool, contents: string) {
+# Note: this will only be called for UDP packets on ports specified by
+# udp_content_delivery_ports_orig or udp_content_delivery_ports_resp
+# (see https://docs.zeek.org/en/master/scripts/base/bif/plugins/Zeek_UDP.events.bif.zeek.html#id-udp_contents)
+# For inspection of all UDP packets (no matter the port):
+# redef udp_content_deliver_all_orig = T;
+event udp_contents(u: connection, is_orig: bool, contents: string) {
     if (is_orig && u$id$resp_h in HONEYPOTS) {
-        Log::write(LOG, [$ts=u$start_time,
-                         $uid=u$uid,
-                         $host=u$id$orig_h,
-                         $recon_type=UDP_HONEYPOT_HIT,
-                         $source=fmt("udp/%d", u$id$resp_p),
-                         $value=contents]);
+        if (is_orig && (STUN_CLIENT_REQUEST in contents || STUN_CLIENT_REQUEST_RELAXED in contents)) {
+            Log::write(LOG, [$ts=u$start_time,
+                             $uid=u$uid,
+                             $host=u$id$orig_h,
+                             $recon_type=STUN_HONEYPOT_REQUEST,
+                             $source=fmt("udp/%d", u$id$resp_p),
+                             $value=contents]);
+        } else {
+            Log::write(LOG, [$ts=u$start_time,
+                             $uid=u$uid,
+                             $host=u$id$orig_h,
+                             $recon_type=UDP_HONEYPOT_HIT,
+                             $source=fmt("udp/%d", u$id$resp_p),
+                             $value=contents]);
+        }
     }
 }
 
