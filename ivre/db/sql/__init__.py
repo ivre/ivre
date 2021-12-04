@@ -2399,6 +2399,45 @@ class SQLDBActive(SQLDB, DBActive):
             ]
         )
 
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            return cls._searchhassh(value_or_hash=value_or_hash)
+        if server:
+            portflt = cls.tables.port.port != -1
+        else:
+            portflt = cls.tables.port.port == -1
+        if value_or_hash is None:
+            return cls.base_filter(
+                script=[
+                    (
+                        True,
+                        and_(
+                            portflt,
+                            cls.tables.script.name == "ssh2-enum-algos",
+                        ),
+                    )
+                ]
+            )
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        portflt,
+                        cls.tables.script.name == "ssh2-enum-algos",
+                        cls._searchstring_re(
+                            cls.tables.script.data.op("->")("ssh2-enum-algos")
+                            .op("->")("hassh")
+                            .op("->>")(key),
+                            value,
+                        ),
+                    ),
+                )
+            ]
+        )
+
 
 class SQLDBNmap(SQLDBActive, DBNmap):
     table_layout = namedtuple(
@@ -2993,6 +3032,16 @@ class SQLDBPassive(SQLDB, DBPassive):
         if isinstance(key, str):
             key = cls.fields[key]
         return PassiveFilter(main=key.op(cmpop)(val))
+
+    @classmethod
+    def searchval(cls, key, val):
+        if isinstance(key, str):
+            key = cls.fields[key]
+        if isinstance(val, utils.REGEXP_T):
+            return PassiveFilter(
+                main=key.op("~*" if (val.flags & re.IGNORECASE) else "~")(val.pattern)
+            )
+        return cls.searchcmp(key, val, "=")
 
     @classmethod
     def searchhost(cls, addr, neg=False):

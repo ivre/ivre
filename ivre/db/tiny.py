@@ -410,11 +410,18 @@ class TinyDB(DB):
 
     @staticmethod
     def searchval(key, val):
-        return getattr(Query(), key) == val
+        q = Query()
+        for subkey in key.split("."):
+            q = getattr(q, subkey)
+        if isinstance(val, utils.REGEXP_T):
+            return q.search(val.pattern, flags=val.flags)
+        return q == val
 
     @staticmethod
     def searchcmp(key, val, cmpop):
-        q = getattr(Query(), key)
+        q = Query()
+        for subkey in key.split("."):
+            q = getattr(q, subkey)
         if cmpop == "<":
             return q < val
         if cmpop == "<=":
@@ -1161,6 +1168,24 @@ class TinyDBActive(TinyDB, DBActive):
         if not flt:
             return q.cpes.exists()
         return q.cpes.any(cls.flt_and(*flt))
+
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            return cls._searchhassh(value_or_hash=value_or_hash)
+        q = Query()
+        baseflt = q.id == "ssh2-enum-algos"
+        if value_or_hash is not None:
+            # this is not JA3, but we have the exact same logic & needs
+            key, value = cls._ja3keyvalue(value_or_hash)
+            baseflt = baseflt & cls._searchstring_re(
+                getattr(getattr(q, "ssh2-enum-algos").hassh, key), value
+            )
+        if server:
+            portflt = q.port != -1
+        else:
+            portflt = q.port == -1
+        return q.ports.any(portflt & q.scripts.any(baseflt))
 
     def topvalues(
         self,

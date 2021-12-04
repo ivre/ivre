@@ -920,6 +920,14 @@ class MongoDBActive(MongoDB, DBActive):
                 {"sparse": True},
             ),
             (
+                [("ports.scripts.ssl-ja3-client.md5", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [("ports.scripts.ssh2-enum-algos.hassh.md5", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
                 [
                     ("ports.scripts.vulns.id", pymongo.ASCENDING),
                     ("ports.scripts.vulns.state", pymongo.ASCENDING),
@@ -2891,6 +2899,27 @@ class MongoDBActive(MongoDB, DBActive):
             field, value = flt.popitem()
             return {"cpes.%s" % field: value}
         return {"cpes": {"$elemMatch": flt}}
+
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            return cls._searchhassh(value_or_hash=value_or_hash)
+        if value_or_hash is None:
+            baseflt = {"scripts.id": "ssh2-enum-algos"}
+        else:
+            # this is not JA3, but we have the exact same logic & needs
+            key, value = cls._ja3keyvalue(value_or_hash)
+            baseflt = {
+                "scripts": {
+                    "$elemMatch": {
+                        "id": "ssh2-enum-algos",
+                        f"ssh2-enum-algos.hassh.{key}": value,
+                    }
+                }
+            }
+        return {
+            "ports": {"$elemMatch": dict(baseflt, port={"$ne": -1} if server else -1)}
+        }
 
     def topvalues(
         self,
