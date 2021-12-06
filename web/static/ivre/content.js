@@ -994,28 +994,88 @@ var HELP_TOPVALUES = {
 	    "content": "Top HTTP applications (and versions) seen",
 	},
 	"useragent": {
-	    "title": "<b>(!)<b>useragent<b>(:[value])</b>",
+	    "title": "<b>(!)</b>useragent<b>(:[value])</b>",
 	    "content": "Top HTTP User-Agent values seen."
 	},
 	"ja3-client": {
-	    "title": "<b>(!)<b>ja3-client<b>(:[value])</b>",
+	    "title": "<b>(!)</b>ja3-client<b>(:[value])</b>",
 	    "content": "Top JA3 client values (MD5)."
 	},
 	"ja3-client.md5": {
-	    "title": "<b>(!)<b>ja3-client.md5<b>(:[value])</b>",
+	    "title": "<b>(!)</b>ja3-client.md5<b>(:[value])</b>",
 	    "content": "Top JA3 client values (MD5)."
 	},
 	"ja3-client.sha1": {
-	    "title": "<b>(!)<b>ja3-client.sha1<b>(:[value])</b>",
+	    "title": "<b>(!)</b>ja3-client.sha1<b>(:[value])</b>",
 	    "content": "Top JA3 client values (SHA1)."
 	},
 	"ja3-client.sha256": {
-	    "title": "<b>(!)<b>ja3-client.sha256<b>(:[value])</b>",
+	    "title": "<b>(!)</b>ja3-client.sha256<b>(:[value])</b>",
 	    "content": "Top JA3 client values (SHA256)."
 	},
 	"ja3-client.raw": {
-	    "title": "<b>(!)<b>ja3-client.raw<b>(:[value])</b>",
+	    "title": "<b>(!)</b>ja3-client.raw<b>(:[value])</b>",
 	    "content": "Top JA3 client values (raw fingerprint)."
+	},
+	"hassh": {
+	    "title": "<b>(!)</b>hassh",
+	    "content": "Top HASSH values (MD5)",
+	},
+	"hassh.md5": {
+	    "title": "<b>(!)</b>hassh.md5",
+	    "content": "Top HASSH values (MD5)",
+	},
+	"hassh.sha1": {
+	    "title": "<b>(!)</b>hassh.sha1",
+	    "content": "Top HASSH values (SHA1)",
+	},
+	"hassh.sha256": {
+	    "title": "<b>(!)</b>hassh.sha256",
+	    "content": "Top HASSH values (SHA256)",
+	},
+	"hassh.raw": {
+	    "title": "<b>(!)</b>hassh.raw",
+	    "content": "Top HASSH values (RAW)",
+	},
+	"hassh-client": {
+	    "title": "<b>(!)</b>hassh-client",
+	    "content": "Top HASSH client values (MD5)",
+	},
+	"hassh-client.md5": {
+	    "title": "<b>(!)</b>hassh-client.md5",
+	    "content": "Top HASSH client values (MD5)",
+	},
+	"hassh-client.sha1": {
+	    "title": "<b>(!)</b>hassh-client.sha1",
+	    "content": "Top HASSH client values (SHA1)",
+	},
+	"hassh-client.sha256": {
+	    "title": "<b>(!)</b>hassh-client.sha256",
+	    "content": "Top HASSH client values (SHA256)",
+	},
+	"hassh-client.raw": {
+	    "title": "<b>(!)</b>hassh-client.raw",
+	    "content": "Top HASSH client values (RAW)",
+	},
+	"hassh-server": {
+	    "title": "<b>(!)</b>hassh-server",
+	    "content": "Top HASSH server values (MD5)",
+	},
+	"hassh-server.md5": {
+	    "title": "<b>(!)</b>hassh-server.md5",
+	    "content": "Top HASSH server values (MD5)",
+	},
+	"hassh-server.sha1": {
+	    "title": "<b>(!)</b>hassh-server.sha1",
+	    "content": "Top HASSH server values (SHA1)",
+	},
+	"hassh-server.sha256": {
+	    "title": "<b>(!)</b>hassh-server.sha256",
+	    "content": "Top HASSH server values (SHA256)",
+	},
+	"hassh-server.raw": {
+	    "title": "<b>(!)</b>hassh-server.raw",
+	    "content": "Top HASSH server values (RAW)",
 	},
     }
 };
