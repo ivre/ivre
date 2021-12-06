@@ -424,6 +424,9 @@ class ElasticDBActive(ElasticDB, DBActive):
           - file.* / file.*:scriptid
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
+          - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - hassh.type, hassh-client.type, hassh-server.type
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1137,6 +1140,47 @@ return result;
                     }
                 },
             }
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            aggs = {
+                "patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {
+                        "patterns": {
+                            "terms": dict(
+                                baseterms,
+                                field=f"ports.scripts.ssh2-enum-algos.hassh.{subfield}",
+                            )
+                        }
+                    },
+                }
+            }
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+                aggs = {
+                    "patterns": {
+                        "filter": {
+                            "bool": {"must_not": [{"match": {"ports.port": -1}}]}
+                        },
+                        "aggs": aggs,
+                    }
+                }
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+                aggs = {
+                    "patterns": {
+                        "filter": {"match": {"ports.port": -1}},
+                        "aggs": aggs,
+                    }
+                }
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError(f"Unknown field {field}")
+            nested = {"nested": {"path": "ports"}, "aggs": aggs}
         elif field.startswith("s7."):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
