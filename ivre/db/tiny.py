@@ -1224,6 +1224,9 @@ class TinyDBActive(TinyDB, DBActive):
           - file.* / file.*:scriptid
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
+          - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - hassh.type, hassh-client.type, hassh-server.type
         """
         q = Query()
         if flt is None:
@@ -2060,6 +2063,57 @@ class TinyDBActive(TinyDB, DBActive):
                                     if value2 != ja3cli.get(subkey2):
                                         continue
                                 yield (ja3srv.get(subfield), ja3cli.get(subfield))
+
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            if field == "hassh-server":
+
+                def _newflt(field):
+                    return self.searchhassh(server=True)
+
+                def _condport(port):
+                    return port.get("port") != -1
+
+            elif field == "hassh-client":
+
+                def _newflt(field):
+                    return self.searchhassh(server=False)
+
+                def _condport(port):
+                    return port.get("port") == -1
+
+            elif field == "hassh":
+
+                def _newflt(field):
+                    return self.searchhassh()
+
+                def _condport(port):
+                    return True
+
+            else:
+                raise ValueError(f"Unknown field {field}")
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=[
+                        "ports.port",
+                        "ports.scripts.id",
+                        f"ports.scripts.ssh2-enum-algos.hassh.{subfield}",
+                    ],
+                ):
+                    for port in rec["ports"]:
+                        if not _condport(port):
+                            continue
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssh2-enum-algos":
+                                yield script["ssh2-enum-algos"]["hassh"].get(subfield)
 
         elif field == "jarm":
 
@@ -2919,6 +2973,37 @@ class TinyDBPassive(TinyDB, DBPassive):
                                 break
                         if limit is not None and i >= limit:
                             break
+
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            if field == "hassh-server":
+
+                def _newflt(field):
+                    return self.flt_and(flt, self.searchhassh(server=True))
+
+            elif field == "hassh-client":
+
+                def _newflt(field):
+                    return self.flt_and(flt, self.searchhassh(server=False))
+
+            elif field == "hassh":
+
+                def _newflt(field):
+                    return self.flt_and(flt, self.searchhassh())
+
+            else:
+                raise ValueError("Unknown field %s" % field)
+            if subfield == "md5":
+                field = "value"
+            else:
+                field = "infos.%s" % subfield
+            if distinct:
+                fields = [field]
+            else:
+                fields = [field, "count"]
 
         if distinct:
             return [
