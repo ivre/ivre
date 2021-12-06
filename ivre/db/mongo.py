@@ -2960,6 +2960,7 @@ class MongoDBActive(MongoDB, DBActive):
           - scanner.name / scanner.port:tcp / scanner.port:udp
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - hassh.type, hassh-client.type, hassh-server.type
         """
 
         def null_if_empty(val):
@@ -3586,6 +3587,26 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {"count": x["count"], "_id": tuple(x["_id"])}
 
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            specialproj = {"_id": 0}
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+                specialflt = [{"$match": {"ports.port": {"$ne": -1}}}]
+                specialproj["ports.port"] = 1
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+                specialflt = [{"$match": {"ports.port": -1}}]
+                specialproj["ports.port"] = 1
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError(f"Unknown field {field}")
+            field = f"ports.scripts.ssh2-enum-algos.hassh.{subfield}"
+            specialproj[field] = 1
         elif field == "jarm":
             flt = self.flt_and(flt, self.searchjarm())
             field = "ports.scripts.output"
@@ -4696,6 +4717,23 @@ class MongoDBPassive(MongoDB, DBPassive):
             else:
                 flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
                 aggrflt = {"field": re.compile("\\.%s$" % re.escape(subfield))}
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError("Unknown field %s" % field)
+            if subfield == "md5":
+                field = "value"
+            else:
+                field = "infos.%s" % subfield
         pipeline = self._topvalues(
             field, flt=flt, aggrflt=aggrflt, specialproj=specialproj, **kargs
         )
