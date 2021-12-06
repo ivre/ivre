@@ -2925,6 +2925,24 @@ class SQLDBPassive(SQLDB, DBPassive):
             info = int(info) if info else 24
             field = func.set_masklen(text("addr::cidr"), info)
 
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError("Unknown field %s" % field)
+            if subfield == "md5":
+                field = self.tables.passive.value
+            else:
+                field = self.tables.passive.moreinfo[subfield]
+
         if isinstance(field, str):
             field = self.fields[field]
 
