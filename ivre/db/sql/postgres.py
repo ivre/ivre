@@ -358,6 +358,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - hassh.type, hassh-client.type, hassh-server.type
         """
         if flt is None:
             flt = self.flt_empty
@@ -886,6 +888,27 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     & (self.tables.port.port == int(field[5:]))
                     & (self.tables.port.protocol == "tcp")
                 ),
+            )
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            scriptflt = self.tables.script.name == "ssh2-enum-algos"
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+                scriptflt = and_(scriptflt, self.tables.port.port != -1)
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+                scriptflt = and_(scriptflt, self.tables.port.port == -1)
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError(f"Unknown field {field}")
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["ssh2-enum-algos"]["hassh"][subfield]],
+                scriptflt,
             )
         elif field == "source":
             field = self._topstructure(self.tables.scan, [self.tables.scan.source])
