@@ -624,6 +624,15 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt, dbase.searchjarm(value=utils.str2regexp(value), neg=neg)
                 )
+        elif param in {"hassh", "hassh-client", "hassh-server"}:
+            server = {"hassh": None, "hassh-client": False, "hassh-server": True}[param]
+            flt = dbase.flt_and(
+                flt,
+                dbase.searchhassh(
+                    value_or_hash=(None if value is None else utils.str2regexp(value)),
+                    server=server,
+                ),
+            )
         elif param == "useragent":
             if value:
                 flt = dbase.flt_and(

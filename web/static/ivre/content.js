@@ -449,6 +449,22 @@ var HELP_FILTERS = {
 	    "title": "(!)ssl-ja3-server<b>(:[JA3S](:[JA3]))</b>",
 	    "content": "Look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3",
 	},
+	"ssl-jarm": {
+	    "title": "(!)ssl-jarm<b>(:[JARM])</b>",
+	    "content": "Look for hosts with a JARM fingerprint (specific, if specified)",
+	},
+	"hassh": {
+	    "title": "hassh<b>(:[HASSH])</b>",
+	    "content": "Look for hosts with a HASSH fingerprint (specific, if specified)",
+	},
+	"hassh-client": {
+	    "title": "hassh-client<b>(:[HASSH])</b>",
+	    "content": "Look for hosts with a HASSH client fingerprint (specific, if specified)",
+	},
+	"hassh-server": {
+	    "title": "hassh-server<b>(:[HASSH])</b>",
+	    "content": "Look for hosts with a HASSH server fingerprint (specific, if specified)",
+	},
 	"useragent": {
 	    "title": "(!)useragent<b>(:[exact_value or /regexp/])</b>",
 	    "content": "Look for hosts using a User-Agent matching the argument."

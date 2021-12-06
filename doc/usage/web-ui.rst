@@ -230,6 +230,10 @@ Filters
 - ``[!]ssl-ja3-server[:[JA3S][:JA3C]]`` look for hosts with a JA3
   server, with the given JA3 server (optionally corresponding to the
   given JA3 client).
+- ``[!]ssl-jarm[:JARM]`` look for hosts with a (specific, when
+  specified) JARM fingerprint.
+- ``hassh[:HASSH]`` look for hosts with a (specific, when specified)
+  HASSH fingerprint.
 - ``[!]useragent[:USERAGENT]`` look for hosts with a User-Agent.
 - ``os:`` look for a specific value in the OS discovery results.
 - ``devtype:``, ``devicetype:`` look for a type of devices.
