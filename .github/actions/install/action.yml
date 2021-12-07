@@ -14,8 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+name: "Install IVRE and the required tools"
 runs:
   using: "composite"
   steps:
     - run: ${{ github.action_path }}/install.sh
       shell: bash
+    - run: ${{ github.action_path }}/install_zeek.sh
+      shell: bash
+      if: ${{ github.workflow != 'Elasticsearch tests' && github.workflow != 'Maxmind tests' }}

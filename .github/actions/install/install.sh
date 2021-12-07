@@ -34,33 +34,21 @@ if [ "${USE_PYOPENSSL}" = "0" ]; then
     pip uninstall -y pyOpenSSL
 fi
 
-zeek_v[0]="3.0.6"
-zeek_v[1]="3.1.3"
-zeek_v[2]="3.2.4"
-zeek_v[3]="4.0.3"
-ZEEK_VERSION="${zeek_v[ $RANDOM % 4 ]}"
-unset zeek_v
-echo "ZEEK_VERSION: ${ZEEK_VERSION}"
-
-if [ "${ZEEK_VERSION:0:2}" = "4." ]; then
-    cat tests/samples/results_zeek_v4 >> tests/samples/results
-fi
-
 UBUNTU_VERSION="`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release`"
 echo "UBUNTU_VERSION: ${UBUNTU_VERSION}"
 
-for archive in tools-travis-ivre zeek-${ZEEK_VERSION}_ubuntu-${UBUNTU_VERSION} nmap-7.91_ubuntu-${UBUNTU_VERSION} nfdump-1.6.17; do
+for archive in tools-travis-ivre nmap-7.91_ubuntu-${UBUNTU_VERSION} nfdump-1.6.17; do
     wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf -
 done
 
 mv tests/geoip/GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2 `python -c 'from ivre import config; print(config.GEOIP_PATH)'`; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2
 
-for path_val in "`pwd`/usr/local/zeek/bin" "`pwd`/usr/local/nmap/bin" "`pwd`/usr/local/nfdump/bin"; do
+for path_val in "`pwd`/usr/local/nmap/bin" "`pwd`/usr/local/nfdump/bin"; do
     echo "$path_val" >> $GITHUB_PATH
     export PATH="$path_val:$PATH"
 done
 
-for env_val in "LD_LIBRARY_PATH=`pwd`/usr/local/zeek/lib:`pwd`/usr/local/nfdump/lib" "ZEEKPATH=.:`pwd`/usr/local/zeek/share/zeek:`pwd`/usr/local/zeek/share/zeek/policy:`pwd`/usr/local/zeek/share/zeek/site" "ZEEKSAMPLES=`pwd`/usr/local/zeek/testing"; do
+for env_val in "LD_LIBRARY_PATH=`pwd`/usr/local/zeek/lib:`pwd`/usr/local/nfdump/lib"; do
     echo "$env_val" >> $GITHUB_ENV
     export "$env_val"
 done
@@ -69,4 +57,4 @@ cp `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'
 for patch in `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'))"`/patches/*; do (cd `pwd`/usr/local/nmap/share/nmap && patch -p0 < $patch); done
 nmap --script-updatedb
 
-ivre --version && zeek --version && nmap --version
+ivre --version && nmap --version
