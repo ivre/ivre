@@ -2099,7 +2099,7 @@ class SQLDBActive(SQLDB, DBActive):
                         key = key.split(".")
                         lastkey = key.pop()
                         for subkey in key:
-                            base = base.op("->")(key)
+                            base = base.op("->")(subkey)
                         base = base.op("->>")(lastkey)
                         req = and_(
                             req,
@@ -2107,8 +2107,8 @@ class SQLDBActive(SQLDB, DBActive):
                         )
                     elif isinstance(value, bool):
                         base = cls.tables.script.data.op("->")(basekey)
-                        for subkey in key.split():
-                            base = base.op("->")(key)
+                        for subkey in key.split("."):
+                            base = base.op("->")(subkey)
                         if neg:
                             req = and_(req, base.cast(Boolean) != value)
                         else:
