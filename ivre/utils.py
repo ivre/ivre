@@ -1128,7 +1128,6 @@ if USE_PIL:
         # Image no longer exists after trim
         return False
 
-
 else:
 
     def trim_image(
@@ -2086,7 +2085,6 @@ if STRPTIME_SUPPORTS_TZ:
             LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
             return None
 
-
 else:
 
     def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
@@ -2172,7 +2170,6 @@ if USE_PYOPENSSL:
             result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
         result["pubkey"]["raw"] = encode_b64(pubkey).decode()
         return result
-
 
 else:
 

@@ -112,6 +112,23 @@ class DB:
         self.argparser.add_argument("--ipv4", action="store_true")
         self.argparser.add_argument("--ipv6", action="store_true")
         self.argparser.add_argument(
+            "--hassh", metavar="VALUE_OR_HASH", nargs="?", const=False, default=None
+        )
+        self.argparser.add_argument(
+            "--hassh-server",
+            metavar="VALUE_OR_HASH",
+            nargs="?",
+            const=False,
+            default=None,
+        )
+        self.argparser.add_argument(
+            "--hassh-client",
+            metavar="VALUE_OR_HASH",
+            nargs="?",
+            const=False,
+            default=None,
+        )
+        self.argparser.add_argument(
             "ips",
             nargs="*",
             help="Display results for specified IP " "addresses or ranges.",
@@ -193,6 +210,39 @@ class DB:
             flt = self.flt_and(flt, self.searchipv4())
         if args.ipv6:
             flt = self.flt_and(flt, self.searchipv6())
+        if args.hassh is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchhassh(
+                    value_or_hash=(
+                        None if args.hassh is False else utils.str2regexp(args.hassh)
+                    )
+                ),
+            )
+        if args.hassh_server is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchhassh(
+                    value_or_hash=(
+                        None
+                        if args.hassh_server is False
+                        else utils.str2regexp(args.hassh_server)
+                    ),
+                    server=True,
+                ),
+            )
+        if args.hassh_client is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchhassh(
+                    value_or_hash=(
+                        None
+                        if args.hassh_client is False
+                        else utils.str2regexp(args.hassh_client)
+                    ),
+                    server=False,
+                ),
+            )
         if args.ips:
 
             def _updtflt_(oflt, nflt):
@@ -1750,6 +1800,14 @@ class DBActive(DB):
     def searchjarm(cls, value=None, neg=False):
         return cls.searchscript(name="ssl-jarm", output=value, neg=neg)
 
+    @classmethod
+    def _searchhassh(cls, value_or_hash=None):
+        if value_or_hash is None:
+            return cls.searchscript(name="ssh2-enum-algos")
+        # this is not JA3, but we have the exact same logic & needs
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return cls.searchscript(name="ssh2-enum-algos", values={f"hassh.{key}": value})
+
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
         if args.category is not None:
@@ -2736,7 +2794,7 @@ class DBView(DBActive):
             flt = self.flt_and(
                 flt,
                 self.searchja3client(
-                    value_or_hash=(False if cli is False else utils.str2regexp(cli))
+                    value_or_hash=(None if cli is False else utils.str2regexp(cli))
                 ),
             )
         if args.ssl_ja3_server is not None:
@@ -2960,7 +3018,7 @@ class DBPassive(DB):
             flt = self.flt_and(
                 flt,
                 self.searchja3client(
-                    value_or_hash=(False if cli is False else utils.str2regexp(cli))
+                    value_or_hash=(None if cli is False else utils.str2regexp(cli))
                 ),
             )
         if args.ssl_ja3_server is not None:
@@ -3234,6 +3292,22 @@ class DBPassive(DB):
 
         """
         return cls.searchsensor(cat, neg=neg)
+
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            flt = cls.searchrecontype(["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"])
+        elif server:
+            flt = cls.searchrecontype("SSH_SERVER_HASSH")
+        else:
+            flt = cls.searchrecontype("SSH_CLIENT_HASSH")
+        if value_or_hash is None:
+            return flt
+        # this is not JA3, but we have the exact same logic & needs
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return cls.flt_and(
+            flt, cls.searchval("value" if key == "md5" else f"infos.{key}", value)
+        )
 
 
 class DBData(DB):

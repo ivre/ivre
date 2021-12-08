@@ -424,6 +424,9 @@ class ElasticDBActive(ElasticDB, DBActive):
           - file.* / file.*:scriptid
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
+          - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - hassh.type, hassh-client.type, hassh-server.type
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1137,6 +1140,47 @@ return result;
                     }
                 },
             }
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            aggs = {
+                "patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {
+                        "patterns": {
+                            "terms": dict(
+                                baseterms,
+                                field=f"ports.scripts.ssh2-enum-algos.hassh.{subfield}",
+                            )
+                        }
+                    },
+                }
+            }
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+                aggs = {
+                    "patterns": {
+                        "filter": {
+                            "bool": {"must_not": [{"match": {"ports.port": -1}}]}
+                        },
+                        "aggs": aggs,
+                    }
+                }
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+                aggs = {
+                    "patterns": {
+                        "filter": {"match": {"ports.port": -1}},
+                        "aggs": aggs,
+                    }
+                }
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError(f"Unknown field {field}")
+            nested = {"nested": {"path": "ports"}, "aggs": aggs}
         elif field.startswith("s7."):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
@@ -1569,6 +1613,43 @@ return result;
                 ),
             ),
         )
+
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            return cls._searchhassh(value_or_hash=value_or_hash)
+        if value_or_hash is None:
+            baseflt = Q(
+                "nested",
+                path="ports.scripts",
+                query=Q("match", ports__scripts__id="ssh2-enum-algos"),
+            )
+        else:
+            # this is not JA3, but we have the exact same logic & needs
+            key, value = cls._ja3keyvalue(value_or_hash)
+            if isinstance(value, utils.REGEXP_T):
+                valflt = Q(
+                    "regexp",
+                    **{
+                        f"ports.scripts.ssh2-enum-algos.hassh.{key}": cls._get_pattern(
+                            value
+                        )
+                    },
+                )
+            else:
+                valflt = Q(
+                    "match", **{f"ports.scripts.ssh2-enum-algos.hassh.{key}": value}
+                )
+            baseflt = Q(
+                "nested",
+                path="ports.scripts",
+                query=Q("match", ports__scripts__id="ssh2-enum-algos") & Q(valflt),
+            )
+        if server:
+            portflt = ~Q("match", ports__port=-1)
+        else:
+            portflt = Q("match", ports__port=-1)
+        return Q("nested", path="ports", query=portflt & baseflt)
 
 
 class ElasticDBView(ElasticDBActive, DBView):

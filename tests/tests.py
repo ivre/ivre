@@ -346,7 +346,13 @@ class IvreTests(unittest.TestCase):
             self.results[name] = value
             sys.stderr.write("NEW VALUE for key %r: %r\n" % (name, value))
             self.new_results.add(name)
-        check(value, self.results[name])
+        try:
+            check(value, self.results[name])
+        except AssertionError:
+            print(
+                f"check_value() fail for {name}: got {value!r}, expected {self.results[name]!r}"
+            )
+            raise
 
     def check_value_cmd(self, name, cmd, errok=False):
         res, out, err = RUN(cmd)
@@ -518,6 +524,20 @@ class IvreTests(unittest.TestCase):
         self.check_value(
             name, self._sort_top_values(listval), check=self.assertCountEqual
         )
+
+    def check_passive_top_value(self, name, field, count=10):
+        for method in ["api", "cli", "cgi"]:
+            specific_name = "%s_%s" % (name, method)
+            if name in self.results and specific_name not in self.results:
+                specific_name = name
+            getattr(self, "_check_top_value_%s" % method)(
+                specific_name,
+                field,
+                count=count,
+                database=ivre.db.db.passive,
+                command="ipinfo",
+                webroute="passive",
+            )
 
     def check_nmap_top_value(self, name, field, count=10):
         for method in ["api", "cli", "cgi"]:
@@ -769,6 +789,49 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))[0], 0
         )
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
+
+    def _test_hassh(self, dbase, dbname, cli):
+        for server in [None, True, False]:
+            for value_or_hash in [
+                None,
+                "5ef6678a6b060094834599ca16581b05",
+                "diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1;aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour,aes192-cbc,aes256-cbc;hmac-md5,hmac-sha1,hmac-ripemd160,hmac-ripemd160@openssh.com,hmac-sha1-96,hmac-md5-96;none,zlib",
+                re.compile("^diffie-hellman"),
+                "51f202202ee5382d7f8e0623ed3283369347eb99",
+                "190acebac8136c52fd2042dbb76737baa5014b9a9a517b064331b42e52bca4d4",
+            ]:
+                count = dbase.count(
+                    dbase.searchhassh(value_or_hash=value_or_hash, server=server)
+                )
+                self.check_value(
+                    f"{dbname}_count_hassh%s%s"
+                    % (
+                        "_server" if server else "" if server is None else "_client",
+                        ""
+                        if value_or_hash is None
+                        else "_regexp"
+                        if isinstance(value_or_hash, ivre.utils.REGEXP_T)
+                        else "_fullstring"
+                        if value_or_hash.startswith("diffie-hellman-")
+                        else f"_{value_or_hash}",
+                    ),
+                    count,
+                )
+                cmdline = [
+                    "ivre",
+                    cli,
+                    "--count",
+                    "--hassh%s"
+                    % ("-server" if server else "" if server is None else "-client"),
+                ]
+                if isinstance(value_or_hash, ivre.utils.REGEXP_T):
+                    cmdline.append("/%s/" % value_or_hash.pattern)
+                elif value_or_hash is not None:
+                    cmdline.append(value_or_hash)
+                res, out, err = RUN(cmdline)
+                self.assertEqual(res, 0)
+                self.assertFalse(err)
+                self.assertEqual(count, int(out))
 
     def test_20_fake_nmap_passive(self):
         """For Elasticsearch backend: insert results in MongoDB nmap & passive
@@ -1551,6 +1614,10 @@ class IvreTests(unittest.TestCase):
             "nmap_isakmp_count",
             ["ivre", "scancli", "--count", "--service", "isakmp"],
         )
+
+        # searchhassh()
+        self._test_hassh(ivre.db.db.nmap, "nmap", "scancli")
+
         # FIXME: add --service option to check_top_value_cli.
         # self._check_value_cli(
         #     "nmap_isakmp_top_products",
@@ -1638,6 +1705,17 @@ class IvreTests(unittest.TestCase):
 
         self.check_nmap_top_value("nmap_top_jarm", "jarm")
         self.check_nmap_top_value("nmap_top_jarm_443", "jarm:443")
+
+        for base in ["", "-client", "-server"]:
+            for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
+                self.check_nmap_top_value(
+                    "nmap_top_hassh%s%s"
+                    % (
+                        base.replace("-", "_"),
+                        field.replace(".", "_"),
+                    ),
+                    "hassh%s%s" % (base, field),
+                )
 
         self._check_top_value_api(
             "nmap_top_service_80", "service:80", database=ivre.db.db.nmap
@@ -2287,6 +2365,9 @@ class IvreTests(unittest.TestCase):
         self.assertNotEqual(out, b"")
         self.check_value("passive_count", int(out))
 
+        # searchhassh()
+        self._test_hassh(ivre.db.db.passive, "passive", "ipinfo")
+
         # Top values
         for distinct in [True, False]:
             for field in [
@@ -2305,6 +2386,22 @@ class IvreTests(unittest.TestCase):
                     "" if distinct else "not_",
                 )
                 self.check_passive_top_value_api(valname, field, distinct)
+
+        for base in ["", "-client", "-server"]:
+            for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
+                if DATABASE == "sqlite" and field not in {"", ".md5"}:
+                    # BUG in sqlite backend: cannot use topvalues with
+                    # JSON fields
+                    continue
+                self.check_passive_top_value(
+                    "passive_top_hassh%s%s"
+                    % (
+                        base.replace("-", "_"),
+                        field.replace(".", "_"),
+                    ),
+                    "hassh%s%s" % (base, field),
+                )
+
         for field, key in [
             ("value", "ja3cli_md5"),
             ("infos.raw", "ja3cli_raw"),
@@ -4904,6 +5001,9 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.check_value("view_count_passive", int(out))
 
+        # searchhassh()
+        self._test_hassh(ivre.db.db.view, "view", "view")
+
         print("Top values")
         # Top values & filters
         self.assertEqual(
@@ -5004,6 +5104,17 @@ class IvreTests(unittest.TestCase):
 
         self.check_view_top_value("view_top_jarm", "jarm")
         self.check_view_top_value("view_top_jarm_443", "jarm:443")
+
+        for base in ["", "-client", "-server"]:
+            for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
+                self.check_view_top_value(
+                    "view_top_hassh%s%s"
+                    % (
+                        base.replace("-", "_"),
+                        field.replace(".", "_"),
+                    ),
+                    "hassh%s%s" % (base, field),
+                )
 
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a

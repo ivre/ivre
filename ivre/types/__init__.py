@@ -223,7 +223,6 @@ if HAS_TYPED_DICT:
     class Target(Iterable[int], Protocol):
         targetscount: int
 
-
 else:
     CpeDict = Dict[str, Union[str, Set[str]]]  # type: ignore
     NmapProbeRec = Dict[str, Union[bytes, NmapProbe, List[str]]]  # type: ignore

@@ -2099,7 +2099,7 @@ class SQLDBActive(SQLDB, DBActive):
                         key = key.split(".")
                         lastkey = key.pop()
                         for subkey in key:
-                            base = base.op("->")(key)
+                            base = base.op("->")(subkey)
                         base = base.op("->>")(lastkey)
                         req = and_(
                             req,
@@ -2107,8 +2107,8 @@ class SQLDBActive(SQLDB, DBActive):
                         )
                     elif isinstance(value, bool):
                         base = cls.tables.script.data.op("->")(basekey)
-                        for subkey in key.split():
-                            base = base.op("->")(key)
+                        for subkey in key.split("."):
+                            base = base.op("->")(subkey)
                         if neg:
                             req = and_(req, base.cast(Boolean) != value)
                         else:
@@ -2394,6 +2394,45 @@ class SQLDBActive(SQLDB, DBActive):
                         cls.tables.port.state == "open",
                         cls.tables.port.service_product == "vsftpd",
                         cls.tables.port.service_version == "2.3.4",
+                    ),
+                )
+            ]
+        )
+
+    @classmethod
+    def searchhassh(cls, value_or_hash=None, server=None):
+        if server is None:
+            return cls._searchhassh(value_or_hash=value_or_hash)
+        if server:
+            portflt = cls.tables.port.port != -1
+        else:
+            portflt = cls.tables.port.port == -1
+        if value_or_hash is None:
+            return cls.base_filter(
+                script=[
+                    (
+                        True,
+                        and_(
+                            portflt,
+                            cls.tables.script.name == "ssh2-enum-algos",
+                        ),
+                    )
+                ]
+            )
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        portflt,
+                        cls.tables.script.name == "ssh2-enum-algos",
+                        cls._searchstring_re(
+                            cls.tables.script.data.op("->")("ssh2-enum-algos")
+                            .op("->")("hassh")
+                            .op("->>")(key),
+                            value,
+                        ),
                     ),
                 )
             ]
@@ -2886,6 +2925,24 @@ class SQLDBPassive(SQLDB, DBPassive):
             info = int(info) if info else 24
             field = func.set_masklen(text("addr::cidr"), info)
 
+        elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "md5"
+            if field == "hassh-server":
+                flt = self.flt_and(flt, self.searchhassh(server=True))
+            elif field == "hassh-client":
+                flt = self.flt_and(flt, self.searchhassh(server=False))
+            elif field == "hassh":
+                flt = self.flt_and(flt, self.searchhassh())
+            else:
+                raise ValueError("Unknown field %s" % field)
+            if subfield == "md5":
+                field = self.tables.passive.value
+            else:
+                field = self.tables.passive.moreinfo[subfield]
+
         if isinstance(field, str):
             field = self.fields[field]
 
@@ -2993,6 +3050,16 @@ class SQLDBPassive(SQLDB, DBPassive):
         if isinstance(key, str):
             key = cls.fields[key]
         return PassiveFilter(main=key.op(cmpop)(val))
+
+    @classmethod
+    def searchval(cls, key, val):
+        if isinstance(key, str):
+            key = cls.fields[key]
+        if isinstance(val, utils.REGEXP_T):
+            return PassiveFilter(
+                main=key.op("~*" if (val.flags & re.IGNORECASE) else "~")(val.pattern)
+            )
+        return cls.searchcmp(key, val, "=")
 
     @classmethod
     def searchhost(cls, addr, neg=False):
