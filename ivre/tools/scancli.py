@@ -39,7 +39,7 @@ from ivre.activecli import (
     displayfunction_csv,
 )
 from ivre.types import DBCursor
-from ivre.utils import CLI_ARGPARSER
+from ivre.utils import CLI_ARGPARSER, LOGGER
 
 
 def main() -> None:
@@ -205,6 +205,21 @@ def main() -> None:
             return displayfunction_csv(
                 cur, args.csv, args.csv_separator, args.csv_na_str, args.csv_add_infos
             )
+
+    elif args.to_db is not None:
+
+        outdb = DBNmap.from_url(args.to_db)
+
+        def displayfunction(cur: DBCursor) -> None:
+            for rec in cur:
+                try:
+                    del rec["_id"]
+                except KeyError:
+                    pass
+                try:
+                    outdb.store_host(rec)
+                except Exception:
+                    LOGGER.warning("Cannot insert record %r", rec, exc_info=True)
 
     else:
 

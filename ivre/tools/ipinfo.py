@@ -261,6 +261,29 @@ def disp_recs_delete(
     dbase.remove(flt)
 
 
+def disp_recs_todb(to_db: DBPassive) -> Displayer:
+    def disp_recs(
+        dbase: DBPassive,
+        flt: Filter,
+        sort: Sort,
+        limit: Optional[int],
+        skip: Optional[int],
+    ) -> None:
+        for rec in dbase.get(flt, sort=sort, limit=limit, skip=skip):
+            try:
+                del rec["_id"]
+            except KeyError:
+                pass
+            lastseen = rec.pop("lastseen", None)
+            timestamp = rec.pop("firstseen")
+            try:
+                to_db.insert_or_update(timestamp, rec, lastseen=lastseen)
+            except Exception:
+                utils.LOGGER.warning("Cannot insert record %r", rec, exc_info=True)
+
+    return disp_recs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -349,6 +372,8 @@ def main() -> None:
         disp_recs = disp_recs_delete
     elif args.explain:
         disp_recs = disp_recs_explain
+    elif args.to_db:
+        disp_recs = disp_recs_todb(DBPassive.from_url(args.to_db))
     sort: Sort
     if args.sort is None:
         sort = []

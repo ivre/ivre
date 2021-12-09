@@ -946,7 +946,12 @@ CLI_ARGPARSER.add_argument(
 CLI_ARGPARSER.add_argument(
     "--from-db",
     metavar="DB_URL",
-    help="Get data from the provided URL instead of using IVRE's configuration",
+    help="Get data from the provided URL instead of using IVRE's configuration.",
+)
+CLI_ARGPARSER.add_argument(
+    "--to-db",
+    metavar="DB_URL",
+    help="Store data to the provided URL instead of displaying them.",
 )
 CLI_ARGPARSER.add_argument(
     "--sort",
