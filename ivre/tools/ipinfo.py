@@ -34,7 +34,6 @@ from ivre.types import Filter, Record, Sort, SortKey
 from ivre import utils
 
 
-baseflt: Filter
 Displayer = Callable[[DBPassive, Filter, Sort, Optional[int], Optional[int]], None]
 
 
@@ -208,7 +207,6 @@ def disp_recs_tailnew(nbr: int) -> Displayer:
 
 
 def _disp_recs_tailf(dbase: DBPassive, flt: Filter, field: str) -> None:
-    global baseflt
     # 1. init
     firstrecs = list(dbase.get(flt, sort=[(field, -1)], limit=10))
     firstrecs.reverse()
@@ -228,7 +226,7 @@ def _disp_recs_tailf(dbase: DBPassive, flt: Filter, field: str) -> None:
             time.sleep(1)
             for r in dbase.get(
                 dbase.flt_and(
-                    baseflt,
+                    flt,
                     dbase.searchnewer(prevtime, new=field == "firstseen"),
                 ),
                 sort=[(field, 1)],
@@ -264,7 +262,6 @@ def disp_recs_delete(
 
 
 def main() -> None:
-    global baseflt
     parser = argparse.ArgumentParser(
         description=__doc__,
         # We use db.passive rather than DBPassive here because we need an instance...
@@ -302,7 +299,7 @@ def main() -> None:
         dbase.globaldb = db
     else:
         dbase = db.passive
-    baseflt = dbase.parse_args(args, dbase.flt_empty)
+    flt = dbase.parse_args(args, dbase.flt_empty)
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -361,9 +358,9 @@ def main() -> None:
             for field in args.sort
         ]
     if not args.ips:
-        if not baseflt and not args.limit and disp_recs is disp_recs_std:
+        if not flt and not args.limit and disp_recs is disp_recs_std:
             # default to tail -f mode
             disp_recs = disp_recs_tailfnew()
-        disp_recs(dbase, baseflt, sort, args.limit or dbase.no_limit, args.skip or 0)
+        disp_recs(dbase, flt, sort, args.limit or dbase.no_limit, args.skip or 0)
         sys.exit(0)
-    disp_recs(dbase, baseflt, sort, args.limit or dbase.no_limit, args.skip or 0)
+    disp_recs(dbase, flt, sort, args.limit or dbase.no_limit, args.skip or 0)
