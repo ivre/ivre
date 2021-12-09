@@ -4439,7 +4439,12 @@ class IvreTests(unittest.TestCase):
                     for script in port["scripts"]:
                         self.assertIn(
                             script["id"],
-                            {"dns-domains", "dns-tls-rpt", "dns-zone-transfer"},
+                            {
+                                "dns-check-consistency",  # may happen
+                                "dns-domains",
+                                "dns-tls-rpt",
+                                "dns-zone-transfer",
+                            },
                         )
                         if script["id"] == "dns-domains":
                             self.assertEqual(
