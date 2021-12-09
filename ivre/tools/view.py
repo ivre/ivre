@@ -27,7 +27,7 @@ from typing import Callable
 
 
 from ivre import graphroute
-from ivre.db import db
+from ivre.db import DBView, db
 from ivre.nmapout import displayhosts
 from ivre.activecli import (
     display_short,
@@ -43,17 +43,16 @@ from ivre.activecli import (
     displayfunction_csv,
 )
 from ivre.types import DBCursor
-from ivre.utils import CLI_ARGPARSER
+from ivre.utils import CLI_ARGPARSER, LOGGER
 
 
 def main() -> None:
     displayfunction: Callable[[DBCursor], None]
     parser = argparse.ArgumentParser(
         description="Print out views.",
+        # We use db.view rather than DBView here because we need an instance...
         parents=[db.view.argparser, CLI_ARGPARSER],
     )
-
-    flt = db.view.flt_empty
 
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Print out formatted results."
@@ -133,8 +132,12 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-
-    flt = db.view.parse_args(args)
+    if args.from_db:
+        dbase = DBView.from_url(args.from_db)
+        dbase.globaldb = db
+    else:
+        dbase = db.view
+    flt = dbase.parse_args(args)
 
     if args.init:
         if os.isatty(sys.stdin.fileno()):
@@ -144,7 +147,7 @@ def main() -> None:
             ans = input()
             if ans.lower() not in ["y", "yes"]:
                 sys.exit(0)
-        db.view.init()
+        dbase.init()
         sys.exit(0)
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
@@ -152,11 +155,11 @@ def main() -> None:
             ans = input()
             if ans.lower() != "y":
                 sys.exit(-1)
-        db.view.ensure_indexes()
+        dbase.ensure_indexes()
         sys.exit(0)
 
     if args.top is not None:
-        sys.stdout.writelines(db.view.display_top(args.top, flt, args.limit))
+        sys.stdout.writelines(dbase.display_top(args.top, flt, args.limit))
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [
@@ -166,21 +169,21 @@ def main() -> None:
     else:
         sortkeys = []
     if args.short:
-        display_short(db.view, flt, sortkeys, args.limit, args.skip)
+        display_short(dbase, flt, sortkeys, args.limit, args.skip)
         sys.exit(0)
     if args.distinct is not None:
-        display_distinct(db.view, args.distinct, flt, sortkeys, args.limit, args.skip)
+        display_distinct(dbase, args.distinct, flt, sortkeys, args.limit, args.skip)
         sys.exit(0)
     if args.explain:
-        displayfunction_explain(flt, db.view)
+        displayfunction_explain(flt, dbase)
         sys.exit(0)
     if args.delete:
-        displayfunction_remove(flt, db.view)
+        displayfunction_remove(flt, dbase)
         sys.exit(0)
     if args.json:
 
         def displayfunction(cur: DBCursor) -> None:
-            return displayfunction_json(cur, db.view, args.no_screenshots)
+            return displayfunction_json(cur, dbase, args.no_screenshots)
 
     elif args.honeyd:
         displayfunction = displayfunction_honeyd
@@ -208,15 +211,30 @@ def main() -> None:
                 cur, args.csv, args.csv_separator, args.csv_na_str, args.csv_add_infos
             )
 
+    elif args.to_db is not None:
+
+        outdb = DBView.from_url(args.to_db)
+
+        def displayfunction(cur: DBCursor) -> None:
+            for rec in cur:
+                try:
+                    del rec["_id"]
+                except KeyError:
+                    pass
+                try:
+                    outdb.store_host(rec)
+                except Exception:
+                    LOGGER.warning("Cannot insert record %r", rec, exc_info=True)
+
     else:
 
         def displayfunction(cur: DBCursor) -> None:
             displayhosts(cur, out=sys.stdout)
 
     if args.update_schema:
-        db.view.migrate_schema(args.version)
+        dbase.migrate_schema(args.version)
     elif args.count:
-        sys.stdout.write(str(db.view.count(flt)) + "\n")
+        sys.stdout.write(str(dbase.count(flt)) + "\n")
     else:
         kargs = {}
         if args.limit is not None:
@@ -225,6 +243,6 @@ def main() -> None:
             kargs["skip"] = args.skip
         if sortkeys:
             kargs["sort"] = sortkeys
-        cursor = db.view.get(flt, **kargs)
+        cursor = dbase.get(flt, **kargs)
         displayfunction(cursor)
         sys.exit(0)
