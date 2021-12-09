@@ -1,0 +1,4 @@
+pymongo[srv]>=3.7
+cryptography
+pyOpenSSL>=16.1.0
+bottle
