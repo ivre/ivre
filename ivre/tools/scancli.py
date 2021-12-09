@@ -23,7 +23,8 @@ import sys
 from typing import Callable
 
 
-from ivre import db, graphroute, nmapout
+from ivre import graphroute, nmapout
+from ivre.db import DBNmap, db
 from ivre.activecli import (
     display_short,
     display_distinct,
@@ -45,7 +46,8 @@ def main() -> None:
     displayfunction: Callable[[DBCursor], None]
     parser = argparse.ArgumentParser(
         description="Access and query the active scans database.",
-        parents=[db.db.nmap.argparser, CLI_ARGPARSER],
+        # We use db.nmap rather than DBNmap here because we need an instance...
+        parents=[db.nmap.argparser, CLI_ARGPARSER],
     )
     parser.add_argument(
         "--no-screenshots",
@@ -121,10 +123,15 @@ def main() -> None:
         help='String to use for "Not Applicable" value ' '(defaults to "NA")',
     )
     args = parser.parse_args()
+    if args.from_db:
+        dbase = DBNmap.from_url(args.from_db)
+        dbase.globaldb = db
+    else:
+        dbase = db.nmap
 
     out = sys.stdout
 
-    hostfilter = db.db.nmap.parse_args(args)
+    hostfilter = dbase.parse_args(args)
     sortkeys = []
     if args.init:
         if os.isatty(sys.stdin.fileno()):
@@ -134,7 +141,7 @@ def main() -> None:
             ans = input()
             if ans.lower() != "y":
                 sys.exit(-1)
-        db.db.nmap.init()
+        dbase.init()
         sys.exit(0)
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
@@ -142,10 +149,10 @@ def main() -> None:
             ans = input()
             if ans.lower() != "y":
                 sys.exit(-1)
-        db.db.nmap.ensure_indexes()
+        dbase.ensure_indexes()
         sys.exit(0)
     if args.top is not None:
-        sys.stdout.writelines(db.db.nmap.display_top(args.top, hostfilter, args.limit))
+        sys.stdout.writelines(dbase.display_top(args.top, hostfilter, args.limit))
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [
@@ -153,23 +160,23 @@ def main() -> None:
             for field in args.sort
         ]
     if args.short:
-        display_short(db.db.nmap, hostfilter, sortkeys, args.limit, args.skip)
+        display_short(dbase, hostfilter, sortkeys, args.limit, args.skip)
         sys.exit(0)
     if args.distinct is not None:
         display_distinct(
-            db.db.nmap, args.distinct, hostfilter, sortkeys, args.limit, args.skip
+            dbase, args.distinct, hostfilter, sortkeys, args.limit, args.skip
         )
         sys.exit(0)
     if args.explain:
-        displayfunction_explain(hostfilter, db.db.nmap)
+        displayfunction_explain(hostfilter, dbase)
         sys.exit(0)
     if args.delete:
-        displayfunction_remove(hostfilter, db.db.nmap)
+        displayfunction_remove(hostfilter, dbase)
         sys.exit(0)
     if args.json:
 
         def displayfunction(cur: DBCursor) -> None:
-            return displayfunction_json(cur, db.db.nmap, args.no_screenshots)
+            return displayfunction_json(cur, dbase, args.no_screenshots)
 
     elif args.honeyd:
         displayfunction = displayfunction_honeyd
@@ -205,9 +212,9 @@ def main() -> None:
             nmapout.displayhosts(cur, out=out)
 
     if args.update_schema:
-        db.db.nmap.migrate_schema(args.version)
+        dbase.migrate_schema(args.version)
     elif args.count:
-        out.write(str(db.db.nmap.count(hostfilter)) + "\n")
+        out.write(str(dbase.count(hostfilter)) + "\n")
     else:
         kargs = {}
         if args.limit is not None:
@@ -216,6 +223,6 @@ def main() -> None:
             kargs["skip"] = args.skip
         if sortkeys:
             kargs["sort"] = sortkeys
-        cursor = db.db.nmap.get(hostfilter, **kargs)
+        cursor = dbase.get(hostfilter, **kargs)
         displayfunction(cursor)
         sys.exit(0)

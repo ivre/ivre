@@ -29,13 +29,13 @@ import sys
 from typing import Callable, Optional, cast
 
 
-from ivre.db import db
+from ivre.db import DBPassive, db
 from ivre.types import Filter, Record, Sort, SortKey
 from ivre import utils
 
 
 baseflt: Filter
-Displayer = Callable[[Filter, Sort, Optional[int], Optional[int]], None]
+Displayer = Callable[[DBPassive, Filter, Sort, Optional[int], Optional[int]], None]
 
 
 def disp_rec(rec: Record) -> None:
@@ -85,11 +85,11 @@ def disp_rec(rec: Record) -> None:
 
 
 def disp_recs_std(
-    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
 ) -> None:
     old_addr = None
     sort = sort or [("addr", 1), ("port", 1), ("recontype", 1), ("source", 1)]
-    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
+    for rec in dbase.get(flt, sort=sort, limit=limit, skip=skip):
         if "addr" not in rec or not rec["addr"]:
             continue
         if old_addr != rec["addr"]:
@@ -130,14 +130,14 @@ def disp_recs_std(
 
 
 def disp_recs_json(
-    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
 ) -> None:
     indent: Optional[int]
     if os.isatty(sys.stdout.fileno()):
         indent = 4
     else:
         indent = None
-    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
+    for rec in dbase.get(flt, sort=sort, limit=limit, skip=skip):
         try:
             del rec["_id"]
         except KeyError:
@@ -147,38 +147,49 @@ def disp_recs_json(
             "cacert",
         }:
             rec["value"] = utils.encode_b64(rec["value"]).decode()
-        print(json.dumps(rec, indent=indent, default=db.passive.serialize))
+        print(json.dumps(rec, indent=indent, default=dbase.serialize))
 
 
 def disp_recs_short(
-    flt: Filter, _sort: Sort, _limit: Optional[int], _skip: Optional[int]
+    dbase: DBPassive,
+    flt: Filter,
+    _sort: Sort,
+    _limit: Optional[int],
+    _skip: Optional[int],
 ) -> None:
-    for addr in db.passive.distinct("addr", flt=flt):
+    for addr in dbase.distinct("addr", flt=flt):
         if addr is not None:
             print(addr)
 
 
 def disp_recs_distinct(
-    field: str, flt: Filter, _sort: Sort, _limit: Optional[int], _skip: Optional[int]
+    field: str,
+    dbase: DBPassive,
+    flt: Filter,
+    _sort: Sort,
+    _limit: Optional[int],
+    _skip: Optional[int],
 ) -> None:
-    for value in db.passive.distinct(field, flt=flt):
+    for value in dbase.distinct(field, flt=flt):
         print(value)
 
 
 def disp_recs_top(top: str) -> Displayer:
-    return lambda flt, sort, limit, _: sys.stdout.writelines(
-        db.passive.display_top(top, flt, limit)
+    return lambda dbase, flt, sort, limit, _: sys.stdout.writelines(
+        dbase.display_top(top, flt, limit)
     )
 
 
 def disp_recs_count(
-    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
 ) -> None:
-    print(db.passive.count(flt))
+    print(dbase.count(flt))
 
 
-def _disp_recs_tail(flt: Filter, field: str, nbr: Optional[int]) -> None:
-    recs = list(db.passive.get(flt, sort=[(field, -1)], limit=nbr))
+def _disp_recs_tail(
+    dbase: DBPassive, flt: Filter, field: str, nbr: Optional[int]
+) -> None:
+    recs = list(dbase.get(flt, sort=[(field, -1)], limit=nbr))
     recs.reverse()
     for r in recs:
         if "addr" in r:
@@ -189,17 +200,17 @@ def _disp_recs_tail(flt: Filter, field: str, nbr: Optional[int]) -> None:
 
 
 def disp_recs_tail(nbr: int) -> Displayer:
-    return lambda flt, *_: _disp_recs_tail(flt, "firstseen", nbr)
+    return lambda dbase, flt, *_: _disp_recs_tail(dbase, flt, "firstseen", nbr)
 
 
 def disp_recs_tailnew(nbr: int) -> Displayer:
-    return lambda flt, *_: _disp_recs_tail(flt, "lastseen", nbr)
+    return lambda dbase, flt, *_: _disp_recs_tail(dbase, flt, "lastseen", nbr)
 
 
-def _disp_recs_tailf(flt: Filter, field: str) -> None:
+def _disp_recs_tailf(dbase: DBPassive, flt: Filter, field: str) -> None:
     global baseflt
     # 1. init
-    firstrecs = list(db.passive.get(flt, sort=[(field, -1)], limit=10))
+    firstrecs = list(dbase.get(flt, sort=[(field, -1)], limit=10))
     firstrecs.reverse()
     # in case we don't have (yet) records matching our criteria
     r = {"firstseen": 0, "lastseen": 0}
@@ -215,10 +226,10 @@ def _disp_recs_tailf(flt: Filter, field: str) -> None:
         while True:
             prevtime = r[field]
             time.sleep(1)
-            for r in db.passive.get(
-                db.passive.flt_and(
+            for r in dbase.get(
+                dbase.flt_and(
                     baseflt,
-                    db.passive.searchnewer(prevtime, new=field == "firstseen"),
+                    dbase.searchnewer(prevtime, new=field == "firstseen"),
                 ),
                 sort=[(field, 1)],
             ):
@@ -233,36 +244,32 @@ def _disp_recs_tailf(flt: Filter, field: str) -> None:
 
 
 def disp_recs_tailfnew() -> Displayer:
-    return lambda flt, *_: _disp_recs_tailf(flt, "firstseen")
+    return lambda dbase, flt, *_: _disp_recs_tailf(dbase, flt, "firstseen")
 
 
 def disp_recs_tailf() -> Displayer:
-    return lambda flt, *_: _disp_recs_tailf(flt, "lastseen")
+    return lambda dbase, flt, *_: _disp_recs_tailf(dbase, flt, "lastseen")
 
 
 def disp_recs_explain(
-    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
 ) -> None:
-    print(
-        db.passive.explain(
-            db.passive._get(flt, sort=sort, limit=limit, skip=skip), indent=4
-        )
-    )
+    print(dbase.explain(dbase._get(flt, sort=sort, limit=limit, skip=skip), indent=4))
 
 
 def disp_recs_delete(
-    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
 ) -> None:
-    db.passive.remove(flt)
+    dbase.remove(flt)
 
 
 def main() -> None:
     global baseflt
     parser = argparse.ArgumentParser(
         description=__doc__,
+        # We use db.passive rather than DBPassive here because we need an instance...
         parents=[db.passive.argparser, utils.CLI_ARGPARSER],
     )
-    baseflt = db.passive.flt_empty
     disp_recs: Displayer = disp_recs_std
     # display modes
     parser.add_argument(
@@ -290,7 +297,12 @@ def main() -> None:
         help="Update the current database with DNS Blacklist",
     )
     args = parser.parse_args()
-    baseflt = db.passive.parse_args(args, baseflt)
+    if args.from_db:
+        dbase = DBPassive.from_url(args.from_db)
+        dbase.globaldb = db
+    else:
+        dbase = db.passive
+    baseflt = dbase.parse_args(args, dbase.flt_empty)
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -300,7 +312,7 @@ def main() -> None:
             ans = input()
             if ans.lower() != "y":
                 sys.exit(0)
-        db.passive.init()
+        dbase.init()
         sys.exit(0)
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
@@ -308,13 +320,13 @@ def main() -> None:
             ans = input()
             if ans.lower() != "y":
                 sys.exit(0)
-        db.passive.ensure_indexes()
+        dbase.ensure_indexes()
         sys.exit(0)
     if args.update_schema:
-        db.passive.migrate_schema(None)
+        dbase.migrate_schema(None)
         sys.exit(0)
     if args.dnsbl_update:
-        db.passive.update_dns_blacklist()
+        dbase.update_dns_blacklist()
         sys.exit(0)
     if args.short:
         disp_recs = disp_recs_short
@@ -352,6 +364,6 @@ def main() -> None:
         if not baseflt and not args.limit and disp_recs is disp_recs_std:
             # default to tail -f mode
             disp_recs = disp_recs_tailfnew()
-        disp_recs(baseflt, sort, args.limit or db.passive.no_limit, args.skip or 0)
+        disp_recs(dbase, baseflt, sort, args.limit or dbase.no_limit, args.skip or 0)
         sys.exit(0)
-    disp_recs(baseflt, sort, args.limit or db.passive.no_limit, args.skip or 0)
+    disp_recs(dbase, baseflt, sort, args.limit or dbase.no_limit, args.skip or 0)

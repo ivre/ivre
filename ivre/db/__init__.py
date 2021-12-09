@@ -268,6 +268,34 @@ class DB:
             flt = self.flt_and(flt, loc_flt)
         return flt
 
+    @classmethod
+    def from_url(cls, url):
+        url = urlparse(url)
+        db_type = url.scheme
+        if db_type == "https":
+            db_type = "http"
+        try:
+            modulename, classname = cls.backends[db_type]
+        except (KeyError, TypeError):
+            utils.LOGGER.error(
+                "Cannot get database for %s from %s",
+                cls.__name__,
+                url.geturl(),
+                exc_info=True,
+            )
+            return None
+        try:
+            module = import_module("ivre.db.%s" % modulename)
+        except ImportError:
+            utils.LOGGER.error(
+                "Cannot import ivre.db.%s for %s",
+                modulename,
+                url.geturl(),
+                exc_info=True,
+            )
+            return None
+        return getattr(module, classname)(url)
+
     @staticmethod
     def to_binary(data):
         return data
@@ -1956,6 +1984,12 @@ class DBActive(DB):
 
 class DBNmap(DBActive):
 
+    backends = {
+        "http": ("http", "HttpDBNmap"),
+        "mongodb": ("mongo", "MongoDBNmap"),
+        "postgresql": ("sql.postgres", "PostgresDBNmap"),
+        "tinydb": ("tiny", "TinyDBNmap"),
+    }
     content_handler = xmlnmap.Nmap2Txt
 
     def __init__(self, output_mode="json", output=sys.stdout):
@@ -2770,6 +2804,15 @@ class DBNmap(DBActive):
 
 
 class DBView(DBActive):
+
+    backends = {
+        "elastic": ("elastic", "ElasticDBView"),
+        "http": ("http", "HttpDBView"),
+        "mongodb": ("mongo", "MongoDBView"),
+        "postgresql": ("sql.postgres", "PostgresDBView"),
+        "tinydb": ("tiny", "TinyDBView"),
+    }
+
     def __init__(self):
         super().__init__()
         self.argparser.add_argument(
@@ -2918,9 +2961,17 @@ class _RecInfo:
 
 class DBPassive(DB):
 
+    argparser_insert = ArgumentParser(add_help=False)
     ipaddr_fields = ["addr"]
     datetime_fields = ["firstseen", "lastseen", "infos.not_after", "infos.not_before"]
     list_fields = ["infos.domain", "infos.domaintarget", "infos.san"]
+    backends = {
+        "http": ("http", "HttpDBPassive"),
+        "mongodb": ("mongo", "MongoDBPassive"),
+        "postgresql": ("sql.postgres", "PostgresDBPassive"),
+        "sqlite": ("sql.sqlite", "SqliteDBPassive"),
+        "tinydb": ("tiny", "TinyDBPassive"),
+    }
 
     def __init__(self):
         super().__init__()
@@ -3311,7 +3362,12 @@ class DBPassive(DB):
 
 
 class DBData(DB):
+
     country_codes = None
+    backends = {
+        "http": ("http", "HttpDBData"),
+        "maxmind": ("maxmind", "MaxMindDBData"),
+    }
 
     def infos_byip(self, addr):
         infos = {}
@@ -3340,6 +3396,11 @@ class LockError(RuntimeError):
 
 class DBAgent(DB):
     """Backend-independent code to handle agents-in-DB"""
+
+    backends = {
+        "mongodb": ("mongo", "MongoDBAgent"),
+        "tinydb": ("tiny", "TinyDBAgent"),
+    }
 
     def add_agent(
         self, masterid, host, remotepath, rsync=None, source=None, maxwaiting=60
@@ -3790,6 +3851,12 @@ class DBFlowMeta(type):
 class DBFlow(DB):
     """Backend-independent code to handle flows"""
 
+    backends = {
+        "mongodb": ("mongo", "MongoDBFlow"),
+        "postgresql": ("sql.postgres", "PostgresDBFlow"),
+        "tinydb": ("tiny", "TinyDBFlow"),
+    }
+
     @classmethod
     def date_round(cls, date):
         if isinstance(date, datetime):
@@ -4205,53 +4272,13 @@ class DBFlow(DB):
 
 class MetaDB:
 
-    # Backend-specific purpose-specific sub-classes (e.g.,
-    # MongoDBNmap) must be "registered" in this dict.
-    #
-    # The keys are the purposes ("nmap", "view", "passive", etc.), and
-    # the values are dict objects which, in turn, associate a backend
-    # name (as used as the scheme of the URLs in the configuration DB*
-    # values, such as "mongodb", "http", "postgresql", etc.) to
-    # tuples; the first element of those tuples is the sub-module name
-    # ("mongo" for "ivre.db.mongo"), and the second is the class name.
-    #
-    # {"purpose": {"scheme": ("module_name", "ClassName"),
-    #              [...]},
-    #  [...]}
     db_types = {
-        "nmap": {
-            "http": ("http", "HttpDBNmap"),
-            "mongodb": ("mongo", "MongoDBNmap"),
-            "postgresql": ("sql.postgres", "PostgresDBNmap"),
-            "tinydb": ("tiny", "TinyDBNmap"),
-        },
-        "passive": {
-            "http": ("http", "HttpDBPassive"),
-            "mongodb": ("mongo", "MongoDBPassive"),
-            "postgresql": ("sql.postgres", "PostgresDBPassive"),
-            "sqlite": ("sql.sqlite", "SqliteDBPassive"),
-            "tinydb": ("tiny", "TinyDBPassive"),
-        },
-        "data": {
-            "http": ("http", "HttpDBData"),
-            "maxmind": ("maxmind", "MaxMindDBData"),
-        },
-        "agent": {
-            "mongodb": ("mongo", "MongoDBAgent"),
-            "tinydb": ("tiny", "TinyDBAgent"),
-        },
-        "flow": {
-            "mongodb": ("mongo", "MongoDBFlow"),
-            "postgresql": ("sql.postgres", "PostgresDBFlow"),
-            "tinydb": ("tiny", "TinyDBFlow"),
-        },
-        "view": {
-            "elastic": ("elastic", "ElasticDBView"),
-            "http": ("http", "HttpDBView"),
-            "mongodb": ("mongo", "MongoDBView"),
-            "postgresql": ("sql.postgres", "PostgresDBView"),
-            "tinydb": ("tiny", "TinyDBView"),
-        },
+        "nmap": DBNmap,
+        "view": DBView,
+        "passive": DBPassive,
+        "data": DBData,
+        "agent": DBAgent,
+        "flow": DBFlow,
     }
 
     def __init__(self, url=None, urls=None):
@@ -4320,35 +4347,21 @@ class MetaDB:
 
     def get_class(self, purpose):
         url = self.urls.get(purpose, self.url)
-        if url is not None:
-            url = urlparse(url)
-            db_type = url.scheme
-            if db_type == "https":
-                db_type = "http"
-            try:
-                modulename, classname = self.db_types[purpose][db_type]
-            except (KeyError, TypeError):
-                utils.LOGGER.error(
-                    "Cannot get database for %s from %s",
-                    purpose,
-                    url.geturl(),
-                    exc_info=True,
-                )
-                return None
-            try:
-                module = import_module("ivre.db.%s" % modulename)
-            except ImportError:
-                utils.LOGGER.error(
-                    "Cannot import ivre.db.%s for %s",
-                    modulename,
-                    url.geturl(),
-                    exc_info=True,
-                )
-                return None
-            result = getattr(module, classname)(url)
-            result.globaldb = self
-            return result
-        return None
+        if url is None:
+            return None
+        try:
+            dbase = self.db_types[purpose].from_url(url)
+        except (KeyError, TypeError):
+            utils.LOGGER.error(
+                "Cannot get database for %s from %s",
+                purpose,
+                url.geturl(),
+                exc_info=True,
+            )
+            return None
+        if dbase is not None:
+            dbase.globaldb = self
+        return dbase
 
 
 db = MetaDB(

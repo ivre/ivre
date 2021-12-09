@@ -944,6 +944,11 @@ CLI_ARGPARSER.add_argument(
     help="Output results as HTTP URLs, one per line.",
 )
 CLI_ARGPARSER.add_argument(
+    "--from-db",
+    metavar="DB_URL",
+    help="Get data from the provided URL instead of using IVRE's configuration",
+)
+CLI_ARGPARSER.add_argument(
     "--sort",
     metavar="FIELD / ~FIELD",
     nargs="+",
