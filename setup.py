@@ -164,6 +164,7 @@ setup(
         "bottle",
     ],
     extras_require={
+        "MongoDB mongo+srv URIs": ["pymongo[srv]"],
         "TinyDB (experimental)": ["tinydb"],
         "PostgreSQL (experimental)": ["sqlalchemy", "psycopg2"],
         "Elasticsearch (experimental)": ["elasticsearch", "elasticsearch-dsl"],

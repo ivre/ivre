@@ -91,10 +91,14 @@ class MongoDB(DB):
 
     def __init__(self, url):
         super().__init__()
+        self.host = None
         self.username = None
         self.password = None
         self.mechanism = None
-        if "@" in url.netloc:
+        self.mongodb_srv = None
+        if url.scheme == "mongodb+srv":
+            self.mongodb_srv = url.geturl()
+        elif "@" in url.netloc:
             username, self.host = url.netloc.split("@", 1)
             if ":" in username:
                 self.username, self.password = (
@@ -159,10 +163,13 @@ class MongoDB(DB):
         try:
             return self._db_client
         except AttributeError:
-            self._db_client = pymongo.MongoClient(
-                host=self.host,
-                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED,
-            )
+            if self.mongodb_srv is not None:
+                self._db_client = pymongo.MongoClient(self.mongodb_srv)
+            else:
+                self._db_client = pymongo.MongoClient(
+                    host=self.host,
+                    read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED,
+                )
             return self._db_client
 
     @property
