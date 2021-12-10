@@ -1,13 +1,14 @@
-passive_count = 495
+passive_count = 590
 passive_count_hassh = 4
 passive_count_hassh_client = 2
 passive_count_hassh_client_regexp = 2
 passive_count_hassh_regexp = 4
 passive_count_hassh_server = 2
 passive_count_hassh_server_regexp = 2
-passive_count_port_22 = 18
+passive_count_port_22 = 20
 passive_distinct_moduli = 13
 passive_distinct_ssh_moduli = 2
+passive_top_addr_not_distinct_count = 174
 passive_top_hassh = ['3cc67862bceac0f334c62ad1b76895b4']
 passive_top_hassh_client = ['3cc67862bceac0f334c62ad1b76895b4', '5ef6678a6b060094834599ca16581b05']
 passive_top_hassh_client_md5 = ['3cc67862bceac0f334c62ad1b76895b4', '5ef6678a6b060094834599ca16581b05']
