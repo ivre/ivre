@@ -127,6 +127,7 @@ def extend_binary_expression(element, compiler, **kwargs):
 class DefaultJSONB(UserDefinedType):
 
     python_type = dict
+    cache_ok = False
 
     def __init__(self):
         self.__visit_name__ = "DefaultJSONB"
@@ -185,6 +186,7 @@ def SQLARRAY(item_type):
 class DefaultINET(UserDefinedType):
 
     python_type = bytes
+    cache_ok = True
 
     def __init__(self):
         self.__visit_name__ = "VARCHAR(32)"
@@ -210,6 +212,8 @@ SQLINET = postgresql.INET().with_variant(DefaultINET(), "sqlite")
 
 
 class Point(UserDefinedType):
+
+    cache_ok = True
 
     # pylint: disable=no-self-use
     def get_col_spec(self):
