@@ -667,15 +667,8 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(cnt1, cnt3)
         return cnt1
 
-    def check_view_count_ntlm_value(self, name_or_value, flt, webflt, cliflt=None):
+    def check_view_count_ntlm_value(self, name_or_value, flt, webflt):
         cnt1 = self.check_count_value_api(name_or_value, flt, database=ivre.db.db.view)
-        if cliflt and DATABASE != "postgres":
-            key, val = cliflt.split(":", 1)
-            res, out, _ = RUN(["ivre", "view", "--top", key])
-            self.assertEqual(res, 0)
-            for line in out:
-                if line.split(":", 1)[0] == val:
-                    self.assertEqual(cnt1, line.split(": ", 1)[1])
         cnt2 = self.check_count_value_cgi(name_or_value, webflt, webroute="view")
         self.assertEqual(cnt1, cnt2)
         return cnt1
@@ -1999,7 +1992,7 @@ class IvreTests(unittest.TestCase):
         zeekenv["LOG_PATH"] = "logs/TEST"
 
         for fname in self.pcap_files:
-            zeekprocess = subprocess.Popen(
+            subprocess.check_call(
                 [
                     "zeek",
                     "-C",
@@ -2018,9 +2011,18 @@ class IvreTests(unittest.TestCase):
                 ],
                 env=zeekenv,
             )
-            zeekprocess.wait()
 
         run_passiverecon_worker(bulk_mode=bulk_mode)
+
+        for fname in self.pcap_files:
+            outf = f"{fname}.p0f.log"
+            subprocess.check_call(
+                ["p0f", "-r", fname, "-o", outf], stdout=open(os.devnull)
+            )
+            ret, out, err = RUN(["ivre", "p0f2db", "-s", "TEST", bulk_mode, outf])
+            self.assertEqual(ret, 0)
+            self.assertFalse(out)
+            self.assertFalse(err)
 
         # Counting
         total_count = ivre.db.db.passive.count(ivre.db.db.passive.flt_empty)
@@ -3236,7 +3238,7 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         for pcapfname in self.pcap_files:
             with tempfile.TemporaryDirectory() as tmpdir:
-                zeekprocess = subprocess.Popen(
+                subprocess.check_call(
                     [
                         "zeek",
                         "-C",
@@ -3249,7 +3251,6 @@ class IvreTests(unittest.TestCase):
                     ],
                     cwd=tmpdir,
                 )
-                zeekprocess.wait()
                 res, out, _ = RUN(
                     ["ivre", "zeek2db"]
                     + [
@@ -5293,25 +5294,21 @@ class IvreTests(unittest.TestCase):
             "view_ntlm_http_count",
             ivre.db.db.view.searchntlm(protocol="http"),
             "ntlm.protocol:http",
-            "protocol:http",
         )
-        top_proto = self.results["view_top_ntlm_protocol"][0]
         self.check_view_count_ntlm_value(
-            "view_top_ntlm_protocol_count",
-            ivre.db.db.view.searchntlm(protocol=top_proto),
-            "ntlm.protocol:%s" % top_proto,
+            "view_ntlm_smb_count",
+            ivre.db.db.view.searchntlm(protocol="smb"),
+            "ntlm.protocol:smb",
         )
-        top_domain = self.results["view_top_ntlm_domain"][0]
         self.check_view_count_ntlm_value(
-            "view_top_ntlm_domain_count",
-            ivre.db.db.view.searchntlm(NetBIOS_Domain_Name=top_domain),
-            "ntlm.domain:%s" % top_domain,
+            "view_ntlm_DOM2000_count",
+            ivre.db.db.view.searchntlm(NetBIOS_Domain_Name="DOM2000"),
+            "ntlm.domain:DOM2000",
         )
-        top_os = self.results["view_top_ntlm_os"][0]
         self.check_view_count_ntlm_value(
-            "view_top_ntlm_os_count",
-            ivre.db.db.view.searchntlm(Product_Version=top_os),
-            "ntlm.os:%s" % top_os,
+            "view_ntlm_5.2.3790_count",
+            ivre.db.db.view.searchntlm(Product_Version="5.2.3790"),
+            "ntlm.os:5.2.3790",
         )
 
         print("Web /view URLs")
