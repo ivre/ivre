@@ -64,7 +64,7 @@ def rec_iter(
                 if "params" in line and line["params"].lower() != "none":
                     infos["params"] = line["params"]
                 host = line[line["subj"]].split("/")[0]
-                srvport = int(line["srv"].split("/")[1])
+                port = int(line["srv"].split("/")[1]) if line["subj"] == "srv" else None
                 for tstamp, rec in handle_rec(
                     # sensor
                     sensor,
@@ -79,7 +79,7 @@ def rec_iter(
                     # host
                     host=host,
                     # srvport
-                    srvport=srvport,
+                    srvport=port,
                     # recon_type
                     recon_type="P0FV3_%s" % line["mod"].upper(),
                     # source
