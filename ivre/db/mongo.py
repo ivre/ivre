@@ -1873,6 +1873,8 @@ class MongoDBActive(MongoDB, DBActive):
 
     def count(self, flt):
         """Count documents in hosts column."""
+        if not flt:
+            return self.db[self.columns[self.column_hosts]].estimated_document_count()
         return self.db[self.columns[self.column_hosts]].count_documents(flt)
 
     def setscreenshot(self, host, port, data, protocol="tcp", overwrite=False):
@@ -4435,6 +4437,8 @@ class MongoDBPassive(MongoDB, DBPassive):
 
     def count(self, flt):
         """Count documents in the passive column."""
+        if not flt:
+            return self.db[self.columns[self.column_passive]].estimated_document_count()
         return self.db[self.columns[self.column_passive]].count_documents(flt)
 
     def update(self, spec, **kargs):
