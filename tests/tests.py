@@ -2019,6 +2019,12 @@ class IvreTests(unittest.TestCase):
             subprocess.check_call(
                 ["p0f", "-r", fname, "-o", outf], stdout=open(os.devnull)
             )
+            ret, out, err = RUN(["ivre", "p0f2db", "--test", outf])
+            self.assertEqual(ret, 0)
+            out = out.decode().splitlines()
+            for line in out:
+                json.loads(line)
+            self.assertFalse(err)
             ret, out, err = RUN(["ivre", "p0f2db", "-s", "TEST", bulk_mode, outf])
             self.assertEqual(ret, 0)
             self.assertFalse(out)

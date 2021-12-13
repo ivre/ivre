@@ -131,7 +131,9 @@ def main() -> None:
     parser.add_argument("files", nargs="*", metavar="FILE", help="Airodump CSV files")
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
-    if (not (args.no_bulk or args.local_bulk)) or args.bulk:
+    if args.test:
+        function = DBPassive().insert_or_update_local_bulk
+    elif (not (args.no_bulk or args.local_bulk)) or args.bulk:
         function = db.passive.insert_or_update_bulk
     elif args.local_bulk:
         function = db.passive.insert_or_update_local_bulk

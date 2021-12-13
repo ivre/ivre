@@ -2975,8 +2975,9 @@ class DBPassive(DB):
         "tinydb": ("tiny", "TinyDBPassive"),
     }
 
-    def __init__(self):
+    def __init__(self, output=sys.stdout):
         super().__init__()
+        self.output = output
         self.argparser.add_argument("--sensor")
         self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument("--dns")
@@ -3023,6 +3024,9 @@ class DBPassive(DB):
         )
         self.argparser_insert.add_argument(
             "--no-bulk", action="store_true", help="Do not use bulk inserts"
+        )
+        self.argparser_insert.add_argument(
+            "-t", "--test", action="store_true", help="Test mode (JSON output)."
         )
 
     def parse_args(self, args, flt=None):
@@ -3100,10 +3104,27 @@ class DBPassive(DB):
 
         return flt
 
+    def output_function(self, doc):
+        json.dump(doc, self.output, default=utils.serialize, sort_keys=True)
+        self.output.write("\n")
+
     def insert_or_update(
         self, timestamp, spec, getinfos=None, lastseen=None, replacecount=False
     ):
-        raise NotImplementedError
+        if self.output_function is None:
+            return
+        timestamps = []
+        for fld in ["firstseen", "lastseen"]:
+            if fld in spec:
+                timestamps.append(spec[fld])
+        for val in timestamp, lastseen:
+            if val is not None:
+                timestamps.append(val)
+        spec["firstseen"] = min(*timestamps)
+        spec["lastseen"] = max(*timestamps)
+        if getinfos is not None:
+            spec.update(getinfos(spec))
+        self.output_function(spec)
 
     def insert_or_update_bulk(
         self, specs, getinfos=None, separated_timestamps=True, replacecount=False
