@@ -410,19 +410,11 @@ def analyze_ike_payload(payload: bytes, probe: str = "ike") -> NmapPort:
             )
     payload_len = len(payload)
     if payload_len < 28:
-        output.setdefault("protocol", []).append(
-            "ISAKMP: payload too short (%d bytes" % payload_len
-        )
+        return {}
+    if not payload.startswith(b"\x00\x11\x22\x33"):
         return {}
     payload_len_proto = struct.unpack(">I", payload[24:28])[0]
     if payload_len < payload_len_proto:
-        output.setdefault("protocol", []).append(
-            "ISAKMP: missing data (%d bytes, should be %d)"
-            % (
-                payload_len,
-                payload_len_proto,
-            )
-        )
         return {}
     payload_type = payload[16]
     payload = payload[28:]
