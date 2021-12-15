@@ -25,7 +25,7 @@ from typing import Generator, List
 
 
 from ivre.activecli import displayfunction_json
-from ivre.db import db, DB
+from ivre.db import db, DB, DBView
 from ivre.types import Record
 from ivre.view import from_passive, from_nmap, to_view
 
@@ -65,6 +65,11 @@ def main() -> None:
         action="store_true",
         help="Do **not** " "merge with existing results for same host and " "source.",
     )
+    parser.add_argument(
+        "--to-db",
+        metavar="DB_URL",
+        help="Store data to the provided URL instead of the default DB for view.",
+    )
 
     subparsers = parser.add_subparsers(
         dest="view_source",
@@ -101,15 +106,19 @@ def main() -> None:
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
         _from = [from_passive(fltpass, category=view_category)]
+    if args.to_db is not None:
+        outdb = DBView.from_url(args.to_db)
+    else:
+        outdb = db.view
     if args.test:
 
         def output(host: Record) -> None:
-            return displayfunction_json([host], db.view)
+            return displayfunction_json([host], outdb)
 
     elif args.no_merge:
-        output = db.view.store_host
+        output = outdb.store_host
     else:
-        output = db.view.store_or_merge_host
+        output = outdb.store_or_merge_host
     # Output results
     itr = to_view(_from)
     if not itr:
