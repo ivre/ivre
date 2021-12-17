@@ -7,18 +7,24 @@ Scanning
 With Nmap, Masscan or Zgrab2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use directly `Nmap <http://nmap.org/>`_, `Masscan
-<https://github.com/robertdavidgraham/masscan/>`_, `Zgrab2
-<https://zmap.io/>`_, `ZDNS <https://github.com/zmap/zdns>`_ or
-`Nuclei <https://github.com/projectdiscovery/nuclei>`_ to run the
-scans. IVRE can use XML output files for Nmap and Masscan, and JSON
-output files for Zgrab2, ZDNS and Nuclei.
+You can use network scanners directly:
 
-Then, provide the output files produced to the command line tool
-``ivre scan2db``. You can (and should!) insert scan results from
-different tools, then use ``ivre db2view nmap`` and you're ready to
-explore your results with the the :ref:`usage/web-ui:Web User
-Interface`, the ``ivre view`` command line tool or the Python API.
+- `Nmap <http://nmap.org/>`_
+- `Masscan <https://github.com/robertdavidgraham/masscan/>`_
+- `Zgrab2 <https://zmap.io/>`_ (``http`` and ``jarm`` commands)
+- `ZDNS <https://github.com/zmap/zdns>`_
+- `Nuclei <https://github.com/projectdiscovery/nuclei>`_
+- `httpx <https://github.com/projectdiscovery/httpx>`_
+
+IVRE can insert XML output files for Nmap and Masscan, and JSON output
+files for Zgrab2, ZDNS, Nuclei and httpx, using the command line tool
+``ivre scan2db``.
+
+You can insert scan results from different tools, then use ``ivre
+db2view nmap`` to merge results from different scans and create a view
+you can explore with the the :ref:`usage/web-ui:Web User Interface`,
+the ``ivre view`` command line tool or the Python API
+(``ivre.db.db.view.*``).
 
 With IVRE
 ~~~~~~~~~
