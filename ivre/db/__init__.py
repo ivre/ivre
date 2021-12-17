@@ -2210,6 +2210,7 @@ class DBNmap(DBActive):
                 try:
                     host = {
                         "addr": rec.pop("ip"),
+                        "state": "up",
                         "scanid": filehash,
                         "schema_version": xmlnmap.SCHEMA_VERSION,
                     }
@@ -2578,6 +2579,7 @@ class DBNmap(DBActive):
                 }
                 host = {
                     "addr": addr,
+                    "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     # [:19]: remove timezone info
@@ -2762,14 +2764,17 @@ class DBNmap(DBActive):
                 port = {
                     "protocol": "tcp",
                     "port": port,
-                    "service_name": "http",
                     "state_state": "open",
+                    "state_reason": "response",
+                    "service_name": "http",
+                    "service_method": "probed",
                     "scripts": scripts,
                 }
                 if is_ssl:
                     port["service_tunnel"] = "ssl"
                 host = {
                     "addr": addr,
+                    "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "ports": [port],
@@ -2849,11 +2854,15 @@ class DBNmap(DBActive):
                 port = {
                     "protocol": "tcp",
                     "port": int(rec["port"]),
+                    "state_state": "open",
+                    "state_reason": "response",
                     "service_name": "http",
+                    "service_method": "probed",
                 }
                 timestamp = rec["timestamp"][:19].replace("T", " ")
                 host = {
                     "addr": rec["host"],
+                    "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
