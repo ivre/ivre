@@ -111,14 +111,23 @@
 <h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline"></a></h2>
 <section id="with-nmap-masscan-or-zgrab2">
 <h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Permalink to this headline"></a></h3>
-<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a> or
-<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a> to run the
-scans. IVRE can use XML output files for Nmap and Masscan, and JSON
-output files for Zgrab2, ZDNS and Nuclei.</p>
-<p>Then, provide the output files produced to the command line tool
-<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>. You can (and should!) insert scan results from
-different tools, then use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re ready to
-explore your results with the the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> command line tool or the Python API.</p>
+<p>You can use network scanners directly:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="http://nmap.org/">Nmap</a></p></li>
+<li><p><a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a></p></li>
+<li><p><a class="reference external" href="https://zmap.io/">Zgrab2</a> (<code class="docutils literal notranslate"><span class="pre">http</span></code> and <code class="docutils literal notranslate"><span class="pre">jarm</span></code> commands)</p></li>
+<li><p><a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a></p></li>
+<li><p><a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a></p></li>
+<li><p><a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a></p></li>
+</ul>
+<p>IVRE can insert XML output files for Nmap and Masscan, and JSON output
+files for Zgrab2, ZDNS, Nuclei and httpx, using the command line tool
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
+<p>You can insert scan results from different tools, then use <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">db2view</span> <span class="pre">nmap</span></code> to merge results from different scans and create a view
+you can explore with the the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>,
+the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> command line tool or the Python API
+(<code class="docutils literal notranslate"><span class="pre">ivre.db.db.view.*</span></code>).</p>
 </section>
 <section id="with-ivre">
 <h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this headline"></a></h3>

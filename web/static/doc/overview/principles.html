@@ -116,9 +116,10 @@ be queried using:</p>
 </ul>
 </div></blockquote>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> and <a class="reference external" href="https://zmap.io/">Zgrab /
-Zgrab2</a> scan results. Each record represents one
-host seen during one network scan. It can be queried using:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>,
+<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a> and <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> scan results. Each
+record represents one host seen during one network scan. It can be
+queried using:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
@@ -176,7 +177,7 @@ your favorite open-source tools to IVRE’s databases.</p>
 </section>
 <section id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline"></a></h2>
-<div class="graphviz"><img src="../_images/graphviz-e3f26cc103e5ff7a120ac3c807d751387b52c7e3.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-591e3b1ab4fab359a6d12313d53f89e3f9e42b09.png" alt="digraph {
    graph [rankdir=LR];
 
    &quot;maxmind.com&quot;;
@@ -184,6 +185,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Masscan&quot;;
    &quot;Zgrab2&quot;;
    &quot;Nuclei&quot;;
+   &quot;httpx&quot;;
    &quot;Airodump-ng&quot;;
    &quot;p0f&quot;;
    &quot;Zeek&quot;;
@@ -210,6 +212,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Masscan&quot; -&gt; XML [label=&quot;-oX&quot;];
    &quot;Zgrab2&quot; -&gt; JSON [label=&quot;-o&quot;];
    &quot;Nuclei&quot; -&gt; JSON [label=&quot;-o&quot;];
+   &quot;httpx&quot; -&gt; JSON [label=&quot;-o&quot;];
    &quot;Airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
    &quot;p0f&quot; -&gt; P0F_LOG [label=&quot;-o&quot;];
    &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
@@ -230,7 +233,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    {
      rank = same;
      edge[style=invis];
-     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;Airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
+     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;Airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
      rankdir = UD;
    }
 }" class="graphviz" /></div>
