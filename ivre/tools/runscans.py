@@ -234,7 +234,10 @@ def call_nmap(
                     naddr = ivre.utils.int2ip(next(targiter))
                 print("ADDING TARGET", end=" ")
                 # TargetIter has a .nextcount attribute
-                print(targiter.nextcount, end=" ")  # type: ignore
+                print(
+                    targiter.nextcount,  # type: ignore
+                    end=" ",
+                )
                 if hasattr(targets, "targetscount"):
                     print("/", targets.targetscount, end=" ")
                 print(":", naddr)
@@ -459,7 +462,7 @@ def main() -> None:
         "Test": (XmlProcessTest, [], {}),
     }
     xmlprocess = xmlprocess_choice[args.output]
-    xmlprocess_call = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])  # type: ignore
+    xmlprocess_call = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])
     retval = call_nmap(
         options, xmlprocess_call, targets, accept_target_status=accept_target_status
     )

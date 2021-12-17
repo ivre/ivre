@@ -2041,6 +2041,8 @@ class DBNmap(DBActive):
                     for tmpl in ["template", "templateID", "template-id"]
                 ):
                     store_scan_function = self.store_scan_json_nuclei
+                elif "input" in firstres:
+                    store_scan_function = self.store_scan_json_httpx
                 elif "ip" in firstres:
                     store_scan_function = self.store_scan_json_zgrab
                 elif "name" in firstres:
@@ -2208,6 +2210,7 @@ class DBNmap(DBActive):
                 try:
                     host = {
                         "addr": rec.pop("ip"),
+                        "state": "up",
                         "scanid": filehash,
                         "schema_version": xmlnmap.SCHEMA_VERSION,
                     }
@@ -2576,6 +2579,7 @@ class DBNmap(DBActive):
                 }
                 host = {
                     "addr": addr,
+                    "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     # [:19]: remove timezone info
@@ -2760,14 +2764,17 @@ class DBNmap(DBActive):
                 port = {
                     "protocol": "tcp",
                     "port": port,
-                    "service_name": "http",
                     "state_state": "open",
+                    "state_reason": "response",
+                    "service_name": "http",
+                    "service_method": "probed",
                     "scripts": scripts,
                 }
                 if is_ssl:
                     port["service_tunnel"] = "ssl"
                 host = {
                     "addr": addr,
+                    "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "ports": [port],
@@ -2776,6 +2783,127 @@ class DBNmap(DBActive):
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
                         "T", " "
                     )
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                if (
+                    add_addr_infos
+                    and self.globaldb is not None
+                    and (force_info or "infos" not in host or not host["infos"])
+                ):
+                    host["infos"] = {}
+                    for func in [
+                        self.globaldb.data.country_byip,
+                        self.globaldb.data.as_byip,
+                        self.globaldb.data.location_byip,
+                    ]:
+                        host["infos"].update(func(host["addr"]) or {})
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({"_id": filehash, "scanner": "nuclei"})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_httpx(
+        self,
+        fname,
+        filehash=None,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        add_addr_infos=True,
+        force_info=False,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by httpx, displays
+        the parsing result, and return True if everything went fine,
+        False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
+                if rec.get("failed"):
+                    continue
+                script = {}
+                port = {
+                    "protocol": "tcp",
+                    "port": int(rec["port"]),
+                    "state_state": "open",
+                    "state_reason": "response",
+                    "service_name": "http",
+                    "service_method": "probed",
+                }
+                timestamp = rec["timestamp"][:19].replace("T", " ")
+                host = {
+                    "addr": rec["host"],
+                    "state": "up",
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [port],
+                }
+                if rec.get("scheme") == "https":
+                    port["service_tunnel"] = "ssl"
+                if "title" in rec:
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "http-title",
+                            "output": rec["title"],
+                        }
+                    )
+                if "webserver" in rec:
+                    server = rec["webserver"]
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "http-server-header",
+                            "output": server,
+                            "http-server-header": [server],
+                        }
+                    )
+                if "technologies" in rec:
+                    script["technologies"] = rec["technologies"]
+                if script:
+                    output = []
+                    if "technologies" in script:
+                        output.append("Technologies:")
+                        output.extend(f"- {tech}\n" for tech in script["technologies"])
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "http-httpx",
+                            "output": "\n".join(output),
+                            "http-hpptx": script,
+                        }
+                    )
+                # remaining fields (TODO): path body-sha256
+                # header-sha256 url content-type method content-length
+                # status-code response-time failed
                 if categories:
                     host["categories"] = categories
                 if source is not None:
