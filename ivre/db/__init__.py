@@ -2731,6 +2731,8 @@ class DBNmap(DBActive):
                 name = rec["name"]
                 if "matcher_name" in rec:
                     name += " (%s)" % rec["matcher_name"]
+                elif "matcher-name" in rec:
+                    name += " (%s)" % rec["matcher-name"]
                 script_id = "%s-nuclei" % (rec["type"])
                 scripts = [
                     {
