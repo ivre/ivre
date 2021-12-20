@@ -368,7 +368,6 @@ def _extract_passive_SSH_HASSH(rec):
     script["output"] = "\n".join(script_output)
     script["ssh2-enum-algos"] = script_structured
     port = {
-        "service_name": "ssh",
         "scripts": [script],
     }
     if rec.get("port"):
@@ -376,6 +375,7 @@ def _extract_passive_SSH_HASSH(rec):
         port["protocol"] = rec.get("protocol", "tcp")
         port["state_state"] = "open"
         port["state_reason"] = "passive"
+        port["service_name"] = "ssh"
     else:
         port["port"] = -1
     return {"ports": [port]}
