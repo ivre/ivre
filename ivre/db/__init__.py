@@ -2043,7 +2043,7 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_nuclei
                 elif "input" in firstres:
                     store_scan_function = self.store_scan_json_httpx
-                elif "ip" in firstres:
+                elif "ip" in firstres or "domain" in firstres:
                     store_scan_function = self.store_scan_json_zgrab
                 elif "name" in firstres:
                     if utils.is_valid_ip(firstres["name"]):
@@ -2207,17 +2207,28 @@ class DBNmap(DBActive):
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 rec = json.loads(line.decode())
+                host = {
+                    "state": "up",
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                }
                 try:
-                    host = {
-                        "addr": rec.pop("ip"),
-                        "state": "up",
-                        "scanid": filehash,
-                        "schema_version": xmlnmap.SCHEMA_VERSION,
-                    }
+                    host["addr"] = rec.pop("ip")
                 except KeyError:
-                    # the last result (which contains a
-                    # "success_count" field) holds the scan's data
-                    if "success_count" in rec:
+                    if "domain" in rec:
+                        domain = rec["domain"]
+                        if (
+                            domain.startswith("[")
+                            and domain.endswith("]")
+                            and utils.IPADDR.search(domain[1:-1]) is not None
+                        ):
+                            host["addr"] = domain[1:-1]
+                        else:
+                            utils.LOGGER.warning('Record has no "ip" field %r', rec)
+                            continue
+                    elif "success_count" in rec:
+                        # the last result (which contains a
+                        # "success_count" field) holds the scan's data
                         scan_doc = {"_id": filehash, "scanner": "zgrab"}
                         if "flags" in rec:
                             scan_doc["args"] = " ".join(
@@ -2236,9 +2247,10 @@ class DBNmap(DBActive):
                         if "duration" in rec:
                             scan_doc["elapsed"] = str(rec.pop("duration"))
                         self.update_scan_doc(filehash, scan_doc)
+                        continue
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r', rec)
-                    continue
+                        continue
                 try:
                     # [:19]: remove timezone info
                     host["starttime"] = host["endtime"] = rec.pop("timestamp")[
