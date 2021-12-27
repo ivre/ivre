@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+ * Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -442,6 +442,9 @@ ivreWebUi
 		'ldap': ['ldap', 389, 'ldaps', 636],
 		'ftp': ['ftp', 21, 'ftps', 990],
 	    };
+	    if (addr.indexOf(":") != -1) {
+		addr = "[" + addr + "]";
+	    }
 	    if ('service_name' in port && port.service_name in schemes) {
 		if('service_tunnel' in port &&
 		   port.service_tunnel === 'ssl') {
