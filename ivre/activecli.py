@@ -532,19 +532,22 @@ def displayfunction_honeyd(cur: Iterable[NmapHost]) -> None:
 
 def displayfunction_http_urls(cur: Iterable[NmapHost]) -> None:
     for h in cur:
+        addr = h["addr"]
+        if ":" in addr:
+            addr = f"[{addr}]"
         for p in h.get("ports", []):
             if p.get("service_name") not in {"http", "http-proxy", "https"}:
                 continue
             if p.get("service_tunnel") == "ssl" or p.get("service_name") == "https":
                 if p.get("port") == 443:
-                    sys.stdout.write("https://%s/\n" % h["addr"])
+                    sys.stdout.write("https://%s/\n" % addr)
                 else:
-                    sys.stdout.write("https://%s:%d/\n" % (h["addr"], p["port"]))
+                    sys.stdout.write("https://%s:%d/\n" % (addr, p["port"]))
             else:
                 if p.get("port") == 80:
-                    sys.stdout.write("http://%s/\n" % h["addr"])
+                    sys.stdout.write("http://%s/\n" % addr)
                 else:
-                    sys.stdout.write("http://%s:%d/\n" % (h["addr"], p["port"]))
+                    sys.stdout.write("http://%s:%d/\n" % (addr, p["port"]))
 
 
 def displayfunction_nmapxml(
