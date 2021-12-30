@@ -79,13 +79,15 @@ function addr_links_ipv6(host) {
             });
 	    continue;
 	}
+        net = addr.slice(0, i + 1).join(':');
 	if(end) {
-            net = addr.slice(0, i + 1).join(':');
 	    j = 8 - addr.length + i;
 	}
 	else {
-            net = addr.slice(0, i + 1).join(':') + '::';
 	    j = i;
+	    if (j !== 7) {
+		net += '::';
+	    }
 	}
         if(j !== 7)
 	    net += '/' + (16 * (j+1));
