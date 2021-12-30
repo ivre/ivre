@@ -375,28 +375,48 @@ def net2range(network: AnyStr) -> Tuple[str, str]:
     return int2ip(start), int2ip(start + 0xFFFFFFFF - mask_int)
 
 
-def range2nets(rng: Tuple[Union[AnyStr, int], Union[AnyStr, int]]) -> List[str]:
+def range2nets(
+    rng: Tuple[Union[AnyStr, int], Union[AnyStr, int]]
+) -> Generator[str, None, None]:
     """Converts a (start, stop) tuple to a list of networks."""
     start, stop = (force_ip2int(addr) for addr in rng)
     if stop < start:
         raise ValueError()
-    res = []
+    ipv6 = False
     cur = start
-    maskint = 32
-    mask = int2mask(maskint)
+    for val in rng:
+        if isinstance(val, bytes):
+            if b":" in val:
+                ipv6 = True
+                break
+        elif isinstance(val, str):
+            if ":" in val:
+                ipv6 = True
+                break
+    if stop > 0xFFFFFFFF:
+        ipv6 = True
+    if ipv6:
+        maskint = 128
+        _int2mask = int2mask6
+        _int2ip = int2ip6
+    else:
+        maskint = 32
+        _int2mask = int2mask
+        _int2ip = int2ip
+    fullmask = mask = _int2mask(maskint)
     while True:
-        while cur & mask == cur and cur | (~mask & 0xFFFFFFFF) <= stop:
+        while cur & mask == cur and cur | (~mask & fullmask) <= stop:
             maskint -= 1
             if maskint < 0:
                 break
-            mask = int2mask(maskint)
-        res.append("%s/%d" % (int2ip(cur), maskint + 1))
-        mask = int2mask(maskint + 1)
+            mask = _int2mask(maskint)
+        yield "%s/%d" % (_int2ip(cur), maskint + 1)
+        mask = _int2mask(maskint + 1)
         if stop & mask == cur:
-            return res
-        cur = (cur | (~mask & 0xFFFFFFFF)) + 1
-        maskint = 32
-        mask = int2mask(maskint)
+            return
+        cur = (cur | (~mask & fullmask)) + 1
+        maskint = 128 if ipv6 else 32
+        mask = _int2mask(maskint)
 
 
 def get_domains(name: str) -> Generator[str, None, None]:
