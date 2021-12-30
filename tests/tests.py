@@ -1331,7 +1331,7 @@ class IvreTests(unittest.TestCase):
         )
         self.assertEqual(count, hosts_count)
 
-        nets = ivre.utils.range2nets(addrrange)
+        nets = list(ivre.utils.range2nets(addrrange))
         count = 0
         for net in nets:
             count += ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
@@ -2157,7 +2157,7 @@ class IvreTests(unittest.TestCase):
             )
         ]
         addresses_2 = set()
-        nets = ivre.utils.range2nets(addrrange)
+        nets = list(ivre.utils.range2nets(addrrange))
         for net in nets:
             addresses_2 = addresses_2.union(
                 x
@@ -3991,11 +3991,11 @@ class IvreTests(unittest.TestCase):
 
         # IP addresses manipulation utils
         with self.assertRaises(ValueError):
-            ivre.utils.range2nets((2, 1))
+            list(ivre.utils.range2nets((2, 1)))
 
         # Special cases for range2nets & net2range
         self.assertEqual(
-            ivre.utils.range2nets(("0.0.0.0", "255.255.255.255")), ["0.0.0.0/0"]
+            list(ivre.utils.range2nets(("0.0.0.0", "255.255.255.255"))), ["0.0.0.0/0"]
         )
         self.assertEqual(
             ivre.utils.net2range("0.0.0.0/0"), ("0.0.0.0", "255.255.255.255")
@@ -4309,6 +4309,31 @@ class IvreTests(unittest.TestCase):
         res, out, _ = RUN(["ivre", "ipcalc", "134744072"])
         self.assertEqual(res, 0)
         self.assertEqual(out, b"8.8.8.8\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"0\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::", "-", "::ff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/120\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::", "-", "::ff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/120\n")
+        res, out, _ = RUN(
+            ["ivre", "ipcalc", "::", "-", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/0\n")
+        res, out, _ = RUN(
+            ["ivre", "ipcalc", "::", "-", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/0\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "abcd:ef::", "-", "abcd:ff::ffff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(
+            out,
+            b"abcd:ef::/32\nabcd:f0::/29\nabcd:f8::/30\nabcd:fc::/31\nabcd:fe::/32\nabcd:ff::/112\n",
+        )
 
         # IPADDR regexp, based on
         # <https://gist.github.com/dfee/6ed3a4b05cfe7a6faf40a2102408d5d8>
