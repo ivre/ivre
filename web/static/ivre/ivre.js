@@ -48,8 +48,8 @@ function hideall() {
     $("#notes-container").children().css("display", "none");
 }
 
-function addr_links(host) {
-    var addr = host.addr.split('.');
+function addr_links_ipv4(host) {
+    var addr = host.split('.');
     var result = [];
     var net;
     for(var i = 0; i < addr.length; i++) {
@@ -63,6 +63,45 @@ function addr_links(host) {
         });
     }
     return result;
+}
+
+function addr_links_ipv6(host) {
+    var addr = host.split(':');
+    var result = [];
+    var j, net;
+    var end = false;
+    for(var i = 0; i < addr.length; i++) {
+	if(! addr[i]) {
+	    end = true;
+            result.push({
+		"addrpart": "",
+		"net": "",
+            });
+	    continue;
+	}
+	if(end) {
+            net = addr.slice(0, i + 1).join(':');
+	    j = 8 - addr.length + i;
+	}
+	else {
+            net = addr.slice(0, i + 1).join(':') + '::';
+	    j = i;
+	}
+        if(j !== 7)
+	    net += '/' + (16 * (j+1));
+        result.push({
+            "addrpart": addr[i],
+            "net": net,
+        });
+    }
+    return result;
+}
+
+function addr_links(host) {
+    if (host.addr.indexOf(":") == -1) {
+	return addr_links_ipv4(host.addr);
+    }
+    return addr_links_ipv6(host.addr);
 }
 
 function hostnames_links(host) {

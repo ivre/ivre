@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+  Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
   <a class="clickable"
      ng-repeat="link in ::host.addr_links"
      ng-click="setparam(link.net)"
-     >{{::link.addrpart}}<span ng-if="!$last">.</span></a>
+     >{{::link.addrpart}}<span ng-if="!$last"><span ng-if="host.addr.indexOf(':') == -1">.</span><span ng-if="host.addr.indexOf(':') != -1">:</span></span></a>
   <span ng-if="::(host.hostnames_links && host.hostnames_links.length)">
     (<span ng-repeat="hostnames in ::host.hostnames_links"><!--
     --><a class="clickable"
