@@ -20,7 +20,6 @@
 from ast import literal_eval
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from distutils.spawn import find_executable as which
 import errno
 from functools import reduce
 from glob import glob
@@ -90,7 +89,7 @@ def run_iter(
     env=None,
 ):
     if interp is not None:
-        cmd = interp + [which(cmd[0])] + cmd[1:]
+        cmd = interp + [shutil.which(cmd[0])] + cmd[1:]
     return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
 
@@ -163,7 +162,7 @@ def run_passiverecon_worker(bulk_mode=None):
             + [
                 "run",
                 "--parallel-mode",
-                which("ivre"),
+                shutil.which("ivre"),
                 "passivereconworker",
                 "--directory",
                 "logs",
@@ -174,7 +173,7 @@ def run_passiverecon_worker(bulk_mode=None):
                     + [
                         "run",
                         "--parallel-mode",
-                        which("ivre"),
+                        shutil.which("ivre"),
                         "passiverecon2db",
                         bulk_mode,
                     ]
@@ -241,7 +240,9 @@ class AgentScanner:
     def _start_feed(self):
         feed_cmd = ["runscansagent", "--sync", self.agent_dir]
         if USE_COVERAGE:
-            feed_cmd = COVERAGE + ["run", "--parallel-mode", which("ivre")] + feed_cmd
+            feed_cmd = (
+                COVERAGE + ["run", "--parallel-mode", shutil.which("ivre")] + feed_cmd
+            )
         else:
             feed_cmd = ["ivre"] + feed_cmd
         self.pid_feed = subprocess.Popen(feed_cmd).pid
@@ -4737,7 +4738,7 @@ class IvreTests(unittest.TestCase):
         daemon_cmd = ["runscansagentdb", "--daemon"]
         if USE_COVERAGE:
             daemon_cmd = (
-                COVERAGE + ["run", "--parallel-mode", which("ivre")] + daemon_cmd
+                COVERAGE + ["run", "--parallel-mode", shutil.which("ivre")] + daemon_cmd
             )
         else:
             daemon_cmd = ["ivre"] + daemon_cmd
