@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -845,6 +845,26 @@ class IvreTests(unittest.TestCase):
 
         # Init DB
         self.init_nmap_db()
+
+        # Test top portlist values with different orders
+        sample = b"""{"schema_version": 19, "starttime": "1970-01-01 00:00:00", "endtime": "1970-01-01 00:00:00", "openports": {"count": 2, "tcp": {"count": 2, "ports": [80, 443]}}, "addr": "0.0.0.1", "ports": [{"port": 80, "protocol": "tcp", "state_state": "open"}, {"port": 443, "protocol": "tcp", "state_state": "open"}]}
+{"schema_version": 19, "starttime": "1970-01-01 00:00:00", "endtime": "1970-01-01 00:00:00", "openports": {"count": 2, "tcp": {"count": 2, "ports": [80, 443]}}, "addr": "0.0.0.2", "ports": [{"port": 443, "protocol": "tcp", "state_state": "open"}, {"port": 80, "protocol": "tcp", "state_state": "open"}]}
+"""
+        fdesc = tempfile.NamedTemporaryFile(delete=False)
+        fdesc.write(sample)
+        fdesc.close()
+        res, out, _ = RUN(["ivre", "scan2db", fdesc.name])
+        self.assertEqual(res, 0)
+        os.unlink(fdesc.name)
+        self.check_nmap_top_value("nmap_test_top_portlist_open", "portlist:open")
+        # Now let's clean the database
+        self.assertEqual(
+            RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))[0], 0
+        )
+        if DATABASE == "tinydb":
+            ivre.db.db.nmap.invalidate_cache()
+            self.restart_web_server()
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0

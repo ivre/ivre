@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -2944,6 +2944,6 @@ class Nmap2DB(NmapHandler):
         self._db.nmap.update_scan_doc(self._filehash, curscan_more)
 
     def _addscaninfo(self, i):
-        if "numservices" in i:
+        if i.get("numservices"):
             i["numservices"] = int(i["numservices"])
         self._curscan.setdefault("scaninfos", []).append(i)

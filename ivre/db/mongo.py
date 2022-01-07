@@ -2030,15 +2030,19 @@ class MongoDBActive(MongoDB, DBActive):
             host["addr_0"], host["addr_1"] = self.ip2internal(host.pop("addr"))
         except (KeyError, ValueError):
             pass
-        for port in host.get("ports", []):
-            if "state_reason_ip" in port:
-                try:
-                    (
-                        port["state_reason_ip_0"],
-                        port["state_reason_ip_1"],
-                    ) = self.ip2internal(port.pop("state_reason_ip"))
-                except ValueError:
-                    pass
+        if "ports" in host:
+            host["ports"] = sorted(
+                host["ports"], key=lambda port: (port.get("protocol", ""), port["port"])
+            )
+            for port in host["ports"]:
+                if "state_reason_ip" in port:
+                    try:
+                        (
+                            port["state_reason_ip_0"],
+                            port["state_reason_ip_1"],
+                        ) = self.ip2internal(port.pop("state_reason_ip"))
+                    except ValueError:
+                        pass
         for trace in host.get("traces", []):
             for hop in trace.get("hops", []):
                 if "ipaddr" in hop:
@@ -3100,6 +3104,7 @@ class MongoDBActive(MongoDB, DBActive):
                 }
 
         elif field.startswith("portlist:"):
+            state = field[9:]
             specialproj = {"ports.port": 1, "ports.protocol": 1, "ports.state_state": 1}
             specialflt = [
                 {
@@ -3147,7 +3152,7 @@ class MongoDBActive(MongoDB, DBActive):
                 }
 
         elif field.startswith("countports:"):
-            state = field.split(":", 1)[1]
+            state = field[11:]
             if state == "open":
                 field = "openports.count"
             else:
