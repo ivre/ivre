@@ -43,7 +43,6 @@ import shutil
 import socket
 import struct
 import subprocess
-import sys
 import time
 from types import TracebackType
 from typing import (
@@ -102,7 +101,6 @@ MAXVALLEN = 1000
 LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(""))
 HEX = re.compile("^[a-f0-9]+$", re.IGNORECASE)
-STRPTIME_SUPPORTS_TZ = sys.version_info >= (3, 7)
 
 
 # IP address regexp, based on
@@ -2104,25 +2102,14 @@ PUBKEY_TYPES = {
 PUBKEY_REV_TYPES = dict((val, key) for key, val in PUBKEY_TYPES.items())
 
 
-if STRPTIME_SUPPORTS_TZ:
-
-    def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
-        try:
-            return datetime.datetime.strptime(value.decode(), "%Y%m%d%H%M%S%z")
-        except ValueError:
-            return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
-        except Exception:
-            LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
-            return None
-
-else:
-
-    def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
-        try:
-            return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
-        except Exception:
-            LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
-            return None
+def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
+    try:
+        return datetime.datetime.strptime(value.decode(), "%Y%m%d%H%M%S%z")
+    except ValueError:
+        return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
+    except Exception:
+        LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
+        return None
 
 
 if USE_PYOPENSSL:
@@ -2329,18 +2316,12 @@ else:
                         )
                     )
                 elif field in ["not_before", "not_after"]:
-                    if STRPTIME_SUPPORTS_TZ and fdata_str.count(" ") == 4:
-                        try:
-                            result[field] = datetime.datetime.strptime(
-                                fdata_str,
-                                "%b %d %H:%M:%S %Y %Z",
-                            )
-                        except ValueError:
-                            result[field] = datetime.datetime.strptime(
-                                " ".join(fdata_str.split(None, 4)[:4]),
-                                "%b %d %H:%M:%S %Y",
-                            )
-                    else:
+                    try:
+                        result[field] = datetime.datetime.strptime(
+                            fdata_str,
+                            "%b %d %H:%M:%S %Y %Z",
+                        )
+                    except ValueError:
                         result[field] = datetime.datetime.strptime(
                             " ".join(fdata_str.split(None, 4)[:4]),
                             "%b %d %H:%M:%S %Y",

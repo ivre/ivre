@@ -1992,9 +1992,6 @@ class NmapHandler(ContentHandler):
                                 tzone = "%+03d%02d" % (tzone // 60, tzone % 60)
                             else:
                                 tzone = ""
-                            if not utils.STRPTIME_SUPPORTS_TZ:
-                                # %z is not supported with strptime()
-                                tzone = ""
                             if tstamp.startswith("1601-01-01 ") or tstamp.startswith(
                                 "60056-05-28 "
                             ):
