@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -243,6 +243,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         "ports.scripts.ssl-cert",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
+        "tags",
     ]
     mappings = [
         _create_mappings(
@@ -1295,6 +1296,43 @@ return result;
         if neg:
             return ~res
         return res
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            res = Q("exists", field="tags.value")
+            if neg:
+                return ~res
+            return res
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        all_res = []
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, list):
+                res = Q("terms", **{f"tags.{key}": value})
+            elif isinstance(value, utils.REGEXP_T):
+                res = Q("regexp", **{f"tags.{key}": cls._get_pattern(value)})
+            else:
+                res = Q("match", **{f"tags.{key}": value})
+            if neg:
+                all_res.append(~res)
+            else:
+                all_res.append(res)
+        if neg:
+            return cls.flt_or(
+                ~Q("exists", field="tags.value"),
+                Q("nested", path="tags", query=cls.flt_or(*all_res)),
+            )
+        return Q("nested", path="tags", query=cls.flt_and(*all_res))
 
     @staticmethod
     def searchcountry(country, neg=False):

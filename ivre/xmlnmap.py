@@ -38,9 +38,9 @@ from xml.sax.handler import ContentHandler, EntityResolver
 from ivre.active.cpe import cpe2dict
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
-    cleanup_synack_honeypot_host,
     create_ssl_output,
     handle_http_headers,
+    set_auto_tags,
 )
 from ivre.analyzer import dicom, ike, ja3
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
@@ -49,7 +49,7 @@ from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
 
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -2346,7 +2346,7 @@ class NmapHandler(ContentHandler):
                     # hosts with an open port are marked as up by
                     # default (masscan)
                     self._curhost["state"] = "up"
-                cleanup_synack_honeypot_host(self._curhost)
+                set_auto_tags(self._curhost)
                 self._pre_addhost()
                 self._addhost()
             self._curhost = None

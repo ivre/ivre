@@ -763,6 +763,23 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchcpe(**cpe_kwargs))
             else:
                 flt = dbase.flt_and(flt, dbase.searchcpe())
+        elif param == "tag":
+            if value:
+                if ":" in value:
+                    tag_val, tag_info = value.split(":", 1)
+                    tag = {}
+                    if tag_val:
+                        tag["value"] = utils.str2regexp(tag_val)
+                    if tag_info:
+                        tag["info"] = utils.str2regexp(tag_info)
+                    flt = dbase.flt_and(flt, dbase.searchtag(tag, neg=neg))
+                else:
+                    flt = dbase.flt_and(
+                        flt,
+                        dbase.searchtag({"value": utils.str2regexp(value)}, neg=neg),
+                    )
+            else:
+                flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
         elif param == "display":
             # ignore this parameter
             pass

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
     merge_host_docs,
+    set_auto_tags,
     set_openports_attribute,
 )
 from ivre.zgrabout import ZGRAB_PARSERS
@@ -712,10 +713,9 @@ class DB:
 
     @classmethod
     def searchtorcert(cls):
-        expr = re.compile("^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$", flags=0)
         return cls.searchcert(
-            subject=expr,
-            issuer=expr,
+            subject=utils.TORCERT_SUBJECT,
+            issuer=utils.TORCERT_SUBJECT,
             self_signed=False,
         )
 
@@ -887,6 +887,8 @@ class DBActive(DB):
         "ports.scripts.vulns.extra_info",
         "ports.scripts.vulns.ids",
         "ports.scripts.vulns.refs",
+        "tags",
+        "tags.info",
         "traces",
         "traces.hops",
         "hostnames",
@@ -916,6 +918,7 @@ class DBActive(DB):
                 16: (17, self.__migrate_schema_hosts_16_17),
                 17: (18, self.__migrate_schema_hosts_17_18),
                 18: (19, self.__migrate_schema_hosts_18_19),
+                19: (20, self.__migrate_schema_hosts_19_20),
             },
         }
         self.argparser.add_argument(
@@ -926,6 +929,9 @@ class DBActive(DB):
         )
         self.argparser.add_argument(
             "--source", metavar="SRC", help="show only results from this source"
+        )
+        self.argparser.add_argument(
+            "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
         )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
@@ -1446,6 +1452,22 @@ class DBActive(DB):
                     xmlnmap.post_ntlm_info(script, port, doc)
         return doc
 
+    @classmethod
+    def __migrate_schema_hosts_19_20(cls, doc):
+        """Converts a record from version 19 to version 20. Version 20
+        introduces tags.
+
+        """
+        assert doc["schema_version"] == 19
+        doc["schema_version"] = 20
+        if "synack_honeypot" in doc:
+            del doc["synack_honeypot"]
+            doc["tags"] = [
+                {"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}
+            ]
+        set_auto_tags(doc)
+        return doc
+
     @staticmethod
     def json2dbrec(host):
         return host
@@ -1846,6 +1868,17 @@ class DBActive(DB):
             flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
+        if args.tag is not None:
+            tag = {}
+            if ":" in args.tag:
+                value, info = args.tag.split(":", 1)
+                if value:
+                    tag["value"] = utils.str2regexp(value)
+                if info:
+                    tag["info"] = utils.str2regexp(info)
+            elif args.tag:
+                tag["value"] = utils.str2regexp(args.tag)
+            flt = self.flt_and(flt, self.searchtag(tag))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
@@ -2289,6 +2322,7 @@ class DBNmap(DBActive):
                             host.setdefault("ports", []).append(port)
                 if not host.get("ports"):
                     continue
+                set_auto_tags(host, update_openports=False)
                 set_openports_attribute(host)
                 if "cpes" in host:
                     host["cpes"] = list(host["cpes"].values())
@@ -2797,6 +2831,8 @@ class DBNmap(DBActive):
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
                         "T", " "
                     )
+                set_auto_tags(host, update_openports=False)
+                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
@@ -2918,6 +2954,8 @@ class DBNmap(DBActive):
                 # remaining fields (TODO): path body-sha256
                 # header-sha256 url content-type method content-length
                 # status-code response-time failed
+                set_auto_tags(host, update_openports=False)
+                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:

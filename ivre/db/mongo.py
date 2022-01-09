@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ else:
     HAS_KRBV = True
 
 
-from ivre.active.data import ALIASES_TABLE_ELEMS
+from ivre.active.data import ALIASES_TABLE_ELEMS, set_auto_tags
 from ivre.db import (
     DB,
     DBActive,
@@ -801,7 +801,13 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {},
             ),
-            ([("synack_honeypot", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [
+                    ("tags.value", pymongo.ASCENDING),
+                    ("tags.info", pymongo.ASCENDING),
+                ],
+                {"sparse": True},
+            ),
             ([("hostnames.domains", pymongo.ASCENDING)], {}),
             ([("traces.hops.domains", pymongo.ASCENDING)], {}),
             ([("openports.count", pymongo.ASCENDING)], {}),
@@ -1207,6 +1213,36 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ]
             },
+            20: {
+                "drop": [([("synack_honeypot", pymongo.ASCENDING)], {"sparse": True})],
+                "ensure": [
+                    ([("addresses.mac", pymongo.ASCENDING)], {"sparse": True}),
+                    (
+                        [("ports.scripts.dns-domains.parents", pymongo.ASCENDING)],
+                        {"sparse": True},
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssh2-enum-algos.hassh.md5",
+                                pymongo.ASCENDING,
+                            )
+                        ],
+                        {"sparse": True},
+                    ),
+                    (
+                        [("ports.scripts.ssl-ja3-client.md5", pymongo.ASCENDING)],
+                        {"sparse": True},
+                    ),
+                    (
+                        [
+                            ("tags.value", pymongo.ASCENDING),
+                            ("tags.info", pymongo.ASCENDING),
+                        ],
+                        {"sparse": True},
+                    ),
+                ],
+            },
         },
     ]
     schema_latest_versions = [
@@ -1238,6 +1274,7 @@ class MongoDBActive(MongoDB, DBActive):
                 16: (17, self.migrate_schema_hosts_16_17),
                 17: (18, self.migrate_schema_hosts_17_18),
                 18: (19, self.migrate_schema_hosts_18_19),
+                19: (20, self.migrate_schema_hosts_19_20),
             },
         ]
 
@@ -1809,6 +1846,24 @@ class MongoDBActive(MongoDB, DBActive):
             update["$set"]["ports"] = doc["ports"]
         return update
 
+    @classmethod
+    def migrate_schema_hosts_19_20(cls, doc):
+        """Converts a record from version 19 to version 20. Version 20
+        introduces tags.
+
+        """
+        assert doc["schema_version"] == 19
+        update = {"$set": {"schema_version": 20}}
+        if "synack_honeypot" in doc:
+            update["$unset"] = {"synack_honeypot": ""}
+            doc["tags"] = [
+                {"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}
+            ]
+        set_auto_tags(doc)
+        if "tags" in doc:
+            update["$set"]["tags"] = doc["tags"]
+        return update
+
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
         e.g.  .explain()).
@@ -2275,6 +2330,64 @@ class MongoDBActive(MongoDB, DBActive):
             else:
                 return {"categories": {"$in": cat}}
         return {"categories": cat}
+
+    @staticmethod
+    def searchtag(tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            return {"tags.value": {"$exists": not neg}}
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        req = {}
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, utils.REGEXP_T):
+                if neg:
+                    req[key] = {"$not": value}
+                else:
+                    req[key] = value
+            elif isinstance(value, list):
+                if neg:
+                    req[key] = {"$nin": value}
+                else:
+                    req[key] = {"$in": value}
+            else:
+                if neg:
+                    req[key] = {"$ne": value}
+                else:
+                    req[key] = value
+        if len(req) == 1:
+            if neg:
+                # Either no tag at all, or no matching tag
+                return {
+                    "$or": [
+                        {"tags.value": {"$exists": False}},
+                        {f"tags.{key}": value for key, value in req.items()},
+                    ]
+                }
+            return {f"tags.{key}": value for key, value in req.items()}
+        if neg:
+            # Either no tag at all, or no matching tag
+            return {
+                "$or": [
+                    {"tags.value": {"$exists": False}},
+                    {
+                        "tags": {
+                            "$elemMatch": {
+                                "$or": [{key: value} for key, value in req.items()]
+                            }
+                        }
+                    },
+                ]
+            }
+        return {"tags": {"$elemMatch": req}}
 
     @staticmethod
     def searchcountry(country, neg=False):

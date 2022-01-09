@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -268,7 +268,8 @@ class TinyDB(DB):
             ):
                 yield val
 
-    def _search_field_exists(self, field, base="", baseq=None):
+    @classmethod
+    def _search_field_exists(cls, field, base="", baseq=None):
         if baseq is None:
             baseq = Query()
         if "." not in field:
@@ -278,11 +279,11 @@ class TinyDB(DB):
             fullfield = "%s.%s" % (base, field)
         else:
             fullfield = field
-        if fullfield in self.list_fields:
+        if fullfield in cls.list_fields:
             return getattr(baseq, field).any(
-                self._search_field_exists(nextfields, base=fullfield)
+                cls._search_field_exists(nextfields, base=fullfield)
             )
-        return self._search_field_exists(
+        return cls._search_field_exists(
             nextfields, base=fullfield, baseq=getattr(baseq, field)
         )
 
@@ -624,6 +625,107 @@ class TinyDBActive(TinyDB, DBActive):
         (records may have zero, one or more categories).
         """
         return cls._searchstring_re_inarray(Query().categories, cat, neg=neg)
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            res = cls._search_field_exists("tags.value")
+            if neg:
+                return ~res
+            return res
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        tests = []
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, utils.REGEXP_T):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                value.search(info) for info in val.get("info", [])
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return not value.search(val.get(key, ""))
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(value.search(info) for info in val.get("info", []))
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value.search(val.get(key, ""))
+
+            elif isinstance(value, list):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                v_info in val.get("info", []) for v_info in value
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return val.get(key) not in value
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(v_info in val.get("info", []) for v_info in value)
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return val.get(key) in value
+
+            elif neg:
+                if key == "info":
+
+                    def test(val, value=value):
+                        return value not in val.get("info", [])
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value != val.get(key)
+
+            elif key == "info":
+
+                def test(val, value=value):
+                    return value in val.get("info", [])
+
+            else:
+
+                def test(val, key=key, value=value):
+                    return value == val.get(key)
+
+            tests.append(test)
+        if neg:
+            return cls.flt_or(
+                ~cls._search_field_exists("tags.value"),
+                Query().tags.test(
+                    lambda tags: all(any(test(tag) for test in tests) for tag in tags)
+                ),
+            )
+        return Query().tags.test(
+            lambda tags: any(all(test(tag) for test in tests) for tag in tags)
+        )
 
     @staticmethod
     def searchcountry(country, neg=False):

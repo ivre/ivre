@@ -549,6 +549,10 @@ var HELP_FILTERS = {
 	    "title": "ike.vendor_id.value:<b>raw value</b>",
 	    "content": "Search results with a specific IKE Vendor ID.",
 	},
+	"tag": {
+	    "title": "<b>(!)</b>tag<b>[:value[:info]]</b>",
+	    "content": "Search results with a specific tag.",
+	},
 	/* sort */
 	"skip:": {
 	    "title": "skip:<b>[count]</b>",

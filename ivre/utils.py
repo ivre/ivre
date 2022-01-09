@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -174,6 +174,7 @@ IPV4ADDR = re.compile(
     re.I,
 )
 MACADDR = re.compile("^(?:[0-9a-f]{1,2}:){5}[0-9a-f]{1,2}", re.I)
+TORCERT_SUBJECT = re.compile("^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$", flags=0)
 
 NMAP_FINGERPRINT_IVRE_KEY = {
     "d": "service_devicetype",
