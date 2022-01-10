@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, List, Set, Union, cast
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
+from ivre.data.scanners import DEFAULT_SCANNED_PORTS
 from ivre.types import ParsedCertificate
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
@@ -424,6 +425,17 @@ def merge_scanner_scripts(
         nports = len(ports["ports"])
         res["ports"][proto]["count"] = nports
         res["ports"]["count"] = res["ports"].get("count", 0) + nports
+        # If the list of scanned ports is almost exactly the same as
+        # the list of ports scanned by default by a scanner, assume it
+        # is.
+        for (dports, scanner_name) in DEFAULT_SCANNED_PORTS.get(proto, []):
+            if scanner_name not in res.get("scanners", []):
+                if abs(nports / len(dports) - 1) < 0.03 and set(
+                    ports["ports"]
+                ).issubset(dports):
+                    res.setdefault("scanners", {}).setdefault(scanner_name, set()).add(
+                        (proto, "Default ports")
+                    )
     if "http_uris" in res:
         res["http_uris"] = [
             {"uri": uri, "method": method, "version": version}
