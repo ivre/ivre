@@ -369,6 +369,12 @@ def gen_auto_tags(
                             )
                         else:
                             yield TAG_VULN_CANNOT_TEST
+            elif "nuclei" in script:
+                for template in script["nuclei"]:
+                    if template.get("name", "").startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[template["name"]]))
+                    elif template.get("template", "").startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[template["template"]]))
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = len(host.get("ports", []))
     if is_synack_honeypot(host):
@@ -851,6 +857,7 @@ _SCRIPT_MERGE = {
     "http-git": merge_http_git_scripts,
     "http-nuclei": merge_nuclei_scripts,
     "http-user-agent": merge_ua_scripts,
+    "network-nuclei": merge_nuclei_scripts,
     "scanner": merge_scanner_scripts,
     "ssl-cacert": merge_ssl_cert_scripts,
     "ssl-cert": merge_ssl_cert_scripts,

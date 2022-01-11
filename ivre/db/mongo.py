@@ -50,7 +50,7 @@ else:
     HAS_KRBV = True
 
 
-from ivre.active.data import ALIASES_TABLE_ELEMS, set_auto_tags
+from ivre.active.data import ALIASES_TABLE_ELEMS, is_synack_honeypot, set_auto_tags
 from ivre.db import (
     DB,
     DBActive,
@@ -1855,19 +1855,35 @@ class MongoDBActive(MongoDB, DBActive):
     @classmethod
     def migrate_schema_hosts_19_20(cls, doc):
         """Converts a record from version 19 to version 20. Version 20
-        introduces tags.
+        introduces tags and uses a script alias "nuclei" for
+        "*-nuclei" scripts.
 
         """
         assert doc["schema_version"] == 19
         update = {"$set": {"schema_version": 20}}
+        was_synack_honeypot = False
         if "synack_honeypot" in doc:
             update["$unset"] = {"synack_honeypot": ""}
             doc["tags"] = [
                 {"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}
             ]
+            was_synack_honeypot = True
+        else:
+            was_synack_honeypot = False
+        ports_updated = False
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"].endswith("-nuclei") and script["id"] in script:
+                    ports_updated = True
+                    script["nuclei"] = script.pop(script["id"])
         set_auto_tags(doc)
         if "tags" in doc:
             update["$set"]["tags"] = doc["tags"]
+        if is_synack_honeypot(doc) and not was_synack_honeypot:
+            update["$set"]["ports"] = doc["ports"]
+            update["$set"]["openports"] = doc["openports"]
+        elif ports_updated:
+            update["$set"]["ports"] = doc["ports"]
         return update
 
     def _get(self, flt, **kargs):

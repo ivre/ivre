@@ -859,7 +859,6 @@ class DBActive(DB):
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-app",
         "ports.scripts.http-headers",
-        "ports.scripts.http-nuclei",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
@@ -869,6 +868,7 @@ class DBActive(DB):
         "ports.scripts.ms-sql-info",
         "ports.scripts.mongodb-databases.databases",
         "ports.scripts.mongodb-databases.databases.shards",
+        "ports.scripts.nuclei",
         "ports.scripts.rpcinfo",
         "ports.scripts.rpcinfo.version",
         "ports.scripts.scanner.http_uris",
@@ -1483,7 +1483,8 @@ class DBActive(DB):
     @classmethod
     def __migrate_schema_hosts_19_20(cls, doc):
         """Converts a record from version 19 to version 20. Version 20
-        introduces tags.
+        introduces tags and uses a script alias "nuclei" for
+        "*-nuclei" scripts.
 
         """
         assert doc["schema_version"] == 19
@@ -1493,6 +1494,10 @@ class DBActive(DB):
             doc["tags"] = [
                 {"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}
             ]
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"].endswith("-nuclei") and script["id"] in script:
+                    script["nuclei"] = script.pop(script["id"])
         set_auto_tags(doc)
         return doc
 
@@ -2809,12 +2814,11 @@ class DBNmap(DBActive):
                     name += " (%s)" % rec["matcher_name"]
                 elif "matcher-name" in rec:
                     name += " (%s)" % rec["matcher-name"]
-                script_id = "%s-nuclei" % (rec["type"])
                 scripts = [
                     {
-                        "id": script_id,
+                        "id": "%s-nuclei" % (rec["type"]),
                         "output": "[%s] %s found at %s" % (rec["severity"], name, url),
-                        script_id: [
+                        "nuclei": [
                             {
                                 "template": rec["template"],
                                 "name": name,
