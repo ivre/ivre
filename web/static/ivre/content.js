@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+ * Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -552,6 +552,10 @@ var HELP_FILTERS = {
 	"tag": {
 	    "title": "<b>(!)</b>tag<b>[:value[:info]]</b>",
 	    "content": "Search results with a specific tag.",
+	},
+	"search:": {
+	    "title": "search:<b>full text search</b>",
+	    "content": "Perform a full-text search.",
 	},
 	/* sort */
 	"skip:": {

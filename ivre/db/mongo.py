@@ -772,6 +772,10 @@ class MongoDB(DB):
             res[key] = hashval.lower()
         return res
 
+    @staticmethod
+    def searchtext(text):
+        return {"$text": {"$search": text}}
+
 
 class MongoDBActive(MongoDB, DBActive):
 
@@ -989,6 +993,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"sparse": True},
             ),
+            ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
         ],
     ]
     schema_migrations_indexes = [
@@ -1241,6 +1246,7 @@ class MongoDBActive(MongoDB, DBActive):
                         ],
                         {"sparse": True},
                     ),
+                    ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
                 ],
             },
         },

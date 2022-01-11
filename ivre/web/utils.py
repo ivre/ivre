@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -780,6 +780,11 @@ def flt_from_query(dbase, query, base_flt=None):
                     )
             else:
                 flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
+        elif param == "search":
+            try:
+                flt = dbase.flt_and(flt, dbase.searchtext(value))
+            except AttributeError:  # .searchtext() only exists in MongoDB
+                add_unused(neg, param, value)
         elif param == "display":
             # ignore this parameter
             pass

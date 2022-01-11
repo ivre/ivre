@@ -89,6 +89,7 @@ class DB:
     ipaddr_fields = []
     datetime_fields = []
     list_fields = []
+    text_fields = []
 
     def __init__(self):
         self.argparser = ArgumentParser(add_help=False)
@@ -894,6 +895,29 @@ class DBActive(DB):
         "hostnames",
         "hostnames.domains",
     ]
+    text_fields = [
+        "categories",
+        "cpes.product",
+        "cpes.vendor",
+        "cpes.version",
+        "hostnames.name",
+        "os.osclass.osfamily",
+        "os.osclass.osgen",
+        "os.osclass.vendor",
+        "os.osmatch.name",
+        "ports.screenwords",
+        "ports.scripts.output",
+        "ports.service_devicetype",
+        "ports.service_extrainfo",
+        "ports.service_hostname",
+        "ports.service_name",
+        "ports.service_ostype",
+        "ports.service_product",
+        "ports.service_version",
+        "tags.info",
+        "tags.value",
+        "traces.hops.host",
+    ]
 
     def __init__(self):
         super().__init__()
@@ -933,6 +957,10 @@ class DBActive(DB):
         self.argparser.add_argument(
             "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
         )
+        if hasattr(self, "searchtext"):
+            self.argparser.add_argument(
+                "--search", metavar="FREE TEXT", help="perform a full-text search"
+            )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
         self.argparser.add_argument(
@@ -1879,6 +1907,8 @@ class DBActive(DB):
             elif args.tag:
                 tag["value"] = utils.str2regexp(args.tag)
             flt = self.flt_and(flt, self.searchtag(tag))
+        if hasattr(self, "searchtext") and args.search is not None:
+            flt = self.flt_and(flt, self.searchtext(args.search))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
