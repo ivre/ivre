@@ -295,6 +295,7 @@ def is_synack_honeypot(host: NmapHost) -> bool:
 
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
+TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR node", "type": "info"}
 TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
@@ -390,6 +391,22 @@ def gen_auto_tags(
             if script["id"] == "ssl-cert":
                 for cert in script.get("ssl-cert", []):
                     if (
+                        cert.get("md5") == "950098276a495286eb2a2556fbab6d83"
+                        or cert.get("sha1")
+                        == "6ece5ece4192683d2d84e25b0ba7e04f9cb7eb7c"
+                        or cert.get("sha256")
+                        == "87f2085c32b6a2cc709b365f55873e207a9caa10bffecf2fd16d3cf9d94d390c"
+                    ):
+                        yield cast(
+                            Tag,
+                            dict(
+                                TAG_MALWARE,
+                                info=[
+                                    f"Cobalt Strike Team Server default certificate on port {port['protocol']}/{port['port']}"
+                                ],
+                            ),
+                        )
+                    elif (
                         TORCERT_SUBJECT.search(cert.get("subject_text", ""))
                         and TORCERT_SUBJECT.search(cert.get("issuer_text", ""))
                         and cert.get("subject_text") != cert.get("issuer_text")
