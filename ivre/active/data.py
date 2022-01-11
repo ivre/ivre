@@ -301,6 +301,14 @@ TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
 TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
 
 
+_SERVICE_FIELDS = [
+    "service_name",
+    "service_product",
+    "service_version",
+    "service_extrainfo",
+]
+
+
 def gen_auto_tags(
     host: NmapHost, update_openports: bool = True
 ) -> Generator[Tag, None, None]:
@@ -319,6 +327,20 @@ def gen_auto_tags(
 
     """
     for port in host.get("ports", []):
+        if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):
+            cur_info = []
+            for fld in _SERVICE_FIELDS:
+                if fld in port:
+                    cur_info.append(port[fld])
+            yield cast(
+                Tag,
+                dict(
+                    TAG_HONEYPOT,
+                    info=[
+                        f"{' / '.join(cur_info)} on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
         for script in port.get("scripts", []):
             if script["id"] == "ssl-cert":
                 for cert in script.get("ssl-cert", []):
