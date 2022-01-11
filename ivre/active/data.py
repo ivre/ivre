@@ -335,9 +335,39 @@ def gen_auto_tags(
                     )
                 )
                 if scanners:
-                    yield {"value": "Scanner", "type": "danger", "info": scanners}
+                    yield {"value": "Scanner", "type": "warning", "info": scanners}
                 else:
-                    yield {"value": "Scanner", "type": "danger"}
+                    yield {"value": "Scanner", "type": "warning"}
+            elif "vulns" in script:
+                for vuln in script["vulns"]:
+                    state = vuln.get("state", "")
+                    if state.startswith("VULNERABLE"):
+                        if "id" in vuln:
+                            yield {
+                                "value": "Vulnerable",
+                                "type": "danger",
+                                "info": [vuln["id"]],
+                            }
+                        else:
+                            yield {"value": "Vulnerable", "type": "danger"}
+                    elif state.startswith("LIKELY VULNERABLE"):
+                        if "id" in vuln:
+                            yield {
+                                "value": "Likely vulnerable",
+                                "type": "warning",
+                                "info": [vuln["id"]],
+                            }
+                        else:
+                            yield {"value": "Likely vulnerable", "type": "warning"}
+                    elif state.startswith("UNKNOWN"):
+                        if "id" in vuln:
+                            yield {
+                                "value": "Cannot test vuln",
+                                "type": "info",
+                                "info": [vuln["id"]],
+                            }
+                        else:
+                            yield {"value": "Cannot test vuln", "type": "info"}
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = len(host.get("ports", []))
     if is_synack_honeypot(host):
