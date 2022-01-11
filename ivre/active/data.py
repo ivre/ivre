@@ -308,6 +308,18 @@ _SERVICE_FIELDS = [
     "service_version",
     "service_extrainfo",
 ]
+_TOR_SERVICES = {
+    "tor",
+    "tor-control",
+    "tor-info",
+    "tor-orport",
+    "tor-socks",
+}
+_TOR_HTTP_PRODUCTS = {
+    "Tor directory",
+    "Tor directory server",
+    "Tor built-in httpd",
+}
 
 
 def gen_auto_tags(
@@ -342,6 +354,38 @@ def gen_auto_tags(
                     ],
                 ),
             )
+        if port.get("service_name") in _TOR_SERVICES:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_TOR,
+                    info=[
+                        f"Service {port['service_name']} found on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
+        elif port.get("service_name") == "ssl":
+            if port.get("service_product") == "Tor over SSL":
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_TOR,
+                        info=[
+                            f"ssl / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                )
+        elif port.get("service_name") == "http":
+            if port.get("service_product") in _TOR_HTTP_PRODUCTS:
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_TOR,
+                        info=[
+                            f"http / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                )
         for script in port.get("scripts", []):
             if script["id"] == "ssl-cert":
                 for cert in script.get("ssl-cert", []):
@@ -359,6 +403,17 @@ def gen_auto_tags(
                                 ],
                             ),
                         )
+            elif script["id"] == "http-title":
+                if script["output"] == "This is a Tor Exit Router":
+                    yield cast(
+                        Tag,
+                        dict(
+                            TAG_TOR,
+                            info=[
+                                f"TOR exit node notice on port {port['protocol']}/{port['port']}"
+                            ],
+                        ),
+                    )
             elif script["id"] == "scanner":
                 if port["port"] != -1:
                     continue
