@@ -1918,6 +1918,45 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("nmap_features_versions_noyieldall_FRDE_ndata", len(data))
 
+        # Tags
+        self.check_value(
+            "nmap_count_tags", ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag())
+        )
+        self.check_value(
+            "nmap_count_tags_honeypot",
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag("Honeypot")),
+        )
+        self.check_value(
+            "nmap_count_tags_honeypot",
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "Honeypot"})),
+        )
+        self.check_value(
+            "nmap_count_tags_tor",
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR node"})),
+        )
+        self.check_value(
+            "nmap_count_tags_honeypot_mushmush_102",
+            ivre.db.db.nmap.count(
+                ivre.db.db.nmap.searchtag(
+                    {
+                        "value": "Honeypot",
+                        "info": "honeypot / MushMush Conpot on port tcp/102",
+                    }
+                )
+            ),
+        )
+
+        # Full-text
+        if DATABASE == "mongo":
+            self.check_value(
+                "nmap_count_text_honeypot",
+                ivre.db.db.nmap.count(ivre.db.db.nmap.searchtext("honeypot")),
+            )
+            self.check_value(
+                "nmap_count_text_password",
+                ivre.db.db.nmap.count(ivre.db.db.nmap.searchtext("password")),
+            )
+
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             newenv = os.environ.copy()
@@ -5710,6 +5749,45 @@ class IvreTests(unittest.TestCase):
         self.check_value("view_features_versions_noyieldall_FRDE_ncolumns", ncolumns)
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("view_features_versions_noyieldall_FRDE_ndata", len(data))
+
+        # Tags
+        self.check_value(
+            "view_count_tags", ivre.db.db.view.count(ivre.db.db.view.searchtag())
+        )
+        self.check_value(
+            "view_count_tags_honeypot",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag("Honeypot")),
+        )
+        self.check_value(
+            "view_count_tags_honeypot",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "Honeypot"})),
+        )
+        self.check_value(
+            "view_count_tags_tor",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR node"})),
+        )
+        self.check_value(
+            "view_count_tags_honeypot_mushmush_102",
+            ivre.db.db.view.count(
+                ivre.db.db.view.searchtag(
+                    {
+                        "value": "Honeypot",
+                        "info": "honeypot / MushMush Conpot on port tcp/102",
+                    }
+                )
+            ),
+        )
+
+        # Full-text
+        if DATABASE == "mongo":
+            self.check_value(
+                "view_count_text_honeypot",
+                ivre.db.db.view.count(ivre.db.db.view.searchtext("honeypot")),
+            )
+            self.check_value(
+                "view_count_text_password",
+                ivre.db.db.view.count(ivre.db.db.view.searchtext("password")),
+            )
 
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
