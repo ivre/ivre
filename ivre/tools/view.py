@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -216,6 +216,7 @@ def main() -> None:
         outdb = DBView.from_url(args.to_db)
 
         def displayfunction(cur: DBCursor) -> None:
+            outdb.start_store_hosts()
             for rec in cur:
                 try:
                     del rec["_id"]
@@ -225,6 +226,7 @@ def main() -> None:
                     outdb.store_host(rec)
                 except Exception:
                     LOGGER.warning("Cannot insert record %r", rec, exc_info=True)
+            outdb.stop_store_hosts()
 
     else:
 
