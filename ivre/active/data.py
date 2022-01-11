@@ -293,11 +293,20 @@ def is_synack_honeypot(host: NmapHost) -> bool:
     )
 
 
+TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
+TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
+TAG_TOR: Tag = {"value": "TOR node", "type": "info"}
+TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
+TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
+TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
+
+
 def gen_auto_tags(
     host: NmapHost, update_openports: bool = True
 ) -> Generator[Tag, None, None]:
     """This function generates the automatically-generated tags ("TOR
-    node", "Scanner" and "Honeypot", for now).
+    node", "Scanner", "Honeypot" and "Vulnerable" / "Likely
+    vulnerable" / "Cannot test vuln", for now).
 
     If the host has too many (at least `VIEW_SYNACK_HONEYPOT_COUNT`)
     open ports that may be "syn-ack" honeypots (which means, ports for
@@ -318,13 +327,15 @@ def gen_auto_tags(
                         and TORCERT_SUBJECT.search(cert.get("issuer_text", ""))
                         and cert.get("subject_text") != cert.get("issuer_text")
                     ):
-                        yield {
-                            "value": "TOR node",
-                            "type": "info",
-                            "info": [
-                                f"TOR certificate on port {port['protocol']}/{port['port']}"
-                            ],
-                        }
+                        yield cast(
+                            Tag,
+                            dict(
+                                TAG_TOR,
+                                info=[
+                                    f"TOR certificate on port {port['protocol']}/{port['port']}"
+                                ],
+                            ),
+                        )
             elif script["id"] == "scanner":
                 if port["port"] != -1:
                     continue
@@ -335,39 +346,29 @@ def gen_auto_tags(
                     )
                 )
                 if scanners:
-                    yield {"value": "Scanner", "type": "warning", "info": scanners}
+                    yield cast(Tag, dict(TAG_SCANNER, info=scanners))
                 else:
-                    yield {"value": "Scanner", "type": "warning"}
+                    yield TAG_SCANNER
             elif "vulns" in script:
                 for vuln in script["vulns"]:
                     state = vuln.get("state", "")
                     if state.startswith("VULNERABLE"):
                         if "id" in vuln:
-                            yield {
-                                "value": "Vulnerable",
-                                "type": "danger",
-                                "info": [vuln["id"]],
-                            }
+                            yield cast(Tag, dict(TAG_VULN, info=[vuln["id"]]))
                         else:
-                            yield {"value": "Vulnerable", "type": "danger"}
+                            yield TAG_VULN
                     elif state.startswith("LIKELY VULNERABLE"):
                         if "id" in vuln:
-                            yield {
-                                "value": "Likely vulnerable",
-                                "type": "warning",
-                                "info": [vuln["id"]],
-                            }
+                            yield cast(Tag, dict(TAG_VULN_LIKELY, info=[vuln["id"]]))
                         else:
-                            yield {"value": "Likely vulnerable", "type": "warning"}
+                            yield TAG_VULN_LIKELY
                     elif state.startswith("UNKNOWN"):
                         if "id" in vuln:
-                            yield {
-                                "value": "Cannot test vuln",
-                                "type": "info",
-                                "info": [vuln["id"]],
-                            }
+                            yield cast(
+                                Tag, dict(TAG_VULN_CANNOT_TEST, info=[vuln["id"]])
+                            )
                         else:
-                            yield {"value": "Cannot test vuln", "type": "info"}
+                            yield TAG_VULN_CANNOT_TEST
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = len(host.get("ports", []))
     if is_synack_honeypot(host):
@@ -393,7 +394,7 @@ def gen_auto_tags(
         host["ports"] = newports
         if update_openports:
             set_openports_attribute(host)
-        yield {"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}
+        yield cast(Tag, dict(TAG_HONEYPOT, info=["SYN+ACK honeypot"]))
 
 
 def set_auto_tags(host: NmapHost, update_openports: bool = True) -> None:
