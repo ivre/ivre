@@ -293,6 +293,7 @@ def is_synack_honeypot(host: NmapHost) -> bool:
     )
 
 
+TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR node", "type": "info"}
@@ -371,6 +372,21 @@ def gen_auto_tags(
                     yield cast(Tag, dict(TAG_SCANNER, info=scanners))
                 else:
                     yield TAG_SCANNER
+            elif script["id"] == "http-default-accounts":
+                for app in script.get("http-default-accounts", []):
+                    if not app.get("credentials"):
+                        continue
+                    creds = [
+                        f"{cred['username']} / {cred['password']}"
+                        for cred in app["credentials"]
+                    ]
+                    yield cast(
+                        Tag,
+                        dict(
+                            TAG_DEFAULT_PASSWORD,
+                            info=[f"{app['name']}: {', '.join(creds)}"],
+                        ),
+                    )
             elif "vulns" in script:
                 for vuln in script["vulns"]:
                     state = vuln.get("state", "")

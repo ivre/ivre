@@ -757,6 +757,12 @@ def change_http_server_header(table):
     return table
 
 
+def change_http_default_accounts(table):
+    if isinstance(table, dict):
+        return [dict(value, name=key) for key, value in table.items()]
+    return table
+
+
 CHANGE_TABLE_ELEMS = {
     "smb-enum-shares": change_smb_enum_shares,
     "s7-info": change_s7_info_keys,
@@ -768,6 +774,7 @@ CHANGE_TABLE_ELEMS = {
     "ssh-hostkey": change_ssh_hostkey,
     "http-git": change_http_git,
     "http-server-header": change_http_server_header,
+    "http-default-accounts": change_http_default_accounts,
 }
 
 

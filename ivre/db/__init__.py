@@ -1483,8 +1483,9 @@ class DBActive(DB):
     @classmethod
     def __migrate_schema_hosts_19_20(cls, doc):
         """Converts a record from version 19 to version 20. Version 20
-        introduces tags and uses a script alias "nuclei" for
-        "*-nuclei" scripts.
+        introduces tags, uses a script alias "nuclei" for "*-nuclei"
+        scripts and fixes the structured output for
+        "http-default-accounts" script.
 
         """
         assert doc["schema_version"] == 19
@@ -1496,7 +1497,14 @@ class DBActive(DB):
             ]
         for port in doc.get("ports", []):
             for script in port.get("scripts", []):
-                if script["id"].endswith("-nuclei") and script["id"] in script:
+                if script["id"] == "http-default-accounts":
+                    if "http-default-accounts" in script:
+                        script[
+                            "http-default-accounts"
+                        ] = xmlnmap.change_http_default_accounts(
+                            script["http-default-accounts"]
+                        )
+                elif script["id"].endswith("-nuclei") and script["id"] in script:
                     script["nuclei"] = script.pop(script["id"])
         set_auto_tags(doc)
         return doc

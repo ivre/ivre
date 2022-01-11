@@ -1855,8 +1855,12 @@ class MongoDBActive(MongoDB, DBActive):
     @classmethod
     def migrate_schema_hosts_19_20(cls, doc):
         """Converts a record from version 19 to version 20. Version 20
-        introduces tags and uses a script alias "nuclei" for
-        "*-nuclei" scripts.
+        introduces tags, uses a script alias "nuclei" for "*-nuclei"
+        scripts and fixes the structured output for
+        "http-default-accounts" script.
+
+        Version 20 also introduces a full-text index, but this has no
+        effect on the document structure.
 
         """
         assert doc["schema_version"] == 19
@@ -1873,7 +1877,15 @@ class MongoDBActive(MongoDB, DBActive):
         ports_updated = False
         for port in doc.get("ports", []):
             for script in port.get("scripts", []):
-                if script["id"].endswith("-nuclei") and script["id"] in script:
+                if script["id"] == "http-default-accounts":
+                    if "http-default-accounts" in script:
+                        ports_updated = True
+                        script[
+                            "http-default-accounts"
+                        ] = xmlnmap.change_http_default_accounts(
+                            script["http-default-accounts"]
+                        )
+                elif script["id"].endswith("-nuclei") and script["id"] in script:
                     ports_updated = True
                     script["nuclei"] = script.pop(script["id"])
         set_auto_tags(doc)
