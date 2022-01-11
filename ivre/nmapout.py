@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -94,6 +94,12 @@ def displayhost(
             )
     if "starttime" in record and "endtime" in record:
         out.write("\tscan %s - %s\n" % (record["starttime"], record["endtime"]))
+    for tag in record.get("tags", []):
+        line = f"\t{tag['value']}"
+        if "info" in tag:
+            line += f" ({', '.join(tag['info'])})"
+        line += "\n"
+        out.write(line)
     for state, counts in record.get("extraports", {}).items():
         out.write(
             "\t%d ports %s (%s)\n"
