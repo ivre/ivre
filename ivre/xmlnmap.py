@@ -1250,6 +1250,7 @@ NMAP_S7_INDEXES = {
 
 MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "http": "http-headers",
+    "http.server": "http-server-header",
     "title": "http-title",
     "html": "http-content",
     "ftp": "banner",
@@ -1277,6 +1278,9 @@ MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
 MASSCAN_SERVICES_NMAP_SERVICES = {
     "ftp": "ftp",
     "http": "http",
+    "http.server": "http",
+    "title": "http",
+    "html": "http",
     "ssh": "ssh",
     "vnc": "vnc",
     "imap": "imap",
@@ -2511,6 +2515,7 @@ class NmapHandler(ContentHandler):
             function = {
                 "http-headers": self.masscan_post_http,
                 "http-content": self.masscan_post_http_content,
+                "http-server-header": self.masscan_post_http_server,
                 "s7-info": self.masscan_post_s7info,
                 "ssl-cert": self.masscan_post_x509,
                 "ssl-cacert": self.masscan_post_x509,
@@ -2748,7 +2753,6 @@ class NmapHandler(ContentHandler):
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script["masscan"]["raw"])
-        self._curport["service_name"] = "http"
         match = utils.match_nmap_svc_fp(
             raw,
             proto="tcp",
@@ -2783,7 +2787,6 @@ class NmapHandler(ContentHandler):
         handle_http_headers(self._curhost, self._curport, script["http-headers"])
 
     def masscan_post_http_content(self, script):
-        self._curport["service_name"] = "http"
         raw = self._from_binary(script["masscan"]["raw"])
         script_http_ls = create_http_ls(script["output"])
         service_elasticsearch = create_elasticsearch_service(script["output"])
@@ -2800,6 +2803,10 @@ class NmapHandler(ContentHandler):
             for cpe in service_elasticsearch.pop("cpe", []):
                 self._add_cpe_to_host(cpe=cpe)
             self._curport.update(service_elasticsearch)
+
+    @staticmethod
+    def masscan_post_http_server(script):
+        script["http-server-header"] = [script["output"]]
 
     def _add_cpe_to_host(self, cpe=None):
         """Adds the cpe (from `cpe` or from self._curdata) to the host-wide
