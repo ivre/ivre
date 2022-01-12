@@ -2186,6 +2186,23 @@ class MongoDBActive(MongoDB, DBActive):
         """Removes hosts from the active column, based on the filter `flt`."""
         self.db[self.columns[self.column_hosts]].delete_many(flt)
 
+    def apply_auto_tags(self, flt):
+        fields = {"tags", "ports", "openports"}
+        for rec in self.get(flt):
+            orig = {fld: deepcopy(rec.get(fld)) for fld in fields}
+            set_auto_tags(rec)
+            updatespec = {}
+            for fld in fields:
+                if orig[fld] != rec.get(fld):
+                    if not rec.get(fld):
+                        updatespec.setdefault("$unset", {})[fld] = ""
+                    else:
+                        updatespec.setdefault("$set", {})[fld] = rec[fld]
+            if updatespec:
+                self.db[self.columns[self.column_hosts]].update_one(
+                    {"_id": rec["_id"]}, updatespec
+                )
+
     def store_or_merge_host(self, host):
         raise NotImplementedError
 
