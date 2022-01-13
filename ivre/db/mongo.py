@@ -1892,7 +1892,10 @@ class MongoDBActive(MongoDB, DBActive):
         if "tags" in doc:
             update["$set"]["tags"] = doc["tags"]
         if is_synack_honeypot(doc) and not was_synack_honeypot:
-            update["$set"]["ports"] = doc["ports"]
+            if doc.get("ports"):
+                update["$set"]["ports"] = doc["ports"]
+            else:
+                update.setdefault("$unset", {})["ports"] = ""
             update["$set"]["openports"] = doc["openports"]
         elif ports_updated:
             update["$set"]["ports"] = doc["ports"]

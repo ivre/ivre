@@ -487,7 +487,7 @@ def gen_auto_tags(
                         yield cast(Tag, dict(TAG_VULN, info=[template["template"]]))
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = len(host.get("ports", []))
-    if is_synack_honeypot(host):
+    if n_ports and is_synack_honeypot(host):
         # 1. If the host is already considered a SYN+ACK honeypot,
         # let's just clean the ports
         newports = [port for port in host["ports"] if is_real_service_port(port)]
