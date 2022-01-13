@@ -65,8 +65,10 @@ Record = Dict[str, Any]
 # Sort
 if HAS_TYPED_DICT:
     SortKey = Tuple[str, Literal[-1, 1]]
+    IndexKey = Tuple[str, Literal[-1, 1, "text"]]
 else:
     SortKey = Tuple[str, int]  # type: ignore
+    IndexKey = Tuple[str, Union[int, str]]  # type: ignore
 Sort = Iterable[SortKey]
 
 

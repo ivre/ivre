@@ -1946,17 +1946,6 @@ class IvreTests(unittest.TestCase):
             ),
         )
 
-        # Full-text
-        if DATABASE == "mongo":
-            self.check_value(
-                "nmap_count_text_honeypot",
-                ivre.db.db.nmap.count(ivre.db.db.nmap.searchtext("honeypot")),
-            )
-            self.check_value(
-                "nmap_count_text_password",
-                ivre.db.db.nmap.count(ivre.db.db.nmap.searchtext("password")),
-            )
-
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             newenv = os.environ.copy()

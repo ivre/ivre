@@ -63,7 +63,7 @@ from ivre.db import (
     LockError,
 )
 from ivre import config, passive, utils, xmlnmap, flow
-from ivre.types import Filter, SortKey
+from ivre.types import Filter, IndexKey
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -82,11 +82,12 @@ def log_pipeline(pipeline):
 
 class MongoDB(DB):
 
+    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = []
     schema_migrations_indexes: List[
-        Dict[int, Dict[str, List[Tuple[List[SortKey], Dict[str, Any]]]]]
+        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
     ] = []
     schema_latest_versions: List[int] = []
-    hint_indexes: List[Dict[str, List[SortKey]]] = []
+    hint_indexes: List[Dict[str, List[IndexKey]]] = []
     no_limit = 0
 
     def __init__(self, url):
@@ -781,7 +782,7 @@ class MongoDBActive(MongoDB, DBActive):
 
     column_hosts = 0
     _features_column = 0
-    indexes = [
+    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
         # hosts
         [
             ([("scanid", pymongo.ASCENDING)], {}),
@@ -993,10 +994,11 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"sparse": True},
             ),
-            ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
         ],
     ]
-    schema_migrations_indexes = [
+    schema_migrations_indexes: List[
+        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    ] = [
         # hosts
         {
             1: {
@@ -1246,7 +1248,6 @@ class MongoDBActive(MongoDB, DBActive):
                         ],
                         {"sparse": True},
                     ),
-                    ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
                 ],
             },
         },
@@ -4321,6 +4322,30 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 
 class MongoDBView(MongoDBActive, DBView):
+    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+        idxs + [([(fld, "text") for fld in DBActive.text_fields], {"name": "text"})]
+        if i == 0
+        else idxs
+        for i, idxs in enumerate(MongoDBActive.indexes)
+    ]
+    schema_migrations_indexes: List[
+        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    ] = [
+        {
+            key: dict(
+                value,
+                ensure=value["ensure"]
+                + [([(fld, "text") for fld in DBActive.text_fields], {"name": "text"})],
+            )
+            if key == 20
+            else value
+            for key, value in idxs.items()
+        }
+        if i == 0
+        else idxs
+        for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
+    ]
+
     def __init__(self, url):
         super().__init__(url)
         self.columns = [self.params.pop("colname_hosts", "views")]
@@ -5241,7 +5266,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     column_agents = 0
     column_scans = 1
     column_masters = 2
-    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
+    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
         # agents
         [
             ([("host", pymongo.ASCENDING)], {}),
@@ -5450,7 +5475,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     # insertion in db.
     meta_kinds = {"keys": "$addToSet", "counters": "$inc"}
 
-    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
+    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
         # flows
         [
             (

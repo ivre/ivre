@@ -957,10 +957,6 @@ class DBActive(DB):
         self.argparser.add_argument(
             "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
         )
-        if hasattr(self, "searchtext"):
-            self.argparser.add_argument(
-                "--search", metavar="FREE TEXT", help="perform a full-text search"
-            )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
         self.argparser.add_argument(
@@ -1920,7 +1916,11 @@ class DBActive(DB):
             elif args.tag:
                 tag["value"] = utils.str2regexp(args.tag)
             flt = self.flt_and(flt, self.searchtag(tag))
-        if hasattr(self, "searchtext") and args.search is not None:
+        if (
+            hasattr(self, "searchtext")
+            and hasattr(args, "search")
+            and args.search is not None
+        ):
             flt = self.flt_and(flt, self.searchtext(args.search))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
@@ -3039,6 +3039,10 @@ class DBView(DBActive):
 
     def __init__(self):
         super().__init__()
+        if hasattr(self, "searchtext"):
+            self.argparser.add_argument(
+                "--search", metavar="FREE TEXT", help="perform a full-text search"
+            )
         self.argparser.add_argument(
             "--ssl-ja3-server",
             metavar="JA3-SERVER[:JA3-CLIENT]",
