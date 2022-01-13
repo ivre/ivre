@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -763,6 +763,28 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchcpe(**cpe_kwargs))
             else:
                 flt = dbase.flt_and(flt, dbase.searchcpe())
+        elif param == "tag":
+            if value:
+                if ":" in value:
+                    tag_val, tag_info = value.split(":", 1)
+                    tag = {}
+                    if tag_val:
+                        tag["value"] = utils.str2regexp(tag_val)
+                    if tag_info:
+                        tag["info"] = utils.str2regexp(tag_info)
+                    flt = dbase.flt_and(flt, dbase.searchtag(tag, neg=neg))
+                else:
+                    flt = dbase.flt_and(
+                        flt,
+                        dbase.searchtag({"value": utils.str2regexp(value)}, neg=neg),
+                    )
+            else:
+                flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
+        elif param == "search":
+            try:
+                flt = dbase.flt_and(flt, dbase.searchtext(value))
+            except AttributeError:  # .searchtext() only exists in MongoDB
+                add_unused(neg, param, value)
         elif param == "display":
             # ignore this parameter
             pass

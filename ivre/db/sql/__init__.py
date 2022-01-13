@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -72,6 +72,7 @@ from ivre.db.sql.tables import (
     N_Scan,
     N_ScanFile,
     N_Script,
+    N_Tag,
     N_Trace,
     V_Association_Scan_Category,
     V_Association_Scan_Hostname,
@@ -81,6 +82,7 @@ from ivre.db.sql.tables import (
     V_Port,
     V_Scan,
     V_Script,
+    V_Tag,
     V_Trace,
     Flow,
     Passive,
@@ -686,6 +688,7 @@ class ActiveFilter(Filter):
         port=None,
         script=None,
         tables=None,
+        tag=None,
         trace=None,
     ):
         self.main = main
@@ -694,6 +697,7 @@ class ActiveFilter(Filter):
         self.port = [] if port is None else port
         self.script = [] if script is None else script
         self.tables = tables  # default value is handled in the subclasses
+        self.tag = [] if tag is None else tag
         self.trace = [] if trace is None else trace
 
     @property
@@ -705,6 +709,7 @@ class ActiveFilter(Filter):
             "port": [elt[1] if elt[0] else not_(elt[1]) for elt in self.port],
             "script": self.script,
             "tables": self.tables,
+            "tag": self.tag,
             "trace": self.trace,
         }
 
@@ -716,14 +721,16 @@ class ActiveFilter(Filter):
             port=self.port[:],
             script=self.script[:],
             tables=self.tables,
+            tag=self.tag[:],
             trace=self.trace[:],
         )
 
     def __and__(self, other):
         if self.tables != other.tables:
-            print("self.tables = %s" % str(self.tables))
-            print("other.tables = %s" % str(other.tables))
-            raise ValueError("Cannot 'AND' two filters on separate tables")
+            raise ValueError(
+                "Cannot 'AND' two filters on separate tables (%s / %s)"
+                % (self.tables, other.tables)
+            )
         return self.__class__(
             main=self.fltand(self.main, other.main),
             hostname=self.hostname + other.hostname,
@@ -731,6 +738,7 @@ class ActiveFilter(Filter):
             port=self.port + other.port,
             script=self.script + other.script,
             tables=self.tables,
+            tag=self.tag + other.tag,
             trace=self.trace + other.trace,
         )
 
@@ -744,6 +752,8 @@ class ActiveFilter(Filter):
             raise ValueError("Cannot 'OR' two filters on port")
         if self.script and other.script:
             raise ValueError("Cannot 'OR' two filters on script")
+        if self.tag and other.tag:
+            raise ValueError("Cannot 'OR' two filters on tag")
         if self.trace and other.trace:
             raise ValueError("Cannot 'OR' two filters on trace")
         if self.tables != other.tables:
@@ -822,6 +832,12 @@ class ActiveFilter(Filter):
                 req = req.where(exists(subreq))
             else:
                 req = req.where(not_(exists(subreq)))
+        for incl, subflt in self.tag:
+            base = select([self.tables.tag.scan]).where(subflt)
+            if incl:
+                req = req.where(self.tables.scan.id.in_(base))
+            else:
+                req = req.where(self.tables.scan.id.notin_(base))
         for subflt in self.trace:
             req = req.where(
                 exists(
@@ -843,6 +859,7 @@ class NmapFilter(ActiveFilter):
         port=None,
         script=None,
         tables=None,
+        tag=None,
         trace=None,
     ):
         super().__init__(
@@ -852,6 +869,7 @@ class NmapFilter(ActiveFilter):
             port=port,
             script=script,
             tables=SQLDBNmap.tables if tables is None else tables,
+            tag=tag,
             trace=trace,
         )
 
@@ -865,6 +883,7 @@ class ViewFilter(ActiveFilter):
         port=None,
         script=None,
         tables=None,
+        tag=None,
         trace=None,
     ):
         super().__init__(
@@ -874,6 +893,7 @@ class ViewFilter(ActiveFilter):
             port=port,
             script=script,
             tables=SQLDBView.tables if tables is None else tables,
+            tag=tag,
             trace=trace,
         )
 
@@ -1584,6 +1604,22 @@ class SQLDBActive(SQLDB, DBActive):
                     )
                 )
             ]
+            tags = {}
+            for tag in self.db.execute(
+                select(
+                    [self.tables.tag.value, self.tables.tag.type, self.tables.tag.info]
+                ).where(self.tables.tag.scan == rec["_id"])
+            ):
+                rect = {}
+                rect["value"], rect["type"], info = tag
+                cur_tag = tags.setdefault(rect["value"], rect)
+                if info:
+                    cur_tag.setdefault("info", set()).add(info)
+            if tags:
+                rec["tags"] = [
+                    dict(tag, info=sorted(tag["info"])) if "info" in tag else tag
+                    for tag in (tags[key] for key in sorted(tags))
+                ]
             for port in self.db.execute(
                 select([self.tables.port]).where(self.tables.port.scan == rec["_id"])
             ):
@@ -2438,6 +2474,25 @@ class SQLDBActive(SQLDB, DBActive):
             ]
         )
 
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            return cls.base_filter(tag=[(not neg, True)])
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        req = [
+            cls._searchstring_re(getattr(cls.tables.tag, key), value)
+            for key, value in tag.items()
+        ]
+        return cls.base_filter(tag=[(not neg, and_(*req))])
+
 
 class SQLDBNmap(SQLDBActive, DBNmap):
     table_layout = namedtuple(
@@ -2449,6 +2504,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
             "hostname",
             "port",
             "script",
+            "tag",
             "trace",
             "hop",
             "association_scan_hostname",
@@ -2463,6 +2519,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         N_Hostname,
         N_Port,
         N_Script,
+        N_Tag,
         N_Trace,
         N_Hop,
         N_Association_Scan_Hostname,
@@ -2478,6 +2535,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         "endtime": N_Scan.time_stop,
         "infos": N_Scan.info,
         "ports": N_Port,
+        "tags": N_Tag,
         "state": N_Scan.state_reason_ttl,
         "state_reason": N_Scan.state_reason_ttl,
         "state_reason_ttl": N_Scan.state_reason_ttl,
@@ -2577,6 +2635,7 @@ class SQLDBView(SQLDBActive, DBView):
             "hostname",
             "port",
             "script",
+            "tag",
             "trace",
             "hop",
             "association_scan_hostname",
@@ -2589,6 +2648,7 @@ class SQLDBView(SQLDBActive, DBView):
         V_Hostname,
         V_Port,
         V_Script,
+        V_Tag,
         V_Trace,
         V_Hop,
         V_Association_Scan_Hostname,
@@ -2602,6 +2662,7 @@ class SQLDBView(SQLDBActive, DBView):
         "endtime": V_Scan.time_stop,
         "infos": V_Scan.info,
         "ports": V_Port,
+        "tags": V_Tag,
         "state": V_Scan.state_reason_ttl,
         "state_reason": V_Scan.state_reason_ttl,
         "state_reason_ttl": V_Scan.state_reason_ttl,

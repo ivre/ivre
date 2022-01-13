@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,15 +26,21 @@ from datetime import datetime
 from itertools import chain
 import re
 from textwrap import wrap
-from typing import Any, Callable, Dict, List, Set, Union, cast
+from typing import Any, Callable, Dict, Generator, Iterable, List, Set, Union, cast
 
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
-from ivre.types import ParsedCertificate
+from ivre.types import ParsedCertificate, Tag
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
-from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
+from ivre.utils import (
+    TORCERT_SUBJECT,
+    get_domains,
+    nmap_decode_data,
+    nmap_encode_data,
+    ports2nmapspec,
+)
 
 
 ALIASES_TABLE_ELEMS = {
@@ -240,16 +246,259 @@ def set_openports_attribute(host: NmapHost) -> None:
             cur["ports"].append(port["port"])
 
 
-def cleanup_synack_honeypot_host(host: NmapHost, update_openports: bool = True) -> None:
-    """This function will clean the `host` record if it has too many (at
-    least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
-    honeypots (which means, ports for which is_real_service_port() returns
-    False).
+def _prepare_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
+    """This function uses a set() for the "info" value, while a list() is
+    used to store it. It is used in add_tags().
 
     """
+    if "info" in tag:
+        tag["info"] = set(tag["info"])
+    return tag
+
+
+def _clean_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
+    """This function is the opposite of `_prepare_tag()`. It is used in
+    add_tags().
+
+    """
+    if "info" in tag:
+        tag["info"] = sorted(tag["info"])
+    return tag
+
+
+def add_tags(host: NmapHost, tags: Iterable[Tag]) -> None:
+    """This function sets or update the "tags" attribute in `host` by
+    adding or updating the provided `tags`.
+
+    """
+    cur_tags = {tag["value"]: _prepare_tag(tag) for tag in host.get("tags", [])}
+    for tag in tags:
+        cur_tag = cur_tags.setdefault(
+            tag["value"], {"value": tag["value"], "type": tag["type"]}
+        )
+        if "info" in tag:
+            cur_tag.setdefault("info", set()).update(tag["info"])
+    if cur_tags:
+        host["tags"] = [_clean_tag(cur_tags[key]) for key in sorted(cur_tags)]
+
+
+def is_synack_honeypot(host: NmapHost) -> bool:
+    """Returns True iff the host has the "Honeypot" tag with "SYN+ACK
+    honeypot" info.
+
+    """
+    return any(
+        tag["value"] == "Honeypot" and "SYN+ACK honeypot" in tag.get("info", [])
+        for tag in host.get("tags", [])
+    )
+
+
+TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
+TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
+TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
+TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
+TAG_TOR: Tag = {"value": "TOR node", "type": "info"}
+TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
+TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
+TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
+
+
+_SERVICE_FIELDS = [
+    "service_name",
+    "service_product",
+    "service_version",
+    "service_extrainfo",
+]
+_TOR_SERVICES = {
+    "tor",
+    "tor-control",
+    "tor-info",
+    "tor-orport",
+    "tor-socks",
+}
+_TOR_HTTP_PRODUCTS = {
+    "Tor directory",
+    "Tor directory server",
+    "Tor built-in httpd",
+}
+
+
+def gen_auto_tags(
+    host: NmapHost, update_openports: bool = True
+) -> Generator[Tag, None, None]:
+    """This function generates the automatically-generated tags ("TOR
+    node", "Scanner", "Honeypot" and "Vulnerable" / "Likely
+    vulnerable" / "Cannot test vuln", for now).
+
+    If the host has too many (at least `VIEW_SYNACK_HONEYPOT_COUNT`)
+    open ports that may be "syn-ack" honeypots (which means, ports for
+    which is_real_service_port() returns False), this function will
+    generate the "Honeypot" / "SYN+ACK honeypot" tag **and** clean the
+    `host` record from the probable "SYN+ACK honeypot" ports.
+
+    If the "ports" field of the host document has changed, the
+    "openports" field is updated unless `update_openports` is False.
+
+    """
+    for port in host.get("ports", []):
+        if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):
+            cur_info = []
+            for fld in _SERVICE_FIELDS:
+                if fld in port:
+                    cur_info.append(port[fld])
+            yield cast(
+                Tag,
+                dict(
+                    TAG_HONEYPOT,
+                    info=[
+                        f"{' / '.join(cur_info)} on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
+        if port.get("service_name") in _TOR_SERVICES:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_TOR,
+                    info=[
+                        f"Service {port['service_name']} found on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
+        elif port.get("service_name") == "ssl":
+            if port.get("service_product") == "Tor over SSL":
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_TOR,
+                        info=[
+                            f"ssl / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                )
+        elif port.get("service_name") == "http":
+            if port.get("service_product") in _TOR_HTTP_PRODUCTS:
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_TOR,
+                        info=[
+                            f"http / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                )
+        for script in port.get("scripts", []):
+            if script["id"] == "ssl-cert":
+                for cert in script.get("ssl-cert", []):
+                    if (
+                        cert.get("md5") == "950098276a495286eb2a2556fbab6d83"
+                        or cert.get("sha1")
+                        == "6ece5ece4192683d2d84e25b0ba7e04f9cb7eb7c"
+                        or cert.get("sha256")
+                        == "87f2085c32b6a2cc709b365f55873e207a9caa10bffecf2fd16d3cf9d94d390c"
+                    ):
+                        yield cast(
+                            Tag,
+                            dict(
+                                TAG_MALWARE,
+                                info=[
+                                    f"Cobalt Strike Team Server default certificate on port {port['protocol']}/{port['port']}"
+                                ],
+                            ),
+                        )
+                    elif (
+                        TORCERT_SUBJECT.search(cert.get("subject_text", ""))
+                        and TORCERT_SUBJECT.search(cert.get("issuer_text", ""))
+                        and cert.get("subject_text") != cert.get("issuer_text")
+                    ):
+                        yield cast(
+                            Tag,
+                            dict(
+                                TAG_TOR,
+                                info=[
+                                    f"TOR certificate on port {port['protocol']}/{port['port']}"
+                                ],
+                            ),
+                        )
+            elif script["id"] == "http-title":
+                if script["output"] == "This is a Tor Exit Router":
+                    yield cast(
+                        Tag,
+                        dict(
+                            TAG_TOR,
+                            info=[
+                                f"TOR exit node notice on port {port['protocol']}/{port['port']}"
+                            ],
+                        ),
+                    )
+            elif script["id"] == "scanner":
+                if port["port"] != -1:
+                    continue
+                scanners = sorted(
+                    set(
+                        scanner["name"]
+                        for scanner in script.get("scanner", {}).get("scanners", [])
+                    )
+                )
+                if scanners:
+                    yield cast(Tag, dict(TAG_SCANNER, info=scanners))
+                else:
+                    yield TAG_SCANNER
+            elif script["id"] == "http-default-accounts":
+                for app in script.get("http-default-accounts", []):
+                    if not app.get("credentials"):
+                        continue
+                    creds = [
+                        f"{cred['username']} / {cred['password']}"
+                        for cred in app["credentials"]
+                    ]
+                    yield cast(
+                        Tag,
+                        dict(
+                            TAG_DEFAULT_PASSWORD,
+                            info=[f"{app['name']}: {', '.join(creds)}"],
+                        ),
+                    )
+            elif "vulns" in script:
+                for vuln in script["vulns"]:
+                    state = vuln.get("state", "")
+                    if state.startswith("VULNERABLE"):
+                        if "id" in vuln:
+                            yield cast(Tag, dict(TAG_VULN, info=[vuln["id"]]))
+                        else:
+                            yield TAG_VULN
+                    elif state.startswith("LIKELY VULNERABLE"):
+                        if "id" in vuln:
+                            yield cast(Tag, dict(TAG_VULN_LIKELY, info=[vuln["id"]]))
+                        else:
+                            yield TAG_VULN_LIKELY
+                    elif state.startswith("UNKNOWN"):
+                        if "id" in vuln:
+                            yield cast(
+                                Tag, dict(TAG_VULN_CANNOT_TEST, info=[vuln["id"]])
+                            )
+                        else:
+                            yield TAG_VULN_CANNOT_TEST
+            elif "nuclei" in script:
+                for template in script["nuclei"]:
+                    if template.get("name", "").startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[template["name"]]))
+                    elif template.get("template", "").startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[template["template"]]))
+    # Now the "Honeypot" / "SYN+ACK honeypot" tag:
+    n_ports = len(host.get("ports", []))
+    if n_ports and is_synack_honeypot(host):
+        # 1. If the host is already considered a SYN+ACK honeypot,
+        # let's just clean the ports
+        newports = [port for port in host["ports"] if is_real_service_port(port)]
+        if len(newports) != n_ports:
+            host["ports"] = newports
+            if update_openports:
+                set_openports_attribute(host)
+        return
+    # 2. ... Else, let's see if we should add the tag
     if VIEW_SYNACK_HONEYPOT_COUNT is None:
         return
-    n_ports = len(host.get("ports", []))
     if n_ports < VIEW_SYNACK_HONEYPOT_COUNT:
         return
     # check if we have too many open ports that could be "syn-ack
@@ -259,9 +508,17 @@ def cleanup_synack_honeypot_host(host: NmapHost, update_openports: bool = True) 
         # ... if so, keep only the ports that cannot be "syn-ack
         # honeypots"
         host["ports"] = newports
-        host["synack_honeypot"] = True
         if update_openports:
             set_openports_attribute(host)
+        yield cast(Tag, dict(TAG_HONEYPOT, info=["SYN+ACK honeypot"]))
+
+
+def set_auto_tags(host: NmapHost, update_openports: bool = True) -> None:
+    """This function sets the automatically-generated tags ("TOR node" and
+    "Scanner", for now).
+
+    """
+    add_tags(host, gen_auto_tags(host, update_openports=update_openports))
 
 
 def merge_ja3_scripts(
@@ -710,6 +967,7 @@ _SCRIPT_MERGE = {
     "http-git": merge_http_git_scripts,
     "http-nuclei": merge_nuclei_scripts,
     "http-user-agent": merge_ua_scripts,
+    "network-nuclei": merge_nuclei_scripts,
     "scanner": merge_scanner_scripts,
     "ssl-cacert": merge_ssl_cert_scripts,
     "ssl-cert": merge_ssl_cert_scripts,
@@ -757,7 +1015,7 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
             )
         except ValueError:
             pass
-    sa_honeypot = rec1.get("synack_honeypot") or rec2.get("synack_honeypot")
+    sa_honeypot = is_synack_honeypot(rec1) or is_synack_honeypot(rec2)
     rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
     if rec["state"] is None:
         del rec["state"]
@@ -819,12 +1077,13 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
                     cur_addrs.append(addr)
     if addresses:
         rec["addresses"] = addresses
-    sa_honeypot_check = False
     if sa_honeypot:
-        rec["synack_honeypot"] = True
+        add_tags(
+            rec,
+            [{"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}],
+        )
         for record in [rec1, rec2]:
-            if not record.get("synack_honeypot"):
-                sa_honeypot_check = True
+            if not is_synack_honeypot(record):
                 record["ports"] = [
                     port
                     for port in record.get("ports", [])
@@ -872,24 +1131,14 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
                         curport[key] = port[key]
         else:
             ports[(port.get("protocol"), port["port"])] = port
-    if sa_honeypot and sa_honeypot_check:
-        rec["ports"] = sorted(
-            (port for port in ports.values() if is_real_service_port(port)),
-            key=lambda port: (
-                port.get("protocol") or "~",
-                port.get("port"),
-            ),
-        )
-    else:
-        rec["ports"] = sorted(
-            ports.values(),
-            key=lambda port: (
-                port.get("protocol") or "~",
-                port.get("port"),
-            ),
-        )
-    if not sa_honeypot:
-        cleanup_synack_honeypot_host(rec, update_openports=False)
+    rec["ports"] = sorted(
+        ports.values(),
+        key=lambda port: (
+            port.get("protocol") or "~",
+            port.get("port"),
+        ),
+    )
+    set_auto_tags(rec, update_openports=False)
     set_openports_attribute(rec)
     for field in ["traces", "infos", "ports", "cpes"]:
         if not rec[field]:

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1411,6 +1411,19 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                 .values(scan=scanid, category=catid)
                 .on_conflict_do_nothing()
             )
+        for tag in host.get("tags", []):
+            if "info" not in tag:
+                self.bulk.append(
+                    postgresql.insert(self.tables.tag).values(scan=scanid, **tag)
+                )
+            else:
+                for info in tag["info"]:
+                    self.bulk.append(
+                        postgresql.insert(self.tables.tag).values(
+                            scan=scanid, **dict(tag, info=info)
+                        )
+                    )
+            self.bulk.append(insert(self.tables.tag).values(scan=scanid, **tag))
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
             # FIXME: handle screenshots
@@ -1610,6 +1623,20 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                         insrt.values(
                             port=portid, name=name, output=output, data=script
                         ).on_conflict_do_nothing()
+                    )
+        for tag in host.get("tags", []):
+            if "info" not in tag:
+                self.bulk.append(
+                    postgresql.insert(self.tables.tag)
+                    .values(scan=scanid, **tag)
+                    .on_conflict_do_nothing()
+                )
+            else:
+                for info in tag["info"]:
+                    self.bulk.append(
+                        postgresql.insert(self.tables.tag)
+                        .values(scan=scanid, **dict(tag, info=info))
+                        .on_conflict_do_nothing()
                     )
         for trace in host.get("traces", []):
             traceid = self.db.execute(

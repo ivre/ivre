@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -321,6 +321,14 @@ class _Port:
     service_fp = Column(Text)
 
 
+class _Tag:
+    id = Column(Integer, primary_key=True)
+    scan = Column(Integer)
+    value = Column(String(256))
+    type = Column(String(16))
+    info = Column(String(256))
+
+
 class _Hostname:
     id = Column(Integer, primary_key=True)
     scan = Column(Integer)
@@ -409,6 +417,14 @@ class N_Port(Base, _Port):
     )
 
 
+class N_Tag(Base, _Tag):
+    __tablename__ = "n_tag"
+    __table_args__ = (
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        Index("ix_n_tag_scan_value_info", "scan", "value", "info", unique=True),
+    )
+
+
 class N_Hostname(Base, _Hostname):
     __tablename__ = "n_hostname"
     __table_args__ = (
@@ -479,6 +495,14 @@ class V_Port(Base, _Port):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
         Index("ix_v_port_scan_port", "scan", "port", "protocol", unique=True),
+    )
+
+
+class V_Tag(Base, _Tag):
+    __tablename__ = "v_tag"
+    __table_args__ = (
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        Index("ix_v_tag_scan_value_info", "scan", "value", "info", unique=True),
     )
 
 

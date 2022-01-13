@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 Specific type definitions for IVRE
 """
 
-
+from __future__ import annotations
 from typing import (
     Any,
     Dict,
@@ -65,8 +65,10 @@ Record = Dict[str, Any]
 # Sort
 if HAS_TYPED_DICT:
     SortKey = Tuple[str, Literal[-1, 1]]
+    IndexKey = Tuple[str, Literal[-1, 1, "text"]]
 else:
     SortKey = Tuple[str, int]  # type: ignore
+    IndexKey = Tuple[str, Union[int, str]]  # type: ignore
 Sort = Iterable[SortKey]
 
 
@@ -86,6 +88,11 @@ if HAS_TYPED_DICT:
 
     # class ParsedCertificate(TypedDict, total=False):
     #     TODO
+
+    class Tag(TypedDict, total=False):
+        value: str
+        type: str
+        info: List[str]
 
     class NmapProbeRec(TypedDict, total=False):
         probe: bytes
@@ -241,3 +248,4 @@ else:
     DBView = Any  # type: ignore
     MetaDB = Any  # type: ignore
     Target = Any  # type: ignore
+    Tag = Dict[str, Union[str, List[str]]]  # type: ignore
