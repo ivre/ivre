@@ -2312,13 +2312,37 @@ class MongoDBActive(MongoDB, DBActive):
         log_pipeline(aggr)
         return self.db[self.columns[self.column_hosts]].aggregate(aggr, cursor={})
 
-    @staticmethod
-    def json2dbrec(host):
-        for fname in ["starttime", "endtime"]:
-            if fname in host:
-                host[fname] = datetime.datetime.strptime(
-                    host[fname], "%Y-%m-%d %H:%M:%S"
+    @classmethod
+    def _datetimefield2dbrec(cls, record, field, current=None):
+        if current is None:
+            current = []
+        if "." not in field:
+            if field not in record:
+                return
+            if ".".join(current + [field]) in cls.list_fields:
+                record[field] = [
+                    datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                    for value in record[field]
+                ]
+            else:
+                record[field] = datetime.datetime.strptime(
+                    record[field], "%Y-%m-%d %H:%M:%S"
                 )
+            return
+        nextfield, field = field.split(".", 1)
+        if nextfield not in record:
+            return
+        current = current + [nextfield]
+        if ".".join(current) in cls.list_fields:
+            for subrecord in record[nextfield]:
+                cls._datetimefield2dbrec(subrecord, field, current=current)
+        else:
+            cls._datetimefield2dbrec(record[nextfield], field, current=current)
+
+    @classmethod
+    def json2dbrec(cls, host):
+        for field in cls.datetime_fields:
+            cls._datetimefield2dbrec(host, field)
         for port in host.get("ports", []):
             if "screendata" in port:
                 port["screendata"] = bson.Binary(
