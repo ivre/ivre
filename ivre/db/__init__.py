@@ -1916,12 +1916,6 @@ class DBActive(DB):
             elif args.tag:
                 tag["value"] = utils.str2regexp(args.tag)
             flt = self.flt_and(flt, self.searchtag(tag))
-        if (
-            hasattr(self, "searchtext")
-            and hasattr(args, "search")
-            and args.search is not None
-        ):
-            flt = self.flt_and(flt, self.searchtext(args.search))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
@@ -3060,6 +3054,8 @@ class DBView(DBActive):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
+        if hasattr(self, "searchtext") and args.search is not None:
+            flt = self.flt_and(flt, self.searchtext(args.search))
         if args.ssl_ja3_client is not None:
             cli = args.ssl_ja3_client
             flt = self.flt_and(
