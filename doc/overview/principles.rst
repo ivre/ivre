@@ -25,9 +25,9 @@ types of data IVRE handles), which can be stored by one or more
   <https://github.com/robertdavidgraham/masscan/>`_, `Zgrab2
   <https://zmap.io/>`_, `ZDNS <https://github.com/zmap/zdns>`_,
   `Nuclei <https://github.com/projectdiscovery/nuclei>`_ and `httpx
-  <https://github.com/projectdiscovery/httpx>`_ scan results. Each
-  record represents one host seen during one network scan. It can be
-  queried using:
+  <https://github.com/projectdiscovery/httpx>`_ scan results, as well
+  as ``ivre auditdom`` results. Each record represents one host seen
+  during one network scan. It can be queried using:
 
    - Python API: the ``db.nmap`` object from the ``ivre.db`` module.
    - Command line: the ``ivre scancli`` tool.
@@ -84,6 +84,7 @@ Storing data
       "maxmind.com";
       "Nmap";
       "Masscan";
+      "ivre auditdom";
       "Zgrab2";
       "Nuclei";
       "httpx";
@@ -111,6 +112,8 @@ Storing data
       "maxmind.com" -> db_data [label="ivre\nipdata"];
       "Nmap" -> XML [label="-oX"];
       "Masscan" -> XML [label="-oX"];
+      "ivre auditdom" -> XML;
+      "ivre auditdom" -> JSON [label="--json"];
       "Zgrab2" -> JSON [label="-o"];
       "Nuclei" -> JSON [label="-o"];
       "httpx" -> JSON [label="-o"];
@@ -134,7 +137,7 @@ Storing data
       {
         rank = same;
         edge[style=invis];
-        "maxmind.com" -> "Nmap" -> "Masscan" -> "Zgrab2" -> "Nuclei" -> "httpx" -> "Airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
+        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Nuclei" -> "httpx" -> "Airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
         rankdir = UD;
       }
    }
