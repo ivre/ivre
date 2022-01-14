@@ -481,10 +481,33 @@ def gen_auto_tags(
                             yield TAG_VULN_CANNOT_TEST
             elif "nuclei" in script:
                 for template in script["nuclei"]:
-                    if template.get("name", "").startswith("CVE-"):
-                        yield cast(Tag, dict(TAG_VULN, info=[template["name"]]))
-                    elif template.get("template", "").startswith("CVE-"):
-                        yield cast(Tag, dict(TAG_VULN, info=[template["template"]]))
+                    template_id = template.get("template", "")
+                    template_name = template.get("name", "")
+                    info = (
+                        template_id
+                        if template_id == template_name
+                        else f"{template_id} / {template_name}"
+                    )
+                    if template_id.startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[info]))
+                    elif template_name.startswith("CVE-"):
+                        yield cast(Tag, dict(TAG_VULN, info=[info]))
+                    elif any(
+                        template_id.endswith(f"-{suffix}")
+                        for suffix in [
+                            "default-login",
+                            "weak-login",
+                            "weak-password",
+                            "default-admin",
+                        ]
+                    ) or template_id in {
+                        "google-earth-dlogin",
+                        "oracle-business-intelligence-login",
+                        "trilithic-viewpoint-default",
+                    }:
+                        yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
+                    elif template_name.endswith("Default Password"):
+                        yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = len(host.get("ports", []))
     if n_ports and is_synack_honeypot(host):
