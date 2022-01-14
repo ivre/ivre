@@ -117,7 +117,7 @@ be queried using:</p>
 </div></blockquote>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>,
-<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a> and <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> scan results, as well
+<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>, <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> and <a class="reference external" href="https://github.com/projectdiscovery/dnsx">dnsx</a> scan results, as well
 as <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditdom</span></code> results. Each record represents one host seen
 during one network scan. It can be queried using:</p>
 <blockquote>
@@ -177,7 +177,7 @@ your favorite open-source tools to IVRE’s databases.</p>
 </section>
 <section id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline"></a></h2>
-<div class="graphviz"><img src="../_images/graphviz-4e29ab0e034e95a91d87cf7e17be52fd0940fb0d.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-d5ae5b569c2054c6cb485185a5531d3c7b107618.png" alt="digraph {
    graph [rankdir=LR];
 
    &quot;maxmind.com&quot;;
@@ -187,7 +187,8 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Zgrab2&quot;;
    &quot;Nuclei&quot;;
    &quot;httpx&quot;;
-   &quot;Airodump-ng&quot;;
+   &quot;dnsx&quot;;
+   &quot;airodump-ng&quot;;
    &quot;p0f&quot;;
    &quot;Zeek&quot;;
    &quot;Zeek&quot;;
@@ -214,9 +215,10 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;ivre auditdom&quot; -&gt; XML;
    &quot;ivre auditdom&quot; -&gt; JSON [label=&quot;--json&quot;];
    &quot;Zgrab2&quot; -&gt; JSON [label=&quot;-o&quot;];
-   &quot;Nuclei&quot; -&gt; JSON [label=&quot;-o&quot;];
-   &quot;httpx&quot; -&gt; JSON [label=&quot;-o&quot;];
-   &quot;Airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
+   &quot;Nuclei&quot; -&gt; JSON [label=&quot;-json -o&quot;];
+   &quot;httpx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
+   &quot;dnsx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
+   &quot;airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
    &quot;p0f&quot; -&gt; P0F_LOG [label=&quot;-o&quot;];
    &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
    &quot;Zeek&quot; -&gt; FLOW_LOG;
@@ -236,7 +238,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    {
      rank = same;
      edge[style=invis];
-     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;Airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
+     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;dnsx&quot; -&gt; &quot;airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
      rankdir = UD;
    }
 }" class="graphviz" /></div>
