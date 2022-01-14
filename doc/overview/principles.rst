@@ -24,8 +24,9 @@ types of data IVRE handles), which can be stored by one or more
   <http://nmap.org/>`_, `Masscan
   <https://github.com/robertdavidgraham/masscan/>`_, `Zgrab2
   <https://zmap.io/>`_, `ZDNS <https://github.com/zmap/zdns>`_,
-  `Nuclei <https://github.com/projectdiscovery/nuclei>`_ and `httpx
-  <https://github.com/projectdiscovery/httpx>`_ scan results, as well
+  `Nuclei <https://github.com/projectdiscovery/nuclei>`_, `httpx
+  <https://github.com/projectdiscovery/httpx>`_ and `dnsx
+  <https://github.com/projectdiscovery/dnsx>`_ scan results, as well
   as ``ivre auditdom`` results. Each record represents one host seen
   during one network scan. It can be queried using:
 
@@ -88,7 +89,8 @@ Storing data
       "Zgrab2";
       "Nuclei";
       "httpx";
-      "Airodump-ng";
+      "dnsx";
+      "airodump-ng";
       "p0f";
       "Zeek";
       "Zeek";
@@ -115,9 +117,10 @@ Storing data
       "ivre auditdom" -> XML;
       "ivre auditdom" -> JSON [label="--json"];
       "Zgrab2" -> JSON [label="-o"];
-      "Nuclei" -> JSON [label="-o"];
-      "httpx" -> JSON [label="-o"];
-      "Airodump-ng" -> CSV_LOG [label="-w"];
+      "Nuclei" -> JSON [label="-json -o"];
+      "httpx" -> JSON [label="-json -o"];
+      "dnsx" -> JSON [label="-json -o"];
+      "airodump-ng" -> CSV_LOG [label="-w"];
       "p0f" -> P0F_LOG [label="-o"];
       "Zeek" -> PASS_LOG [label="passiverecon"];
       "Zeek" -> FLOW_LOG;
@@ -137,7 +140,7 @@ Storing data
       {
         rank = same;
         edge[style=invis];
-        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Nuclei" -> "httpx" -> "Airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
+        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Nuclei" -> "httpx" -> "dnsx" -> "airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
         rankdir = UD;
       }
    }
