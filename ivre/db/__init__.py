@@ -2759,8 +2759,11 @@ class DBNmap(DBActive):
                 name = rec.get("host", "").lower()
                 if not name:
                     continue
-                timestamp = rec.get("timestamp")
-                if not timestamp:
+                try:
+                    timestamp = rec["timestamp"][:26].replace(
+                        "T", " "
+                    )  # skip nanosec + TZ
+                except KeyError:
                     utils.LOGGER.warning(
                         "dnsx record has no timestamp field (old version?), cannot insert!"
                     )

@@ -2312,6 +2312,15 @@ class MongoDBActive(MongoDB, DBActive):
         log_pipeline(aggr)
         return self.db[self.columns[self.column_hosts]].aggregate(aggr, cursor={})
 
+    @staticmethod
+    def _datetimevalue2dbrec(value):
+        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"]:
+            try:
+                return datetime.datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+        raise ValueError("time data %r does not match standard formats")
+
     @classmethod
     def _datetimefield2dbrec(cls, record, field, current=None):
         if current is None:
@@ -2321,13 +2330,10 @@ class MongoDBActive(MongoDB, DBActive):
                 return
             if ".".join(current + [field]) in cls.list_fields:
                 record[field] = [
-                    datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                    for value in record[field]
+                    cls._datetimevalue2dbrec(value) for value in record[field]
                 ]
             else:
-                record[field] = datetime.datetime.strptime(
-                    record[field], "%Y-%m-%d %H:%M:%S"
-                )
+                record[field] = cls._datetimevalue2dbrec(record[field])
             return
         nextfield, field = field.split(".", 1)
         if nextfield not in record:
