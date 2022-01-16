@@ -15,14 +15,22 @@
 <img align="right" src="https://ivre.rocks/logo.png" alt="Logo"/> IVRE
 (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic
 Recon of UNKnown networks) is a network recon framework, including
-tools for passive recon (flow analytics relying on
-[Zeek](https://zeek.org/), [Argus](http://qosient.com/argus/),
-[Nfdump](https://github.com/phaag/nfdump), and active recon (IVRE uses
-[Nmap](http://nmap.org/) to run scans; IVRE can also import XML output
-from Nmap and
-[Masscan](https://github.com/robertdavidgraham/masscan)), and JSON
-output from [ZGrab2](https://github.com/zmap/zgrab2) and
-[ZDNS](https://github.com/zmap/zdns/).
+tools for passive and active recon. IVRE can use data from:
+
+- Passive tools:
+  - [Zeek](https://zeek.org/)
+  - [Argus](http://qosient.com/argus/)
+  - [Nfdump](https://github.com/phaag/nfdump)
+  - [p0f](https://lcamtuf.coredump.cx/p0f3/)
+  - [airodump-ng](https://www.aircrack-ng.org/)
+- Active tools:
+  - [Nmap](https://nmap.org/)
+  - [Masscan](https://github.com/robertdavidgraham/masscan)
+  - [ZGrab2](https://github.com/zmap/zgrab2)
+  - [ZDNS](https://github.com/zmap/zdns)
+  - [Nuclei](https://nuclei.projectdiscovery.io/)
+  - [httpx](https://github.com/projectdiscovery/httpx)
+  - [dnsx](https://github.com/projectdiscovery/dnsx)
 
 The advertising slogans are:
 
@@ -120,7 +128,7 @@ If you are using IVRE in you research, please cite it as follows:
 
 IVRE contributors. *IVRE, a network recon framework*.
 [https://github.com/ivre/ivre](https://github.com/ivre/ivre),
-2011-2021.
+2011-2022.
 
 Here is the appropriate bibtex entry:
 
@@ -131,7 +139,7 @@ Here is the appropriate bibtex entry:
         howpublished = {\url{https://github.com/ivre/ivre/}},
         institution = {{ANSSI}: the National Cybersecurity Agency of France and
                        {CEA}: the French Alternative Energies and Atomic Energy Commission},
-        year = {2011--2021},
+        year = {2011--2022},
     }
 
 ### Technical documents & blog posts ###
