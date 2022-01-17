@@ -609,7 +609,7 @@ def get_nmap(subdb):
         yield webutils.js_del_alert("param-unused")
 
     if config.DEBUG:
-        msg1 = "filter: %s" % subdb.flt2str(flt_params.flt)
+        msg1 = "filter: %r" % subdb.flt2str(flt_params.flt)
         msg2 = "user: %r" % webutils.get_user()
         utils.LOGGER.debug(msg1)
         utils.LOGGER.debug(msg2)
