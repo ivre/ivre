@@ -149,7 +149,6 @@ def query_from_params(params):
     except KeyError:
         return []
     try:
-        query = query.replace("\\", "\\\\")
         return [
             [neg] + _split_param(pval)
             for neg, pval in (
