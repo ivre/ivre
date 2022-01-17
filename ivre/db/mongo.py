@@ -206,24 +206,34 @@ class MongoDB(DB):
 
         """
         if "fields" in kargs:
-            kargs["projection"] = kargs.pop("fields")
+            if not kargs["fields"]:
+                del kargs["fields"]
+            else:
+                kargs["projection"] = kargs.pop("fields")
         if kargs.get("projection") is not None and any(
             fld in kargs["projection"] for fld in self.ipaddr_fields
         ):
-            fields = []
-            for fld in kargs["projection"]:
+            if isinstance(kargs["projection"], list):
+                kargs["projection"] = dict.fromkeys(kargs["projection"], 1)
+            fields = {}
+            for fld, value in kargs["projection"].items():
                 if fld in self.ipaddr_fields:
-                    fields.extend(["%s_0" % fld, "%s_1" % fld])
+                    fields.update({f"{fld}_0": value, f"{fld}_1": value})
                 else:
-                    fields.append(fld)
+                    fields[fld] = value
             kargs["projection"] = fields
         if kargs.get("sort") and any(
-            fld in (field for field, _ in kargs["sort"]) for fld in self.ipaddr_fields
+            field in self.ipaddr_fields or field == "text" for field, _ in kargs["sort"]
         ):
             sort = []
             for fld, way in kargs["sort"]:
                 if fld in self.ipaddr_fields:
                     sort.extend([("%s_0" % fld, way), ("%s_1" % fld, way)])
+                elif fld == "text":
+                    if isinstance(kargs.get("projection"), list):
+                        kargs = dict.fromkeys(kargs["projection"], 1)
+                    kargs.setdefault("projection", {})["score"] = {"$meta": "textScore"}
+                    sort.append(("score", {"$meta": "textScore"}))
                 else:
                     sort.append((fld, way))
             kargs["sort"] = sort
