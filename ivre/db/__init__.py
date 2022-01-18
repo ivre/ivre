@@ -2807,7 +2807,13 @@ class DBNmap(DBActive):
                         if not scan_doc_saved:
                             self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
                             scan_doc_saved = True
-                        self.store_host(host)
+                        try:
+                            self.store_host(host)
+                        except Exception:
+                            utils.LOGGER.warning(
+                                "Cannot insert document %r", host, exc_info=True
+                            )
+                            continue
                         if callback is not None:
                             callback(host)
         self.stop_store_hosts()
