@@ -555,7 +555,7 @@ var HELP_FILTERS = {
 	},
 	"search:": {
 	    "title": "search:<b>full text search</b>",
-	    "content": "Perform a full-text search.",
+	    "content": "Perform a full-text search. Add <tt>sortby:text</tt> to sort your results according to the relevance score.",
 	},
 	/* sort */
 	"skip:": {

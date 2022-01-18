@@ -222,22 +222,21 @@ class MongoDB(DB):
                 else:
                     fields[fld] = value
             kargs["projection"] = fields
-        if kargs.get("sort") and any(
-            field in self.ipaddr_fields or field == "text" for field, _ in kargs["sort"]
-        ):
-            sort = []
-            for fld, way in kargs["sort"]:
-                if fld in self.ipaddr_fields:
-                    sort.extend([("%s_0" % fld, way), ("%s_1" % fld, way)])
-                elif fld == "text":
-                    if isinstance(kargs.get("projection"), list):
-                        kargs = dict.fromkeys(kargs["projection"], 1)
-                    kargs.setdefault("projection", {})["score"] = {"$meta": "textScore"}
-                    sort.append(("score", {"$meta": "textScore"}))
-                else:
-                    sort.append((fld, way))
-            kargs["sort"] = sort
-        return self.set_limits(self.db[column].find(flt, **kargs))
+        sort = []
+        for fld, way in kargs.pop("sort", []):
+            if fld in self.ipaddr_fields:
+                sort.extend([("%s_0" % fld, way), ("%s_1" % fld, way)])
+            elif fld == "text":
+                if isinstance(kargs.get("projection"), list):
+                    kargs = dict.fromkeys(kargs["projection"], 1)
+                kargs.setdefault("projection", {})["score"] = {"$meta": "textScore"}
+                sort.append(("score", {"$meta": "textScore"}))
+            else:
+                sort.append((fld, way))
+        cursor = self.db[column].find(flt, **kargs)
+        if sort:
+            cursor.sort(sort)
+        return self.set_limits(cursor)
 
     @staticmethod
     def ip2internal(addr):
