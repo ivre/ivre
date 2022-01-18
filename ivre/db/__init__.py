@@ -2760,14 +2760,19 @@ class DBNmap(DBActive):
                 if not name:
                     continue
                 try:
-                    timestamp = rec["timestamp"][:26].replace(
-                        "T", " "
-                    )  # skip nanosec + TZ
+                    timestamp = rec["timestamp"].replace("T", " ")
                 except KeyError:
                     utils.LOGGER.warning(
                         "dnsx record has no timestamp field (old version?), cannot insert!"
                     )
                     continue
+                # skip timezone
+                if "Z" in timestamp:
+                    timestamp = timestamp.split("Z", 1)[0]
+                elif timestamp[-6] in "+-" and timestamp[-3] == ":":
+                    timestamp = timestamp[:-6]
+                # skip nanosec
+                timestamp = timestamp[:26]
                 # answers: ["a", "aaaa", "cname", "mx", "ns", "soa", "txt"]
                 for ans_type in ["a", "aaaa"]:
                     for addr in rec.get(ans_type, []):
