@@ -1234,7 +1234,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ]
             },
             20: {
-                "drop": [([("synack_honeypot", pymongo.ASCENDING)], {"sparse": True})],
+                "drop": [([("synack_honeypot", pymongo.ASCENDING)], {})],
                 "ensure": [
                     ([("addresses.mac", pymongo.ASCENDING)], {"sparse": True}),
                     (
@@ -4513,10 +4513,10 @@ class MongoDBPassive(MongoDB, DBPassive):
             },
             2: {
                 "drop": [
-                    ([("infos.pubkeyalgo", pymongo.ASCENDING)], {"sparse": True}),
+                    ([("infos.pubkeyalgo", pymongo.ASCENDING)], {}),
                 ],
                 "ensure": [
-                    ([("infos.pubkey.type", pymongo.ASCENDING)], {"sparse": True}),
+                    ([("infos.pubkey.type", pymongo.ASCENDING)], {}),
                 ],
             },
         }
