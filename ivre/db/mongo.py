@@ -951,6 +951,10 @@ class MongoDBActive(MongoDB, DBActive):
                 {"sparse": True},
             ),
             (
+                [("ports.scripts.ssl-jarm", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
                 [("ports.scripts.ssh2-enum-algos.hassh.md5", pymongo.ASCENDING)],
                 {"sparse": True},
             ),
@@ -1259,6 +1263,14 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ],
             },
+            21: {
+                "ensure": [
+                    (
+                        [("ports.scripts.ssl-jarm", pymongo.ASCENDING)],
+                        {"sparse": True},
+                    ),
+                ]
+            },
         },
     ]
     schema_latest_versions = [
@@ -1291,6 +1303,7 @@ class MongoDBActive(MongoDB, DBActive):
                 17: (18, self.migrate_schema_hosts_17_18),
                 18: (19, self.migrate_schema_hosts_18_19),
                 19: (20, self.migrate_schema_hosts_19_20),
+                20: (21, self.migrate_schema_hosts_20_21),
             },
         ]
 
@@ -1908,6 +1921,25 @@ class MongoDBActive(MongoDB, DBActive):
                 update.setdefault("$unset", {})["ports"] = ""
             update["$set"]["openports"] = doc["openports"]
         elif ports_updated:
+            update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_20_21(doc):
+        """Converts a record from version 20 to version 21. Version 20
+        introduces a structured output for data from ssl-jarm.
+
+        """
+        assert doc["schema_version"] == 20
+        update = {"$set": {"schema_version": 21}}
+        updated = False
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"] == "ssl-jarm":
+                    if script.get("output"):
+                        script["ssl-jarm"] = script["output"].strip()
+                        updated = True
+        if updated:
             update["$set"]["ports"] = doc["ports"]
         return update
 
@@ -3830,12 +3862,7 @@ class MongoDBActive(MongoDB, DBActive):
             specialproj[field] = 1
         elif field == "jarm":
             flt = self.flt_and(flt, self.searchjarm())
-            field = "ports.scripts.output"
-            specialproj = {"_id": 0, "ports.scripts.id": 1, "ports.scripts.output": 1}
-            specialflt = [
-                {"$match": {"ports.scripts.id": "ssl-jarm"}},
-                {"$project": {"ports.scripts.output": 1}},
-            ]
+            field = "ports.scripts.ssl-jarm"
         elif field.startswith("jarm:"):
             port = int(field[5:])
             flt = self.flt_and(flt, self.searchjarm(), self.searchport(port))
@@ -3843,12 +3870,16 @@ class MongoDBActive(MongoDB, DBActive):
             specialproj = {
                 "_id": 0,
                 "ports.port": 1,
-                "ports.scripts.id": 1,
-                "ports.scripts.output": 1,
+                "ports.scripts.ssl-jarm": 1,
             }
             specialflt = [
-                {"$match": {"ports.port": port, "ports.scripts.id": "ssl-jarm"}},
-                {"$project": {"ports.scripts.output": 1}},
+                {
+                    "$match": {
+                        "ports.port": port,
+                        "ports.scripts.ssl-jarm": {"$exists": True},
+                    }
+                },
+                {"$project": {"ports.scripts.ssl-jarm": 1}},
             ]
         elif field == "sshkey.bits":
             flt = self.flt_and(flt, self.searchsshkey())

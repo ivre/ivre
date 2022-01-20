@@ -876,13 +876,13 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         elif field == "jarm":
             field = self._topstructure(
                 self.tables.script,
-                [self.tables.script.output],
+                [self.tables.script.data["ssl-jarm"]],
                 self.tables.script.name == "ssl-jarm",
             )
         elif field.startswith("jarm:"):
             field = self._topstructure(
                 self.tables.script,
-                [self.tables.script.output],
+                [self.tables.script.data["ssl-jarm"]],
                 (
                     (self.tables.script.name == "ssl-jarm")
                     & (self.tables.port.port == int(field[5:]))
