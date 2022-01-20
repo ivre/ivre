@@ -49,7 +49,7 @@ from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
 
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now

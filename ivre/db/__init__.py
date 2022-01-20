@@ -943,6 +943,7 @@ class DBActive(DB):
                 17: (18, self.__migrate_schema_hosts_17_18),
                 18: (19, self.__migrate_schema_hosts_18_19),
                 19: (20, self.__migrate_schema_hosts_19_20),
+                20: (21, self.__migrate_schema_hosts_20_21),
             },
         }
         self.argparser.add_argument(
@@ -1506,6 +1507,21 @@ class DBActive(DB):
         return doc
 
     @staticmethod
+    def __migrate_schema_hosts_20_21(doc):
+        """Converts a record from version 20 to version 21. Version 20
+        introduces a structured output for data from ssl-jarm.
+
+        """
+        assert doc["schema_version"] == 20
+        doc["schema_version"] = 21
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"] == "ssl-jarm":
+                    if script.get("output"):
+                        script["ssl-jarm"] = script["output"].strip()
+        return doc
+
+    @staticmethod
     def json2dbrec(host):
         return host
 
@@ -1887,7 +1903,9 @@ class DBActive(DB):
 
     @classmethod
     def searchjarm(cls, value=None, neg=False):
-        return cls.searchscript(name="ssl-jarm", output=value, neg=neg)
+        return cls.searchscript(
+            name="ssl-jarm", values=value.lower() if value else value
+        )
 
     @classmethod
     def _searchhassh(cls, value_or_hash=None):

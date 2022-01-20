@@ -2232,8 +2232,8 @@ class TinyDBActive(TinyDB, DBActive):
                 ):
                     for port in rec["ports"]:
                         for script in port.get("scripts", []):
-                            if script["id"] == "ssl-jarm":
-                                yield script["output"]
+                            if "ssl-jarm" in script:
+                                yield script["ssl-jarm"]
 
         elif field.startswith("jarm:"):
             portnum = int(field[5:])

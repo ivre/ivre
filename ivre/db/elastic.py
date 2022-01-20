@@ -1194,26 +1194,7 @@ return result;
             field = {"field": "ports.scripts.scanner.scanners.name"}
         elif field == "jarm":
             flt = self.flt_and(flt, self.searchjarm())
-            nested = {
-                "nested": {"path": "ports"},
-                "aggs": {
-                    "patterns": {
-                        "nested": {"path": "ports.scripts"},
-                        "aggs": {
-                            "patterns": {
-                                "filter": {"match": {"ports.scripts.id": "ssl-jarm"}},
-                                "aggs": {
-                                    "patterns": {
-                                        "terms": dict(
-                                            baseterms, field="ports.scripts.output"
-                                        )
-                                    }
-                                },
-                            }
-                        },
-                    }
-                },
-            }
+            field = {"field": "ports.scripts.ssl-jarm"}
         elif field.startswith("jarm:"):
             port = int(field[5:])
             flt = self.flt_and(flt, self.searchjarm(), self.searchport(port))
@@ -1241,7 +1222,7 @@ return result;
                                             "patterns": {
                                                 "terms": dict(
                                                     baseterms,
-                                                    field="ports.scripts.output",
+                                                    field="ports.scripts.ssl-jarm",
                                                 )
                                             }
                                         },
