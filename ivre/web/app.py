@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -542,15 +542,21 @@ def get_distinct(subdb, field):
         yield "\n]);\n"
 
 
+def _convert_datetime_value(value):
+    return int(value.replace(tzinfo=datetime.timezone.utc).timestamp())
+
+
 def _set_datetime_field(dbase, record, field, current=None):
     if current is None:
         current = []
     if "." not in field:
         if field in record:
             if ".".join(current + [field]) in dbase.list_fields:
-                record[field] = [int(value.timestamp()) for value in record[field]]
+                record[field] = [
+                    _convert_datetime_value(value) for value in record[field]
+                ]
             else:
-                record[field] = int(record[field].timestamp())
+                record[field] = _convert_datetime_value(record[field])
         return
     nextfield, field = field.split(".", 1)
     if nextfield not in record:
