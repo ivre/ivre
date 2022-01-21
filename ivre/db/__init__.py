@@ -2865,6 +2865,8 @@ class DBNmap(DBActive):
                 if "matched-at" in rec:
                     rec["matched"] = rec.pop("matched-at")
                 is_ssl = False
+                # Supported types
+                # Important: add new supportde types to ALIASES_TABLE_ELEMS in ivre/active/data.py
                 if rec.get("type") == "http":
                     try:
                         url = rec.get("matched", rec["host"])
