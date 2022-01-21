@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ from ivre import nmapopt
 AGENT_TEMPLATE = """#! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -55,8 +55,12 @@ filter () {
     %(filter)s
 }
 
-scan () {
+scan4 () {
     %(scan)s -iL - -oX -
+}
+
+scan6 () {
+    %(scan6)s -iL - -oX -
 }
 
 _get_screenshots () {
@@ -138,10 +142,18 @@ while true; do
     fi
     echo "scan $fname" >&2
 
-    if ! (filter < "$CURDIR/$fname" | scan | bzip2 > "$CURDIR/$fname.xml.bz2");
+    filter < "$CURDIR/$fname" > "$CURDIR/$fname.targets"
+    if grep -q : "$CURDIR/$fname.targets"; then
+        scan=scan6
+    else
+        scan=scan4
+    fi
+
+    if ! ($scan < "$CURDIR/$fname.targets" | bzip2 > "$CURDIR/$fname.xml.bz2");
     then
-        mv "$CURDIR/$fname.xml.bz2" "$ERRORDIR/$fname-`date +%%s`.xml.bz2"
-        cp "$CURDIR/$fname" "$ERRORDIR/$fname-`date +%%s`"
+        now="`date +%%s`"
+        mv "$CURDIR/$fname.xml.bz2" "$ERRORDIR/$fname-$now.xml.bz2"
+        cp "$CURDIR/$fname" "$ERRORDIR/$fname-$now"
         mv "$CURDIR/$fname" "$INDIR/"
         $SLEEP
         echo "error with $fname" >&2
@@ -149,6 +161,7 @@ while true; do
         post_scan "$fname"
         echo "done $fname" >&2
     fi
+    rm -f "$CURDIR/$fname.targets"
 done
 """
 
@@ -166,4 +179,5 @@ def build_agent(filtername: str = "none", template: str = "default") -> str:
     return AGENT_TEMPLATE % {
         "filter": FILTERS[filtername],
         "scan": nmapopt.build_nmap_commandline(template=template),
+        "scan6": nmapopt.build_nmap_commandline(template=template) + " -6",
     }
