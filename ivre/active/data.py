@@ -46,6 +46,9 @@ from ivre.utils import (
 ALIASES_TABLE_ELEMS = {
     # Use the same structured output for both ssl-cert and ssl-cacert
     "ssl-cacert": "ssl-cert",
+    # Use the same structured output for all the Nuclei scripts
+    "http-nuclei": "nuclei",
+    "network-nuclei": "nuclei",
     # ls unified output (ls NSE module + ftp-anon)
     #   grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
     "afp-ls": "ls",
