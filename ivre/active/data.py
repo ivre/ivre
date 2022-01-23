@@ -212,7 +212,7 @@ def is_real_service_port(port: NmapPort) -> bool:
         or port["state_reason"] == "passive"
     ):
         return True
-    if port.get("service_name"):
+    if port.get("service_name") and port["service_name"] != "tcpwrapped":
         return True
     if port.get("scripts"):
         # Ports with scripts usually are "real" service ports, **but**
