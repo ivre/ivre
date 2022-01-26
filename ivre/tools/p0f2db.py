@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 
 from argparse import ArgumentParser
 from functools import partial
+from sys import stdin
 from typing import Dict, Generator, List, Optional, Tuple
 
 
@@ -112,7 +113,7 @@ def main() -> None:
             db.passive,
         )
     function(
-        rec_iter(args.files, args.sensor, ignore_rules),
+        rec_iter(args.files or [stdin.buffer], args.sensor, ignore_rules),
         getinfos=getinfos,
     )
 
