@@ -30,11 +30,11 @@ import time
 from typing import Any, Dict, List, Match, Optional
 
 
-from ivre import config, utils
+from ivre import utils
 
 
 SENSORS: Dict[str, str] = {}  # shortname: fullname
-FILEFORMAT = "^(?P<sensor>%s)\\.(?P<datetime>[0-9-]+)\\.log(?:\\.gz)?$"
+FILEFORMAT = "^(?P<sensor>%s)[.-](?P<datetime>[0-9-]+)\\.log(?:\\.(?:gz|bz2))?$"
 SLEEPTIME = 2
 CMDLINE = "%(progname)s -s %(sensor)s"
 WANTDOWN = False
@@ -112,8 +112,7 @@ def worker(progname: str, directory: str, sensor: Optional[str] = None) -> None:
             )
         except shutil.Error:
             continue
-        if config.DEBUG:
-            utils.LOGGER.debug("Handling %s", fname)
+        utils.LOGGER.debug("Handling %s", fname)
         fname = os.path.join(directory, "current", fname)
         fdesc = utils.open_file(fname)
         handled_ok = True
