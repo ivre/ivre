@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -143,7 +143,9 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
     if rec["value"] in scanners.USER_AGENT_VALUES:
         scanner, probe = scanners.USER_AGENT_VALUES[rec["value"]]
         structured_output = {"scanners": [{"name": scanner}]}
-        if probe is not None:
+        if probe is None:
+            structured_output["scanners"][0]["probes"] = [{"proto": "http"}]
+        else:
             structured_output["scanners"][0]["probes"] = [
                 {"proto": "http", "name": probe}
             ]
@@ -151,9 +153,8 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
         scripts.append(
             {
                 "id": "scanner",
-                "output": "Scanner: \n - %s" % scanner + " [%s/http]" % probe
-                if probe is not None
-                else "",
+                "output": "Scanner: \n - %s [%s]"
+                % (scanner, "http" if probe is None else f"{probe}/http"),
                 "scanner": structured_output,
             }
         )

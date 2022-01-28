@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -32,12 +32,16 @@ JA3_CLIENT_VALUES = {
     "2351bc927776c12aff03dcf9f1c12270": ("Masscan", None),
     "5f8552974406f5edd94290c87c3f9f24": ("Masscan", None),
     "8951236eca85955755e4946572ef32bb": ("Censys", "DTLS"),
+    "cba7f34191ef2379c1325641f6c6c4f4": ("Zgrab2", "http"),
+    "db8d4ad49cb378fa370b43a61a9b06b6": ("Zgrab2", "jarm"),
 }
 
 
 USER_AGENT_VALUES = {
     "Mozilla/5.0 (compatible; Nmap Scripting Engine; "
     "https://nmap.org/book/nse.html)": ("Nmap", None),
+    "Mozilla/5.0 (compatible; Nmap Scripting Engine; "
+    "http://nmap.org/book/nse.html)": ("Nmap", None),
     "Mozilla/5.0 zgrab/0.x": ("Zgrab", None),
     "masscan/1.0 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
     "HTTP Banner Detection (https://security.ipip.net)": ("ipip.net", None),
