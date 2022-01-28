@@ -94,6 +94,9 @@ class DB:
     def __init__(self):
         self.argparser = ArgumentParser(add_help=False)
         self.argparser.add_argument(
+            "--category", metavar="CAT", help="show only results from this category"
+        )
+        self.argparser.add_argument(
             "--country", metavar="CODE", help="show only results from this country"
         )
         self.argparser.add_argument(
@@ -139,6 +142,8 @@ class DB:
     def parse_args(self, args, flt=None):
         if flt is None:
             flt = self.flt_empty
+        if args.category is not None:
+            flt = self.flt_and(flt, self.searchcategory(utils.str2list(args.category)))
         if args.country is not None:
             flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
         if args.asnum is not None:
@@ -946,9 +951,6 @@ class DBActive(DB):
                 20: (21, self.__migrate_schema_hosts_20_21),
             },
         }
-        self.argparser.add_argument(
-            "--category", metavar="CAT", help="show only results from this category"
-        )
         self.argparser.add_argument(
             "--asname", metavar="NAME", help="show only results from this(those) AS(es)"
         )
@@ -1917,8 +1919,9 @@ class DBActive(DB):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
-        if args.category is not None:
-            flt = self.flt_and(flt, self.searchcategory(utils.str2list(args.category)))
+        if not hasattr(args, "asname"):
+            # This is not from DBActive, probably from DB
+            return flt
         if args.asname is not None:
             flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
         if args.source is not None:
@@ -3199,6 +3202,9 @@ class DBView(DBActive):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
+        if not hasattr(args, "ssl_ja3_client"):
+            # This is not from DBView, probably from DB
+            return flt
         if hasattr(self, "searchtext") and args.search is not None:
             flt = self.flt_and(flt, self.searchtext(args.search))
         if args.ssl_ja3_client is not None:
@@ -3398,6 +3404,9 @@ class DBPassive(DB):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
+        if not hasattr(args, "sensor"):
+            # This is not from DBPassive, probably from DB
+            return flt
         if args.sensor is not None:
             flt = self.flt_and(flt, self.searchsensor(utils.str2list(args.sensor)))
         if args.torcert:

@@ -761,16 +761,17 @@ def from_passive(flt, category=None):
         if cur_addr is None:
             cur_addr = rec["addr"]
             cur_rec = rec
-        elif cur_addr != rec["addr"]:
-            # TODO: add_addr_info should be optional
-            cur_rec["infos"] = {}
-            for func in [db.data.country_byip, db.data.as_byip, db.data.location_byip]:
-                cur_rec["infos"].update(func(cur_addr) or {})
-            yield cur_rec
-            cur_rec = rec
-            cur_addr = rec["addr"]
-        else:
+            continue
+        if cur_addr == rec["addr"]:
             cur_rec = db.view.merge_host_docs(cur_rec, rec)
+            continue
+        # TODO: add_addr_info should be optional
+        cur_rec["infos"] = {}
+        for func in [db.data.country_byip, db.data.as_byip, db.data.location_byip]:
+            cur_rec["infos"].update(func(cur_addr) or {})
+        yield cur_rec
+        cur_rec = rec
+        cur_addr = rec["addr"]
     if cur_rec:
         yield cur_rec
 
@@ -870,17 +871,13 @@ def to_view(itrs):
             i += 1
     next_addrs = [rec["addr"] for rec in next_recs]
     cur_rec = None
-    try:
-        cur_addr = min(next_addrs, key=utils.ip2int)
-    except ValueError:
-        # next_addrs is empty
-        cur_addr = None
+    cur_addr = min(next_addrs, key=utils.ip2int, default=None)
     while next_recs:
         # We cannot use a `for i in range(len(itrs))` loop because
         # itrs is modified in the loop.
         i = 0
         while i < len(itrs):
-            if next_addrs[i] == cur_addr:
+            while next_addrs[i] == cur_addr:
                 cur_rec = next_record(cur_rec, next_recs[i])
                 try:
                     next_recs[i] = next(itrs[i])
@@ -888,12 +885,13 @@ def to_view(itrs):
                     del next_addrs[i]
                     del next_recs[i]
                     del itrs[i]
-                    continue  # Do not increment i here
+                    i -= 1  # Do not increment i here
+                    break
                 next_addrs[i] = next_recs[i]["addr"]
             i += 1
         if next_addrs and cur_addr not in next_addrs:
             yield prepare_record(cur_rec)
             cur_rec = None
-            cur_addr = min(next_addrs)
+            cur_addr = min(next_addrs, key=utils.ip2int)
     if cur_rec is not None:
         yield prepare_record(cur_rec)
