@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -91,10 +91,10 @@ def main() -> None:
     if args.view_source == "all":
         _from = []
         if db.nmap is not None:
-            fltnmap = DB().parse_args(args, flt=fltnmap)
+            fltnmap = db.nmap.parse_args(args, flt=fltnmap)
             _from.append(from_nmap(fltnmap, category=view_category))
         if db.passive is not None:
-            fltpass = DB().parse_args(args, flt=fltpass)
+            fltpass = db.passive.parse_args(args, flt=fltpass)
             _from.append(from_passive(fltpass, category=view_category))
     elif args.view_source == "nmap":
         if db.nmap is None:
