@@ -2739,6 +2739,42 @@ class DBNmap(DBActive):
         self.stop_store_hosts()
         return True
 
+    @staticmethod
+    def _gen_records_json_dnsx(rec, name, filehash, timestamp):
+        # answers: ["a", "aaaa", "cname", "mx", "ns", "soa", "txt"]
+        for ans_type in ["a", "aaaa"]:
+            for addr in rec.get(ans_type, []):
+                yield {
+                    "addr": addr,
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "hostnames": [
+                        {
+                            "name": name,
+                            "type": ans_type.upper(),
+                            "domains": list(utils.get_domains(name)),
+                        }
+                    ],
+                }
+        for hostname in rec.get("ptr", []):
+            hostname = hostname.lower()
+            yield {
+                "addr": name,
+                "scanid": filehash,
+                "schema_version": xmlnmap.SCHEMA_VERSION,
+                "starttime": timestamp,
+                "endtime": timestamp,
+                "hostnames": [
+                    {
+                        "name": hostname,
+                        "type": "PTR",
+                        "domains": list(utils.get_domains(hostname)),
+                    }
+                ],
+            }
+
     def store_scan_json_dnsx(
         self,
         fname,
@@ -2753,7 +2789,7 @@ class DBNmap(DBActive):
         **_,
     ):
         """This method parses a JSON scan result produced by dnsx to create
-        hosts A / AAAA entries, displays the parsing result, and
+        hosts A / AAAA / PTR entries, displays the parsing result, and
         return True if everything went fine, False otherwise.
 
         In backend-specific subclasses, this method stores the result
@@ -2791,54 +2827,38 @@ class DBNmap(DBActive):
                     timestamp = timestamp[:-6]
                 # skip nanosec
                 timestamp = timestamp[:26]
-                # answers: ["a", "aaaa", "cname", "mx", "ns", "soa", "txt"]
-                for ans_type in ["a", "aaaa"]:
-                    for addr in rec.get(ans_type, []):
-                        host = {
-                            "addr": addr,
-                            "scanid": filehash,
-                            "schema_version": xmlnmap.SCHEMA_VERSION,
-                            "starttime": timestamp,
-                            "endtime": timestamp,
-                            "hostnames": [
-                                {
-                                    "name": name,
-                                    "type": ans_type.upper(),
-                                    "domains": list(utils.get_domains(name)),
-                                }
-                            ],
-                        }
-                        if categories:
-                            host["categories"] = categories
-                        if source is not None:
-                            host["source"] = source
-                        host = self.json2dbrec(host)
-                        if (
-                            add_addr_infos
-                            and self.globaldb is not None
-                            and (force_info or "infos" not in host or not host["infos"])
-                        ):
-                            host["infos"] = {}
-                            for func in [
-                                self.globaldb.data.country_byip,
-                                self.globaldb.data.as_byip,
-                                self.globaldb.data.location_byip,
-                            ]:
-                                host["infos"].update(func(host["addr"]) or {})
-                        # We are about to insert data based on this file,
-                        # so we want to save the scan document
-                        if not scan_doc_saved:
-                            self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
-                            scan_doc_saved = True
-                        try:
-                            self.store_host(host)
-                        except Exception:
-                            utils.LOGGER.warning(
-                                "Cannot insert document %r", host, exc_info=True
-                            )
-                            continue
-                        if callback is not None:
-                            callback(host)
+                for host in self._gen_records_json_dnsx(rec, name, filehash, timestamp):
+                    if categories:
+                        host["categories"] = categories
+                    if source is not None:
+                        host["source"] = source
+                    host = self.json2dbrec(host)
+                    if (
+                        add_addr_infos
+                        and self.globaldb is not None
+                        and (force_info or "infos" not in host or not host["infos"])
+                    ):
+                        host["infos"] = {}
+                        for func in [
+                            self.globaldb.data.country_byip,
+                            self.globaldb.data.as_byip,
+                            self.globaldb.data.location_byip,
+                        ]:
+                            host["infos"].update(func(host["addr"]) or {})
+                    # We are about to insert data based on this file,
+                    # so we want to save the scan document
+                    if not scan_doc_saved:
+                        self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
+                        scan_doc_saved = True
+                    try:
+                        self.store_host(host)
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot insert document %r", host, exc_info=True
+                        )
+                        continue
+                    if callback is not None:
+                        callback(host)
         self.stop_store_hosts()
         return True
 
