@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,32 +21,18 @@
 from __future__ import annotations  # drop when Python 3.10+ only is supported
 import datetime
 import re
-from typing import Any, BinaryIO, Dict, List, Optional, Union
+from typing import Any, Dict
 
 
 from ivre.parser import Parser
 from ivre.utils import LOGGER
 
 
-CONTAINER_TYPE = re.compile(b"^(table|set|vector)\\[([a-z]+)\\]$")
 LINE_RE = re.compile(r"^\[(?P<time>[^\]]+)\] (?P<data>.*)$")
 
 
 class P0fFile(Parser):
     """p0f log generator"""
-
-    def __init__(self, fname: Union[BinaryIO, str]) -> None:
-        self.sep = b" "  # b"\t"
-        self.set_sep = b","
-        self.empty_field = b"(empty)"
-        self.unset_field = b"-"
-        self.fields: List[bytes] = []
-        self.types: List[bytes] = []
-        self.path: Optional[str] = None
-        super().__init__(fname)
-
-    def __enter__(self) -> P0fFile:
-        return self
 
     def __next__(self) -> Dict[str, Any]:
         return self.parse_line(next(self.fdesc).strip())
@@ -66,18 +52,3 @@ class P0fFile(Parser):
                 return {}
             res[k] = v
         return res
-
-    def __str__(self) -> str:
-        return "\n".join(
-            [
-                "%s = %r" % (k, getattr(self, k))
-                for k in [
-                    "sep",
-                    "set_sep",
-                    "empty_field",
-                    "unset_field",
-                    "fields",
-                    "types",
-                ]
-            ]
-        )
