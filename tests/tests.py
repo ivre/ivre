@@ -5899,7 +5899,7 @@ TESTS = set(
 
 DATABASES = {
     # **excluded** tests
-    "mongo": ["utils"],
+    "mongo": ["scans", "utils"],
     "postgres": ["60_flow", "scans", "utils"],
     "sqlite": [
         "30_nmap",
@@ -5931,7 +5931,7 @@ DATABASES = {
         "90_cleanup",
         "scans",
     ],
-    "tinydb": ["utils"],
+    "tinydb": ["scans", "utils"],
 }
 
 
