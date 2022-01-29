@@ -697,7 +697,8 @@ def merge_scanner_scripts(
             )
         for scanner in data.get("scanners", []):
             res.setdefault("scanners", {}).setdefault(scanner["name"], set()).update(
-                (probe["proto"], probe["name"]) for probe in scanner.get("probes", [])
+                (probe["proto"], probe.get("name"))
+                for probe in scanner.get("probes", [])
             )
         res.setdefault("probes", set()).update(
             (probe["proto"], probe["value"]) for probe in data.get("probes", [])
