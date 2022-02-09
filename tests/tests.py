@@ -1932,7 +1932,7 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value(
             "nmap_count_tags_tor",
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR node"})),
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR"})),
         )
         self.check_value(
             "nmap_count_tags_honeypot_mushmush_102",
@@ -5753,7 +5753,7 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value(
             "view_count_tags_tor",
-            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR node"})),
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR"})),
         )
         self.check_value(
             "view_count_tags_honeypot_mushmush_102",
