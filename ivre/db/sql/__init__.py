@@ -264,26 +264,16 @@ class PassiveCSVFile(CSVFile):
                 line[key] = "".join(
                     chr(c) if 32 <= c <= 126 else "\\x%02x" % c for c in value
                 ).replace("\\", "\\\\")
-        line["info"] = (
-            "%s"
-            % json.dumps(
-                dict(
-                    (key, line.pop(key))
-                    for key in list(line)
-                    if key in self.info_fields
-                ),
-            ).replace("\\", "\\\\")
-        )
-        line["moreinfo"] = (
-            "%s"
-            % json.dumps(
-                dict(
-                    (key, line.pop(key))
-                    for key in list(line)
-                    if key not in self.table.columns
-                ),
-            ).replace("\\", "\\\\")
-        )
+        line["info"] = "%s" % json.dumps(
+            dict((key, line.pop(key)) for key in list(line) if key in self.info_fields),
+        ).replace("\\", "\\\\")
+        line["moreinfo"] = "%s" % json.dumps(
+            dict(
+                (key, line.pop(key))
+                for key in list(line)
+                if key not in self.table.columns
+            ),
+        ).replace("\\", "\\\\")
         return [
             "\\N" if line.get(col.name) is None else str(line.get(col.name))
             for col in self.table.columns

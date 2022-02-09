@@ -4258,7 +4258,7 @@ class IvreTests(unittest.TestCase):
                 return True
             if n % 3 == 0:
                 return False
-            r = int(n ** 0.5)
+            r = int(n**0.5)
             f = 5
             while f <= r:
                 if n % f == 0:
