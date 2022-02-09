@@ -1932,7 +1932,7 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value(
             "nmap_count_tags_tor",
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR node"})),
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR"})),
         )
         self.check_value(
             "nmap_count_tags_honeypot_mushmush_102",
@@ -4258,7 +4258,7 @@ class IvreTests(unittest.TestCase):
                 return True
             if n % 3 == 0:
                 return False
-            r = int(n ** 0.5)
+            r = int(n**0.5)
             f = 5
             while f <= r:
                 if n % f == 0:
@@ -5753,7 +5753,7 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value(
             "view_count_tags_tor",
-            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR node"})),
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR"})),
         )
         self.check_value(
             "view_count_tags_honeypot_mushmush_102",

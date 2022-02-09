@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -234,14 +234,10 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # try to recover the passwords, but on the other hand we store
     # specs with different challenges but the same username, realm,
     # host and sensor in the same records.
-    elif (
-        spec["recontype"]
-        in {
-            "HTTP_CLIENT_HEADER",
-            "HTTP_CLIENT_HEADER_SERVER",
-        }
-        and spec.get("source") in {"AUTHORIZATION", "PROXY-AUTHORIZATION"}
-    ):
+    elif spec["recontype"] in {
+        "HTTP_CLIENT_HEADER",
+        "HTTP_CLIENT_HEADER_SERVER",
+    } and spec.get("source") in {"AUTHORIZATION", "PROXY-AUTHORIZATION"}:
         value = spec["value"]
         if value:
             authtype = value.split(None, 1)[0]

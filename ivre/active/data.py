@@ -300,7 +300,7 @@ TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
-TAG_TOR: Tag = {"value": "TOR node", "type": "info"}
+TAG_TOR: Tag = {"value": "TOR", "type": "info"}
 TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
 TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
 TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
@@ -329,9 +329,9 @@ _TOR_HTTP_PRODUCTS = {
 def gen_auto_tags(
     host: NmapHost, update_openports: bool = True
 ) -> Generator[Tag, None, None]:
-    """This function generates the automatically-generated tags ("TOR
-    node", "Scanner", "Honeypot" and "Vulnerable" / "Likely
-    vulnerable" / "Cannot test vuln", for now).
+    """This function generates the automatically-generated tags ("TOR",
+    "Scanner", "Honeypot" and "Vulnerable" / "Likely vulnerable" /
+    "Cannot test vuln", for now).
 
     If the host has too many (at least `VIEW_SYNACK_HONEYPOT_COUNT`)
     open ports that may be "syn-ack" honeypots (which means, ports for
@@ -540,8 +540,9 @@ def gen_auto_tags(
 
 
 def set_auto_tags(host: NmapHost, update_openports: bool = True) -> None:
-    """This function sets the automatically-generated tags ("TOR node" and
-    "Scanner", for now).
+    """This function sets the automatically-generated tags ("TOR",
+    "Scanner", "Honeypot" and "Vulnerable" / "Likely vulnerable" /
+    "Cannot test vuln", for now).
 
     """
     add_tags(host, gen_auto_tags(host, update_openports=update_openports))

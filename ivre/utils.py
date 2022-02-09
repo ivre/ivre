@@ -1815,9 +1815,9 @@ def num2readable(value: Union[int, float]) -> str:
         unit = _UNITS[idx]
     except IndexError:
         unit = "Y"
-        idx = 1000 ** 8
+        idx = 1000**8
     else:
-        idx = 1000 ** idx
+        idx = 1000**idx
     if isinstance(value, float):
         return "%.3f%s" % (value / float(idx), unit)
     return "%d%s" % (value / float(idx), unit)
