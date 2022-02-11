@@ -45,7 +45,7 @@ USER_AGENT_VALUES = {
     "Mozilla/5.0 zgrab/0.x": ("Zgrab", None),
     "masscan/1.0 (https://github.com/robertdavidgraham/masscan)": ("Masscan", None),
     "HTTP Banner Detection (https://security.ipip.net)": ("ipip.net", None),
-    "Mozilla/5.0 (compatible; CensysInspect/1.1; +https://about.censys.io/": (
+    "Mozilla/5.0 (compatible; CensysInspect/1.1; +https://about.censys.io/)": (
         "Censys",
         None,
     ),
