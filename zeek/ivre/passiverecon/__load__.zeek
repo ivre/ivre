@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -171,6 +171,9 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
                              $recon_type=HTTP_CLIENT_HEADER,
                              $source=name,
                              $value=value]);
+        if (c$id$resp_h in HONEYPOTS) {
+            return;
+        }
         if (name in HTTP_CLIENT_HEADER_SERVERS) {
             # While this is a header sent by the client,
             # it gives information about the server
@@ -186,6 +189,9 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
         }
     }
     else {
+        if (c$id$resp_h in HONEYPOTS) {
+            return;
+        }
         if (name in HTTP_SERVER_HEADERS) {
             # if (name == "SET-COOKIE")
             #     value = split1(value, /=/)[1];
@@ -209,6 +215,9 @@ event ssh_client_version(c: connection, version: string) {
 }
 
 event ssh_server_version(c: connection, version: string) {
+    if (c$id$resp_h in HONEYPOTS) {
+        return;
+    }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$resp_h,
@@ -220,6 +229,9 @@ event ssh_server_version(c: connection, version: string) {
 # API change, see https://docs.zeek.org/en/master/scripts/base/bif/plugins/Zeek_SSH.events.bif.zeek.html#id-ssh1_server_host_key
 @if(Version::number >= 40000)
 event ssh1_server_host_key(c: connection, modulus: string, exponent: string) {
+    if (c$id$resp_h in HONEYPOTS) {
+        return;
+    }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$resp_h,
@@ -230,6 +242,9 @@ event ssh1_server_host_key(c: connection, modulus: string, exponent: string) {
 }
 @else
 event ssh1_server_host_key(c: connection, p: string, e: string) {
+    if (c$id$resp_h in HONEYPOTS) {
+        return;
+    }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$resp_h,
@@ -241,6 +256,9 @@ event ssh1_server_host_key(c: connection, p: string, e: string) {
 @endif
 
 event ssh2_server_host_key(c: connection, key: string) {
+    if (c$id$resp_h in HONEYPOTS) {
+        return;
+    }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$resp_h,
@@ -252,6 +270,9 @@ event ssh2_server_host_key(c: connection, key: string) {
 
 event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabilities) {
     if (capabilities$is_server) {
+        if (c$id$resp_h in HONEYPOTS) {
+            return;
+        }
         Log::write(LOG, [
             $ts=c$start_time,
             $uid=c$uid,
@@ -396,21 +417,7 @@ event ssl_server_hello(c: connection, version: count, record_version: count, pos
 }
 
 event ssl_established(c: connection) {
-    local cacert = F;
-    if (c$ssl?$cert_chain) {
-        for (i in c$ssl$cert_chain) {
-            Log::write(LOG, [
-                $ts=c$start_time,
-                $uid=c$uid,
-                $host=c$id$resp_h,
-                $srvport=c$id$resp_p,
-                $recon_type=SSL_SERVER,
-                $source=cacert ? "cacert" : "cert",
-                $value=encode_base64(x509_get_certificate_string(c$ssl$cert_chain[i]$x509$handle))
-            ]);
-            cacert = T;
-        }
-    }
+    local cacert: bool;
     if (c$ssl?$client_cert_chain) {
         cacert = F;
         for (i in c$ssl$client_cert_chain) {
@@ -421,6 +428,24 @@ event ssl_established(c: connection) {
                 $recon_type=SSL_CLIENT,
                 $source=cacert ? "cacert" : "cert",
                 $value=encode_base64(x509_get_certificate_string(c$ssl$client_cert_chain[i]$x509$handle))
+            ]);
+            cacert = T;
+        }
+    }
+    if (c$id$resp_h in HONEYPOTS) {
+        return;
+    }
+    if (c$ssl?$cert_chain) {
+        cacert = F;
+        for (i in c$ssl$cert_chain) {
+            Log::write(LOG, [
+                $ts=c$start_time,
+                $uid=c$uid,
+                $host=c$id$resp_h,
+                $srvport=c$id$resp_p,
+                $recon_type=SSL_SERVER,
+                $source=cacert ? "cacert" : "cert",
+                $value=encode_base64(x509_get_certificate_string(c$ssl$cert_chain[i]$x509$handle))
             ]);
             cacert = T;
         }
@@ -501,6 +526,9 @@ event ftp_request(c: connection, command: string, arg: string) {
                          $recon_type=FTP_CLIENT,
                          $source=command,
                          $value=arg]);
+        if (c$id$resp_h in HONEYPOTS) {
+            return;
+        }
         Log::write(LOG, [$ts=c$start_time,
                          $uid=c$uid,
                          $host=c$id$resp_h,
@@ -519,6 +547,9 @@ event pop3_request(c: connection, is_orig: bool, command: string, arg: string) {
                          $recon_type=POP_CLIENT,
                          $source=command,
                          $value=arg]);
+        if (c$id$resp_h in HONEYPOTS) {
+            return;
+        }
         Log::write(LOG, [$ts=c$start_time,
                          $uid=c$uid,
                          $host=c$id$resp_h,
@@ -553,7 +584,8 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
             }
 	}
         else if (c$orig$size == 0 && c$history == TCP_BANNER_HISTORY &&
-                 ! (TCP_SERVER_BANNER_IGNORE in contents))
+                 ! (TCP_SERVER_BANNER_IGNORE in contents) &&
+		 ! (c$id$resp_h in HONEYPOTS))
             Log::write(LOG, [$ts=c$start_time,
                              $uid=c$uid,
                              $host=c$id$resp_h,
