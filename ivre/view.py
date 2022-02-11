@@ -26,7 +26,7 @@ import struct
 
 
 from ivre.active.cpe import add_cpe_values
-from ivre.active.data import create_ssl_output, set_openports_attribute
+from ivre.active.data import create_ssl_output, set_auto_tags, set_openports_attribute
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
@@ -724,6 +724,7 @@ def passive_record_to_view(rec, category=None):
     if isinstance(function, dict):
         function = function.get(rec["source"], lambda _: {})
     outrec.update(function(rec))
+    set_auto_tags(outrec, update_openports=False)
     set_openports_attribute(outrec)
     if category is not None:
         outrec["categories"] = [category]
