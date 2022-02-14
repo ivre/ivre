@@ -17,8 +17,14 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""Fetches https://check.torproject.org/torbulkexitlist and create
-pseudo-scan records.
+"""Fetches IP addresses lists from public websites and creates
+pseudo-scan records with tags. For now, the following lists are used:
+
+  - Tor Exit nodes, from
+    <https://check.torproject.org/torbulkexitlist>
+
+  - Scanners operated by the French ANSSI, from
+    <https://cert.ssi.gouv.fr/scans/>
 
 """
 
@@ -28,15 +34,53 @@ from datetime import datetime
 import json
 from urllib.request import urlopen
 import pipes
+import re
 import sys
-from typing import Any, Iterable, Optional
+from typing import Any, Generator, Iterable, Optional, cast
 
 
 from ivre import VERSION
-from ivre.active.data import TAG_TOR
-from ivre.types import Record
-from ivre.utils import LOGGER, serialize
+from ivre.active.data import TAG_SCANNER, TAG_TOR
+from ivre.types import Record, Tag
+from ivre.utils import IPADDR, LOGGER, serialize
 from ivre.xmlnmap import SCHEMA_VERSION
+
+
+class Extractor:
+    expr = re.compile(f"(?:^|\\W){IPADDR.pattern[1:-1]}(?:$|\\W)")
+    url: str
+    tag: Tag
+
+    def get_ips(self) -> Generator[str, None, None]:
+        with urlopen(self.url) as fdesc:
+            for line in fdesc:
+                for m in self.expr.finditer(line.decode()):
+                    yield from m.groups()
+
+
+class TorExitExtractor(Extractor):
+    url = "https://check.torproject.org/torbulkexitlist"
+    tag = cast(
+        Tag,
+        dict(
+            TAG_TOR,
+            info=["Exit node listed at <https://check.torproject.org/torbulkexitlist>"],
+        ),
+    )
+
+
+class AnssiScannerExtractor(Extractor):
+    url = "https://cert.ssi.gouv.fr/scans/"
+    tag = cast(
+        Tag,
+        dict(
+            TAG_SCANNER,
+            info=["French ANSSI scanner listed at <https://cert.ssi.gouv.fr/scans/>"],
+        ),
+    )
+
+
+EXTRACTORS = [TorExitExtractor(), AnssiScannerExtractor()]
 
 
 def main() -> None:
@@ -54,33 +98,26 @@ def main() -> None:
     # we create a list so that we can know the start and stop time
     start = datetime.now()
     scan = {
-        "scanner": "ivre audittor",
+        "scanner": "ivre fetchiplists",
         "start": start.strftime("%s"),
         "startstr": str(start),
         "version": VERSION,
         "xmloutputversion": "1.04",
         # argv[0] does not need quotes due to how it is handled by ivre
         "args": " ".join(sys.argv[:1] + [pipes.quote(arg) for arg in sys.argv[1:]]),
-        "scaninfos": [{"type": "list TOR exit nodes"}],
+        "scaninfos": [{"type": "fetches IP lists from public websites"}],
     }
-    with urlopen("https://check.torproject.org/torbulkexitlist") as fdesc:
-        results = [
-            {
-                "addr": line.decode().strip(),
-                "schema_version": SCHEMA_VERSION,
-                "starttime": datetime.now(),
-                "endtime": datetime.now(),
-                "tags": [
-                    dict(
-                        TAG_TOR,
-                        info=[
-                            "Exit node listed at <https://check.torproject.org/torbulkexitlist>"
-                        ],
-                    )
-                ],
-            }
-            for line in fdesc
-        ]
+    results = [
+        {
+            "addr": addr,
+            "schema_version": SCHEMA_VERSION,
+            "starttime": datetime.now(),
+            "endtime": datetime.now(),
+            "tags": [extractor.tag],
+        }
+        for extractor in EXTRACTORS
+        for addr in extractor.get_ips()
+    ]
     end = datetime.now()
     scan["end"] = end.strftime("%s")
     scan["endstr"] = str(end)
