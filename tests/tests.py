@@ -4621,6 +4621,13 @@ class IvreTests(unittest.TestCase):
         for line in out.splitlines():
             self.assertTrue(isinstance(json.loads(line), dict))
 
+        res, out, _ = RUN(["ivre", "getwebdata"])
+        self.assertEqual(res, 0)
+        for line in out.splitlines():
+            data = json.loads(line)
+            self.assertTrue(isinstance(data, dict))
+            self.assertTrue("tags" in data)
+
     def test_scans(self):
         "Run scans, with and without agents"
 
