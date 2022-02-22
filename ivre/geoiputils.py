@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,9 +27,12 @@ from __future__ import annotations  # drop when Python 3.10+ only is supported
 import codecs
 import csv
 import os.path
+from shutil import copyfileobj
 import sys
+import time
 import tarfile
 from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
+from urllib.error import HTTPError
 from urllib.request import build_opener
 import zipfile
 
@@ -75,37 +78,32 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
 def unzip_all(
     fname: str,
     cond: Optional[Callable[[zipfile.ZipInfo], bool]] = None,
-    clean: bool = True,
 ) -> None:
     assert config.GEOIP_PATH is not None
     with zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname)) as zdesc:
         for filedesc in zdesc.infolist():
             if cond and not cond(filedesc):
                 continue
-            with open(
+            with zdesc.open(filedesc) as rdesc, open(
                 os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.filename)),
                 "wb",
             ) as wdesc:
-                wdesc.write(zdesc.read(filedesc))
-    if clean:
-        os.unlink(os.path.join(config.GEOIP_PATH, fname))
+                copyfileobj(rdesc, wdesc)
 
 
-def gunzip(fname: str, clean: bool = True) -> None:
+def gunzip(fname: str) -> None:
     if not fname.endswith(".gz"):
         raise Exception('filename should end with ".gz"')
     assert config.GEOIP_PATH is not None
-    with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp:
-        with open(os.path.join(config.GEOIP_PATH, fname[:-3]), "wb") as outp:
-            outp.write(inp.read())
-    if clean:
-        os.unlink(os.path.join(config.GEOIP_PATH, fname))
+    with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp, open(
+        os.path.join(config.GEOIP_PATH, fname[:-3]), "wb"
+    ) as outp:
+        copyfileobj(inp, outp)
 
 
 def untar_all(
     fname: str,
     cond: Optional[Callable[[tarfile.TarInfo], bool]] = None,
-    clean: bool = True,
 ) -> None:
     assert config.GEOIP_PATH is not None
     with tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname)) as tdesc:
@@ -118,9 +116,7 @@ def untar_all(
                 rdesc = tdesc.extractfile(filedesc)
                 if rdesc is None:
                     continue
-                wdesc.write(rdesc.read())
-    if clean:
-        os.unlink(os.path.join(config.GEOIP_PATH, fname))
+                copyfileobj(rdesc, wdesc)
 
 
 def rename(src: str, dst: str) -> None:
@@ -130,56 +126,71 @@ def rename(src: str, dst: str) -> None:
     )
 
 
-PARSERS: List[Tuple[Callable, List[str], Dict[str, Any]]] = [
-    (
-        unzip_all,
-        ["GeoLite2-City-CSV.zip"],
-        {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
-    ),
-    (
-        unzip_all,
-        ["GeoLite2-Country-CSV.zip"],
-        {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
-    ),
-    (
-        unzip_all,
-        ["GeoLite2-ASN-CSV.zip"],
-        {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
-    ),
-    (gunzip, ["GeoLite2-City.tar.gz"], {}),
-    (
-        untar_all,
-        ["GeoLite2-City.tar"],
-        {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
-    ),
-    (gunzip, ["GeoLite2-Country.tar.gz"], {}),
-    (
-        untar_all,
-        ["GeoLite2-Country.tar"],
-        {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
-    ),
-    (gunzip, ["GeoLite2-ASN.tar.gz"], {}),
-    (
-        untar_all,
-        ["GeoLite2-ASN.tar"],
-        {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
-    ),
-    (gunzip, ["GeoLite2-dumps.tar.gz"], {}),
-    (
-        untar_all,
-        ["GeoLite2-dumps.tar"],
-        {"cond": lambda fdesc: fdesc.name.endswith(".csv")},
-    ),
-    (bgp_raw_to_csv, ["BGP.raw", "BGP.csv"], {}),
-]
+PARSERS: Dict[str, List[Tuple[Callable, List[str], Dict[str, Any]]]] = {
+    "GeoLite2-City-CSV.zip": [
+        (
+            unzip_all,
+            ["GeoLite2-City-CSV.zip"],
+            {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
+        )
+    ],
+    "GeoLite2-Country-CSV.zip": [
+        (
+            unzip_all,
+            ["GeoLite2-Country-CSV.zip"],
+            {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
+        )
+    ],
+    "GeoLite2-ASN-CSV.zip": [
+        (
+            unzip_all,
+            ["GeoLite2-ASN-CSV.zip"],
+            {"cond": lambda fdesc: fdesc.filename.endswith(".csv")},
+        )
+    ],
+    "GeoLite2-City.tar.gz": [
+        (gunzip, ["GeoLite2-City.tar.gz"], {}),
+        (
+            untar_all,
+            ["GeoLite2-City.tar"],
+            {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
+        ),
+    ],
+    "GeoLite2-Country.tar.gz": [
+        (gunzip, ["GeoLite2-Country.tar.gz"], {}),
+        (
+            untar_all,
+            ["GeoLite2-Country.tar"],
+            {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
+        ),
+    ],
+    "GeoLite2-ASN.tar.gz": [
+        (gunzip, ["GeoLite2-ASN.tar.gz"], {}),
+        (
+            untar_all,
+            ["GeoLite2-ASN.tar"],
+            {"cond": lambda fdesc: fdesc.name.endswith(".mmdb")},
+        ),
+    ],
+    "GeoLite2-dumps.tar.gz": [
+        (gunzip, ["GeoLite2-dumps.tar.gz"], {}),
+        (
+            untar_all,
+            ["GeoLite2-dumps.tar"],
+            {"cond": lambda fdesc: fdesc.name.endswith(".csv")},
+        ),
+    ],
+    "BGP.raw": [(bgp_raw_to_csv, ["BGP.raw", "BGP.csv"], {})],
+}
 
 
 def download_all(verbose: bool = False) -> None:
     assert config.GEOIP_PATH is not None
     utils.makedirs(config.GEOIP_PATH)
     opener = build_opener()
-    opener.addheaders = [("User-agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
+    new_files = set()
     for fname, url in config.IPDATA_URLS.items():
+        opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
         if url is None:
             if not fname.startswith("GeoLite2-"):
                 continue
@@ -196,28 +207,50 @@ def download_all(verbose: bool = False) -> None:
                 )
             )
         outfile = os.path.join(config.GEOIP_PATH, fname)
+        try:
+            outstat = os.stat(outfile)
+        except FileNotFoundError:
+            pass
+        else:
+            opener.addheaders.append(
+                (
+                    "If-Modified-Since",
+                    time.strftime(
+                        "%a, %d %b %Y %H:%M:%S GMT", time.gmtime(outstat.st_mtime)
+                    ),
+                )
+            )
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
             sys.stdout.flush()
-        with open(outfile, "wb") as wdesc:
-            udesc = opener.open(url)
-            wdesc.write(udesc.read())
-            if verbose:
-                sys.stdout.write("done.\n")
+        try:
+            with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
+                copyfileobj(udesc, wdesc)
+        except HTTPError as exc:
+            if exc.status == 304:
+                if verbose:
+                    sys.stdout.write("already downloaded.\n")
+                continue
+            raise
+        new_files.add(fname)
+        if verbose:
+            sys.stdout.write("done.\n")
     if verbose:
         sys.stdout.write("Unpacking: ")
         sys.stdout.flush()
-    for func, args, kargs in PARSERS:
-        try:
-            func(*args, **kargs)
-        except Exception:
-            utils.LOGGER.warning(
-                "A parser failed: %s(%s, %s)",
-                func.__name__,
-                ", ".join(args),
-                ", ".join("%s=%r" % k_v for k_v in kargs.items()),
-                exc_info=True,
-            )
+    for fname in new_files:
+        for func, args, kargs in PARSERS.get(fname, []):
+            print("%r(*%r, **%r)" % (func, args, kargs))
+            try:
+                func(*args, **kargs)
+            except Exception:
+                utils.LOGGER.warning(
+                    "A parser failed: %s(%s, %s)",
+                    func.__name__,
+                    ", ".join(args),
+                    ", ".join("%s=%r" % k_v for k_v in kargs.items()),
+                    exc_info=True,
+                )
     if verbose:
         sys.stdout.write("done.\n")
 
