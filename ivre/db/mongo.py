@@ -223,7 +223,7 @@ class MongoDB(DB):
                     fields[fld] = value
             kargs["projection"] = fields
         sort = []
-        for fld, way in kargs.pop("sort", []):
+        for fld, way in kargs.pop("sort", []) or []:
             if fld in self.ipaddr_fields:
                 sort.extend([("%s_0" % fld, way), ("%s_1" % fld, way)])
             elif fld == "text":
