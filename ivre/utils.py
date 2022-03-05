@@ -2456,3 +2456,11 @@ def url2hostport(url: str) -> Tuple[str, int]:
         return host, _SCHEMES_PORTS[url_p.scheme]
     except KeyError as exc:
         raise ValueError("Bad scheme in URL") from exc
+
+
+def sort_key_dom(domain: str) -> List[str]:
+    """Takes a host / domain name and returns the list of the labels,
+    reversed, so that it can be used by sorted() / .sort()
+
+    """
+    return domain.strip().split(".")[::-1]
