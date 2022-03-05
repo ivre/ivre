@@ -40,6 +40,7 @@ from ivre.utils import (
     nmap_decode_data,
     nmap_encode_data,
     ports2nmapspec,
+    sort_key_dom,
 )
 
 
@@ -642,7 +643,7 @@ def merge_axfr_scripts(
         if any(data["domain"] == r["domain"] for r in res):
             continue
         res.append(data)
-    res = sorted(res, key=lambda r: tuple(reversed(r["domain"].split("."))))
+    res = sorted(res, key=lambda r: sort_key_dom(r["domain"].split(".")))
     line_fmt = "| %%-%ds  %%-%ds  %%s" % (
         max(len(r["name"]) for data in res for r in data["records"]),
         max(len(r["type"]) for data in res for r in data["records"]),
@@ -841,14 +842,6 @@ def merge_http_git_scripts(
     curscript["output"] = output
     curscript[script_id] = data
     return curscript
-
-
-def sort_key_dom(domain: str) -> List[str]:
-    """Takes a host / domain name and returns the list of the labels,
-    reversed, so that it can be used by sorted() / .sort()
-
-    """
-    return domain.strip().split(".")[::-1]
 
 
 def merge_dns_domains_scripts(

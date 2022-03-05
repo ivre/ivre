@@ -535,19 +535,29 @@ def displayfunction_http_urls(cur: Iterable[NmapHost]) -> None:
         addr = h["addr"]
         if ":" in addr:
             addr = f"[{addr}]"
+        names = [addr]
+        names.extend(
+            sorted(
+                {hn["name"] for hn in h.get("hostnames", [])}, key=utils.sort_key_dom
+            )
+        )
         for p in h.get("ports", []):
             if p.get("service_name") not in {"http", "http-proxy", "https"}:
                 continue
             if p.get("service_tunnel") == "ssl" or p.get("service_name") == "https":
                 if p.get("port") == 443:
-                    sys.stdout.write("https://%s/\n" % addr)
+                    for name in names:
+                        sys.stdout.write(f"https://{name}/\n")
                 else:
-                    sys.stdout.write("https://%s:%d/\n" % (addr, p["port"]))
+                    for name in names:
+                        sys.stdout.write(f"https://{name}:{p['port']}/\n")
             else:
                 if p.get("port") == 80:
-                    sys.stdout.write("http://%s/\n" % addr)
+                    for name in names:
+                        sys.stdout.write(f"http://{name}/\n")
                 else:
-                    sys.stdout.write("http://%s:%d/\n" % (addr, p["port"]))
+                    for name in names:
+                        sys.stdout.write(f"http://{name}:{p['port']}/\n")
 
 
 def displayfunction_nmapxml(
