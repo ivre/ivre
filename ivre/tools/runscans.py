@@ -437,15 +437,13 @@ def main() -> None:
         except KeyboardInterrupt:
             print(
                 'Interrupted.\nUse "--state %s" to resume.'
-                # TargetIter has a .getstate method
-                % (" ".join(str(elt) for elt in targiter.getstate()))  # type: ignore
+                % " ".join(str(elt) for elt in targiter.getstate())
             )
         except Exception:
             ivre.utils.LOGGER.critical("Exception", exc_info=True)
             print(
                 'Use "--state %s" to resume.'
-                # TargetIter has a .getstate method
-                % (" ".join(str(elt) for elt in targiter.getstate()))  # type: ignore
+                % " ".join(str(elt) for elt in targiter.getstate())
             )
         sys.exit(0)
     xmlprocess_choice: Dict[str, Tuple[Type[XmlProcess], List[str], Dict[str, Any]]] = {

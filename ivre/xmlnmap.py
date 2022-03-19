@@ -2228,6 +2228,9 @@ class NmapHandler(ContentHandler):
                 return
             for attr in attrs.keys():
                 self._curport["service_%s" % attr] = attrs[attr]
+            if self._curport.get("service_name") == "https":
+                self._curport["service_name"] = "http"
+                self._curport["service_tunnel"] = "ssl"
             for field in [
                 "service_conf",
                 "service_rpcnum",
