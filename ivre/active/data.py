@@ -1096,6 +1096,8 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
                 addr = addr.lower()
                 if addr not in cur_addrs:
                     cur_addrs.append(addr)
+        if "tags" in record:
+            add_tags(rec, record["tags"])
     if addresses:
         rec["addresses"] = addresses
     if sa_honeypot:
