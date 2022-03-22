@@ -625,7 +625,7 @@ def _extract_passive_STUN_HONEYPOT_REQUEST(rec):
         type_, len_, tid_hi, tid_lo = struct.unpack(">HHQQ", rec["value"][:20])
         proto, port = rec["source"].split("/", 1)
         port = int(port)
-    except ValueError:
+    except (ValueError, struct.error):
         utils.LOGGER.warning("Cannot parse record [%r]", rec)
         return {}
     # store TID as string
