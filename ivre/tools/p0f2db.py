@@ -60,6 +60,8 @@ def rec_iter(
                 infos = {}
                 if "os" in line and line["os"] != "???":
                     infos["os"] = line["os"]
+                if "app" in line:
+                    infos["app"] = line["app"]
                 if "dist" in line:
                     infos["dist"] = line["dist"]
                 if "params" in line and line["params"].lower() != "none":
