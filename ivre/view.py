@@ -661,6 +661,36 @@ def _extract_passive_STUN_HONEYPOT_REQUEST(rec):
     }
 
 
+def _extract_passive_P0FV3_SYN(rec):
+    """Handle P0FV3_SYN records"""
+    if rec.get("infos", {}).get("app") not in scanners.P0F_APP_VALUES:
+        return {}
+    scanner, probe = scanners.P0F_APP_VALUES[rec["infos"]["app"]]
+    structured_output = {"scanners": [{"name": scanner}]}
+    if probe is None:
+        structured_output["scanners"][0]["probes"] = [{"proto": "TCP SYN"}]
+    else:
+        structured_output["scanners"][0]["probes"] = [
+            {"proto": "TCP SYN", "name": probe}
+        ]
+    structured_output["probes"] = [{"proto": "TCP SYN", "value": rec["value"]}]
+    return {
+        "ports": [
+            {
+                "port": -1,
+                "scripts": [
+                    {
+                        "id": "scanner",
+                        "output": "Scanner: \n - %s [%s]"
+                        % (scanner, "TCP SYN" if probe is None else f"{probe}/TCP SYN"),
+                        "scanner": structured_output,
+                    }
+                ],
+            }
+        ]
+    }
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     "HTTP_CLIENT_HEADER": _extract_passive_HTTP_CLIENT_HEADER,
@@ -685,6 +715,7 @@ _EXTRACTORS = {
     "NTLM_AUTHENTICATE": _extract_passive_NTLM,
     "SMB": _extract_passive_SMB_SESSION_SETUP,
     "STUN_HONEYPOT_REQUEST": _extract_passive_STUN_HONEYPOT_REQUEST,
+    "P0FV3_SYN": _extract_passive_P0FV3_SYN,
 }
 
 
