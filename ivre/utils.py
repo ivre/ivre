@@ -2458,9 +2458,25 @@ def url2hostport(url: str) -> Tuple[str, int]:
         raise ValueError("Bad scheme in URL") from exc
 
 
-def sort_key_dom(domain: str) -> List[str]:
+def key_sort_dom(domain: str) -> List[str]:
     """Takes a host / domain name and returns the list of the labels,
     reversed, so that it can be used by sorted() / .sort()
 
     """
     return domain.strip().split(".")[::-1]
+
+
+def key_sort_dom_addr(value: str) -> List[str]:
+    """Takes a host / domain name or an IP address and returns the list of
+    the labels, reversed, for a name and a list containing the IP
+    address as an hex string for an address so that it can be used by
+    sorted() / .sort()
+
+    """
+    value = value.strip()
+    if IPADDR.search(value):
+        if ":" in value:
+            return [encode_hex(ip2bin(value)).decode()]
+        # IPv4 addresses before IPv6
+        return ["00000000000000000000000000000000%08x" % ip2int(value)]
+    return value.strip().split(".")[::-1]

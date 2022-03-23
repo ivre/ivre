@@ -37,10 +37,10 @@ from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapS
 from ivre.utils import (
     TORCERT_SUBJECT,
     get_domains,
+    key_sort_dom,
     nmap_decode_data,
     nmap_encode_data,
     ports2nmapspec,
-    sort_key_dom,
 )
 
 
@@ -643,7 +643,7 @@ def merge_axfr_scripts(
         if any(data["domain"] == r["domain"] for r in res):
             continue
         res.append(data)
-    res = sorted(res, key=lambda r: sort_key_dom(r["domain"].split(".")))
+    res = sorted(res, key=lambda r: key_sort_dom(r["domain"].split(".")))
     line_fmt = "| %%-%ds  %%-%ds  %%s" % (
         max(len(r["name"]) for data in res for r in data["records"]),
         max(len(r["type"]) for data in res for r in data["records"]),
@@ -855,7 +855,7 @@ def merge_dns_domains_scripts(
         for res in scr.get(script_id, [])
         if "domain" in res
     }
-    domains_order = sorted(domains, key=sort_key_dom)
+    domains_order = sorted(domains, key=key_sort_dom)
     if len(domains_order) == 1:
         output = "Server is authoritative for %s" % domains_order[0]
     else:
@@ -879,7 +879,7 @@ def merge_dns_tls_rpt_scripts(
         for res in scr.get(script_id, [])
         if "domain" in res
     }
-    domains_order = sorted(domains, key=sort_key_dom)
+    domains_order = sorted(domains, key=key_sort_dom)
     output = []
     for dom in domains_order:
         cur_data = domains[dom]
@@ -918,8 +918,8 @@ def merge_dns_check_consistency_scripts(
     domains_name_type_order = sorted(
         domains_name_type,
         key=lambda v: (
-            sort_key_dom(v[0]),
-            sort_key_dom(v[1]),
+            key_sort_dom(v[0]),
+            key_sort_dom(v[1]),
             v[2],
         ),
     )
