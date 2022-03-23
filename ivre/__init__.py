@@ -45,7 +45,7 @@ def _get_version_from_git() -> str:
     with subprocess.Popen(
         [b"git", b"rev-parse", b"--show-toplevel"],
         stdout=subprocess.PIPE,
-        stderr=open(os.devnull),
+        stderr=subprocess.DEVNULL,
         cwd=os.path.join(_DIR, os.path.pardir),
     ) as proc:
         out, err = proc.communicate()
@@ -57,7 +57,7 @@ def _get_version_from_git() -> str:
     with subprocess.Popen(
         [b"git", b"describe", b"--always"],
         stdout=subprocess.PIPE,
-        stderr=open(os.devnull),
+        stderr=subprocess.DEVNULL,
         cwd=os.path.join(_DIR, os.path.pardir),
     ) as proc:
         out, err = proc.communicate()
