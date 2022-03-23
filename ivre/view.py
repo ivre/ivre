@@ -773,7 +773,7 @@ def passive_to_view(flt, category=None):
     for rec in db.passive.get(flt, sort=[("addr", 1)]):
         if rec.get("schema_version") != PASSIVE_SCHEMA_VERSION:
             utils.LOGGER.warning(
-                "Will not handle record with schema_version %d (%d needed) " "[%r]",
+                "Will not handle record with schema_version %d (%d needed) [%r]",
                 rec.get("schema_version", 0),
                 PASSIVE_SCHEMA_VERSION,
                 rec,
@@ -839,7 +839,7 @@ def from_nmap(flt, category=None):
     for rec in db.nmap.get(flt, sort=[("addr", 1)]):
         if rec.get("schema_version") != ACTIVE_SCHEMA_VERSION:
             utils.LOGGER.warning(
-                "Will not handle record with schema_version %d (%d needed) " "[%r]",
+                "Will not handle record with schema_version %d (%d needed) [%r]",
                 rec.get("schema_version", 0),
                 ACTIVE_SCHEMA_VERSION,
                 rec,

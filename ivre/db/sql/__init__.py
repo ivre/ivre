@@ -3247,7 +3247,7 @@ class SQLDBPassive(SQLDB, DBPassive):
     def searchuseragent(cls, useragent=None, neg=False):
         if neg:
             raise ValueError(
-                "searchuseragent([...], neg=True) is not " "supported in passive DB."
+                "searchuseragent([...], neg=True) is not supported in passive DB."
             )
         if useragent is None:
             return PassiveFilter(
@@ -3449,7 +3449,7 @@ class SQLDBPassive(SQLDB, DBPassive):
 
         """
         if protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         if state != "open":
             raise ValueError("Only open ports can be found in passive")
         return PassiveFilter(
@@ -3474,7 +3474,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         if port is not None:
             flt.append(cls.tables.passive.port == port)
         if protocol is not None and protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         return PassiveFilter(main=and_(*flt))
 
     @classmethod
@@ -3538,7 +3538,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         if protocol is not None:
             if protocol != "tcp":
                 raise ValueError(
-                    "Protocols other than TCP are not supported " "in passive"
+                    "Protocols other than TCP are not supported in passive"
                 )
         return PassiveFilter(main=and_(*flt))
 

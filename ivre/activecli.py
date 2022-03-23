@@ -538,7 +538,7 @@ def displayfunction_http_urls(cur: Iterable[NmapHost]) -> None:
         names = [addr]
         names.extend(
             sorted(
-                {hn["name"] for hn in h.get("hostnames", [])}, key=utils.sort_key_dom
+                {hn["name"] for hn in h.get("hostnames", [])}, key=utils.key_sort_dom
             )
         )
         for p in h.get("ports", []):

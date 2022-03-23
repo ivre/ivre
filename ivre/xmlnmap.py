@@ -388,7 +388,7 @@ def add_afp_ls_data(script):
             elif line.startswith("    "):
                 if cur_vol is None:
                     utils.LOGGER.warning(
-                        "Skip file entry outside a " "volume [%r]", line[4:]
+                        "Skip file entry outside a volume [%r]", line[4:]
                     )
                 else:
                     (permission, uid, gid, size, date, time, fname) = line[4:].split(
@@ -444,7 +444,7 @@ def add_ftp_anon_data(script):
     # expressions that match lines, based on large data collection
     subexprs = {
         "user": (
-            "(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|" "\\*|\\(\\?\\))"
+            "(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|\\*|\\(\\?\\))"
         ),
         "fname": "[A-Za-z0-9%s]+" % re.escape(" ?._@[](){}~#'&$%!+\\-/,|`="),
         "perm": "[a-zA-Z\\?-]{10}",
@@ -454,7 +454,7 @@ def add_ftp_anon_data(script):
         "time": "[0-9]{1,2}\\:[0-9]{2}(?:\\:[0-9]{1,2})?",
         "windate": "[0-9]{2}-[0-9]{2}-[0-9]{2,4} +[0-9]{2}:[0-9]{2}(?:[AP]M)?",
         "vxworksdate": (
-            "[A-Z][a-z]{2}-[0-9]{2}-[0-9]{2,4}\\s+" "[0-9]{2}:[0-9]{2}:[0-9]{2}"
+            "[A-Z][a-z]{2}-[0-9]{2}-[0-9]{2,4}\\s+[0-9]{2}:[0-9]{2}:[0-9]{2}"
         ),
     }
     subexprs["date"] = "(?:%s)" % "|".join(
@@ -1333,7 +1333,7 @@ def masscan_parse_s7info(data):
         curdata, data = data[4:length], data[length:]
         if len(curdata) < length - 4:
             utils.LOGGER.warning(
-                "Masscan s7-info: record too short [%r] length %d, should be " "%d",
+                "Masscan s7-info: record too short [%r] length %d, should be %d",
                 curdata,
                 len(curdata),
                 length - 4,
@@ -1344,7 +1344,7 @@ def masscan_parse_s7info(data):
                 state += 1
                 continue
             utils.LOGGER.warning(
-                "Masscan s7-info: invalid data type in Connect Confirm " "[%r]",
+                "Masscan s7-info: invalid data type in Connect Confirm [%r]",
                 curdata,
             )
             return None
@@ -1778,7 +1778,7 @@ class NmapHandler(ContentHandler):
         if name == "nmaprun":
             if self._curscan is not None:
                 utils.LOGGER.warning(
-                    "self._curscan should be None at " "this point (got %r)",
+                    "self._curscan should be None at this point (got %r)",
                     self._curscan,
                 )
             self._curscan = dict(attrs)
@@ -1796,7 +1796,7 @@ class NmapHandler(ContentHandler):
         elif name == "host":
             if self._curhost is not None:
                 utils.LOGGER.warning(
-                    "self._curhost should be None at " "this point (got %r)",
+                    "self._curhost should be None at this point (got %r)",
                     self._curhost,
                 )
             self._curhost = {"schema_version": SCHEMA_VERSION}
@@ -1826,7 +1826,7 @@ class NmapHandler(ContentHandler):
                 return
             if self._curhostnames is not None:
                 utils.LOGGER.warning(
-                    "self._curhostnames should be None at " "this point (got %r)",
+                    "self._curhostnames should be None at this point (got %r)",
                     self._curhostnames,
                 )
             self._curhostnames = []
@@ -1835,7 +1835,7 @@ class NmapHandler(ContentHandler):
                 return
             if self._curhostnames is None:
                 utils.LOGGER.warning(
-                    "self._curhostnames should NOT be " "None at this point"
+                    "self._curhostnames should NOT be None at this point"
                 )
                 self._curhostnames = []
             hostname = dict(attrs)
@@ -1851,7 +1851,7 @@ class NmapHandler(ContentHandler):
         elif name == "extraports":
             if self._curextraports is not None:
                 utils.LOGGER.warning(
-                    "self._curextraports should be None at " "this point (got %r)",
+                    "self._curextraports should be None at this point (got %r)",
                     self._curextraports,
                 )
             self._curextraports = {
@@ -1864,7 +1864,7 @@ class NmapHandler(ContentHandler):
         elif name == "port":
             if self._curport is not None:
                 utils.LOGGER.warning(
-                    "self._curport should be None at this " "point (got %r)",
+                    "self._curport should be None at this point (got %r)",
                     self._curport,
                 )
             self._curport = {
@@ -2016,7 +2016,7 @@ class NmapHandler(ContentHandler):
                                 # data[key] = utils.all2datetime(tstamp)
                             except ValueError:
                                 utils.LOGGER.warning(
-                                    "Invalid timestamp from Masscan SMB " "result %r",
+                                    "Invalid timestamp from Masscan SMB result %r",
                                     tstamp,
                                     exc_info=True,
                                 )
@@ -2245,7 +2245,7 @@ class NmapHandler(ContentHandler):
         elif name == "script":
             if self._curscript is not None:
                 utils.LOGGER.warning(
-                    "self._curscript should be None at this " "point (got %r)",
+                    "self._curscript should be None at this point (got %r)",
                     self._curscript,
                 )
             self._curscript = dict([attr, attrs[attr]] for attr in attrs.keys())
@@ -2256,7 +2256,7 @@ class NmapHandler(ContentHandler):
                 # start recording characters
                 if self._curdata is not None:
                     utils.LOGGER.warning(
-                        "self._curdata should be None at " "this point (got %r)",
+                        "self._curdata should be None at this point (got %r)",
                         self._curdata,
                     )
                 self._curdata = ""
@@ -2311,7 +2311,7 @@ class NmapHandler(ContentHandler):
         elif name == "trace":
             if self._curtrace is not None:
                 utils.LOGGER.warning(
-                    "self._curtrace should be None at this " "point (got %r)",
+                    "self._curtrace should be None at this point (got %r)",
                     self._curtrace,
                 )
             if "proto" not in attrs:
@@ -2393,7 +2393,7 @@ class NmapHandler(ContentHandler):
                 self._curscript = None
                 if self._curtablepath:
                     utils.LOGGER.warning(
-                        "self._curtablepath should be empty, " "got [%r]",
+                        "self._curtablepath should be empty, got [%r]",
                         self._curtablepath,
                     )
                 self._curtable = {}
@@ -2438,7 +2438,7 @@ class NmapHandler(ContentHandler):
             if ignore_script(self._curscript):
                 if self._curtablepath:
                     utils.LOGGER.warning(
-                        "self._curtablepath should be empty," " got [%r]",
+                        "self._curtablepath should be empty, got [%r]",
                         self._curtablepath,
                     )
                 self._curtable = {}
@@ -2449,7 +2449,7 @@ class NmapHandler(ContentHandler):
             if self._curtable:
                 if self._curtablepath:
                     utils.LOGGER.warning(
-                        "self._curtablepath should be empty, " "got [%r]",
+                        "self._curtablepath should be empty, got [%r]",
                         self._curtablepath,
                     )
                 if infokey in CHANGE_TABLE_ELEMS:
@@ -2560,7 +2560,7 @@ class NmapHandler(ContentHandler):
             data = data[4:]
             if len(data) < length:
                 utils.LOGGER.warning(
-                    "Incomplete SSH message [%r] expected " "length %d", data, length
+                    "Incomplete SSH message [%r] expected length %d", data, length
                 )
                 return
             curdata, data = data[:length], data[length:]
@@ -2570,7 +2570,7 @@ class NmapHandler(ContentHandler):
             padlen = struct.unpack("B", curdata[:1])[0]
             if len(curdata) < padlen + 1:
                 utils.LOGGER.warning(
-                    "Incomplete SSH message [%r] padding " "length %d", curdata, padlen
+                    "Incomplete SSH message [%r] padding length %d", curdata, padlen
                 )
                 continue
             curdata = curdata[1:-padlen]
@@ -2610,7 +2610,7 @@ class NmapHandler(ContentHandler):
         # cookie
         if len(data) < 16:
             utils.LOGGER.warning(
-                "SSH key exchange init message too " "short [%r] (len == %d < 16)",
+                "SSH key exchange init message too short [%r] (len == %d < 16)",
                 data,
                 len(data),
             )
@@ -2620,7 +2620,7 @@ class NmapHandler(ContentHandler):
         while data and keys:
             if len(data) < 4:
                 utils.LOGGER.warning(
-                    "Incomplete SSH key exchange init message" " part [%r]", data
+                    "Incomplete SSH key exchange init message part [%r]", data
                 )
                 return
             length = struct.unpack(">I", data[:4])[0]

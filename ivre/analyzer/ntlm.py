@@ -199,7 +199,7 @@ def _ntlm_challenge_extract(challenge: bytes) -> Optional[Dict[str, Any]]:
         # Return if the target info block is shorter than it is supposed to be
         if len(challenge) < ln_info:
             utils.LOGGER.warning(
-                "NTLM target info should be of size %d but " "is too short (size %d)",
+                "NTLM target info should be of size %d but is too short (size %d)",
                 ln_info,
                 len(challenge),
             )
@@ -227,7 +227,7 @@ def _ntlm_authenticate_info(request: bytes) -> Optional[Dict[str, Any]]:
     """
     if len(request) < 52:
         utils.LOGGER.warning(
-            "NTLM message is too short (%d) but should be " "at least 52 char long",
+            "NTLM message is too short (%d) but should be at least 52 char long",
             len(request),
         )
         return None
@@ -297,7 +297,7 @@ def ntlm_extract_info(value: bytes) -> Optional[Dict[str, Any]]:
     if ntlm_type == 1:
         return _ntlm_negotiate_extract(value)
     utils.LOGGER.warning(
-        "The following NTLM message %r has an unknown " "message type: %d",
+        "The following NTLM message %r has an unknown message type: %d",
         value,
         ntlm_type,
     )

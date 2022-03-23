@@ -63,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--no-merge",
         action="store_true",
-        help="Do **not** " "merge with existing results for same host and " "source.",
+        help="Do **not** merge with existing results for same host and source.",
     )
     parser.add_argument(
         "--to-db",
@@ -73,9 +73,7 @@ def main() -> None:
 
     subparsers = parser.add_subparsers(
         dest="view_source",
-        help=(
-            "Accepted values are 'nmap' and 'passive'. " "None or 'all' will do both"
-        ),
+        help=("Accepted values are 'nmap' and 'passive'. None or 'all' will do both"),
     )
     if db.nmap is not None:
         subparsers.add_parser("nmap", parents=[db.nmap.argparser])

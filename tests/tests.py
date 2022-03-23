@@ -297,7 +297,7 @@ class AgentScanner:
         """
         res = RUN(
             ["ivre", "runscansagent", "--feed"] + target_options + [self.agent_dir],
-            stdin=open(os.devnull, "wb"),
+            stdin=subprocess.DEVNULL,
         )[0]
         self.test.assertEqual(res, 0)
 
@@ -780,7 +780,7 @@ class IvreTests(unittest.TestCase):
     def init_nmap_db(self):
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
         self.assertEqual(
-            RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))[0], 0
+            RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
@@ -860,7 +860,7 @@ class IvreTests(unittest.TestCase):
         self.check_nmap_top_value("nmap_test_top_portlist_open", "portlist:open")
         # Now let's clean the database
         self.assertEqual(
-            RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))[0], 0
+            RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         if DATABASE == "tinydb":
             ivre.db.db.nmap.invalidate_cache()
@@ -2030,7 +2030,7 @@ class IvreTests(unittest.TestCase):
         # Init DB
         self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], b"0\n")
         self.assertEqual(
-            RUN(["ivre", "ipinfo", "--init"], stdin=open(os.devnull))[0], 0
+            RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], b"0\n")
 
@@ -2066,7 +2066,7 @@ class IvreTests(unittest.TestCase):
         for fname in self.pcap_files:
             outf = f"{fname}.p0f.log"
             subprocess.check_call(
-                ["p0f", "-r", fname, "-o", outf], stdout=open(os.devnull)
+                ["p0f", "-r", fname, "-o", outf], stdout=subprocess.DEVNULL
             )
             ret, out, err = RUN(["ivre", "p0f2db", "--test", outf])
             self.assertEqual(ret, 0)
@@ -3283,7 +3283,7 @@ class IvreTests(unittest.TestCase):
         #  Functional tests #
 
         # Init DB
-        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=open(os.devnull))
+        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=subprocess.DEVNULL)
         self.assertEqual(res, 0)
         self.assertFalse(out)
         self.assertFalse(err)
@@ -3709,7 +3709,7 @@ class IvreTests(unittest.TestCase):
             new_precision = ivre.config.FLOW_TIME_PRECISION * 4
             res, out, err = RUN(
                 ["ivre", "flowcli", "--reduce-precision", str(new_precision)],
-                stdin=open(os.devnull),
+                stdin=subprocess.DEVNULL,
             )
             self.assertEqual(res, 0)
 
@@ -3740,7 +3740,7 @@ class IvreTests(unittest.TestCase):
                 ivre.db.db.flow.count(flt_new), {"clients": 0, "flows": 0, "servers": 0}
             )
         # Test flow cleanup
-        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=open(os.devnull))
+        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=subprocess.DEVNULL)
         self.assertEqual(res, 0)
         self.assertFalse(err)
         res, out, err = RUN(
@@ -3751,7 +3751,7 @@ class IvreTests(unittest.TestCase):
         self.check_flow_count_value("flow_count_cleanup", {}, [], None)
 
         # Test netflow capture insertion
-        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=open(os.devnull))
+        res, out, err = RUN(["ivre", "flowcli", "--init"], stdin=subprocess.DEVNULL)
         self.assertEqual(res, 0)
         self.assertFalse(err)
 
@@ -4628,6 +4628,23 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(isinstance(data, dict))
             self.assertTrue("tags" in data)
 
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(b"ivre.rocks\ngithub.com\n::1\n127.0.0.1\nivre.rocks\n")
+        res, out, err = RUN(["ivre", "sort"], stdin=open(fdesc.name, "rb"))
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out.splitlines(),
+            [b"127.0.0.1", b"::1", b"github.com", b"ivre.rocks", b"ivre.rocks"],
+        )
+        res, out, err = RUN(["ivre", "sort", "-u"], stdin=open(fdesc.name, "rb"))
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out.splitlines(), [b"127.0.0.1", b"::1", b"github.com", b"ivre.rocks"]
+        )
+        os.unlink(fdesc.name)
+
     def test_scans(self):
         "Run scans, with and without agents"
 
@@ -4691,7 +4708,7 @@ class IvreTests(unittest.TestCase):
 
         # Init DB for agents and for nmap
         self.init_nmap_db()
-        res = RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))[0]
+        res = RUN(["ivre", "runscansagentdb", "--init"], stdin=subprocess.DEVNULL)[0]
         self.assertEqual(res, 0)
         res = RUN(["ivre", "runscansagentdb", "--add-local-master"])[0]
         self.assertEqual(res, 0)
@@ -4761,7 +4778,7 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(("  - locked (by %d)\n" % os.getpid()).encode() in out)
         # Unlock all the scans from the CLI
         res = RUN(
-            ["ivre", "runscansagentdb", "--force-unlock"], stdin=open(os.devnull)
+            ["ivre", "runscansagentdb", "--force-unlock"], stdin=subprocess.DEVNULL
         )[0]
         self.assertEqual(res, 0)
         # Check no scan is locked
@@ -4981,7 +4998,9 @@ class IvreTests(unittest.TestCase):
 
         print("Init DB & inserts")
         # Init DB
-        self.assertEqual(RUN(["ivre", "view", "--init"], stdin=open(os.devnull))[0], 0)
+        self.assertEqual(
+            RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)[0], 0
+        )
         self.assertEqual(RUN(["ivre", "view", "--count"])[1], b"0\n")
 
         # Test insertion
@@ -5034,7 +5053,9 @@ class IvreTests(unittest.TestCase):
         view_count = int(out)
         self.assertGreater(view_count, 0)
         self.check_value("view_count_passive", view_count)
-        self.assertEqual(RUN(["ivre", "view", "--init"], stdin=open(os.devnull))[0], 0)
+        self.assertEqual(
+            RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)[0], 0
+        )
         # Count active results
         self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
         if DATABASE == "elastic":
@@ -5880,10 +5901,10 @@ class IvreTests(unittest.TestCase):
         # Clean DB
         if DATABASE not in {"postgres", "sqlite"}:
             # FIXME: for some reason, this does not terminate
-            RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))
-        RUN(["ivre", "ipinfo", "--init"], stdin=open(os.devnull))
-        RUN(["ivre", "view", "--init"], stdin=open(os.devnull))
-        RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
+            RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)
+        RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)
+        RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)
+        RUN(["ivre", "runscansagentdb", "--init"], stdin=subprocess.DEVNULL)
 
 
 TESTS = set(

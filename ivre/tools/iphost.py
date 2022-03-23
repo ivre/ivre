@@ -122,9 +122,7 @@ def main() -> None:
         elif o == "--sub":
             subdomains = True
         elif o in ["-h", "--help"]:
-            sys.stdout.write(
-                "usage: %s [-h] [-s SENSOR] [--sub]" "\n\n" % (sys.argv[0])
-            )
+            sys.stdout.write("usage: %s [-h] [-s SENSOR] [--sub]\n\n" % (sys.argv[0]))
             sys.stdout.write(__doc__)
             sys.stdout.write("\n\n")
             sys.exit(0)

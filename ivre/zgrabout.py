@@ -444,7 +444,7 @@ def zgrap_parser_jarm(
     if port is None:
         port = 443  # default
         utils.LOGGER.warning(
-            "No port provided; using default %d. " "Use --zgrab-port to change it.",
+            "No port provided; using default %d. Use --zgrab-port to change it.",
             port,
         )
     return {

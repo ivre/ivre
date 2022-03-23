@@ -927,18 +927,18 @@ CLI_ARGPARSER.add_argument(
 CLI_ARGPARSER.add_argument(
     "--ensure-indexes",
     action="store_true",
-    help="Create missing indexes (will lock the " "database).",
+    help="Create missing indexes (will lock the database).",
 )
 CLI_ARGPARSER.add_argument(
     "--update-schema",
     action="store_true",
-    help="update (host) schema. Use with --version to " "specify your current version",
+    help="update (host) schema. Use with --version to specify your current version",
 )
 # Actions / display modes
 CLI_ARGPARSER.add_argument(
     "--delete",
     action="store_true",
-    help="DELETE the matched results instead of " "displaying them.",
+    help="DELETE the matched results instead of displaying them.",
 )
 CLI_ARGPARSER.add_argument(
     "--short", action="store_true", help="Output only IP addresses, one per line."
@@ -952,7 +952,7 @@ CLI_ARGPARSER.add_argument(
 CLI_ARGPARSER.add_argument(
     "--distinct",
     metavar="FIELD",
-    help="Output only unique FIELD part of the " "results, one per line.",
+    help="Output only unique FIELD part of the results, one per line.",
 )
 CLI_ARGPARSER.add_argument(
     "--json", action="store_true", help="Output results as JSON documents."
@@ -976,7 +976,7 @@ CLI_ARGPARSER.add_argument(
     "--sort",
     metavar="FIELD / ~FIELD",
     nargs="+",
-    help="Sort results according to FIELD; use " "~FIELD to reverse sort order.",
+    help="Sort results according to FIELD; use ~FIELD to reverse sort order.",
 )
 CLI_ARGPARSER.add_argument("--limit", type=int, help="Output at most LIMIT results.")
 CLI_ARGPARSER.add_argument("--skip", type=int, help="Skip first SKIP results.")
@@ -1575,7 +1575,7 @@ def _read_wireshark_manuf_db() -> None:
                 addr, manuf = line.split("\t", 1)
             except ValueError:
                 LOGGER.warning(
-                    "Cannot parse a line from Wireshark " "manufacturer database [%r].",
+                    "Cannot parse a line from Wireshark manufacturer database [%r].",
                     line,
                     exc_info=True,
                 )
@@ -1591,7 +1591,7 @@ def _read_wireshark_manuf_db() -> None:
             addr_int = _mac2int(addr)
         except ValueError:
             LOGGER.warning(
-                "Cannot parse a line from Wireshark " "manufacturer database [%r].",
+                "Cannot parse a line from Wireshark manufacturer database [%r].",
                 line,
             )
             return
@@ -2285,7 +2285,7 @@ else:
                 break
         else:
             LOGGER.info(
-                "Cannot parse certificate %r - " "no matching expression in %r",
+                "Cannot parse certificate %r - no matching expression in %r",
                 cert,
                 data,
             )
@@ -2458,9 +2458,25 @@ def url2hostport(url: str) -> Tuple[str, int]:
         raise ValueError("Bad scheme in URL") from exc
 
 
-def sort_key_dom(domain: str) -> List[str]:
+def key_sort_dom(domain: str) -> List[str]:
     """Takes a host / domain name and returns the list of the labels,
     reversed, so that it can be used by sorted() / .sort()
 
     """
     return domain.strip().split(".")[::-1]
+
+
+def key_sort_dom_addr(value: str) -> List[str]:
+    """Takes a host / domain name or an IP address and returns the list of
+    the labels, reversed, for a name and a list containing the IP
+    address as an hex string for an address so that it can be used by
+    sorted() / .sort()
+
+    """
+    value = value.strip()
+    if IPADDR.search(value):
+        if ":" in value:
+            return [encode_hex(ip2bin(value)).decode()]
+        # IPv4 addresses before IPv6
+        return ["00000000000000000000000000000000%08x" % ip2int(value)]
+    return value.strip().split(".")[::-1]

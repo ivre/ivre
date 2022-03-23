@@ -120,9 +120,7 @@ def worker(progname: str, directory: str, sensor: Optional[str] = None) -> None:
             try:
                 proc.stdin.write(line)
             except ValueError:
-                utils.LOGGER.warning(
-                    "Error while handling line %r. " "Trying again", line
-                )
+                utils.LOGGER.warning("Error while handling line %r. Trying again", line)
                 proc = create_process(progname, fname_sensor)
                 assert proc.stdin is not None
                 procs[fname_sensor] = proc

@@ -49,6 +49,7 @@ __all__ = [
     "scan2db",
     "scancli",
     "scanstatus",
+    "sort",
     "version",
     "view",
     "weblog2db",

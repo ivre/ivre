@@ -323,25 +323,25 @@ def main() -> None:
         metavar="COUNT",
         type=int,
         default=30,
-        help="run COUNT nmap processes in parallel " "(when --output=XMLFork)",
+        help="run COUNT nmap processes in parallel (when --output=XMLFork)",
     )
     parser.add_argument(
         "--nmap-max-cpu",
         metavar="TIME",
         type=int,
-        help="maximum amount of CPU time (in seconds) " "per nmap process",
+        help="maximum amount of CPU time (in seconds) per nmap process",
     )
     parser.add_argument(
         "--nmap-max-heap-size",
         metavar="SIZE",
         type=int,
-        help="maximum size (in bytes) of each nmap " "process's heap",
+        help="maximum size (in bytes) of each nmap process's heap",
     )
     parser.add_argument(
         "--nmap-max-stack-size",
         metavar="SIZE",
         type=int,
-        help="maximum size (in bytes) of each nmap " "process's stack",
+        help="maximum size (in bytes) of each nmap process's stack",
     )
     parser.add_argument(
         "--again",
@@ -351,7 +351,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.output == "CommandLine":
-        print("Command line to run a scan with template " "%s" % args.nmap_template)
+        print("Command line to run a scan with template %s" % args.nmap_template)
         print(
             "    %s"
             % ivre.nmapopt.build_nmap_commandline(

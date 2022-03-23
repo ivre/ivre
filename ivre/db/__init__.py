@@ -136,7 +136,7 @@ class DB:
         self.argparser.add_argument(
             "ips",
             nargs="*",
-            help="Display results for specified IP " "addresses or ranges.",
+            help="Display results for specified IP addresses or ranges.",
         )
 
     def parse_args(self, args, flt=None):
@@ -965,13 +965,13 @@ class DBActive(DB):
         self.argparser.add_argument(
             "--id",
             metavar="ID",
-            help="show only " "results with this(those) ID(s)",
+            help="show only results with this(those) ID(s)",
             nargs="+",
         )
         self.argparser.add_argument(
             "--no-id",
             metavar="ID",
-            help="show " "only results WITHOUT this(those) " "ID(s)",
+            help="show only results WITHOUT this(those) ID(s)",
             nargs="+",
         )
         self.argparser.add_argument("--hostname", metavar="NAME / ~NAME")
@@ -1721,7 +1721,7 @@ class DBActive(DB):
                 return self.searchscript(
                     name=re.compile("^http-(default-accounts|auth)$"),
                     output=re.compile(
-                        "credentials\\ found|" "HTTP\\ server\\ may\\ accept"
+                        "credentials\\ found|HTTP\\ server\\ may\\ accept"
                     ),
                 )
             return self.searchscript(
@@ -2247,7 +2247,7 @@ class DBNmap(DBActive):
                     self._schema_migrations["hosts"][oldvers][1](host)
                     if oldvers == host.get("schema_version"):
                         utils.LOGGER.warning(
-                            "[%r] could not migrate host from version " "%r [%r]",
+                            "[%r] could not migrate host from version %r [%r]",
                             self.__class__,
                             oldvers,
                             host,
@@ -4136,7 +4136,7 @@ class DBAgent(DB):
         """
         if scan.get("lock") is None:
             raise LockError(
-                "Cannot release lock for %r: scan is not " "locked" % scan["_id"]
+                "Cannot release lock for %r: scan is not locked" % scan["_id"]
             )
         scan = self._lock_scan(scan["_id"], scan["lock"].bytes, None)
         return scan["lock"] is None
