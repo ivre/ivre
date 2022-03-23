@@ -110,7 +110,7 @@ def main() -> None:
     parser.add_argument(
         "--assign-free-agents",
         action="store_true",
-        help="Assign any agent available (only useful when specifying" " a target).",
+        help="Assign any agent available (only useful when specifying a target).",
     )
     parser.add_argument(
         "--max-waiting",

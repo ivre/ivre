@@ -187,7 +187,7 @@ class MongoDB(DB):
                     self.db.authenticate(self.username, mechanism=self.mechanism)
                 else:
                     raise TypeError(
-                        "provide either 'password' or 'mechanism'" " with 'username'"
+                        "provide either 'password' or 'mechanism' with 'username'"
                     )
             return self._db
 
@@ -2959,7 +2959,7 @@ class MongoDBActive(MongoDB, DBActive):
                     "state_state": "open",
                     "service_product": "Boa HTTPd",
                     "service_version": re.compile(
-                        "^0\\.9(3([^0-9]|$)|" "4\\.([0-9]|0[0-9]|" "1[0-1])([^0-9]|$))"
+                        "^0\\.9(3([^0-9]|$)|4\\.([0-9]|0[0-9]|1[0-1])([^0-9]|$))"
                     ),
                 }
             }
@@ -5093,7 +5093,7 @@ class MongoDBPassive(MongoDB, DBPassive):
 
         """
         if protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         if state != "open":
             raise ValueError("Only open ports can be found in passive")
         return {"port": {"$ne": port} if neg else port}
@@ -5112,7 +5112,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if port is not None:
             flt["port"] = port
         if protocol is not None and protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         return flt
 
     @staticmethod
@@ -5154,7 +5154,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if protocol is not None:
             if protocol != "tcp":
                 raise ValueError(
-                    "Protocols other than TCP are not supported " "in passive"
+                    "Protocols other than TCP are not supported in passive"
                 )
         return flt
 
@@ -5184,7 +5184,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     def searchuseragent(useragent=None, neg=False):
         if neg:
             raise ValueError(
-                "searchuseragent([...], neg=True) is not " "supported in passive DB."
+                "searchuseragent([...], neg=True) is not supported in passive DB."
             )
         if useragent is None:
             return {
@@ -6512,11 +6512,11 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             # validate new duration
             if new_duration <= current_duration:
                 raise ValueError(
-                    "New precision value must be greater than " "current one."
+                    "New precision value must be greater than current one."
                 )
             if new_duration % current_duration != 0:
                 raise ValueError(
-                    "New precision must be a multiple of current " "precision."
+                    "New precision must be a multiple of current precision."
                 )
 
         # Create the update bulk

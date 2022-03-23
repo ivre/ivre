@@ -86,7 +86,7 @@ def main() -> None:
     parser.add_argument(
         "--ensure-indexes",
         action="store_true",
-        help="Create missing indexes (will lock the " "database).",
+        help="Create missing indexes (will lock the database).",
     )
     parser.add_argument(
         "--node-filters",
@@ -134,14 +134,14 @@ def main() -> None:
         "--collect",
         "-C",
         nargs="+",
-        help="When using --top, also collect these " "properties.",
+        help="When using --top, also collect these properties.",
         default=[],
     )
     parser.add_argument(
         "--sum",
         "-S",
         nargs="+",
-        help="When using --top, sum on these properties to " "order the result.",
+        help="When using --top, sum on these properties to order the result.",
         default=[],
     )
     parser.add_argument(
@@ -225,31 +225,31 @@ def main() -> None:
         "--host",
         type=str,
         metavar="HOST",
-        help="Filter on " "source OR destination IP. Accepts IP address or " "CIDR.",
+        help="Filter on source OR destination IP. Accepts IP address or CIDR.",
     )
     parser.add_argument(
         "--src",
         type=str,
         metavar="SRC",
-        help="Filter on " "source IP. Accepts IP address or CIDR.",
+        help="Filter on source IP. Accepts IP address or CIDR.",
     )
     parser.add_argument(
         "--dst",
         type=str,
         metavar="DST",
-        help="Filter on " "destination IP. Accepts IP address or CIDR.",
+        help="Filter on destination IP. Accepts IP address or CIDR.",
     )
     parser.add_argument(
-        "--proto", type=str, metavar="PROTO", help="Filter on " "transport protocol."
+        "--proto", type=str, metavar="PROTO", help="Filter on transport protocol."
     )
-    parser.add_argument("--tcp", action="store_true", help="Alias to " "--proto tcp")
-    parser.add_argument("--udp", action="store_true", help="Alias to " "--proto udp")
-    parser.add_argument("--port", type=int, metavar="PORT", help="Alias to " "--dport")
+    parser.add_argument("--tcp", action="store_true", help="Alias to --proto tcp")
+    parser.add_argument("--udp", action="store_true", help="Alias to --proto udp")
+    parser.add_argument("--port", type=int, metavar="PORT", help="Alias to --dport")
     parser.add_argument(
-        "--dport", type=int, metavar="DPORT", help="Filter on " "destination port."
+        "--dport", type=int, metavar="DPORT", help="Filter on destination port."
     )
     parser.add_argument(
-        "--sport", type=int, metavar="SPORT", help="Filter on " "source port."
+        "--sport", type=int, metavar="SPORT", help="Filter on source port."
     )
     args = parser.parse_args()
 
@@ -262,7 +262,7 @@ def main() -> None:
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             out.write(
-                "This will remove any flow result in your database. " "Process ? [y/N] "
+                "This will remove any flow result in your database. Process ? [y/N] "
             )
             ans = input()
             if ans.lower() != "y":
@@ -272,7 +272,7 @@ def main() -> None:
 
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
-            out.write("This will lock your database. " "Process ? [y/N] ")
+            out.write("This will lock your database. Process ? [y/N] ")
             ans = input()
             if ans.lower() != "y":
                 sys.exit(-1)
@@ -360,9 +360,7 @@ def main() -> None:
     coma2 = "," if args.separator else ", "
     if args.count:
         count = db.flow.count(query)
-        out.write(
-            "%(clients)d clients\n%(servers)d servers\n" "%(flows)d flows\n" % count
-        )
+        out.write("%(clients)d clients\n%(servers)d servers\n%(flows)d flows\n" % count)
 
     elif args.top:
         top = db.flow.topvalues(

@@ -60,7 +60,7 @@ def main() -> None:
     parser.add_argument(
         "--no-screenshots",
         action="store_true",
-        help="When used with --json, do not output " "screenshots data.",
+        help="When used with --json, do not output screenshots data.",
     )
     parser.add_argument(
         "--honeyd", action="store_true", help="Output results as a honeyd config file."
@@ -93,7 +93,7 @@ def main() -> None:
         parser.add_argument(
             "--graphroute-dont-reset",
             action="store_true",
-            help="Do NOT reset graph (only for " "--graphroute rtgraph3d)",
+            help="Do NOT reset graph (only for --graphroute rtgraph3d)",
         )
     parser.add_argument(
         "--graphroute-include",
@@ -123,12 +123,12 @@ def main() -> None:
     parser.add_argument(
         "--csv-add-infos",
         action="store_true",
-        help="Include country_code and as_number" "fields to CSV file",
+        help="Include country_code and as_numberfields to CSV file",
     )
     parser.add_argument(
         "--csv-na-str",
         default="NA",
-        help='String to use for "Not Applicable" value ' '(defaults to "NA")',
+        help='String to use for "Not Applicable" value (defaults to "NA")',
     )
 
     args = parser.parse_args()
@@ -151,7 +151,7 @@ def main() -> None:
         sys.exit(0)
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
-            sys.stdout.write("This will lock your database. " "Process ? [y/N] ")
+            sys.stdout.write("This will lock your database. Process ? [y/N] ")
             ans = input()
             if ans.lower() != "y":
                 sys.exit(-1)

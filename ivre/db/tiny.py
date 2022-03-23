@@ -1128,7 +1128,7 @@ class TinyDBActive(TinyDB, DBActive):
             & (q.service_product == "Boa HTTPd")
             & (
                 q.service_version.search(
-                    "^0\\.9(3([^0-9]|$)|" "4\\.([0-9]|0[0-9]|" "1[0-1])([^0-9]|$))"
+                    "^0\\.9(3([^0-9]|$)|4\\.([0-9]|0[0-9]|1[0-1])([^0-9]|$))"
                 )
             )
         )
@@ -3191,7 +3191,7 @@ class TinyDBPassive(TinyDB, DBPassive):
 
         """
         if protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         if state != "open":
             raise ValueError("Only open ports can be found in passive")
         if neg:
@@ -3211,7 +3211,7 @@ class TinyDBPassive(TinyDB, DBPassive):
         if port is not None:
             flt &= q.port == port
         if protocol is not None and protocol != "tcp":
-            raise ValueError("Protocols other than TCP are not supported " "in passive")
+            raise ValueError("Protocols other than TCP are not supported in passive")
         return flt
 
     @classmethod
@@ -3251,7 +3251,7 @@ class TinyDBPassive(TinyDB, DBPassive):
         if protocol is not None:
             if protocol != "tcp":
                 raise ValueError(
-                    "Protocols other than TCP are not supported " "in passive"
+                    "Protocols other than TCP are not supported in passive"
                 )
         return cls.flt_and(*res)
 
@@ -3277,7 +3277,7 @@ class TinyDBPassive(TinyDB, DBPassive):
     def searchuseragent(cls, useragent=None, neg=False):
         if neg:
             raise ValueError(
-                "searchuseragent([...], neg=True) is not " "supported in passive DB."
+                "searchuseragent([...], neg=True) is not supported in passive DB."
             )
         q = Query()
         res = (q.recontype == "HTTP_CLIENT_HEADER") & (q.source == "USER-AGENT")

@@ -52,7 +52,7 @@ application = Bottle()
 
 
 def check_referer(func):
-    """ "Wrapper for route functions to implement a basic anti-CSRF check
+    """Wrapper for route functions to implement a basic anti-CSRF check
     based on the Referer: header.
 
         It will abort (status code 400) if the referer is invalid.
