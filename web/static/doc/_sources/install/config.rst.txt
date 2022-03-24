@@ -143,6 +143,24 @@ normally on one single line):
             --script '(default or discovery or auth or brute or exploit or
             intrusive) and not (broadcast or external)'
 
+Masscan probes
+--------------
+
+IVRE can use the service fingerprint database from Nmap to find
+service and product names from Masscan results. For that, IVRE needs
+to know which probe (or "hello string") has been used. This depends on
+Masscan source code (compile-time) and options (run-time). You can
+adjust what IVRE will use per port (from the configuration) or
+globally (from the command-line option).
+
+The default congiguration value is based on the Masscan fork of the
+IVRE project.
+
+.. literalinclude:: ../../ivre/config.py
+   :start-after: Begin Masscan probes
+   :end-before: End Masscan probes
+
+
 The ``flow`` purpose
 --------------------
 

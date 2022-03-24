@@ -98,6 +98,82 @@ NMAP_SCAN_TEMPLATES: Dict[str, NmapScanTemplate] = {
 }
 # End default Nmap scan template
 
+# Begin Masscan probes
+
+# Based on IVRE's fork source code --- you may want to adapt these
+# settings if you use another version of Masscan.
+MASSCAN_PROBES = {
+    "tcp": {
+        53: "DNSVersionBindReqTCP",
+        88: "Kerberos",
+        104: "dicom",
+        111: "RPCCheck",
+        130: "NotesRPC",
+        135: "DNSVersionBindReqTCP",
+        256: "LDAPSearchReq",
+        257: "LDAPSearchReq",
+        389: "LDAPSearchReq",
+        390: "LDAPSearchReq",
+        406: "SIPOptions",
+        427: "NotesRPC",
+        548: "afp",
+        554: "RTSPRequest",
+        1098: "JavaRMI",
+        1099: "JavaRMI",
+        1352: "NotesRPC",
+        1433: "ms-sql-s",
+        1702: "LDAPSearchReq",
+        1972: "NotesRPC",
+        2049: "RPCCheck",
+        2345: "dicom",
+        2375: "docker",
+        2379: "docker",
+        2380: "docker",
+        2761: "dicom",
+        2762: "dicom",
+        3268: "LDAPSearchReq",
+        3892: "LDAPSearchReq",
+        4242: "dicom",
+        5060: "SIPOptions",
+        6000: "X11Probe",
+        6001: "X11Probe",
+        6002: "X11Probe",
+        6003: "X11Probe",
+        6004: "X11Probe",
+        6005: "X11Probe",
+        6006: "X11Probe",
+        6007: "X11Probe",
+        6008: "X11Probe",
+        6009: "X11Probe",
+        6010: "X11Probe",
+        6011: "X11Probe",
+        6012: "X11Probe",
+        6013: "X11Probe",
+        6014: "X11Probe",
+        6015: "X11Probe",
+        6016: "X11Probe",
+        6017: "X11Probe",
+        6018: "X11Probe",
+        6019: "X11Probe",
+        6379: "redis-server",
+        7171: "NotesRPC",
+        8081: "SIPOptions",
+        8554: "RTSPRequest",
+        8728: "NotesRPC",
+        9001: "mongodb",
+        11112: "dicom",
+        11711: "LDAPSearchReq",
+        22001: "NotesRPC",
+        27017: "mongodb",
+        31337: "SIPOptions",
+        49153: "mongodb",
+        50000: "DNSVersionBindReqTCP",
+        50001: "DNSVersionBindReqTCP",
+        50002: "DNSVersionBindReqTCP",
+    },
+}
+# End Masscan probes
+
 # Begin DNSBL
 # Domains used for DNS blacklists (RFC 5782)
 DNS_BLACKLIST_DOMAINS = set(
