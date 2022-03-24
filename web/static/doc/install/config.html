@@ -53,6 +53,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#databases">Databases</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#paths-and-commands">Paths and commands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#nmap-scan-templates">Nmap scan templates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#masscan-probes">Masscan probes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-flow-purpose">The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-data-purpose">The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#web-server">Web server</a><ul>
@@ -253,6 +254,92 @@ Command line to run a scan with template aggressive
     nmap -A -PS -PE -sS -vv --host-timeout 30m --script-timeout 5m
          --script &#39;(default or discovery or auth or brute or exploit or
          intrusive) and not (broadcast or external)&#39;
+</pre></div>
+</div>
+</section>
+<section id="masscan-probes">
+<h2>Masscan probes<a class="headerlink" href="#masscan-probes" title="Permalink to this headline"></a></h2>
+<p>IVRE can use the service fingerprint database from Nmap to find
+service and product names from Masscan results. For that, IVRE needs
+to know which probe (or “hello string”) has been used. This depends on
+Masscan source code (compile-time) and options (run-time). You can
+adjust what IVRE will use per port (from the configuration) or
+globally (from the command-line option).</p>
+<p>The default congiguration value is based on the Masscan fork of the
+IVRE project.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+<span class="c1"># Based on IVRE&#39;s fork source code --- you may want to adapt these</span>
+<span class="c1"># settings if you use another version of Masscan.</span>
+<span class="n">MASSCAN_PROBES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;tcp&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="mi">53</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+        <span class="mi">88</span><span class="p">:</span> <span class="s2">&quot;Kerberos&quot;</span><span class="p">,</span>
+        <span class="mi">104</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">111</span><span class="p">:</span> <span class="s2">&quot;RPCCheck&quot;</span><span class="p">,</span>
+        <span class="mi">130</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">135</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+        <span class="mi">256</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">257</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">389</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">390</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">406</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
+        <span class="mi">427</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">548</span><span class="p">:</span> <span class="s2">&quot;afp&quot;</span><span class="p">,</span>
+        <span class="mi">554</span><span class="p">:</span> <span class="s2">&quot;RTSPRequest&quot;</span><span class="p">,</span>
+        <span class="mi">1098</span><span class="p">:</span> <span class="s2">&quot;JavaRMI&quot;</span><span class="p">,</span>
+        <span class="mi">1099</span><span class="p">:</span> <span class="s2">&quot;JavaRMI&quot;</span><span class="p">,</span>
+        <span class="mi">1352</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">1433</span><span class="p">:</span> <span class="s2">&quot;ms-sql-s&quot;</span><span class="p">,</span>
+        <span class="mi">1702</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">1972</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">2049</span><span class="p">:</span> <span class="s2">&quot;RPCCheck&quot;</span><span class="p">,</span>
+        <span class="mi">2345</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">2375</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+        <span class="mi">2379</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+        <span class="mi">2380</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+        <span class="mi">2761</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">2762</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">3268</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">3892</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">4242</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">5060</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
+        <span class="mi">6000</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6001</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6002</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6003</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6004</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6005</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6006</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6007</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6008</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6009</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6010</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6011</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6012</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6013</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6014</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6015</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6016</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6017</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6018</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6019</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
+        <span class="mi">6379</span><span class="p">:</span> <span class="s2">&quot;redis-server&quot;</span><span class="p">,</span>
+        <span class="mi">7171</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">8081</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
+        <span class="mi">8554</span><span class="p">:</span> <span class="s2">&quot;RTSPRequest&quot;</span><span class="p">,</span>
+        <span class="mi">8728</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">9001</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
+        <span class="mi">11112</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
+        <span class="mi">11711</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
+        <span class="mi">22001</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
+        <span class="mi">27017</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
+        <span class="mi">31337</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
+        <span class="mi">49153</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
+        <span class="mi">50000</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+        <span class="mi">50001</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+        <span class="mi">50002</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </section>

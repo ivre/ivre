@@ -47,6 +47,7 @@ from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
 from ivre.types import ParsedCertificate, NmapServiceMatch
 from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
+from ivre.config import MASSCAN_PROBES
 
 
 SCHEMA_VERSION = 21
@@ -1731,7 +1732,7 @@ class NmapHandler(ContentHandler):
         self._filehash = filehash
         self.scanner = "nmap"
         self.scan_doc_saved = False
-        self.masscan_probes = [] if masscan_probes is None else masscan_probes
+        self.masscan_probes = masscan_probes or []
         utils.LOGGER.debug("READING %r (%r)", fname, self._filehash)
 
     @staticmethod
@@ -2160,7 +2161,14 @@ class NmapHandler(ContentHandler):
                     self._curport["service_tunnel"] = "ssl"
                 self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
-                probes = self.masscan_probes[:]
+                probe_port = MASSCAN_PROBES.get(self._curport["protocol"], {}).get(
+                    self._curport["port"]
+                )
+                if probe_port:
+                    probes = [probe_port]
+                else:
+                    probes = []
+                probes.extend(self.masscan_probes)
                 probes.extend(
                     MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(
                         self._curport["protocol"], {}
