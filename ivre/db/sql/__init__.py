@@ -1559,8 +1559,8 @@ class SQLDBActive(SQLDB, DBActive):
             req = req.limit(limit)
         return req
 
-    def get(self, flt, limit=None, skip=None, sort=None, fields=None):
-        req = self._get(flt, limit=limit, skip=skip, sort=sort, fields=fields)
+    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+        req = self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields)
         for scanrec in self.db.execute(req):
             rec = {}
             (
@@ -2816,12 +2816,12 @@ class SQLDBPassive(SQLDB, DBPassive):
             req = req.limit(limit)
         return req
 
-    def get(self, flt, limit=None, skip=None, sort=None, fields=None):
-        """Queries the passive database with the provided filter "flt", and
+    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+        """Queries the passive database with the provided filter "spec", and
         returns a generator.
 
         """
-        req = self._get(flt, limit=limit, skip=skip, sort=sort, fields=fields)
+        req = self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields)
         for rec in self.db.execute(req):
             rec = dict((key, value) for key, value in rec.items() if value is not None)
             try:

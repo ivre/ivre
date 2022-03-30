@@ -5732,7 +5732,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             # Raised when executing an empty bulk
             pass
 
-    def get(self, flt, skip=None, limit=None, orderby=None, fields=None):
+    def get(self, spec, skip=None, limit=None, orderby=None, fields=None):
         """
         Returns an iterator over flows honoring the given filter
         with the given options.
@@ -5754,7 +5754,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             raise ValueError("Unsupported orderby (should be 'src', 'dst' or 'flow')")
         for f in self._get_cursor(
             self.columns[self.column_flow],
-            flt,
+            spec,
             limit=(limit or 0),
             skip=(skip or 0),
             sort=sort,
@@ -6015,9 +6015,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             # Format collected results in a set of tuples to avoid duplicates
             if ext_entry:
                 # Transforms collected list fields in tuples
-                for key in ext_entry:
+                for key in list(ext_entry):
                     ext_entry[key] = [
-                        elt if not isinstance(elt, list) else tuple(elt)
+                        tuple(elt) if isinstance(elt, list) else elt
                         for elt in ext_entry[key]
                     ]
                 # This keeps the order of collected fields
