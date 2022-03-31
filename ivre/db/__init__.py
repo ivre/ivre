@@ -3282,6 +3282,22 @@ class DBNmap(DBActive):
                         if not host["cpes"]:
                             del host["cpes"]
                         port.update(nmap_info)
+                        banner = "".join(
+                            chr(d)
+                            if 32 <= d <= 126 or d in {9, 10, 13}
+                            else "\\x%02x" % d
+                            for d in raw_output
+                        )
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "banner",
+                                "output": banner,
+                                "masscan": {
+                                    "raw": utils.encode_b64(raw_output).decode(),
+                                    "encoded": banner,
+                                },
+                            }
+                        )
                 # remaining fields / TODO:
                 # data
                 # os
