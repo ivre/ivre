@@ -54,6 +54,7 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
+from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
     merge_host_docs,
@@ -2123,7 +2124,9 @@ class DBNmap(DBActive):
                     firstres = json.loads(firstres)
                 except json.decoder.JSONDecodeError:
                     raise ValueError("Unknown file type %s" % fname)
-                if "addr" in firstres:
+                if "_shodan" in firstres:
+                    store_scan_function = self.store_scan_json_shodan
+                elif "addr" in firstres:
                     store_scan_function = self.store_scan_json_ivre
                 elif any(
                     mtch in firstres for mtch in ["matched", "matched-at"]
@@ -3161,6 +3164,168 @@ class DBNmap(DBActive):
                 # so we want to save the scan document
                 if not scan_doc_saved:
                     self.store_scan_doc({"_id": filehash, "scanner": "nuclei"})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_shodan(
+        self,
+        fname,
+        filehash=None,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        add_addr_infos=True,
+        force_info=False,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by Shodan "Download
+        results", displays the parsing result, and return True if
+        everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
+                if rec.get("failed"):
+                    continue
+                port = {
+                    "protocol": rec["transport"],
+                    "port": rec["port"],
+                    "state_state": "open",
+                    "state_reason": "response",
+                }
+                timestamp = rec["timestamp"][:19].replace("T", " ")
+                host = {
+                    "addr": rec["ip_str"],
+                    "state": "up",
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [port],
+                }
+                if "asn" in rec and rec["asn"].startswith("AS"):
+                    host.setdefault("infos", {})["as_num"] = int(rec["asn"][2:])
+                if "isp" in rec:
+                    host.setdefault("infos", {})["as_name"] = rec["isp"]
+                elif "org" in rec:  # TODO: handle org somewhere else
+                    host.setdefault("infos", {})["as_name"] = rec["org"]
+                if "location" in rec:
+                    loc = rec["location"]
+                    for fld in ["country_code", "country_name", "city"]:
+                        if fld in loc:
+                            host.setdefault("infos", {})[fld] = loc[fld]
+                    if loc.get("region_code"):
+                        host.setdefault("infos", {})["region_code"] = [
+                            loc["region_code"]
+                        ]
+                    if loc.get("longitude") and loc.get("latitude"):
+                        host.setdefault("infos", {})["coordinates"] = [
+                            loc["latitude"],
+                            loc["longitude"],
+                        ]
+                for hname in rec.get("hostnames", []):
+                    host.setdefault("hostnames", []).append(
+                        {
+                            "name": hname,
+                            "type": "PTR",  # ?
+                            "domains": list(utils.get_domains(hname)),
+                        }
+                    )
+                # weird / TODO: the service name
+                # (port["service_name"]) has no dedicated field
+                if "product" in rec:
+                    port["service_product"] = rec["product"]
+                if "version" in rec:
+                    port["service_version"] = rec["version"]
+                # TODO: find Nmap equivalent probe based on rec["_shodan"]["module"]
+                if rec.get("opts", {}).get("raw"):
+                    raw_output = utils.decode_hex(rec["opts"]["raw"])
+                    nmap_info = utils.match_nmap_svc_fp(
+                        output=raw_output, proto=port["protocol"]
+                    )
+                    if nmap_info:
+                        try:
+                            del nmap_info["soft"]
+                        except KeyError:
+                            pass
+                        add_cpe_values(
+                            host,
+                            f"ports.port:{rec['port']}",
+                            nmap_info.pop("cpe", []),
+                        )
+                        host["cpes"] = list(host["cpes"].values())
+                        for cpe in host["cpes"]:
+                            cpe["origins"] = sorted(cpe["origins"])
+                        if not host["cpes"]:
+                            del host["cpes"]
+                        port.update(nmap_info)
+                        banner = "".join(
+                            chr(d)
+                            if 32 <= d <= 126 or d in {9, 10, 13}
+                            else "\\x%02x" % d
+                            for d in raw_output
+                        )
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "banner",
+                                "output": banner,
+                                "masscan": {
+                                    "raw": utils.encode_b64(raw_output).decode(),
+                                    "encoded": banner,
+                                },
+                            }
+                        )
+                # remaining fields / TODO:
+                # data
+                # os
+                # _shodan / opts.raw
+                # tags (["cloud"]) / cloud
+                set_auto_tags(host, update_openports=False)
+                set_openports_attribute(host)
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                if (
+                    add_addr_infos
+                    and self.globaldb is not None
+                    and (force_info or "infos" not in host or not host["infos"])
+                ):
+                    host["infos"] = {}
+                    for func in [
+                        self.globaldb.data.country_byip,
+                        self.globaldb.data.as_byip,
+                        self.globaldb.data.location_byip,
+                    ]:
+                        host["infos"].update(func(host["addr"]) or {})
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({"_id": filehash, "scanner": "shodan"})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
