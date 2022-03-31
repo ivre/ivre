@@ -1657,12 +1657,7 @@ def nmap_encode_data(data: bytes) -> str:
 def zeek_encode_data(data: bytes) -> str:
     """Encode binary data (bytes) to a string (str) as Zeek would encode it."""
     return "".join(
-        "\\\\"
-        if d == b"\\"
-        else d.decode()
-        if b" " <= d <= b"~"
-        else "\\x%02x" % ord(d)
-        for d in (data[i : i + 1] for i in range(len(data)))
+        "\\\\" if d == 92 else chr(d) if 32 <= d <= 126 else "\\x%02x" % d for d in data
     )
 
 
