@@ -22,15 +22,10 @@ import hashlib
 from typing import Any, Dict, List, Optional
 
 
-try:
-    from scapy.layers.tls.record import TLS  # type: ignore
-except ImportError:
-    HAS_SCAPY = False
-else:
-    HAS_SCAPY = True
-
-
 from ivre import utils
+
+
+HAS_SCAPY = None
 
 
 # https://tools.ietf.org/html/draft-davidben-tls-grease-01
@@ -55,6 +50,17 @@ GREASE = {
 
 
 def banner2ja3c(banner: bytes) -> Optional[str]:
+    # "lazy" import for scapy, as this import is slow
+    global HAS_SCAPY
+    if HAS_SCAPY is None:
+        try:
+            # noqa: E402
+            # pylint: disable=import-outside-toplevel
+            from scapy.layers.tls.record import TLS  # type: ignore
+        except ImportError:
+            HAS_SCAPY = False
+        else:
+            HAS_SCAPY = True
     if not HAS_SCAPY:
         utils.LOGGER.warning("Scapy not found: cannot parse TLS banners")
         return None
