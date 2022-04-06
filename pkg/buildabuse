@@ -1,0 +1,81 @@
+#! /usr/bin/env python
+
+# This file is part of IVRE.
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+"""This script fetches data from <https://sslbl.abuse.ch/>.
+
+This is used to add tags to IVRE results.
+
+"""
+
+import os
+import sys
+from urllib.request import urlopen
+
+
+URLS = {
+    "CERTIFICATES": ("https://sslbl.abuse.ch/blacklist/sslblacklist.csv", (1, 2)),
+    "JA3": ("https://sslbl.abuse.ch/blacklist/ja3_fingerprints.csv", (0, 3)),
+}
+
+
+def update_file(fname, limit, data):
+    with open(fname) as fdesc:
+        content = fdesc.read().split(limit, 2)
+    with open(fname, "w") as fdesc:
+        fdesc.write(content[0])
+        fdesc.write(limit)
+        fdesc.writelines(f'    "{key}": "{value}",\n' for key, value in sorted(data))
+        fdesc.write(limit)
+        fdesc.write(content[2])
+
+
+def fetch_url(url, key, value):
+    with urlopen(url) as fdesc:
+        for line in fdesc:
+            try:
+                line = line.decode()
+            except UnicodeDecodeError:
+                sys.stderr.write("WARNING: cannot parse line [%r]\n" % line)
+                continue
+            if line.startswith("#"):
+                continue
+            line = line.strip().split(",")
+            try:
+                yield line[key], line[value]
+            except KeyError:
+                sys.stderr.write("WARNING: cannot parse line [%r]\n" % line)
+
+
+def update():
+    for name, (url, (key, value)) in URLS.items():
+        update_file(
+            os.path.join(
+                os.path.dirname(__file__),
+                os.path.pardir,
+                "ivre",
+                "data",
+                "abuse_ch",
+                "sslbl.py",
+            ),
+            f"    # GENERATED_DATA_SSLBL_{name}\n",
+            fetch_url(url, key, value),
+        )
+
+
+if __name__ == "__main__":
+    update()

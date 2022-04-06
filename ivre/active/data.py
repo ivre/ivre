@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, List, Set, Union, c
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
+from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES
 from ivre.types import ParsedCertificate, Tag
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import (
@@ -394,19 +395,13 @@ def gen_auto_tags(
         for script in port.get("scripts", []):
             if script["id"] == "ssl-cert":
                 for cert in script.get("ssl-cert", []):
-                    if (
-                        cert.get("md5") == "950098276a495286eb2a2556fbab6d83"
-                        or cert.get("sha1")
-                        == "6ece5ece4192683d2d84e25b0ba7e04f9cb7eb7c"
-                        or cert.get("sha256")
-                        == "87f2085c32b6a2cc709b365f55873e207a9caa10bffecf2fd16d3cf9d94d390c"
-                    ):
+                    if cert.get("sha1") in SSLBL_CERTIFICATES:
                         yield cast(
                             Tag,
                             dict(
                                 TAG_MALWARE,
                                 info=[
-                                    f"Cobalt Strike Team Server default certificate on port {port['protocol']}/{port['port']}"
+                                    f"{SSLBL_CERTIFICATES[cert['sha1']]} certificate on port {port['protocol']}/{port['port']} (SSL Blacklist by abuse.ch)"
                                 ],
                             ),
                         )
