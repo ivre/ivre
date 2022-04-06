@@ -32,7 +32,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, List, Set, Union, c
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
-from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES
+from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
 from ivre.types import ParsedCertificate, Tag
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import (
@@ -416,6 +416,18 @@ def gen_auto_tags(
                                 TAG_TOR,
                                 info=[
                                     f"TOR certificate on port {port['protocol']}/{port['port']}"
+                                ],
+                            ),
+                        )
+            elif script["id"] == "ssl-ja3-client":
+                for ja3fp in script.get("ssl-ja3-client", []):
+                    if ja3fp.get("md5") in SSLBL_JA3:
+                        yield cast(
+                            Tag,
+                            dict(
+                                TAG_MALWARE,
+                                info=[
+                                    f"{SSLBL_JA3[ja3fp['md5']]} JA3 client fingerprint (SSL Blacklist by abuse.ch)"
                                 ],
                             ),
                         )
