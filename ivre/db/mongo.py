@@ -38,9 +38,9 @@ from urllib.parse import unquote
 import uuid
 
 
-import bson  # type: ignore
-from pymongo.errors import BulkWriteError  # type: ignore
-import pymongo  # type: ignore
+import bson
+from pymongo.errors import BulkWriteError
+import pymongo
 
 try:
     import krbV  # type: ignore
