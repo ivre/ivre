@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ ENV DEBIAN_FRONTEND noninteractive
 # https://docs.mongodb.com/manual/tutorial/install-mongodb-on-debian/
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
-    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add - && \
-    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" > /etc/apt/sources.list.d/mongodb-org-4.4.list && \
+    wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
+    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/5.0 main" > /etc/apt/sources.list.d/mongodb-org-5.0.list && \
     ln -s /bin/true /usr/bin/systemctl && \
     apt-get -q update && apt-get -qy --no-install-recommends install mongodb-org && \
     apt-get -qy --purge autoremove gnupg wget ca-certificates && \
