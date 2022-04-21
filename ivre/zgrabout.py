@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ from ivre.active.cpe import add_cpe_values
 from ivre.active.data import handle_http_headers
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
-from ivre.types.active import HttpHeader, NmapHost, NmapPort
+from ivre.types.active import HttpHeader, NmapHost, NmapPort, NmapScript
 from ivre import utils
 from ivre.xmlnmap import (
     add_cert_hostnames,
@@ -301,12 +301,6 @@ def zgrap_parser_http(
     res["port"] = port
     # Since Zgrab does not preserve the order of the headers, we need
     # to reconstruct a banner to use Nmap fingerprints
-    banner = (
-        utils.nmap_decode_data(resp["protocol"]["name"])
-        + b" "
-        + utils.nmap_decode_data(resp["status_line"])
-        + b"\r\n"
-    )
     if resp.get("headers"):
         headers = resp["headers"]
         # Check the Authenticate header first: if we requested it with
@@ -343,34 +337,72 @@ def zgrap_parser_http(
             for val in req.get("headers", {}).get("authorization", [])
         ):
             return res
-        # the order will be incorrect!
-        line = "%s %s" % (resp["protocol"]["name"], resp["status_line"])
-        http_hdrs: List[HttpHeader] = [{"name": "_status", "value": line}]
-        output_list = [line]
-        for unk in headers.pop("unknown", []):
-            headers[unk["key"]] = unk["value"]
-        for hdr, values in headers.items():
-            hdr = hdr.replace("_", "-")
-            for val in values:
-                http_hdrs.append({"name": hdr, "value": val})
-                output_list.append("%s: %s" % (hdr, val))
+        # If we have headers_raw value, let's use it. Else, let's fake it as well as we can.
+        http_hdrs: List[HttpHeader] = []
+        output_list: List[str] = []
+        has_raw_value = False
+        if resp.get("headers_raw"):
+            try:
+                banner = utils.decode_b64(resp.get("headers_raw").encode())
+            except Exception:
+                utils.LOGGER.warning("Cannot decode raw headers, using parsed result")
+            else:
+                output_list = [
+                    utils.nmap_encode_data(line) for line in re.split(b"\r?\n", banner)
+                ]
+                http_hdrs = [
+                    {
+                        "name": utils.nmap_encode_data(hdrname).lower(),
+                        "value": utils.nmap_encode_data(hdrval),
+                    }
+                    for hdrname, hdrval in (
+                        m.groups()
+                        for m in (
+                            utils.RAW_HTTP_HEADER.search(part.strip())
+                            for part in banner.split(b"\n")
+                        )
+                        if m
+                    )
+                ]
+                has_raw_value = True
+        if not has_raw_value:  # no headers_raw or decoding failed
+            # The order will be incorrect!
+            banner = (
+                utils.nmap_decode_data(resp["protocol"]["name"])
+                + b" "
+                + utils.nmap_decode_data(resp["status_line"])
+                + b"\r\n"
+            )
+            line = "%s %s" % (resp["protocol"]["name"], resp["status_line"])
+            http_hdrs = [{"name": "_status", "value": line}]
+            output_list = [line]
+            for unk in headers.pop("unknown", []):
+                headers[unk["key"]] = unk["value"]
+            for hdr, values in headers.items():
+                hdr = hdr.replace("_", "-")
+                for val in values:
+                    http_hdrs.append({"name": hdr, "value": val})
+                    output_list.append("%s: %s" % (hdr, val))
+            if headers.get("server"):
+                banner += (
+                    b"Server: "
+                    + utils.nmap_decode_data(headers["server"][0])
+                    + b"\r\n\r\n"
+                )
         if http_hdrs:
             method = req.get("method")
             if method:
                 output_list.append("")
                 output_list.append("(Request type: %s)" % method)
-            res.setdefault("scripts", []).append(
-                {
-                    "id": "http-headers",
-                    "output": "\n".join(output_list),
-                    "http-headers": http_hdrs,
-                }
-            )
+            script: NmapScript = {
+                "id": "http-headers",
+                "output": "\n".join(output_list),
+                "http-headers": http_hdrs,
+            }
+            if has_raw_value:
+                script["masscan"] = {"raw": utils.encode_b64(banner).decode()}
+            res.setdefault("scripts", []).append(script)
             handle_http_headers(hostrec, res, http_hdrs, path=url.get("path"))
-        if headers.get("server"):
-            banner += (
-                b"Server: " + utils.nmap_decode_data(headers["server"][0]) + b"\r\n\r\n"
-            )
     info: NmapServiceMatch = utils.match_nmap_svc_fp(
         banner, proto="tcp", probe="GetRequest"
     )
