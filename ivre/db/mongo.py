@@ -2355,6 +2355,8 @@ class MongoDBActive(MongoDB, DBActive):
 
     @staticmethod
     def _datetimevalue2dbrec(value):
+        if isinstance(value, datetime.datetime):
+            return value
         for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"]:
             try:
                 return datetime.datetime.strptime(value, fmt)
