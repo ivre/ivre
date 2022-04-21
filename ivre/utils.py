@@ -175,6 +175,11 @@ IPV4ADDR = re.compile(
 )
 MACADDR = re.compile("^(?:[0-9a-f]{1,2}:){5}[0-9a-f]{1,2}", re.I)
 TORCERT_SUBJECT = re.compile("^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$", flags=0)
+RAW_HTTP_HEADER = re.compile(
+    b"^([!\\#\\$%\\&'\\*\\+\\-\\.\\^_`\\|\\~A-Z0-9]+):[ \\\t]*([^\\\r]*)"
+    b"[ \\\t\\\r]*$",
+    re.I,
+)
 
 NMAP_FINGERPRINT_IVRE_KEY = {
     "d": "service_devicetype",

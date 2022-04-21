@@ -1301,11 +1301,6 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
 
 
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
-_HTTP_HEADER = re.compile(
-    b"^([!\\#\\$%\\&'\\*\\+\\-\\.\\^_`\\|\\~A-Z0-9]+):[ \\\t]*([^\\\r]*)"
-    b"[ \\\t\\\r]*$",
-    re.I,
-)
 
 
 def _masscan_decode_print(match):
@@ -2797,7 +2792,8 @@ class NmapHandler(ContentHandler):
             for hdrname, hdrval in (
                 m.groups()
                 for m in (
-                    _HTTP_HEADER.search(part.strip()) for part in raw.split(b"\n")
+                    utils.RAW_HTTP_HEADER.search(part.strip())
+                    for part in raw.split(b"\n")
                 )
                 if m
             )
