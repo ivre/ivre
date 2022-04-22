@@ -22,22 +22,38 @@ active (nmap & view) purposes.
 """
 
 
+from bisect import bisect_left
 from datetime import datetime
 from itertools import chain
+import os
 import re
 from textwrap import wrap
-from typing import Any, Callable, Dict, Generator, Iterable, List, Set, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 
 from ivre.active.cpe import add_cpe_values
-from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
+from ivre.config import DATA_PATH, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
 from ivre.types import ParsedCertificate, Tag
 from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import (
+    LOGGER,
     TORCERT_SUBJECT,
     get_domains,
+    ip2int,
     key_sort_dom,
     nmap_decode_data,
     nmap_encode_data,
@@ -303,6 +319,7 @@ TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR", "type": "info"}
+TAG_CDN: Tag = {"value": "CDN", "type": "info"}
 TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
 TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
 TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
@@ -328,6 +345,55 @@ _TOR_HTTP_PRODUCTS = {
 }
 
 
+_TOR_NODES: Optional[Set[str]] = None
+_ANSSI_SCANNERS: Optional[Set[str]] = None
+_CDN_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+
+
+def _get_data() -> None:
+    global _TOR_NODES, _ANSSI_SCANNERS, _CDN_TABLE
+    assert DATA_PATH is not None
+    if _TOR_NODES is None:
+        try:
+            with open(os.path.join(DATA_PATH, "tor_exit_nodes.txt")) as fdesc:
+                _TOR_NODES = {line.strip() for line in fdesc}
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [tor_exit_nodes.txt]. Try running `ivre getwebdata`"
+            )
+            _TOR_NODES = set()
+    if _ANSSI_SCANNERS is None:
+        try:
+            with open(os.path.join(DATA_PATH, "ssigouvfr_scanners.txt")) as fdesc:
+                _ANSSI_SCANNERS = {line.strip() for line in fdesc}
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [ssigouvfr_scanners.txt]. Try running `ivre getwebdata`"
+            )
+            _ANSSI_SCANNERS = set()
+    if _CDN_TABLE is None:
+        try:
+            with open(os.path.join(DATA_PATH, "cdn_nuclei.py")) as fdesc:
+                # pylint: disable=eval-used
+                _CDN_TABLE = eval(compile(fdesc.read(), "cdn_nuclei", "eval"))
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [cdn_nuclei.py]. Try running `ivre getwebdata`"
+            )
+            _CDN_TABLE = ([], [])
+
+
+def _get_cdn_name(addr: str) -> Optional[str]:
+    """Devs: please make sure _get_data() has been called before calling me!"""
+    global _CDN_TABLE
+    assert _CDN_TABLE is not None
+    addr_i = ip2int(addr) if ":" in addr else ip2int(f"::ffff:{addr}")
+    try:
+        return _CDN_TABLE[1][bisect_left(_CDN_TABLE[0], addr_i)]
+    except IndexError:
+        return None
+
+
 def gen_auto_tags(
     host: NmapHost, update_openports: bool = True
 ) -> Generator[Tag, None, None]:
@@ -345,6 +411,41 @@ def gen_auto_tags(
     "openports" field is updated unless `update_openports` is False.
 
     """
+    global _TOR_NODES, _ANSSI_SCANNERS
+    _get_data()
+    assert _TOR_NODES is not None
+    assert _ANSSI_SCANNERS is not None
+    addr = host.get("addr")
+    if isinstance(addr, str):
+        if addr in _TOR_NODES:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_TOR,
+                    info=[
+                        "Exit node listed at <https://check.torproject.org/torbulkexitlist>"
+                    ],
+                ),
+            )
+        if addr in _ANSSI_SCANNERS:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_SCANNER,
+                    info=[
+                        "French ANSSI scanner listed at <https://cert.ssi.gouv.fr/scans/>"
+                    ],
+                ),
+            )
+        cdn_name = _get_cdn_name(addr)
+        if cdn_name is not None:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_CDN,
+                    info=[f"{cdn_name} as listed at <https://cdn.nuclei.sh/>"],
+                ),
+            )
     for port in host.get("ports", []):
         if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):
             cur_info = []

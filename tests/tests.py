@@ -844,6 +844,12 @@ class IvreTests(unittest.TestCase):
         # Database tests
         #
 
+        # Fetch data for auto tags
+        res, out, err = RUN(["ivre", "getwebdata"])
+        self.assertEqual(res, 0)
+        self.assertFalse(out, 0)
+        self.assertFalse(err, 0)
+
         # Init DB
         self.init_nmap_db()
 
@@ -4620,13 +4626,6 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         for line in out.splitlines():
             self.assertTrue(isinstance(json.loads(line), dict))
-
-        res, out, _ = RUN(["ivre", "getwebdata"])
-        self.assertEqual(res, 0)
-        for line in out.splitlines():
-            data = json.loads(line)
-            self.assertTrue(isinstance(data, dict))
-            self.assertTrue("tags" in data)
 
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             fdesc.write(b"ivre.rocks\ngithub.com\n::1\n127.0.0.1\nivre.rocks\n")
