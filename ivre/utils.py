@@ -2543,8 +2543,36 @@ def generic_ipaddr_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
             yield from m.groups()
 
 
-def generic_ipaddr_processor(infd: BinaryIO, outfd: BinaryIO) -> None:
+def generic_processor(
+    extractor: Callable[[BinaryIO], Generator[str, None, None]],
+    infd: BinaryIO,
+    outfd: BinaryIO,
+) -> None:
     outfd.writelines(
-        f"{addr}\n".encode()
-        for addr in sorted(generic_ipaddr_extractor(infd), key=key_sort_dom_addr)
+        f"{addr}\n".encode() for addr in sorted(extractor(infd), key=key_sort_dom_addr)
     )
+
+
+def _fix_range(start: str, stop: str, label: str) -> Tuple[int, int, str]:
+    return (
+        ip2int(start) if ":" in start else ip2int(f"::ffff:{start}"),
+        ip2int(stop) if ":" in stop else ip2int(f"::ffff:{stop}"),
+        label,
+    )
+
+
+def make_range_tables(
+    ranges: Iterable[Tuple[str, str, str]]
+) -> List[Tuple[int, Optional[str]]]:
+    ranges_sorted: List[Tuple[int, int, str]] = sorted(
+        (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True
+    )
+    result: List[Tuple[int, Optional[str]]] = []
+    prev = 0
+    while ranges_sorted:
+        start, stop, label = ranges_sorted.pop()
+        if start > prev:
+            result.append((start - 1, None))
+        result.append((stop, label))
+        prev = stop
+    return result

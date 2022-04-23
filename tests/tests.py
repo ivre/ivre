@@ -845,10 +845,9 @@ class IvreTests(unittest.TestCase):
         #
 
         # Fetch data for auto tags
-        res, out, err = RUN(["ivre", "getwebdata"])
+        res, out, _ = RUN(["ivre", "getwebdata"])
         self.assertEqual(res, 0)
         self.assertFalse(out, 0)
-        self.assertFalse(err, 0)
 
         # Init DB
         self.init_nmap_db()

@@ -55,6 +55,8 @@ from ivre.utils import (
     get_domains,
     ip2int,
     key_sort_dom,
+    make_range_tables,
+    net2range,
     nmap_decode_data,
     nmap_encode_data,
     ports2nmapspec,
@@ -346,12 +348,12 @@ _TOR_HTTP_PRODUCTS = {
 
 
 _TOR_NODES: Optional[Set[str]] = None
-_ANSSI_SCANNERS: Optional[Set[str]] = None
 _CDN_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+_SCANNERS_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
 
 
 def _get_data() -> None:
-    global _TOR_NODES, _ANSSI_SCANNERS, _CDN_TABLE
+    global _TOR_NODES, _SCANNERS_TABLE, _CDN_TABLE
     assert DATA_PATH is not None
     if _TOR_NODES is None:
         try:
@@ -362,15 +364,29 @@ def _get_data() -> None:
                 "Cannot find file [tor_exit_nodes.txt]. Try running `ivre getwebdata`"
             )
             _TOR_NODES = set()
-    if _ANSSI_SCANNERS is None:
+    if _SCANNERS_TABLE is None:
+        ranges: List[Tuple[str, str, str]] = []
         try:
             with open(os.path.join(DATA_PATH, "ssigouvfr_scanners.txt")) as fdesc:
-                _ANSSI_SCANNERS = {line.strip() for line in fdesc}
+                ranges.extend(
+                    (addr, addr, "ANSSI") for addr in (line.strip() for line in fdesc)
+                )
         except FileNotFoundError:
             LOGGER.warning(
                 "Cannot find file [ssigouvfr_scanners.txt]. Try running `ivre getwebdata`"
             )
-            _ANSSI_SCANNERS = set()
+        try:
+            with open(os.path.join(DATA_PATH, "censys_scanners.txt")) as fdesc:
+                ranges.extend(net2range(line.strip()) + ("Censys",) for line in fdesc)
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [censys_scanners.txt]. Try running `ivre getwebdata`"
+            )
+        parsed_ranges = make_range_tables(ranges)
+        _SCANNERS_TABLE = (
+            [elt[0] for elt in parsed_ranges],
+            [elt[1] for elt in parsed_ranges],
+        )
     if _CDN_TABLE is None:
         try:
             with open(os.path.join(DATA_PATH, "cdn_nuclei.py")) as fdesc:
@@ -383,13 +399,11 @@ def _get_data() -> None:
             _CDN_TABLE = ([], [])
 
 
-def _get_cdn_name(addr: str) -> Optional[str]:
+def _get_name(table: Tuple[List[int], List[Optional[str]]], addr: str) -> Optional[str]:
     """Devs: please make sure _get_data() has been called before calling me!"""
-    global _CDN_TABLE
-    assert _CDN_TABLE is not None
     addr_i = ip2int(addr) if ":" in addr else ip2int(f"::ffff:{addr}")
     try:
-        return _CDN_TABLE[1][bisect_left(_CDN_TABLE[0], addr_i)]
+        return table[1][bisect_left(table[0], addr_i)]
     except IndexError:
         return None
 
@@ -411,10 +425,11 @@ def gen_auto_tags(
     "openports" field is updated unless `update_openports` is False.
 
     """
-    global _TOR_NODES, _ANSSI_SCANNERS
+    global _TOR_NODES, _SCANNERS_TABLE, _CDN_TABLE
     _get_data()
     assert _TOR_NODES is not None
-    assert _ANSSI_SCANNERS is not None
+    assert _SCANNERS_TABLE is not None
+    assert _CDN_TABLE is not None
     addr = host.get("addr")
     if isinstance(addr, str):
         if addr in _TOR_NODES:
@@ -427,23 +442,32 @@ def gen_auto_tags(
                     ],
                 ),
             )
-        if addr in _ANSSI_SCANNERS:
-            yield cast(
-                Tag,
-                dict(
-                    TAG_SCANNER,
-                    info=[
-                        "French ANSSI scanner listed at <https://cert.ssi.gouv.fr/scans/>"
-                    ],
-                ),
-            )
-        cdn_name = _get_cdn_name(addr)
+        cdn_name = _get_name(_CDN_TABLE, addr)
         if cdn_name is not None:
             yield cast(
                 Tag,
                 dict(
                     TAG_CDN,
                     info=[f"{cdn_name} as listed at <https://cdn.nuclei.sh/>"],
+                ),
+            )
+        scanner_name = _get_name(_SCANNERS_TABLE, addr)
+        if scanner_name is not None:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_SCANNER,
+                    info=[f"Listed as a {scanner_name} scanner"],
+                ),
+            )
+    for hname in host.get("hostnames", []):
+        name = hname["name"]
+        if name.endswith(".shodan.io") and "census" in name:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_SCANNER,
+                    info=[f"Hostname {name} suggests a Shodan scanner"],
                 ),
             )
     for port in host.get("ports", []):
