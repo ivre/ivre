@@ -63,7 +63,9 @@ from typing import (
     Union,
     cast,
 )
+from urllib.error import HTTPError
 from urllib.parse import urlparse
+from urllib.request import build_opener
 
 
 try:
@@ -82,6 +84,7 @@ else:
     USE_PIL = True
 
 
+from ivre import VERSION
 from ivre import config
 from ivre.types import NmapProbe, NmapProbeRec, NmapServiceMatch, Record
 
@@ -2480,3 +2483,68 @@ def key_sort_dom_addr(value: str) -> List[str]:
         # IPv4 addresses before IPv6
         return ["00000000000000000000000000000000%08x" % ip2int(value)]
     return value.strip().split(".")[::-1]
+
+
+def download_if_newer(
+    url: str,
+    outfile: str,
+    processor: Optional[Callable[[BinaryIO, BinaryIO], None]] = None,
+) -> bool:
+    """Fetches `url` to `outfile`, if the source is newer than `outfile`,
+    using an If-Modified-Since: header.
+
+    Return True if the file has been downloaded, False otherwise.
+
+    """
+    if processor is None:
+        processor = shutil.copyfileobj
+    opener = build_opener()
+    opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
+    try:
+        outstat = os.stat(outfile)
+    except FileNotFoundError:
+        pass
+    else:
+        opener.addheaders.append(
+            (
+                "If-Modified-Since",
+                time.strftime(
+                    "%a, %d %b %Y %H:%M:%S GMT", time.gmtime(outstat.st_mtime)
+                ),
+            )
+        )
+    try:
+        with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
+            processor(udesc, wdesc)
+    except HTTPError as exc:
+        if exc.status == 304:
+            LOGGER.debug("Won't download %s: our copy is up-to-date", url)
+            return False
+        LOGGER.error("Cannot download %s [%s]", url, exc)
+        try:
+            os.unlink(outfile)
+        except FileNotFoundError:
+            pass
+        raise
+    except Exception as exc:
+        LOGGER.error("Error processing %s [%s]", url, exc)
+        try:
+            os.unlink(outfile)
+        except FileNotFoundError:
+            pass
+        raise
+    return True
+
+
+def generic_ipaddr_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
+    expr = re.compile(f"(?:^|\\W){IPADDR.pattern[1:-1]}(?:$|\\W)")
+    for line in fdesc:
+        for m in expr.finditer(line.decode()):
+            yield from m.groups()
+
+
+def generic_ipaddr_processor(infd: BinaryIO, outfd: BinaryIO) -> None:
+    outfd.writelines(
+        f"{addr}\n".encode()
+        for addr in sorted(generic_ipaddr_extractor(infd), key=key_sort_dom_addr)
+    )
