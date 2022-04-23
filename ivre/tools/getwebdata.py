@@ -32,38 +32,22 @@ data files to add tags to scan results. For now, the following lists are used:
 
 
 import argparse
+import functools
 import json
 import os
-from typing import BinaryIO, Iterable, List, Optional, Tuple, cast
+import re
+from typing import BinaryIO, Callable, Generator, List, Tuple, cast
 
 
 from ivre import config
-from ivre.utils import download_if_newer, generic_ipaddr_processor, ip2int, net2range
-
-
-def _fix_range(start: str, stop: str, label: str) -> Tuple[int, int, str]:
-    return (
-        ip2int(start) if ":" in start else ip2int(f"::ffff:{start}"),
-        ip2int(stop) if ":" in stop else ip2int(f"::ffff:{stop}"),
-        label,
-    )
-
-
-def make_range_tables(
-    ranges: Iterable[Tuple[str, str, str]]
-) -> List[Tuple[int, Optional[str]]]:
-    ranges_sorted: List[Tuple[int, int, str]] = sorted(
-        (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True
-    )
-    result: List[Tuple[int, Optional[str]]] = []
-    prev = 0
-    while ranges_sorted:
-        start, stop, label = ranges_sorted.pop()
-        if start > prev:
-            result.append((start - 1, None))
-        result.append((stop, label))
-        prev = stop
-    return result
+from ivre.utils import (
+    IPADDR,
+    download_if_newer,
+    generic_ipaddr_extractor,
+    generic_processor,
+    make_range_tables,
+    net2range,
+)
 
 
 def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
@@ -81,22 +65,50 @@ def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
     outfd.write(b"    ),\n]\n")
 
 
+def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
+    expr = re.compile(f"<code>{IPADDR.pattern[1:-1]}(/[0-9]+)?</code>")
+    for line in fdesc:
+        for m in expr.finditer(line.decode()):
+            addr, mask = m.groups()
+            if mask is None:
+                if ":" in addr:
+                    yield f"{addr}/128"
+                else:
+                    yield f"{addr}/32"
+            else:
+                yield f"{addr}{mask}"
+
+
+assert config.DATA_PATH is not None
+URLS: List[Tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
+    (
+        "https://cdn.nuclei.sh/",
+        os.path.join(config.DATA_PATH, "cdn_nuclei.py"),
+        cdnjson2table,
+    ),
+    (
+        "https://check.torproject.org/torbulkexitlist",
+        os.path.join(config.DATA_PATH, "tor_exit_nodes.txt"),
+        functools.partial(generic_processor, generic_ipaddr_extractor),
+    ),
+    (
+        "https://cert.ssi.gouv.fr/scans/",
+        os.path.join(config.DATA_PATH, "ssigouvfr_scanners.txt"),
+        functools.partial(generic_processor, generic_ipaddr_extractor),
+    ),
+    (
+        "https://support.censys.io/hc/en-us/articles/360043177092-from-faq",
+        os.path.join(config.DATA_PATH, "censys_scanners.txt"),
+        functools.partial(generic_processor, censys_net_extractor),
+    ),
+]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
-    assert config.DATA_PATH is not None
-    download_if_newer(
-        "https://cdn.nuclei.sh/",
-        os.path.join(config.DATA_PATH, "cdn_nuclei.py"),
-        processor=cdnjson2table,
-    )
-    download_if_newer(
-        "https://check.torproject.org/torbulkexitlist",
-        os.path.join(config.DATA_PATH, "tor_exit_nodes.txt"),
-        processor=generic_ipaddr_processor,
-    )
-    download_if_newer(
-        "https://cert.ssi.gouv.fr/scans/",
-        os.path.join(config.DATA_PATH, "ssigouvfr_scanners.txt"),
-        processor=generic_ipaddr_processor,
-    )
+    for url, fname, processor in URLS:
+        try:
+            download_if_newer(url, fname, processor=processor)
+        except Exception:
+            pass
