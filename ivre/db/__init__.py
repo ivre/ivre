@@ -61,6 +61,7 @@ from ivre.active.data import (
     set_auto_tags,
     set_openports_attribute,
 )
+from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -2996,6 +2997,49 @@ class DBNmap(DBActive):
                             ],
                         }
                     )
+                if rec["template"] == "microsoft-exchange-server-detect":
+                    path = urlparse(url).path[:-15]
+                    version_list = rec.get("extracted-results") or []
+                    if version_list:
+                        parsed_version = EXCHANGE_BUILDS.get(
+                            version_list[0], "unknown build number"
+                        )
+                        if len(version_list) > 1:
+                            version_list = [
+                                "%s (%s)"
+                                % (
+                                    vers,
+                                    EXCHANGE_BUILDS.get(vers, "unknown build number"),
+                                )
+                                for vers in version_list
+                            ]
+                            output = (
+                                "OWA: path %s, version %s (multiple versions found!)"
+                                % (
+                                    path,
+                                    " / ".join(version_list),
+                                )
+                            )
+                        else:
+                            output = "OWA: path %s, version %s (%s)" % (
+                                path,
+                                version_list[0],
+                                parsed_version,
+                            )
+                        scripts.append(
+                            {
+                                "id": "http-app",
+                                "output": output,
+                                "http-app": [
+                                    {
+                                        "path": path,
+                                        "application": "OWA",
+                                        "version": version_list[0],
+                                        "parsed_version": parsed_version,
+                                    }
+                                ],
+                            }
+                        )
                 port = {
                     "protocol": "tcp",
                     "port": port,
