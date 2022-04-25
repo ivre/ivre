@@ -205,20 +205,20 @@ def zgrap_parser_http(
                         version_list[0],
                         parsed_version,
                     )
-            res.setdefault("scripts", []).append(
-                {
-                    "id": "http-app",
-                    "output": output,
-                    "http-app": [
-                        {
-                            "path": path,
-                            "application": "OWA",
-                            "version": version_list[0],
-                            "parsed_version": parsed_version,
-                        }
-                    ],
-                }
-            )
+                res.setdefault("scripts", []).append(
+                    {
+                        "id": "http-app",
+                        "output": output,
+                        "http-app": [
+                            {
+                                "path": path,
+                                "application": "OWA",
+                                "version": version_list[0],
+                                "parsed_version": parsed_version,
+                            }
+                        ],
+                    }
+                )
             return res
         if url.get("path").endswith("/centreon/"):
             if resp.get("status_code") != 200:
