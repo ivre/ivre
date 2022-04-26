@@ -3018,6 +3018,10 @@ class DBNmap(DBActive):
                 elif rec["template"] == "microsoft-exchange-server-detect":
                     path = urlparse(url).path[:-15]
                     version_list = rec.get("extracted-results") or []
+                    structured = {
+                        "path": path,
+                        "application": "OWA",
+                    }
                     if version_list:
                         parsed_version = EXCHANGE_BUILDS.get(
                             version_list[0], "unknown build number"
@@ -3044,20 +3048,13 @@ class DBNmap(DBActive):
                                 version_list[0],
                                 parsed_version,
                             )
-                        scripts.append(
-                            {
-                                "id": "http-app",
-                                "output": output,
-                                "http-app": [
-                                    {
-                                        "path": path,
-                                        "application": "OWA",
-                                        "version": version_list[0],
-                                        "parsed_version": parsed_version,
-                                    }
-                                ],
-                            }
-                        )
+                        structured["version"] = version_list[0]
+                        structured["parsed_version"] = parsed_version
+                    else:
+                        output = f"OWA: path {path}"
+                    scripts.append(
+                        {"id": "http-app", "output": output, "http-app": [structured]}
+                    )
                 elif rec["template"] == "microsoft-sharepoint-detect":
                     path = urlparse(url).path
                     version_list = rec.get("extracted-results") or []
