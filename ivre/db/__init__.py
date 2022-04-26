@@ -2982,6 +2982,24 @@ class DBNmap(DBActive):
                         ],
                     },
                 ]
+                port_doc = {
+                    "protocol": "tcp",
+                    "port": port,
+                    "state_state": "open",
+                    "state_reason": "response",
+                    "service_name": "http",
+                    "service_method": "probed",
+                    "scripts": scripts,
+                }
+                if is_ssl:
+                    port_doc["service_tunnel"] = "ssl"
+                host = {
+                    "addr": addr,
+                    "state": "up",
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "ports": [port_doc],
+                }
                 if rec["template"] == "git-config":
                     repository = "%s:%d%s" % (addr, port, urlparse(url).path[:-6])
                     scripts.append(
@@ -2997,7 +3015,7 @@ class DBNmap(DBActive):
                             ],
                         }
                     )
-                if rec["template"] == "microsoft-exchange-server-detect":
+                elif rec["template"] == "microsoft-exchange-server-detect":
                     path = urlparse(url).path[:-15]
                     version_list = rec.get("extracted-results") or []
                     if version_list:
@@ -3040,24 +3058,32 @@ class DBNmap(DBActive):
                                 ],
                             }
                         )
-                port = {
-                    "protocol": "tcp",
-                    "port": port,
-                    "state_state": "open",
-                    "state_reason": "response",
-                    "service_name": "http",
-                    "service_method": "probed",
-                    "scripts": scripts,
-                }
-                if is_ssl:
-                    port["service_tunnel"] = "ssl"
-                host = {
-                    "addr": addr,
-                    "state": "up",
-                    "scanid": filehash,
-                    "schema_version": xmlnmap.SCHEMA_VERSION,
-                    "ports": [port],
-                }
+                elif rec["template"] == "microsoft-sharepoint-detect":
+                    path = urlparse(url).path
+                    version_list = rec.get("extracted-results") or []
+                    structured = {"application": "SharePoint", "path": path}
+                    if version_list:
+                        version = version_list[0]
+                        output = f"SharePoint: path {path}, version {version}"
+                        structured["version"] = version
+                        cpeval = f"cpe:/a:microsoft:sharepoint_server:{version}"
+                    else:
+                        output = f"SharePoint: path {path}"
+                        cpeval = "cpe:/a:microsoft:sharepoint_server"
+                    add_cpe_values(host, f"ports.port:{port}", [cpeval])
+                    scripts.append(
+                        {
+                            "id": "http-app",
+                            "output": output,
+                            "http-app": [structured],
+                        }
+                    )
+                if "cpes" in host:
+                    host["cpes"] = list(host["cpes"].values())
+                    for cpe in host["cpes"]:
+                        cpe["origins"] = sorted(cpe["origins"])
+                    if not host["cpes"]:
+                        del host["cpes"]
                 if "timestamp" in rec:
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
                         "T", " "
