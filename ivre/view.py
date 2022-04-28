@@ -26,12 +26,17 @@ import struct
 
 
 from ivre.active.cpe import add_cpe_values
-from ivre.active.data import create_ssl_output, set_auto_tags, set_openports_attribute
+from ivre.active.data import (
+    add_hostname,
+    create_ssl_output,
+    set_auto_tags,
+    set_openports_attribute,
+)
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, add_hostname
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
