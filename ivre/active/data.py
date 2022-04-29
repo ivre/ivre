@@ -1567,3 +1567,48 @@ def handle_http_headers(
             port.setdefault("scripts", []).append(script)
         else:
             merge_http_app_scripts(cur_script, script, "http-app")
+    # * Add a script "http-app" for Kibana, and merge it if necessary
+    try:
+        header = next(
+            h["value"] for h in headers if h["name"] == "kbn-name" and h["value"]
+        )
+    except StopIteration:
+        pass
+    else:
+        try:
+            location = next(
+                h["value"] for h in headers if h["name"] == "location" and h["value"]
+            )
+        except StopIteration:
+            path_k = path
+        else:
+            path_k = os.path.join(path, location)
+        structured = {"path": path_k, "application": "Kibana"}
+        try:
+            version = next(
+                h["value"] for h in headers if h["name"] == "kbn-version" and h["value"]
+            )
+        except StopIteration:
+            output = f"Kibana: path {path_k}"
+            add_cpe_values(
+                host,
+                "ports.port:%s" % port.get("port", -1),
+                ["cpe:/a:elasticsearch:kibana"],
+            )
+        else:
+            output = f"Kibana: path {path_k}, version {version}"
+            structured["version"] = version
+            add_cpe_values(
+                host,
+                "ports.port:%s" % port.get("port", -1),
+                [f"cpe:/a:elasticsearch:kibana:{version}"],
+            )
+        script = {"id": "http-app", "output": output, "http-app": [structured]}
+        try:
+            cur_script = next(
+                s for s in port.get("scripts", []) if s["id"] == "http-app"
+            )
+        except StopIteration:
+            port.setdefault("scripts", []).append(script)
+        else:
+            merge_http_app_scripts(cur_script, script, "http-app")
