@@ -344,7 +344,14 @@ def zgrap_parser_http(
                 output_list = [
                     utils.nmap_encode_data(line) for line in re.split(b"\r?\n", banner)
                 ]
+                banner_split = banner.split(b"\n")
                 http_hdrs = [
+                    {
+                        "name": "_status",
+                        "value": utils.nmap_encode_data(banner_split[0].strip()),
+                    }
+                ]
+                http_hdrs.extend(
                     {
                         "name": utils.nmap_encode_data(hdrname).lower(),
                         "value": utils.nmap_encode_data(hdrval),
@@ -353,11 +360,11 @@ def zgrap_parser_http(
                         m.groups()
                         for m in (
                             utils.RAW_HTTP_HEADER.search(part.strip())
-                            for part in banner.split(b"\n")
+                            for part in banner_split
                         )
                         if m
                     )
-                ]
+                )
                 has_raw_value = True
         if not has_raw_value:  # no headers_raw or decoding failed
             # The order will be incorrect!
