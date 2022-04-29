@@ -566,16 +566,28 @@ def gen_auto_tags(
                             ),
                         )
             elif script["id"] == "http-title":
-                if script["output"] == "This is a Tor Exit Router":
-                    yield cast(
-                        Tag,
-                        dict(
-                            TAG_TOR,
-                            info=[
-                                f"TOR exit node notice on port {port['protocol']}/{port['port']}"
-                            ],
-                        ),
-                    )
+                tag = {
+                    "This is a Tor Exit Router": dict(
+                        TAG_TOR,
+                        info=[
+                            f"TOR exit node notice on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                    "This is a SOCKS Proxy, Not An HTTP Proxy": dict(
+                        TAG_TOR,
+                        info=[
+                            f"TOR SOCKS Proxy notice on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                    "This is an HTTP CONNECT tunnel, not a full HTTP Proxy": dict(
+                        TAG_TOR,
+                        info=[
+                            f"TOR HTTP CONNECT tunnel notice on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                }.get(script["output"])
+                if tag is not None:
+                    yield cast(Tag, tag)
             elif script["id"] == "scanner":
                 if port["port"] != -1:
                     continue
@@ -1509,7 +1521,7 @@ def handle_http_headers(
     Masscan or Zgrab(2).
 
     """
-    # 1. add a script "http-server-header" if it does not exist
+    # * Add a script "http-server-header" if it does not exist
     if handle_server:
         srv_headers = [
             nmap_decode_data(h["value"])
@@ -1528,7 +1540,7 @@ def handle_http_headers(
                     ],
                 }
             )
-    # 2. add a script "http-app" for MS SharePoint, and merge it if
+    # * Add a script "http-app" for MS SharePoint, and merge it if
     # necessary
     try:
         header = next(
