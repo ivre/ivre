@@ -2151,6 +2151,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_dnsx
                 else:
                     raise ValueError("Unknown file type %s" % fname)
+            elif fchar == b"[":
+                store_scan_function = self.store_scan_json_dismap
             else:
                 raise ValueError("Unknown file type %s" % fname)
         return store_scan_function(fname, filehash=scanid, **kargs)
@@ -3397,6 +3399,149 @@ class DBNmap(DBActive):
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_dismap(
+        self,
+        fname,
+        filehash=None,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        add_addr_infos=True,
+        force_info=False,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by dismap,
+        displays the parsing result, and return True if everything
+        went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            try:
+                data = json.load(fdesc)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                utils.LOGGER.error("Cannot read file %r", fname, exc_info=True)
+                return False
+        timestamp = str(datetime.fromtimestamp(os.stat(fname).st_mtime))
+        tags = re.compile("\\[[^]]*\\]")
+        for rec in data:
+            port = {
+                "protocol": rec["type"],
+                "port": rec["port"],
+                "state_state": rec["status"],
+                "state_reason": "response",
+            }
+            if port["protocol"] == "tls":
+                port["protocol"] = "tcp"
+                port["service_tunnel"] = "ssl"
+            if rec.get("protocol"):
+                port["service_name"] = rec["protocol"]
+                if port["service_name"] == "https":
+                    port["service_name"] = "http"
+                    port["service_tunnel"] = "ssl"
+            host = {
+                "addr": rec["host"],
+                "state": "up",
+                "scanid": filehash,
+                "schema_version": xmlnmap.SCHEMA_VERSION,
+                "starttime": timestamp,
+                "endtime": timestamp,
+                "ports": [port],
+            }
+            if rec.get("identify.bool"):
+                tags_val = [m.group() for m in tags.finditer(rec["identify.string"])]
+                if tags_val and tags_val[0].isdigit():
+                    structured = {"status": tags_val.pop(0)}
+                else:
+                    structured = {}
+                structured["tags"] = tags_val
+                port.setdefault("scripts", []).append(
+                    {
+                        "id": "dismap-identify",
+                        "output": rec.get("identify.string", ""),
+                        "dismap-identify": structured,
+                    }
+                )
+            if rec.get("banner.byte"):
+                raw_output = utils.decode_hex(rec["banner.byte"])
+                nmap_info = utils.match_nmap_svc_fp(
+                    output=raw_output, proto=port["protocol"]
+                )
+                if nmap_info:
+                    try:
+                        del nmap_info["soft"]
+                    except KeyError:
+                        pass
+                    add_cpe_values(
+                        host,
+                        f"ports.port:{rec['port']}",
+                        nmap_info.pop("cpe", []),
+                    )
+                    host["cpes"] = list(host["cpes"].values())
+                    for cpe in host["cpes"]:
+                        cpe["origins"] = sorted(cpe["origins"])
+                    if not host["cpes"]:
+                        del host["cpes"]
+                    port.update(nmap_info)
+                    xmlnmap.add_service_hostname(
+                        nmap_info,
+                        host.setdefault("hostnames", []),
+                    )
+                    banner = "".join(
+                        chr(d) if 32 <= d <= 126 or d in {9, 10, 13} else "\\x%02x" % d
+                        for d in raw_output
+                    )
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "banner",
+                            "output": banner,
+                            "masscan": {
+                                "raw": utils.encode_b64(raw_output).decode(),
+                                "encoded": banner,
+                            },
+                        }
+                    )
+            # remaining fields / TODO:
+            # banner.string note path uri
+            set_auto_tags(host, update_openports=False)
+            set_openports_attribute(host)
+            if categories:
+                host["categories"] = categories
+            if source is not None:
+                host["source"] = source
+            host = self.json2dbrec(host)
+            if add_addr_infos and self.globaldb is not None:
+                host["infos"] = {}
+                for func in [
+                    self.globaldb.data.country_byip,
+                    self.globaldb.data.as_byip,
+                    self.globaldb.data.location_byip,
+                ]:
+                    host["infos"].update(func(host["addr"]) or {})
+            # We are about to insert data based on this file,
+            # so we want to save the scan document
+            if not scan_doc_saved:
+                self.store_scan_doc({"_id": filehash, "scanner": "shodan"})
+                scan_doc_saved = True
+            self.store_host(host)
+            if callback is not None:
+                callback(host)
         self.stop_store_hosts()
         return True
 
