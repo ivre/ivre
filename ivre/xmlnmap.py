@@ -2511,6 +2511,10 @@ class NmapHandler(ContentHandler):
                 for cpe in match.pop("cpe", []):
                     self._add_cpe_to_host(cpe=cpe)
                 self._curport.update(match)
+                add_service_hostname(
+                    match,
+                    self._curhost.setdefault("hostnames", []),
+                )
         # this requires a patched version of masscan
         for msgtype, msg in self._read_ssh_msgs(data[idx + 1 :]):
             if msgtype == 20:  # key exchange init

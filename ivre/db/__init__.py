@@ -3351,6 +3351,10 @@ class DBNmap(DBActive):
                         if not host["cpes"]:
                             del host["cpes"]
                         port.update(nmap_info)
+                        xmlnmap.add_service_hostname(
+                            nmap_info,
+                            host.setdefault("hostnames", []),
+                        )
                         banner = "".join(
                             chr(d)
                             if 32 <= d <= 126 or d in {9, 10, 13}

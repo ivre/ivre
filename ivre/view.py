@@ -36,7 +36,7 @@ from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, add_service_hostname
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -123,6 +123,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
     if not host["cpes"]:
         del host["cpes"]
     port.update(nmap_info)
+    add_service_hostname(nmap_info, host.setdefault("hostnames", []))
     return host
 
 
@@ -192,6 +193,7 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
     if not host["cpes"]:
         del host["cpes"]
     port.update(nmap_info)
+    add_service_hostname(nmap_info, host.setdefault("hostnames", []))
     return host
 
 
