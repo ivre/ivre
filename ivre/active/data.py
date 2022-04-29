@@ -66,7 +66,6 @@ from ivre.utils import (
     key_sort_dom,
     make_range_tables,
     net2range,
-    nmap_decode_data,
     nmap_encode_data,
     ports2nmapspec,
 )
@@ -1524,9 +1523,7 @@ def handle_http_headers(
     # * Add a script "http-server-header" if it does not exist
     if handle_server:
         srv_headers = [
-            nmap_decode_data(h["value"])
-            for h in headers
-            if h["name"] == "server" and h["value"]
+            h["value"] for h in headers if h["name"] == "server" and h["value"]
         ]
         if srv_headers and not any(
             s["id"] == "http-server-header" for s in port.get("scripts", [])
@@ -1534,24 +1531,22 @@ def handle_http_headers(
             port.setdefault("scripts", []).append(
                 {
                     "id": "http-server-header",
-                    "output": "\n".join(nmap_encode_data(hdr) for hdr in srv_headers),
-                    "http-server-header": [
-                        nmap_encode_data(hdr) for hdr in srv_headers
-                    ],
+                    "output": "\n".join(srv_headers),
+                    "http-server-header": srv_headers,
                 }
             )
     # * Add a script "http-app" for MS SharePoint, and merge it if
     # necessary
     try:
         header = next(
-            nmap_decode_data(h["value"])
+            h["value"]
             for h in headers
             if h["name"] == "microsoftsharepointteamservices" and h["value"]
         )
     except StopIteration:
         pass
     else:
-        version = nmap_encode_data(header.split(b":", 1)[0])
+        version = header.split(":", 1)[0]
         add_cpe_values(
             host,
             "ports.port:%s" % port.get("port", -1),
