@@ -29,18 +29,12 @@ from typing import Any, Dict, List, Optional, cast
 
 from ivre.analyzer import ntlm
 from ivre.active.cpe import add_cpe_values
-from ivre.active.data import handle_http_headers
+from ivre.active.data import add_hostname, handle_http_content, handle_http_headers
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
 from ivre.types.active import HttpHeader, NmapHost, NmapPort, NmapScript
 from ivre import utils
-from ivre.xmlnmap import (
-    add_cert_hostnames,
-    add_hostname,
-    create_elasticsearch_service,
-    create_http_ls,
-    create_ssl_cert,
-)
+from ivre.xmlnmap import add_cert_hostnames, create_ssl_cert
 
 
 _EXPR_TITLE = re.compile("<title[^>]*>([^<]*)</title>", re.I)
@@ -417,31 +411,7 @@ def zgrap_parser_http(
                 "output": utils.nmap_encode_data(body.encode()),
             }
         )
-        match = _EXPR_TITLE.search(body)
-        if match is not None:
-            title = match.groups()[0]
-            res["scripts"].append(
-                {
-                    "id": "http-title",
-                    "output": title,
-                    "http-title": {"title": title},
-                }
-            )
-        script_http_ls = create_http_ls(body, url=url)
-        if script_http_ls is not None:
-            res.setdefault("scripts", []).append(script_http_ls)
-        service_elasticsearch = create_elasticsearch_service(body)
-        if service_elasticsearch:
-            if "service_hostname" in service_elasticsearch:
-                add_hostname(
-                    service_elasticsearch["service_hostname"],
-                    "service",
-                    hostrec.setdefault("hostnames", []),
-                )
-            add_cpe_values(
-                hostrec, "ports.port:%s" % port, service_elasticsearch.pop("cpe", [])
-            )
-            res.update(cast(NmapPort, service_elasticsearch))
+        handle_http_content(hostrec, res, body.encode())
     return res
 
 

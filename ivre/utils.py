@@ -846,13 +846,13 @@ class FileOpener(BinaryIO):
         return self.fdesc.seekable()
 
     def seek(self, offset: int, whence: int = 0) -> int:
-        return self.fdesc.seek(offset, whence=whence)
+        return self.fdesc.seek(offset, whence)
 
     def tell(self) -> int:
         return self.fdesc.tell()
 
     def truncate(self, size: Optional[int] = None) -> int:
-        return self.fdesc.truncate(size=size)
+        return self.fdesc.truncate(size)
 
     def writable(self) -> bool:
         return self.fdesc.writable()

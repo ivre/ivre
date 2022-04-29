@@ -25,6 +25,7 @@ active (nmap & view) purposes.
 from bisect import bisect_left
 from datetime import datetime
 from itertools import chain
+import json
 import os
 import re
 from textwrap import wrap
@@ -47,9 +48,17 @@ from ivre.active.cpe import add_cpe_values
 from ivre.config import DATA_PATH, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
-from ivre.types import ParsedCertificate, Tag
-from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
+from ivre.types import NmapServiceMatch, ParsedCertificate, Tag
+from ivre.types.active import (
+    HttpHeader,
+    NmapAddress,
+    NmapHost,
+    NmapHostname,
+    NmapPort,
+    NmapScript,
+)
 from ivre.utils import (
+    IPV4ADDR,
     LOGGER,
     TORCERT_SUBJECT,
     get_domains,
@@ -1299,6 +1308,193 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
         if not rec[field]:
             del rec[field]
     return rec
+
+
+_EXPR_INDEX_OF = re.compile(
+    b"<title[^>]*> *(?:index +of|directory +listing +(?:of|for))",
+    re.I,
+)
+_EXPR_FILES = [
+    re.compile(
+        b'<a href="(?P<filename>[^"]+)">[^<]+</a></td><td[^>]*> *'
+        b"(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *"
+        b"</td><td[^>]*> *(?P<size>[^<]+)</td>",
+        re.I,
+    ),
+    re.compile(
+        b'<a href="(?P<filename>[^"]+)">[^<]+</a> *'
+        b"(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *"
+        b"(?P<size>[^ \r\n]+)",
+        re.I,
+    ),
+    re.compile(b'<li><a href="(?P<filename>[^"]+)">(?P=filename)</a>'),
+]
+
+
+def create_http_ls(data: bytes, volname: str = "???") -> Optional[NmapScript]:
+    """Produces an http-ls script output (both structured and human
+    readable) from the content of an HTML page. Used for Zgrab and Masscan
+    results.
+
+    """
+    match = _EXPR_INDEX_OF.search(data)
+    if match is None:
+        return None
+    files = []
+    for pattern in _EXPR_FILES:
+        for match in pattern.finditer(data):
+            files.append(
+                {
+                    key: nmap_encode_data(value)
+                    for key, value in match.groupdict().items()
+                }
+            )
+    if not files:
+        return None
+    output = []
+    output.append("Volume %s" % volname)
+    title = ["size", "time", "filename"]
+    column_width = [len(t) for t in title[:-1]]
+    for fobj in files:
+        for i, t in enumerate(title[:-1]):
+            column_width[i] = max(column_width[i], len(fobj.get(t, "-")))
+    line_fmt = "%%(size)-%ds  %%(time)-%ds  %%(filename)s" % tuple(column_width)
+    output.append(line_fmt % dict((t, t.upper()) for t in title))
+    for fobj in files:
+        output.append(line_fmt % dict({"size": "-", "time": "-"}, **fobj))
+    output.append("")
+    return {
+        "id": "http-ls",
+        "output": "\n".join(output),
+        "ls": {"volumes": [{"volume": volname, "files": files}]},
+    }
+
+
+def create_elasticsearch_service(data: bytes) -> Optional[NmapServiceMatch]:
+    """Produces the service_* attributes from the (JSON) content of an
+    HTTP response. Used for Zgrab and Masscan results.
+
+    """
+    try:
+        data_p = json.loads(data)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    if not isinstance(data_p, dict):
+        return None
+    if "tagline" not in data_p:
+        if "error" not in data_p:
+            return None
+        error = data_p["error"]
+        if isinstance(error, str):
+            if data_p.get("status") == 401 and error.startswith(
+                "AuthenticationException"
+            ):
+                return {
+                    "service_name": "http",
+                    "service_product": "Elasticsearch REST API",
+                    "service_extrainfo": "Authentication required",
+                    "cpe": ["cpe:/a:elasticsearch:elasticsearch"],
+                }
+            return None
+        if not isinstance(error, dict):
+            return None
+        if not (data_p.get("status") == 401 or error.get("status") == 401):
+            return None
+        if "root_cause" in error:
+            return {
+                "service_name": "http",
+                "service_product": "Elasticsearch REST API",
+                "service_extrainfo": "Authentication required",
+                "cpe": ["cpe:/a:elasticsearch:elasticsearch"],
+            }
+        return None
+    if data_p["tagline"] != "You Know, for Search":
+        return None
+    result: NmapServiceMatch = {
+        "service_name": "http",
+        "service_product": "Elasticsearch REST API",
+    }
+    cpe = []
+    if "version" in data_p and "number" in data_p["version"]:
+        result["service_version"] = data_p["version"]["number"]
+        cpe.append(
+            "cpe:/a:elasticsearch:elasticsearch:%s" % data_p["version"]["number"]
+        )
+    extrainfo = []
+    if "name" in data_p:
+        extrainfo.append("name: %s" % data_p["name"])
+        result["service_hostname"] = data_p["name"]
+    if "cluster_name" in data_p:
+        extrainfo.append("cluster: %s" % data_p["cluster_name"])
+    if "version" in data_p and "lucene_version" in data_p["version"]:
+        extrainfo.append("Lucene %s" % data_p["version"]["lucene_version"])
+        cpe.append("cpe:/a:apache:lucene:%s" % data_p["version"]["lucene_version"])
+    if extrainfo:
+        result["service_extrainfo"] = "; ".join(extrainfo)
+    if cpe:
+        result["cpe"] = cpe
+    return result
+
+
+# This is not a real hostname regexp, but a simple way to exclude
+# obviously wrong values. Underscores should not exist in (DNS)
+# hostnames, but since they happen to exist anyway, we allow them
+# here.
+_HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
+
+
+def add_hostname(name: str, name_type: str, hostnames: List[NmapHostname]) -> None:
+    name = name.rstrip(".").lower()
+    if not _HOSTNAME.search(name):
+        return
+    # exclude IPv4 addresses
+    if IPV4ADDR.search(name):
+        return
+    if any(hn["name"] == name and hn["type"] == name_type for hn in hostnames):
+        return
+    hostnames.append(
+        {
+            "type": name_type,
+            "name": name,
+            "domains": list(get_domains(name)),
+        }
+    )
+
+
+_EXPR_TITLE = re.compile(b"<title[^>]*>([^<]*)</title>", re.I)
+
+
+def handle_http_content(
+    host: NmapHost,
+    port: NmapPort,
+    data: bytes,
+    path: str = "/",
+) -> None:
+    title_m = _EXPR_TITLE.search(data)
+    if title_m is not None:
+        title = nmap_encode_data(title_m.groups()[0])
+    port.setdefault("scripts", []).append(
+        {
+            "id": "http-title",
+            "output": title,
+            "http-title": {"title": title},
+        }
+    )
+    script_http_ls = create_http_ls(data, volname=path)
+    if script_http_ls is not None:
+        port.setdefault("scripts", []).append(script_http_ls)
+    service_elasticsearch = create_elasticsearch_service(data)
+    if service_elasticsearch:
+        if "service_hostname" in service_elasticsearch:
+            add_hostname(
+                service_elasticsearch["service_hostname"],
+                "service",
+                host.setdefault("hostnames", []),
+            )
+        add_cpe_values(
+            host, "ports.port:%s" % port, service_elasticsearch.pop("cpe", [])
+        )
+        port.update(cast(NmapPort, service_elasticsearch))
 
 
 def handle_http_headers(
