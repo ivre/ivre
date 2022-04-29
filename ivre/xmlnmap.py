@@ -1507,7 +1507,7 @@ def ignore_script(script):
 def add_service_hostname(service_info, hostnames):
     if "service_hostname" not in service_info:
         return
-    name = service_info["service_hostname"]
+    name = service_info["service_hostname"].lower().strip()
     if "service_extrainfo" in service_info:
         for data in service_info["service_extrainfo"].lower().split(", "):
             if data.startswith("domain:"):
