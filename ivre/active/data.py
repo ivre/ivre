@@ -1484,13 +1484,13 @@ def handle_http_content(
     title_m = _EXPR_TITLE.search(data)
     if title_m is not None:
         title = nmap_encode_data(title_m.groups()[0])
-    port.setdefault("scripts", []).append(
-        {
-            "id": "http-title",
-            "output": title,
-            "http-title": {"title": title},
-        }
-    )
+        port.setdefault("scripts", []).append(
+            {
+                "id": "http-title",
+                "output": title,
+                "http-title": {"title": title},
+            }
+        )
     script_http_ls = create_http_ls(data, volname=path)
     if script_http_ls is not None:
         port.setdefault("scripts", []).append(script_http_ls)
