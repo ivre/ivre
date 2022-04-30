@@ -34,7 +34,7 @@ from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
 from ivre.types.active import HttpHeader, NmapHost, NmapPort, NmapScript
 from ivre import utils
-from ivre.xmlnmap import add_cert_hostnames, create_ssl_cert
+from ivre.xmlnmap import add_cert_hostnames, add_service_hostname, create_ssl_cert
 
 
 _EXPR_TITLE = re.compile("<title[^>]*>([^<]*)</title>", re.I)
@@ -410,6 +410,7 @@ def zgrap_parser_http(
     if info:
         add_cpe_values(hostrec, "ports.port:%s" % port, info.pop("cpe", []))
         res.update(cast(NmapPort, info))
+        add_service_hostname(info, hostrec.setdefault("hostnames", []))
     if resp.get("body"):
         body = resp["body"]
         res.setdefault("scripts", []).append(
