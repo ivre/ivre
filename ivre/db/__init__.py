@@ -57,6 +57,8 @@ from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
+    handle_http_content,
+    handle_http_headers,
     merge_host_docs,
     set_auto_tags,
     set_openports_attribute,
@@ -3444,6 +3446,8 @@ class DBNmap(DBActive):
                 return False
         timestamp = str(datetime.fromtimestamp(os.stat(fname).st_mtime))
         tags = re.compile("\\[[^]]*\\]")
+        http_split = re.compile(b"\r?\n\r?\n")
+        http_hdr_split = re.compile(b"\r?\n")
         for rec in data:
             port = {
                 "protocol": rec["type"],
@@ -3484,8 +3488,14 @@ class DBNmap(DBActive):
                 )
             if rec.get("banner.byte"):
                 raw_output = utils.decode_hex(rec["banner.byte"])
+                if port["protocol"] == "tcp" and rec.get("protocol") == "http":
+                    probe = "GetRequest"
+                else:
+                    probe = "NULL"
                 nmap_info = utils.match_nmap_svc_fp(
-                    output=raw_output, proto=port["protocol"]
+                    output=raw_output,
+                    proto=port["protocol"],
+                    probe=probe,
                 )
                 if nmap_info:
                     try:
@@ -3507,6 +3517,59 @@ class DBNmap(DBActive):
                         nmap_info,
                         host.setdefault("hostnames", []),
                     )
+                if probe == "GetRequest":
+                    try:
+                        hdrs, body = http_split.split(raw_output, 1)
+                    except ValueError:
+                        hdrs = raw_output
+                        body = None
+                    # TODO http-headers / http-content
+                    hdrs_split = http_hdr_split.split(hdrs)
+                    if hdrs_split:
+                        hdr_output_list = [
+                            utils.nmap_encode_data(line) for line in hdrs_split
+                        ]
+                        # FIXME: method should be reported
+                        hdr_output_list.extend(["", "(Request type: GET)"])
+                        structured = [
+                            {
+                                "name": "_status",
+                                "value": utils.nmap_encode_data(hdrs_split[0].strip()),
+                            }
+                        ]
+                        structured.extend(
+                            {
+                                "name": utils.nmap_encode_data(hdrname).lower(),
+                                "value": utils.nmap_encode_data(hdrval),
+                            }
+                            for hdrname, hdrval in (
+                                m.groups()
+                                for m in (
+                                    utils.RAW_HTTP_HEADER.search(part.strip())
+                                    for part in hdrs_split
+                                )
+                                if m
+                            )
+                        )
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "http-headers",
+                                "output": "\n".join(hdr_output_list),
+                                "http-headers": structured,
+                                "masscan": {"raw": utils.encode_b64(hdrs).decode()},
+                            }
+                        )
+                        # FIXME: path should be reported
+                        handle_http_headers(host, port, structured, path="/")
+                    if body:
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "http-content",
+                                "output": utils.nmap_encode_data(body),
+                            }
+                        )
+                        handle_http_content(host, port, body)
+                else:
                     banner = "".join(
                         chr(d) if 32 <= d <= 126 or d in {9, 10, 13} else "\\x%02x" % d
                         for d in raw_output
