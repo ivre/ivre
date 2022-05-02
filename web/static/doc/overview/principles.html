@@ -116,8 +116,7 @@ be queried using:</p>
 </ul>
 </div></blockquote>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://zmap.io/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>,
-<a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>, <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> and <a class="reference external" href="https://github.com/projectdiscovery/dnsx">dnsx</a> scan results, as well
+<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://github.com/zhzyker/dismap/">Dismap</a>, <a class="reference external" href="https://github.com/zmap/zgrab2/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>, <a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>, <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> and <a class="reference external" href="https://github.com/projectdiscovery/dnsx">dnsx</a> scan results, as well
 as <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditdom</span></code> results. Each record represents one host seen
 during one network scan. It can be queried using:</p>
 <blockquote>
@@ -130,9 +129,11 @@ during one network scan. It can be queried using:</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">passive</span></code>: contains host intelligence captured from the network
 using a <a class="reference external" href="https://www.zeek.org/">Zeek</a> dedicated module called
-<code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>. Each record represents one piece of information
-(<em>e.g.</em>, the HTTP <code class="docutils literal notranslate"><span class="pre">Server:</span></code> header value <code class="docutils literal notranslate"><span class="pre">Apache</span></code> has been seen
-10 times on port 80 of host 1.2.3.4). It can be queried using:</p>
+<code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>, <a class="reference external" href="https://lcamtuf.coredump.cx/p0f3/">p0f</a> and
+<a class="reference external" href="https://www.aircrack-ng.org/">airodump-ng</a> logs. Each record
+represents one piece of information (<em>e.g.</em>, the HTTP <code class="docutils literal notranslate"><span class="pre">Server:</span></code>
+header value <code class="docutils literal notranslate"><span class="pre">Apache</span></code> has been seen 10 times on port 80 of host
+1.2.3.4). It can be queried using:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.passive</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code>
@@ -177,7 +178,7 @@ your favorite open-source tools to IVRE’s databases.</p>
 </section>
 <section id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline"></a></h2>
-<div class="graphviz"><img src="../_images/graphviz-d5ae5b569c2054c6cb485185a5531d3c7b107618.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-c4e3df823978f785c558615d3cccab16146f4481.png" alt="digraph {
    graph [rankdir=LR];
 
    &quot;maxmind.com&quot;;
@@ -185,9 +186,11 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Masscan&quot;;
    &quot;ivre auditdom&quot;;
    &quot;Zgrab2&quot;;
+   &quot;Zdns&quot;;
    &quot;Nuclei&quot;;
    &quot;httpx&quot;;
    &quot;dnsx&quot;;
+   &quot;Dismap&quot;;
    &quot;airodump-ng&quot;;
    &quot;p0f&quot;;
    &quot;Zeek&quot;;
@@ -215,9 +218,11 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;ivre auditdom&quot; -&gt; XML;
    &quot;ivre auditdom&quot; -&gt; JSON [label=&quot;--json&quot;];
    &quot;Zgrab2&quot; -&gt; JSON [label=&quot;-o&quot;];
+   &quot;Zdns&quot; -&gt; JSON [label=&quot;-o&quot;];
    &quot;Nuclei&quot; -&gt; JSON [label=&quot;-json -o&quot;];
    &quot;httpx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
    &quot;dnsx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
+   &quot;Dismap&quot; -&gt; JSON [label=&quot;-j&quot;];
    &quot;airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
    &quot;p0f&quot; -&gt; P0F_LOG [label=&quot;-o&quot;];
    &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
@@ -238,7 +243,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    {
      rank = same;
      edge[style=invis];
-     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;dnsx&quot; -&gt; &quot;airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
+     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Zdns&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;dnsx&quot; -&gt; &quot;Dismap&quot; -&gt; &quot;airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
      rankdir = UD;
    }
 }" class="graphviz" /></div>
