@@ -33,7 +33,7 @@ RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-st
 # IVRE-specific
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install patch && \
-    patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch && \
+    patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/patches/dokuwiki/backlinks.patch && \
     apt-get -qy --purge autoremove patch && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc && \

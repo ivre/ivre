@@ -28,6 +28,9 @@ data files to add tags to scan results. For now, the following lists are used:
   - Scanners operated by the French ANSSI, from
     <https://cert.ssi.gouv.fr/scans/>
 
+  - Scanners operated by the Censys, from
+    <https://support.censys.io/hc/en-us/articles/360043177092-from-faq>
+
 """
 
 

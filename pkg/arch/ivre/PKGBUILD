@@ -3,7 +3,7 @@
 # Arch Linux package file
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -113,7 +113,7 @@ package_ivre-web-git() {
      "$pkgdir/usr/share/ivre/docker" \
      "$pkgdir/usr/share/ivre/geoip" \
      "$pkgdir/usr/share/ivre/honeyd" \
-     "$pkgdir/usr/share/ivre/nmap_scripts" \
+     "$pkgdir/usr/share/ivre/patches" \
      "$pkgdir/etc/bash_completion.d"
 
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
