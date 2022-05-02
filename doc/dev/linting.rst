@@ -9,8 +9,9 @@ So far, only the Python code uses such linters (`Flake8
 <https://flake8.pycqa.org>`_, `Pylint <https://pylint.org/>`_, `Mypy
 <http://mypy-lang.org/>`_ and `Black
 <https://github.com/psf/black>`_). Adding similar code linting
-capabilities to the Zeek scripts (`zeek/`), LUA (`nmap_scripts/`) and
-JavaScript / HTML (`web/static/`) could be a good PR idea!
+capabilities to the Zeek scripts (`zeek/`), LUA
+(`patches/nmap/scripts/`) and JavaScript / HTML (`web/static/`) could
+be a good PR idea!
 
 For all the code and the documentation, we also use `Codespell
 <https://github.com/codespell-project/codespell>`_ to prevent typos.

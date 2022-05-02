@@ -69,11 +69,11 @@ RUN tar jxf phantomjs-1.9.8-linux-x86_64.tar.bz2 phantomjs-1.9.8-linux-x86_64/bi
 
 # Add our *-screenshot NSE scripts
 RUN for d in /usr /usr/local; do \
-        d="$d/share/ivre/nmap_scripts"; \
+        d="$d/share/ivre/patches/nmap"; \
         [ -d "$d" ] && ( \
-	    cp $d/*.nse /usr/local/share/nmap/scripts; \
+	    cp $d/scripts/*.nse /usr/local/share/nmap/scripts; \
 	    cd /usr/local/share/nmap/; \
-	    for p in $d/patches/*.patch; do \
+	    for p in $d/*.patch; do \
 	         patch -p0 < $p; \
             done \
 	) \

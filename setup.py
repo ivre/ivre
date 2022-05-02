@@ -450,23 +450,25 @@ setup(
         # WSGI application
         ("share/ivre/web/wsgi", ["web/wsgi/app.wsgi"]),
         # Dokuwiki
-        ("share/ivre/dokuwiki", ["web/dokuwiki/backlinks.patch"]),
         ("share/ivre/dokuwiki/media", ["web/dokuwiki/media/logo.png"]),
+        # Patches
+        ("share/ivre/patches/dokuwiki", ["patches/dokuwiki/backlinks.patch"]),
         (
-            "share/ivre/nmap_scripts",
+            "share/ivre/patches/nmap",
+            ["patches/nmap/rtsp-url-brute.patch"],
+        ),
+        (
+            "share/ivre/patches/nmap/scripts",
             [
-                "nmap_scripts/http-screenshot.nse",
-                "nmap_scripts/mainframe-banner.nse",
-                "nmap_scripts/mainframe-screenshot.nse",
-                "nmap_scripts/rtsp-screenshot.nse",
-                "nmap_scripts/vnc-screenshot.nse",
-                "nmap_scripts/x11-screenshot.nse",
+                "patches/nmap/scripts/http-screenshot.nse",
+                "patches/nmap/scripts/mainframe-banner.nse",
+                "patches/nmap/scripts/mainframe-screenshot.nse",
+                "patches/nmap/scripts/rtsp-screenshot.nse",
+                "patches/nmap/scripts/vnc-screenshot.nse",
+                "patches/nmap/scripts/x11-screenshot.nse",
             ],
         ),
-        (
-            "share/ivre/nmap_scripts/patches",
-            ["nmap_scripts/patches/rtsp-url-brute.patch"],
-        ),
+        ("share/ivre/patches/p0f", ["patches/p0f/p0f.fp.patch"]),
         (
             "share/doc/ivre/rst",
             [os.path.join("doc/", x) for x in os.listdir("doc/") if x.endswith(".rst")],
