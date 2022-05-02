@@ -56,4 +56,6 @@ cp `python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))"`/
 for patch in `python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))"`/nmap/*; do (cd `pwd`/usr/local/nmap/share/nmap && patch -p0 < $patch); done
 nmap --script-updatedb
 
+sudo patch /etc/p0f/p0f.fp `python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))"`/p0f/p0f.fp.patch
+
 ivre --version && nmap --version
