@@ -18,12 +18,35 @@ response, monitoring, etc.
 Features
 --------
 
-IVRE can aggregate `Nmap <http://nmap.org/>`_, `Masscan
-<https://github.com/robertdavidgraham/masscan/>`_ & `Zgrab / Zgrab2
-<https://zmap.io/>`_ scan results as well as intelligence from network
-captures using `Zeek <https://www.zeek.org/>`_ (formerly known as
-Bro), `Argus <http://qosient.com/argus/>`_ and `Nfdump
-<http://nfdump.sourceforge.net/>`_
+IVRE can aggregate scan results as well as intelligence from network
+captures. It accepts results from several tools:
+
+- Active recon (network scanners):
+
+    - `Nmap <http://nmap.org/>`_
+
+    - `Masscan <https://github.com/robertdavidgraham/masscan/>`_
+
+    - `Dismap <https://github.com/zhzyker/dismap/>`_
+
+    - Tools from the `ZMap project <https://zmap.io/>`_:
+
+        - `Zgrab2 <https://github.com/zmap/zgrab2/>`_
+        - `ZDNS <https://github.com/zmap/zdns/>`_
+
+    - Tools from the `Project Discovery <https://projectdiscovery.io/>`_:
+
+        - `Nuclei <https://github.com/projectdiscovery/nuclei/>`_
+        - `Httpx <https://github.com/projectdiscovery/httpx/>`_
+        - `Dnsx <https://github.com/projectdiscovery/dnsx/>`_
+
+- Passive recon (from network traffic and/or captures):
+
+    - `Zeek <https://www.zeek.org/>`_ (formerly known as Bro)
+    - `p0f <https://lcamtuf.coredump.cx/p0f3/>`_
+    - `airodump-ng <https://www.aircrack-ng.org/>`_
+    - `Argus <http://qosient.com/argus/>`_
+    - `Nfdump <http://nfdump.sourceforge.net/>`_
 
 Use-cases
 ---------

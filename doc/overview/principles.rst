@@ -22,9 +22,11 @@ types of data IVRE handles), which can be stored by one or more
 
 - ``nmap`` (sometimes also referred to as ``scans``): contains `Nmap
   <http://nmap.org/>`_, `Masscan
-  <https://github.com/robertdavidgraham/masscan/>`_, `Zgrab2
-  <https://zmap.io/>`_, `ZDNS <https://github.com/zmap/zdns>`_,
-  `Nuclei <https://github.com/projectdiscovery/nuclei>`_, `httpx
+  <https://github.com/robertdavidgraham/masscan/>`_, `Dismap
+  <https://github.com/zhzyker/dismap/>`_, `Zgrab2
+  <https://github.com/zmap/zgrab2/>`_, `ZDNS
+  <https://github.com/zmap/zdns>`_, `Nuclei
+  <https://github.com/projectdiscovery/nuclei>`_, `httpx
   <https://github.com/projectdiscovery/httpx>`_ and `dnsx
   <https://github.com/projectdiscovery/dnsx>`_ scan results, as well
   as ``ivre auditdom`` results. Each record represents one host seen
@@ -36,9 +38,11 @@ types of data IVRE handles), which can be stored by one or more
 
 - ``passive``: contains host intelligence captured from the network
   using a `Zeek <https://www.zeek.org/>`_ dedicated module called
-  ``passiverecon``. Each record represents one piece of information
-  (*e.g.*, the HTTP ``Server:`` header value ``Apache`` has been seen
-  10 times on port 80 of host 1.2.3.4). It can be queried using:
+  ``passiverecon``, `p0f <https://lcamtuf.coredump.cx/p0f3/>`_ and
+  `airodump-ng <https://www.aircrack-ng.org/>`_ logs. Each record
+  represents one piece of information (*e.g.*, the HTTP ``Server:``
+  header value ``Apache`` has been seen 10 times on port 80 of host
+  1.2.3.4). It can be queried using:
 
    - Python API: the ``db.passive`` object from the ``ivre.db``
      module.
@@ -87,9 +91,11 @@ Storing data
       "Masscan";
       "ivre auditdom";
       "Zgrab2";
+      "Zdns";
       "Nuclei";
       "httpx";
       "dnsx";
+      "Dismap";
       "airodump-ng";
       "p0f";
       "Zeek";
@@ -117,9 +123,11 @@ Storing data
       "ivre auditdom" -> XML;
       "ivre auditdom" -> JSON [label="--json"];
       "Zgrab2" -> JSON [label="-o"];
+      "Zdns" -> JSON [label="-o"];
       "Nuclei" -> JSON [label="-json -o"];
       "httpx" -> JSON [label="-json -o"];
       "dnsx" -> JSON [label="-json -o"];
+      "Dismap" -> JSON [label="-j"];
       "airodump-ng" -> CSV_LOG [label="-w"];
       "p0f" -> P0F_LOG [label="-o"];
       "Zeek" -> PASS_LOG [label="passiverecon"];
@@ -140,7 +148,7 @@ Storing data
       {
         rank = same;
         edge[style=invis];
-        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Nuclei" -> "httpx" -> "dnsx" -> "airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
+        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Zdns" -> "Nuclei" -> "httpx" -> "dnsx" -> "Dismap" -> "airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
         rankdir = UD;
       }
    }
