@@ -30,7 +30,6 @@ from importlib import import_module
 import json
 import os
 import pickle
-import pipes
 import random
 import re
 import shutil
@@ -2327,28 +2326,6 @@ class DBNmap(DBActive):
                         else:
                             utils.LOGGER.warning('Record has no "ip" field %r', rec)
                             continue
-                    elif "success_count" in rec:
-                        # the last result (which contains a
-                        # "success_count" field) holds the scan's data
-                        scan_doc = {"_id": filehash, "scanner": "zgrab"}
-                        if "flags" in rec:
-                            scan_doc["args"] = " ".join(
-                                pipes.quote(elt) for elt in rec.pop("flags")
-                            )
-                        if "start_time" in rec:
-                            # [:19]: remove timezone info
-                            start = utils.all2datetime(rec.pop("start_time")[:19])
-                            scan_doc["start"] = start.strftime("%s")
-                            scan_doc["startstr"] = str(start)
-                        if "end_time" in rec:
-                            # [:19]: remove timezone info
-                            end = utils.all2datetime(rec.pop("end_time")[:19])
-                            scan_doc["end"] = end.strftime("%s")
-                            scan_doc["endstr"] = str(end)
-                        if "duration" in rec:
-                            scan_doc["elapsed"] = str(rec.pop("duration"))
-                        self.update_scan_doc(filehash, scan_doc)
-                        continue
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r', rec)
                         continue
@@ -3234,7 +3211,7 @@ class DBNmap(DBActive):
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "nuclei"})
+                    self.store_scan_doc({"_id": filehash, "scanner": "httpx"})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
@@ -3604,7 +3581,7 @@ class DBNmap(DBActive):
             # We are about to insert data based on this file,
             # so we want to save the scan document
             if not scan_doc_saved:
-                self.store_scan_doc({"_id": filehash, "scanner": "shodan"})
+                self.store_scan_doc({"_id": filehash, "scanner": "dismap"})
                 scan_doc_saved = True
             self.store_host(host)
             if callback is not None:
