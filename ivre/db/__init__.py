@@ -965,6 +965,7 @@ class DBActive(DB):
         )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
+        self.argparser.add_argument("--no-timeago", metavar="SECONDS", type=int)
         self.argparser.add_argument(
             "--id",
             metavar="ID",
@@ -1944,6 +1945,8 @@ class DBActive(DB):
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
+        if args.no_timeago is not None:
+            flt = self.flt_and(flt, self.searchtimeago(args.no_timeago, neg=True))
         if args.id is not None:
             flt = self.flt_and(flt, self.searchobjectid(args.id))
         if args.no_id is not None:
@@ -3783,7 +3786,9 @@ class DBPassive(DB):
         self.argparser.add_argument("--ftp", action="store_true")
         self.argparser.add_argument("--pop", action="store_true")
         self.argparser.add_argument("--timeago", type=int)
+        self.argparser.add_argument("--no-timeago", type=int)
         self.argparser.add_argument("--timeagonew", type=int)
+        self.argparser.add_argument("--no-timeagonew", type=int)
         self.argparser.add_argument(
             "--dnstype",
             metavar="DNS_TYPE",
@@ -3860,10 +3865,20 @@ class DBPassive(DB):
                 flt,
                 self.searchtimeago(args.timeago, new=False),
             )
+        if args.no_timeago is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchtimeago(args.no_timeago, new=False, neg=True),
+            )
         if args.timeagonew is not None:
             flt = self.flt_and(
                 flt,
                 self.searchtimeago(args.timeagonew, new=True),
+            )
+        if args.no_timeagonew is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchtimeago(args.no_timeagonew, new=True, neg=True),
             )
         if args.dnstype is not None:
             flt = self.flt_and(flt, self.searchdns(dnstype=args.dnstype))
