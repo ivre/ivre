@@ -2407,12 +2407,26 @@ class IvreTests(unittest.TestCase):
             self.assertFalse(err)
         self.assertEqual(out, b"")
 
+        res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0"])
+        self.assertEqual(res, 0)
+        if DATABASE not in ["postgres", "sqlite"]:
+            # There is a warning in postgresql for unused argument.
+            self.assertFalse(err)
+        self.assertNotEqual(out, b"")
+
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000"])
         self.assertEqual(res, 0)
         if DATABASE not in ["postgres", "sqlite"]:
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertNotEqual(out, b"")
+
+        res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "10000000000"])
+        self.assertEqual(res, 0)
+        if DATABASE not in ["postgres", "sqlite"]:
+            # There is a warning in postgresql for unused argument.
+            self.assertFalse(err)
+        self.assertEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0", "--count"])
         self.assertEqual(res, 0)
@@ -2421,11 +2435,26 @@ class IvreTests(unittest.TestCase):
             self.assertFalse(err)
         self.assertEqual(out, b"0\n")
 
+        res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0", "--count"])
+        self.assertEqual(res, 0)
+        if DATABASE not in ["postgres", "sqlite"]:
+            # There is a warning in postgresql for unused argument.
+            self.assertFalse(err)
+        self.check_value("passive_count", int(out))
+
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000", "--count"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
         self.assertNotEqual(out, b"")
         self.check_value("passive_count", int(out))
+
+        res, out, err = RUN(
+            ["ivre", "ipinfo", "--no-timeago", "10000000000", "--count"]
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertNotEqual(out, b"")
+        self.assertEqual(out, b"0\n")
 
         # searchhassh()
         self._test_hassh(ivre.db.db.passive, "passive", "ipinfo")
