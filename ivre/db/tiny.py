@@ -517,24 +517,14 @@ class TinyDBActive(TinyDB, DBActive):
                     port["state_reason_ip"] = self.internal2ip(port["state_reason_ip"])
                 except (KeyError, socket.error):
                     pass
-                for script in port.get("scripts", []):
-                    for cert in script.get("ssl-cert", []):
-                        for fld in ["not_before", "not_after"]:
-                            try:
-                                cert[fld] = utils.all2datetime(cert[fld])
-                            except KeyError:
-                                pass
             for trace in host.get("traces", []):
                 for hop in trace.get("hops", []):
                     try:
                         hop["ipaddr"] = self.internal2ip(hop["ipaddr"])
                     except (KeyError, socket.error):
                         pass
-            for fld in ["starttime", "endtime"]:
-                try:
-                    host[fld] = utils.all2datetime(host[fld])
-                except KeyError:
-                    pass
+            for field in self.datetime_fields:
+                self._set_datetime_field(host, field)
             yield host
 
     def store_host(self, host):
