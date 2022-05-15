@@ -121,5 +121,7 @@ def main() -> None:
     itr = to_view(_from)
     if not itr:
         return
+    outdb.start_store_hosts()
     for elt in itr:
         output(elt)
+    outdb.stop_store_hosts()
