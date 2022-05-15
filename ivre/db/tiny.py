@@ -1329,6 +1329,7 @@ class TinyDBActive(TinyDB, DBActive):
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
+          - tag.{value,type,info} / tag[:value]
         """
         q = Query()
         if flt is None:
@@ -2522,6 +2523,46 @@ class TinyDBActive(TinyDB, DBActive):
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
+        elif field == "tag":
+            flt = self.flt_and(flt, self.searchtag())
+
+            def _newflt(field):
+                return self.searchtag()
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["tags.value", "tags.info"],
+                ):
+                    for tag in rec["tags"]:
+                        for info in tag.get("info", []):
+                            yield (tag["value"], info)
+
+        elif field.startswith("tag."):
+            flt = self.flt_and(flt, self.searchtag())
+            field = f"tags.{field[4:]}"
+        elif field.startswith("tag:"):
+            subfield = field[4:]
+
+            def _newflt(field):
+                return self.searchtag(tag={"value": subfield})
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["tags.value", "tags.info"],
+                ):
+                    for tag in rec["tags"]:
+                        if tag["value"] != subfield:
+                            continue
+                        yield from tag.get("info", [])
+
         return [
             {"_id": _outputproc(val), "count": count}
             for val, count in Counter(

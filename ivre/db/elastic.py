@@ -428,6 +428,7 @@ class ElasticDBActive(ElasticDB, DBActive):
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
+          - tag.{value,type,info} / tag[:value]
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1231,6 +1232,45 @@ return result;
                             }
                         },
                     }
+                },
+            }
+        elif field == "tag":
+            flt = self.flt_and(flt, self.searchtag())
+
+            def outputproc(value):
+                return tuple(value.split(":", 1))
+
+            nested = {
+                "nested": {"path": "tags"},
+                "aggs": {
+                    "patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script={
+                                "lang": "painless",
+                                "source": "doc['tags.value'].value + ':' + doc['tags.info'].value",
+                            },
+                        )
+                    }
+                },
+            }
+        elif field.startswith("tag."):
+            flt = self.flt_and(flt, self.searchtag())
+            field = {"field": f"tags.{field[4:]}"}
+        elif field.startswith("tag:"):
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
+            nested = {
+                "nested": {"path": "tags"},
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"tags.value": subfield}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(baseterms, field="tags.info", missing="")
+                            }
+                        },
+                    },
                 },
             }
         else:
