@@ -863,11 +863,13 @@ def from_nmap(flt, category=None):
             result = cur_rec
             cur_rec = rec
             cur_addr = rec["addr"]
+            set_auto_tags(result)
             yield result
         else:
             cur_rec = db.view.merge_host_docs(cur_rec, rec)
             continue
     if cur_rec is not None:
+        set_auto_tags(cur_rec)
         yield cur_rec
 
 
