@@ -1448,7 +1448,6 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                             scan=scanid, **dict(tag, info=info)
                         )
                     )
-            self.bulk.append(insert(self.tables.tag).values(scan=scanid, **tag))
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
             # FIXME: handle screenshots
