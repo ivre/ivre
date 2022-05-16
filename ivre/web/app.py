@@ -129,6 +129,7 @@ def get_config():
         ("version", VERSION),
     ]:
         yield "config.%s = %s;\n" % (key, json.dumps(value))
+    yield '$.ajax({url:"https://ivre.rocks/version?%s",success:function(data){config.curver=data;}});\n' % VERSION
 
 
 #

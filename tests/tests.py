@@ -5004,9 +5004,10 @@ class IvreTests(unittest.TestCase):
             "version": ivre.VERSION,
         }
         for line in udesc:
+            if not line.startswith(b"config."):
+                continue
             self.assertTrue(line.endswith(b";\n"))
             key, value = line[:-2].decode().split(" = ")
-            self.assertTrue(key.startswith("config."))
             key = key[7:]
             self.assertEqual(json.loads(value), config_values[key])
 
