@@ -744,7 +744,10 @@ def import_files(subdb, source, categories, files):
     if subdb == "view":
 
         def callback(x):
-            return db.view.store_or_merge_host(nmap_record_to_view(x))
+            db.view.start_store_hosts()
+            res = db.view.store_or_merge_host(nmap_record_to_view(x))
+            db.view.stop_store_hosts()
+            return res
 
     else:
         callback = None

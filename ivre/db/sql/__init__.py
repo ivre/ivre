@@ -2665,10 +2665,8 @@ class SQLDBView(SQLDBActive, DBView):
     base_filter = ViewFilter
 
     def store_or_merge_host(self, host):
-        # FIXME: may cause performance issues
-        self.start_store_hosts()
+        # TODO: merge?
         self.store_host(host)
-        self.stop_store_hosts()
 
     @classmethod
     def searchsource(cls, src, neg=False):

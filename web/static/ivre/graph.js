@@ -414,6 +414,27 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "ike.notification", "' + x + '");';
 		};
 	    }
+	    else if(field === 'tag') {
+		prepareoutput = function(x) {
+		    return x[0];
+		};
+		preparetitle = function(x) {
+		    return x[1];
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "tag", "' + x[0] + ':' + x[1] + '");';
+		};
+	    }
+	    else if(field === 'tag.value') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "tag", "' + x + '");';
+		};
+	    }
+	    else if(field.substr(0, 4) === 'tag:') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "tag", "' + field.substr(4) + ':' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 

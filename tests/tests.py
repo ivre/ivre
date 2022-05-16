@@ -838,6 +838,11 @@ class IvreTests(unittest.TestCase):
         for cmd in ["scancli", "ipinfo"]:
             RUN(["ivre", cmd, "--update-schema"])
 
+        # Fetch data for auto tags
+        res, out, _ = RUN(["ivre", "getwebdata"])
+        self.assertEqual(res, 0)
+        self.assertFalse(out, 0)
+
     def test_30_nmap(self):
 
         #
@@ -1725,6 +1730,12 @@ class IvreTests(unittest.TestCase):
         self.check_nmap_top_value("nmap_top_jarm", "jarm")
         self.check_nmap_top_value("nmap_top_jarm_443", "jarm:443")
 
+        self.check_nmap_top_value("nmap_top_tag", "tag")
+        self.check_nmap_top_value("nmap_top_tag_value", "tag.value")
+        self.check_nmap_top_value("nmap_top_tag_info", "tag.info")
+        self.check_nmap_top_value("nmap_top_tag_type", "tag.type")
+        self.check_nmap_top_value("nmap_top_tag_tor", "tag:TOR")
+
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
                 self.check_nmap_top_value(
@@ -1764,6 +1775,7 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_api(
             "nmap_top_hop_10+", "hop>10", database=ivre.db.db.nmap
         )
+
         locations = list(ivre.db.db.nmap.getlocations(ivre.db.db.nmap.flt_empty))
         self.assertTrue(all(len(elt) == 2 for elt in locations))
         self.assertTrue(all(isinstance(elt["_id"], tuple) for elt in locations))
@@ -5245,6 +5257,12 @@ class IvreTests(unittest.TestCase):
 
         self.check_view_top_value("view_top_jarm", "jarm")
         self.check_view_top_value("view_top_jarm_443", "jarm:443")
+
+        self.check_view_top_value("view_top_tag", "tag")
+        self.check_view_top_value("view_top_tag_value", "tag.value")
+        self.check_view_top_value("view_top_tag_info", "tag.info")
+        self.check_view_top_value("view_top_tag_type", "tag.type")
+        self.check_view_top_value("view_top_tag_tor", "tag:TOR")
 
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:

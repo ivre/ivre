@@ -360,6 +360,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
+          - tag.{value,type,info} / tag[:value]
         """
         if flt is None:
             flt = self.flt_empty
@@ -1142,6 +1143,28 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     ),
                 ),
             )
+        elif field == "tag":
+            flt = self.flt_and(flt, self.searchtag())
+            field = self._topstructure(
+                self.tables.tag, [self.tables.tag.value, self.tables.tag.info]
+            )
+        elif field == "tag.value":
+            flt = self.flt_and(flt, self.searchtag())
+            field = self._topstructure(self.tables.tag, [self.tables.tag.value])
+        elif field == "tag.info":
+            flt = self.flt_and(flt, self.searchtag())
+            field = self._topstructure(self.tables.tag, [self.tables.tag.info])
+        elif field == "tag.type":
+            flt = self.flt_and(flt, self.searchtag())
+            field = self._topstructure(self.tables.tag, [self.tables.tag.type])
+        elif field.startswith("tag:"):
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
+            field = self._topstructure(
+                self.tables.tag,
+                [self.tables.tag.info],
+                self.tables.tag.value == subfield,
+            )
         else:
             raise NotImplementedError()
         s_from = {
@@ -1152,6 +1175,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             ),
             self.tables.hostname: self.tables.hostname,
             self.tables.hop: join(self.tables.trace, self.tables.hop),
+            self.tables.tag: self.tables.tag,
         }
         where_clause = {
             self.tables.script: self.tables.port.scan == base.c.id,
@@ -1160,6 +1184,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             == base.c.id,
             self.tables.hostname: self.tables.hostname.scan == base.c.id,
             self.tables.hop: self.tables.trace.scan == base.c.id,
+            self.tables.tag: self.tables.tag.scan == base.c.id,
         }
         if field.base == self.tables.scan:
             req = flt.query(
@@ -1423,7 +1448,6 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                             scan=scanid, **dict(tag, info=info)
                         )
                     )
-            self.bulk.append(insert(self.tables.tag).values(scan=scanid, **tag))
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
             # FIXME: handle screenshots

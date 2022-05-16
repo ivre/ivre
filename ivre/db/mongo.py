@@ -3215,6 +3215,7 @@ class MongoDBActive(MongoDB, DBActive):
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
+          - tag.{value,type,info} / tag[:value]
         """
 
         def null_if_empty(val):
@@ -4190,6 +4191,35 @@ class MongoDBActive(MongoDB, DBActive):
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
+        elif field == "tag":
+            flt = self.flt_and(flt, self.searchtag())
+            specialproj = {
+                "_id": 0,
+                "tags.value": 1,
+                "tags.info": 1,
+            }
+            specialflt = [{"$unwind": "$tags.info"}]
+            field = "tags"
+
+            def outputproc(x):
+                return {
+                    "count": x["count"],
+                    "_id": (x["_id"]["value"], x["_id"].get("info")),
+                }
+
+        elif field.startswith("tag."):
+            flt = self.flt_and(flt, self.searchtag())
+            field = f"tags.{field[4:]}"
+        elif field.startswith("tag:"):
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
+            specialproj = {
+                "_id": 0,
+                "tags.value": 1,
+                "tags.info": 1,
+            }
+            specialflt = [{"$match": {"tags.value": subfield}}]
+            field = "tags.info"
         pipeline = self._topvalues(
             field,
             flt=flt,

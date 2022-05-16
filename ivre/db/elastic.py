@@ -273,23 +273,6 @@ class ElasticDBActive(ElasticDB, DBActive):
             ignore_unavailable=True,
         )["count"]
 
-    def _set_datetime_field(self, record, field, current=None):
-        if current is None:
-            current = []
-        if "." not in field:
-            if field in record:
-                record[field] = utils.all2datetime(record[field])
-            return
-        nextfield, field = field.split(".", 1)
-        if nextfield not in record:
-            return
-        current.append(nextfield)
-        if ".".join(current) in self.list_fields:
-            for subrecord in record[nextfield]:
-                self._set_datetime_field(subrecord, field, current=current)
-        else:
-            self._set_datetime_field(record[nextfield], field, current=current)
-
     def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
         query = {"query": spec.to_dict()}
@@ -428,6 +411,7 @@ class ElasticDBActive(ElasticDB, DBActive):
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
           - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
+          - tag.{value,type,info} / tag[:value]
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1231,6 +1215,45 @@ return result;
                             }
                         },
                     }
+                },
+            }
+        elif field == "tag":
+            flt = self.flt_and(flt, self.searchtag())
+
+            def outputproc(value):
+                return tuple(value.split(":", 1))
+
+            nested = {
+                "nested": {"path": "tags"},
+                "aggs": {
+                    "patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script={
+                                "lang": "painless",
+                                "source": "doc['tags.value'].value + ':' + doc['tags.info'].value",
+                            },
+                        )
+                    }
+                },
+            }
+        elif field.startswith("tag."):
+            flt = self.flt_and(flt, self.searchtag())
+            field = {"field": f"tags.{field[4:]}"}
+        elif field.startswith("tag:"):
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
+            nested = {
+                "nested": {"path": "tags"},
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"tags.value": subfield}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(baseterms, field="tags.info", missing="")
+                            }
+                        },
+                    },
                 },
             }
         else:

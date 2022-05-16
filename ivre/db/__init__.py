@@ -1544,6 +1544,28 @@ class DBActive(DB):
         for rec in self.get(flt):
             self.remove(rec)
 
+    def _set_datetime_field(self, record, field, current=None):
+        if current is None:
+            current = []
+        if "." not in field:
+            if field in record:
+                if ".".join(current + [field]) in self.list_fields:
+                    record[field] = [
+                        utils.all2datetime(value) for value in record[field]
+                    ]
+                else:
+                    record[field] = utils.all2datetime(record[field])
+            return
+        nextfield, field = field.split(".", 1)
+        if nextfield not in record:
+            return
+        current = current + [nextfield]
+        if ".".join(current) in self.list_fields:
+            for subrecord in record[nextfield]:
+                self._set_datetime_field(subrecord, field, current=current)
+        else:
+            self._set_datetime_field(record[nextfield], field, current=current)
+
     def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value

@@ -110,7 +110,7 @@ var HELP_FILTERS = {
 	},
 	"category:": {
 	    "title": "<b>(!)</b>category:<b>[exact_value or /regexp/]</b>",
-	    "content": "Look for results tagged with a matching category.",
+	    "content": "Look for results with a matching category.",
 	},
 	"country:": {
 	    "title": "<b>(!)</b>country:<b>[two letters code]</b>",
@@ -550,7 +550,7 @@ var HELP_FILTERS = {
 	    "content": "Search results with a specific IKE Vendor ID.",
 	},
 	"tag": {
-	    "title": "<b>(!)</b>tag<b>[:value[:info]]</b>",
+	    "title": "<b>(!)</b>tag<b>(:[value(:[info])])</b>",
 	    "content": "Search results with a specific tag.",
 	},
 	"search:": {
@@ -984,6 +984,22 @@ var HELP_TOPVALUES = {
 	"ike.vendor_ids.value": {
 	    "content": "ike.vendor_ids.value",
 	    "title": "<b>(!)</b>ike.vendor_ids.value"
+	},
+	"tag": {
+	    "title": "tag<b>(:[value])</b>",
+	    "content": "Top tags.",
+	},
+	"tag.value": {
+	    "title": "tag.value</b>",
+	    "content": "Top tag values.",
+	},
+	"tag.type": {
+	    "title": "tag.type</b>",
+	    "content": "Top tag types.",
+	},
+	"tag.info": {
+	    "title": "tag.value</b>",
+	    "content": "Top tag info strings.",
 	},
 	"httphdr": {
 	    "title": "httphdr<b>(:[name])</b>",

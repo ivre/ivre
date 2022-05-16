@@ -133,7 +133,9 @@ def main() -> None:
     else:
 
         def callback(x: Record) -> None:
+            ivre.db.db.view.start_store_hosts()
             ivre.db.db.view.store_or_merge_host(nmap_record_to_view(x))
+            ivre.db.db.view.stop_store_hosts()
 
     count = 0
     for scan in scans:
