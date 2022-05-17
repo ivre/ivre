@@ -876,7 +876,7 @@ return result;
                 },
             }
         elif field.startswith("httpapp:"):
-            subfield = field[8:].lower()
+            subfield = field[8:]
             flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
             nested = {
                 "nested": {"path": "ports"},
