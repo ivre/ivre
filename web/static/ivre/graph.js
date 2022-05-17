@@ -435,6 +435,29 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "tag", "' + field.substr(4) + ':' + x + '");';
 		};
 	    }
+	    else if(field === 'httphdr') {
+		prepareoutput = function(x) {
+		    // https://stackoverflow.com/a/38530325
+		    return x[0].replace(/\b\w/g, l => l.toUpperCase()) + ': ' + x[1];
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "httphdr", "' + x[0] + ':' + x[1] + '");';
+		};
+	    }
+	    else if(field === 'httphdr.name') {
+		prepareoutput = function(x) {
+		    // https://stackoverflow.com/a/38530325
+		    return x.replace(/\b\w/g, l => l.toUpperCase());
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "httphdr", "' + x + '");';
+		};
+	    }
+	    else if(field.substr(0, 8) === 'httphdr:') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "httphdr", "' + field.substr(8) + ':' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 
