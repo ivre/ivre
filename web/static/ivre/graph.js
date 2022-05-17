@@ -458,6 +458,19 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "httphdr", "' + field.substr(8) + ':' + x + '");';
 		};
 	    }
+	    else if(field === 'httpapp') {
+		prepareoutput = function(x) {
+		    return x.join(" ");
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "httpapp", "' + x[0] + ':' + x[1] + '");';
+		};
+	    }
+	    else if(field.substr(0, 8) === 'httpapp:') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "httpapp", "' + field.substr(8) + ':' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 
