@@ -471,6 +471,33 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "httpapp", "' + field.substr(8) + ':' + x + '");';
 		};
 	    }
+	    else if(field == "ja3-client" || field.substr(0, 11) == "ja3-client.") {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ssl-ja3-client", "' + x + '");';
+		};
+	    }
+	    else if(field == "jarm" || field.substr(0, 5) == "jarm:") {
+		// TODO: use port when it exists, not implemented in
+		// .searchjarm() for now
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ssl-jarm", "' + x + '");';
+		};
+	    }
+	    else if(field == "hassh" || field.substr(0, 6) == "hassh.") {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "hassh", "' + x + '");';
+		};
+	    }
+	    else if(field == "hassh-client" || field.substr(0, 13) == "hassh-client.") {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "hassh-client", "' + x + '");';
+		};
+	    }
+	    else if(field == "hassh-server" || field.substr(0, 13) == "hassh-server.") {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "hassh-server", "' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 
