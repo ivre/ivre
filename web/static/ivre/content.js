@@ -1041,6 +1041,10 @@ var HELP_TOPVALUES = {
 	    "title": "<b>(!)</b>ja3-client.raw<b>(:[value])</b>",
 	    "content": "Top JA3 client values (raw fingerprint)."
 	},
+	"jarm": {
+	    "title": "<b>!</b>jarm<b>(:[port])</b>",
+	    "content": "Top JARM fingerprints (on port if specified)"
+	},
 	"hassh": {
 	    "title": "<b>(!)</b>hassh",
 	    "content": "Top HASSH values (MD5)",
