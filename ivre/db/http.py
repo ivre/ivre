@@ -263,10 +263,10 @@ class HttpDB(DB):
             if field in record:
                 if ".".join(current + [field]) in self.list_fields:
                     record[field] = [
-                        datetime.fromtimestamp(value) for value in record[field]
+                        datetime.utcfromtimestamp(value) for value in record[field]
                     ]
                 else:
-                    record[field] = datetime.fromtimestamp(record[field])
+                    record[field] = datetime.utcfromtimestamp(record[field])
             return
         nextfield, field = field.split(".", 1)
         if nextfield not in record:
