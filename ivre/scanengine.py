@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -142,6 +142,7 @@ class Agent:
                 "%s.%s" % (category, addr.replace("/", "_")),
             ),
             "w",
+            encoding="utf8",
         ) as fdesc:
             fdesc.write("%s\n" % addr)
             return True
@@ -305,6 +306,7 @@ class Campaign:
                     "%s.%s" % (self.visiblecategory, addr),
                 ),
                 "w",
+                encoding="utf8",
             ) as fdesc:
                 fdesc.write("%s\n" % addr)
 

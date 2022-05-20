@@ -35,7 +35,7 @@ _VERSION_FILE = os.path.join(_DIR, "VERSION")
 
 def _get_version_from_file() -> Optional[str]:
     try:
-        with open(_VERSION_FILE) as fdesc:
+        with open(_VERSION_FILE, encoding="utf8") as fdesc:
             return fdesc.read()
     except IOError:
         return None
@@ -81,13 +81,13 @@ def _version() -> Optional[str]:
         pass
     else:
         try:
-            with open(_VERSION_FILE, "w") as fdesc:
+            with open(_VERSION_FILE, "w", encoding="utf8") as fdesc:
                 fdesc.write(tag)
         except IOError:
             pass
         return tag
     try:
-        with open(_VERSION_FILE) as fdesc:
+        with open(_VERSION_FILE, encoding="utf8") as fdesc:
             return fdesc.read()
     except IOError:
         pass

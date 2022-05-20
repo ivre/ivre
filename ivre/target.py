@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -344,7 +344,7 @@ class TargetFile(Target):
         if categories is None:
             categories = [self.name]
         self.infos = {"categories": categories}
-        with open(filename) as fdesc:
+        with open(filename, encoding="utf8") as fdesc:
             self.targetscount = sum(
                 1 for line in fdesc if self._getaddr(line) is not None
             )
@@ -357,7 +357,7 @@ class TargetFile(Target):
     def __iter__(self):
         return IterTargetFile(
             self,
-            open(self.filename),
+            open(self.filename, encoding="utf8"),
             state=self.state,
         )
 

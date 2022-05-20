@@ -69,8 +69,8 @@ class smart_install_lib(install_lib):
         tmpfname = "%s.tmp" % fullfname
         stat = os.stat(fullfname)
         os.rename(fullfname, tmpfname)
-        with open(fullfname, "w") as newf:
-            with open(tmpfname) as oldf:
+        with open(fullfname, "w", encoding="utf8") as newf:
+            with open(tmpfname, encoding="utf8") as oldf:
                 for line in oldf:
                     if line.startswith("import "):
                         newf.write("VERSION = %r\n" % VERSION)
@@ -82,7 +82,8 @@ class smart_install_lib(install_lib):
 
 
 with open(
-    os.path.join(os.path.abspath(os.path.dirname("__file__")), "README.md")
+    os.path.join(os.path.abspath(os.path.dirname("__file__")), "README.md"),
+    encoding="utf8",
 ) as fdesc:
     long_description = fdesc.read()
 long_description_content_type = "text/markdown"

@@ -1186,14 +1186,16 @@ def _set_ports() -> None:
         This function is called on module load.
 
     """
-    global _PORTS, _PORTS_POPULATED
+    global _PORTS_POPULATED
     try:
         # pylint: disable=consider-using-with
         assert config.NMAP_SHARE_PATH is not None
-        fdesc = open(os.path.join(config.NMAP_SHARE_PATH, "nmap-services"))
+        fdesc = open(
+            os.path.join(config.NMAP_SHARE_PATH, "nmap-services"), encoding="utf8"
+        )
     except (IOError, AttributeError, AssertionError):
         try:
-            with open("/etc/services") as fdesc:
+            with open("/etc/services", encoding="utf8") as fdesc:
                 for line in fdesc:
                     try:
                         _, port_s = line.split("#", 1)[0].split(None, 2)
@@ -1251,7 +1253,7 @@ def _read_nmap_probes() -> None:
     _NMAP_CUR_FALLBACK = None
 
     def parse_line(line: bytes) -> None:
-        global _NMAP_PROBES, _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
+        global _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
         if line.startswith(b"match "):
             line = line[6:]
             soft = False
@@ -1343,7 +1345,6 @@ def _read_nmap_probes() -> None:
 
 
 def get_nmap_svc_fp(proto: str = "tcp", probe: str = "NULL") -> NmapProbeRec:
-    global _NMAP_PROBES, _NMAP_PROBES_POPULATED
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return _NMAP_PROBES[proto][probe]
@@ -1465,7 +1466,9 @@ def _read_nmap_payloads() -> None:
         cur_probe = None
         cur_line = []
         assert config.NMAP_SHARE_PATH is not None
-        with open(os.path.join(config.NMAP_SHARE_PATH, "nmap-payloads"), "r") as fdesc:
+        with open(
+            os.path.join(config.NMAP_SHARE_PATH, "nmap-payloads"), "r", encoding="utf8"
+        ) as fdesc:
             for line in fdesc:
                 line = "".join(_parse_line(line.strip()))
                 if not line.strip():
@@ -1528,7 +1531,6 @@ def _read_ikescan_vendor_ids() -> None:
 
 
 def get_ikescan_vendor_ids() -> List[Tuple[bytes, Pattern[bytes]]]:
-    global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     if not _IKESCAN_VENDOR_IDS_POPULATED:
         _read_ikescan_vendor_ids()
     return _IKESCAN_VENDOR_IDS
@@ -1563,7 +1565,7 @@ def _int2macmask(mask: int) -> int:
 
 
 def _read_wireshark_manuf_db() -> None:
-    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, _WIRESHARK_MANUF_DB_POPULATED
+    global _WIRESHARK_MANUF_DB_POPULATED
 
     if config.WIRESHARK_SHARE_PATH is None:
         return
@@ -1621,7 +1623,9 @@ def _read_wireshark_manuf_db() -> None:
         _WIRESHARK_MANUF_DB_VALUES.append((manuf, comment))
 
     try:
-        with open(os.path.join(config.WIRESHARK_SHARE_PATH, "manuf"), "r") as fdesc:
+        with open(
+            os.path.join(config.WIRESHARK_SHARE_PATH, "manuf"), "r", encoding="utf8"
+        ) as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
     except (AttributeError, TypeError, IOError):
@@ -1632,7 +1636,6 @@ def _read_wireshark_manuf_db() -> None:
 def get_wireshark_manuf_db() -> Tuple[
     List[int], List[Optional[Tuple[str, Optional[str]]]]
 ]:
-    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, _WIRESHARK_MANUF_DB_POPULATED
     if not _WIRESHARK_MANUF_DB_POPULATED:
         _read_wireshark_manuf_db()
     return _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES

@@ -44,7 +44,7 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
     cur = None
     assert config.GEOIP_PATH is not None
     with open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc, open(
-        os.path.join(config.GEOIP_PATH, outname), "w"
+        os.path.join(config.GEOIP_PATH, outname), "w", encoding="utf8"
     ) as out:
         for line in fdesc:
             start, stop = (
@@ -415,7 +415,7 @@ def _get_by_data(
     datafile: str, condition: ConditionCallback
 ) -> Generator[Tuple[int, int], None, None]:
     assert config.GEOIP_PATH is not None
-    with open(os.path.join(config.GEOIP_PATH, datafile)) as fdesc:
+    with open(os.path.join(config.GEOIP_PATH, datafile), encoding="utf8") as fdesc:
         for line in fdesc:
             line_parsed = line[:-1].split(",")
             if condition(line_parsed):
