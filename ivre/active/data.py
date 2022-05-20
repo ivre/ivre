@@ -365,7 +365,9 @@ def _get_data() -> None:
     assert DATA_PATH is not None
     if _TOR_NODES is None:
         try:
-            with open(os.path.join(DATA_PATH, "tor_exit_nodes.txt")) as fdesc:
+            with open(
+                os.path.join(DATA_PATH, "tor_exit_nodes.txt"), encoding="utf8"
+            ) as fdesc:
                 _TOR_NODES = {line.strip() for line in fdesc}
         except FileNotFoundError:
             LOGGER.warning(
@@ -375,7 +377,9 @@ def _get_data() -> None:
     if _SCANNERS_TABLE is None:
         ranges: List[Tuple[str, str, str]] = []
         try:
-            with open(os.path.join(DATA_PATH, "ssigouvfr_scanners.txt")) as fdesc:
+            with open(
+                os.path.join(DATA_PATH, "ssigouvfr_scanners.txt"), encoding="utf8"
+            ) as fdesc:
                 ranges.extend(
                     (addr, addr, "ANSSI") for addr in (line.strip() for line in fdesc)
                 )
@@ -384,7 +388,9 @@ def _get_data() -> None:
                 "Cannot find file [ssigouvfr_scanners.txt]. Try running `ivre getwebdata`"
             )
         try:
-            with open(os.path.join(DATA_PATH, "censys_scanners.txt")) as fdesc:
+            with open(
+                os.path.join(DATA_PATH, "censys_scanners.txt"), encoding="utf8"
+            ) as fdesc:
                 ranges.extend(net2range(line.strip()) + ("Censys",) for line in fdesc)
         except FileNotFoundError:
             LOGGER.warning(
@@ -397,7 +403,9 @@ def _get_data() -> None:
         )
     if _CDN_TABLE is None:
         try:
-            with open(os.path.join(DATA_PATH, "cdn_nuclei.py")) as fdesc:
+            with open(
+                os.path.join(DATA_PATH, "cdn_nuclei.py"), encoding="utf8"
+            ) as fdesc:
                 # pylint: disable=eval-used
                 _CDN_TABLE = eval(compile(fdesc.read(), "cdn_nuclei", "eval"))
         except FileNotFoundError:
@@ -433,7 +441,6 @@ def gen_auto_tags(
     "openports" field is updated unless `update_openports` is False.
 
     """
-    global _TOR_NODES, _SCANNERS_TABLE, _CDN_TABLE
     _get_data()
     assert _TOR_NODES is not None
     assert _SCANNERS_TABLE is not None

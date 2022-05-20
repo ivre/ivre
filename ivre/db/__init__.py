@@ -4564,7 +4564,7 @@ class DBAgent(DB):
         if hasattr(res, "fdesc"):
             opened, seekval = res.fdesc
             # pylint: disable=consider-using-with
-            res.fdesc = open(res.target.filename)
+            res.fdesc = open(res.target.filename, encoding="utf8")
             if opened:
                 res.fdesc.seek(seekval)
             else:
@@ -4634,7 +4634,7 @@ class DBAgent(DB):
 
     def add_local_master(self, path):
         masterid = self.add_master(socket.gethostname(), path)
-        with open(os.path.join(path, "whoami"), "w") as fdesc:
+        with open(os.path.join(path, "whoami"), "w", encoding="utf8") as fdesc:
             fdesc.write(str(masterid))
         return masterid
 
@@ -4662,7 +4662,7 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def masterid_from_dir(self, path):
-        with open(os.path.join(path, "whoami")) as fdesc:
+        with open(os.path.join(path, "whoami"), encoding="utf8") as fdesc:
             return self.str2id(fdesc.read())
 
 
