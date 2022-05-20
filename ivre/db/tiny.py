@@ -3872,7 +3872,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                                 )
                                 insertspec["meta"][name][key] = value + val
                             else:
-                                raise ValueError("Operation not supported [%r]" % op)
+                                raise ValueError(f"Operation not supported [{op!r}]")
                     else:
                         updatespec.append(op("meta.%s.%s" % (name, key), rec[value]))
                         if op is add_to_set_op:
@@ -3891,7 +3891,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                             )
                             insertspec["meta"][name][key] = curval + rec[value]
                         else:
-                            raise ValueError("Operation not supported [%r]" % op)
+                            raise ValueError(f"Operation not supported [{op!r}]")
 
         self._update_timeslots(updatespec, insertspec, rec)
 
@@ -4244,7 +4244,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
             elif array_mode.lower() == "all":
                 final = final.test(lambda vals: all(op(val) for val in vals))
             else:
-                raise ValueError("Invalid array_mode %r" % array_mode)
+                raise ValueError(f"Invalid array_mode {array_mode!r}")
             array_mode = None
         else:
             final = op(final)
@@ -4261,7 +4261,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
         elif array_mode.lower() == "all":
             cur = res.pop().all(final)
         else:
-            raise ValueError("Invalid array_mode %r" % array_mode)
+            raise ValueError(f"Invalid array_mode {array_mode!r}")
         while res:
             cur = res.pop().any(cur)
         return cur
@@ -4270,8 +4270,8 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
     def _fix_operator(cls, op):
         try:
             return cls.operators[op]
-        except KeyError:
-            raise ValueError("Unknown operator %r" % op)
+        except KeyError as exc:
+            raise ValueError(f"Unknown operator {op!r}") from exc
 
     @staticmethod
     def _fix_attr_name(attr):

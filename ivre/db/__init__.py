@@ -2145,12 +2145,12 @@ class DBNmap(DBActive):
             if fchar == b"{":
                 try:
                     firstres = (firstline).decode()
-                except UnicodeDecodeError:
-                    raise ValueError("Unknown file type %s" % fname)
+                except UnicodeDecodeError as exc:
+                    raise ValueError(f"Unknown file type {fname}") from exc
                 try:
                     firstres = json.loads(firstres)
-                except json.decoder.JSONDecodeError:
-                    raise ValueError("Unknown file type %s" % fname)
+                except json.decoder.JSONDecodeError as exc:
+                    raise ValueError(f"Unknown file type {fname}") from exc
                 if "_shodan" in firstres:
                     store_scan_function = self.store_scan_json_shodan
                 elif "addr" in firstres:
@@ -2176,11 +2176,15 @@ class DBNmap(DBActive):
                 elif "resolver" in firstres:
                     store_scan_function = self.store_scan_json_dnsx
                 else:
-                    raise ValueError("Unknown file type %s" % fname)
+                    raise ValueError(  # pylint: disable=raise-missing-from
+                        f"Unknown file type {fname}"
+                    )
             elif fchar == b"[":
                 store_scan_function = self.store_scan_json_dismap
             else:
-                raise ValueError("Unknown file type %s" % fname)
+                raise ValueError(  # pylint: disable=raise-missing-from
+                    f"Unknown file type {fname}"
+                )
         return store_scan_function(fname, filehash=scanid, **kargs)
 
     def store_scan_xml(self, fname, callback=None, **kargs):
@@ -4296,7 +4300,7 @@ class DBAgent(DB):
     def stop_agent(self, agentid):
         agent = self.get_agent(agentid)
         if agent is None:
-            raise IndexError("Agent not found [%r]" % agentid)
+            raise IndexError(f"Agent not found [{agentid!r}]")
         if agent["scan"] is not None:
             self.unassign_agent(agent["_id"])
 
@@ -4594,7 +4598,7 @@ class DBAgent(DB):
         """
         if scan.get("lock") is None:
             raise LockError(
-                "Cannot release lock for %r: scan is not locked" % scan["_id"]
+                f"Cannot release lock for {scan['_id']!r}: scan is not locked"
             )
         scan = self._lock_scan(scan["_id"], scan["lock"].bytes, None)
         return scan["lock"] is None

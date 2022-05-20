@@ -298,8 +298,8 @@ def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
             return b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff" + ipval
         try:
             data = ipval.decode()
-        except UnicodeDecodeError:
-            raise ValueError("Invalid IP address %r" % ipval)
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"Invalid IP address {ipval!r}") from exc
     else:
         data = ipval
     try:
@@ -310,8 +310,8 @@ def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
         pass
     try:
         return socket.inet_pton(socket.AF_INET6, data)
-    except socket.error:
-        raise ValueError("Invalid IP address %r" % ipval)
+    except socket.error as exc:
+        raise ValueError(f"Invalid IP address {ipval!r}") from exc
 
 
 def bin2ip(ipval: Union[AnyStr, int]) -> str:
@@ -328,8 +328,8 @@ def bin2ip(ipval: Union[AnyStr, int]) -> str:
         try:
             socket.inet_pton(socket.AF_INET6, ipval)
             return ipval
-        except socket.error:
-            raise ValueError("Invalid IP address %r" % ipval)
+        except socket.error as exc:
+            raise ValueError(f"Invalid IP address {ipval!r}") from exc
     if isinstance(ipval, int):
         return int2ip(ipval)
     if ipval[:12] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff":

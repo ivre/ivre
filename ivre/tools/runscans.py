@@ -206,7 +206,7 @@ def call_nmap(
     if accept_target_status is None:
         accept_target_status = {STATUS_NEW}
     options += ["-oX", "-", "-iL", "-"]
-    # pylint: disable=consider-using-with
+    # pylint: disable=consider-using-with,subprocess-popen-preexec-fn
     proc = subprocess.Popen(
         options, preexec_fn=setnmaplimits, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )

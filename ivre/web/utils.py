@@ -166,7 +166,7 @@ def query_from_params(params):
             )
         )
         utils.LOGGER.critical("Parameter parsing error [%s (%r)]", exc, exc)
-        raise ValueError("Parameter parsing error.")
+        raise ValueError("Parameter parsing error") from exc
 
 
 def get_user():
