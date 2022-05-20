@@ -186,7 +186,7 @@ class MongoDB(DB):
                 elif self.mechanism is not None:
                     self.db.authenticate(self.username, mechanism=self.mechanism)
                 else:
-                    raise TypeError(
+                    raise TypeError(  # pylint: disable=raise-missing-from
                         "provide either 'password' or 'mechanism' with 'username'"
                     )
             return self._db
@@ -723,14 +723,7 @@ class MongoDB(DB):
             return {key: val}
         if cmpop == "!=":
             return {key: {"$ne": val}}
-        raise Exception(
-            "Unknown operator %r (for key %r and val %r)"
-            % (
-                cmpop,
-                key,
-                val,
-            )
-        )
+        raise Exception(f"Unknown operator {cmpop!r} (for key {key!r} and val {val!r})")
 
     @staticmethod
     def _searchcert(
@@ -2019,8 +2012,8 @@ class MongoDBActive(MongoDB, DBActive):
                 for p in host.get("ports", [])
                 if p["port"] == port and p["protocol"] == protocol
             ][0]
-        except IndexError:
-            raise KeyError("Port %s/%d does not exist" % (protocol, port))
+        except IndexError as exc:
+            raise KeyError("Port %s/%d does not exist" % (protocol, port)) from exc
         if "screenshot" in port and not overwrite:
             return
         trim_result = utils.trim_image(data)
