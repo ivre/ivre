@@ -49,6 +49,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">FAQ</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#web-interface">Web interface</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#notebook-shows-forbidden">Notebook shows “Forbidden”</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#the-web-interface-shows-no-result">The Web interface shows no result</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#how-can-i-restrict-access-to-ivre-s-web-interface">How can I restrict access to IVRE’s Web interface</a></li>
 </ul>
 </li>
@@ -120,6 +121,28 @@ on the network to the Dokuwiki content. It is often restricted, by
 default, to local users only. If you are using Apache, you can look
 for an ACL like <code class="docutils literal notranslate"><span class="pre">Allow</span> <span class="pre">from</span> <span class="pre">localhost</span> <span class="pre">127.0.0.1</span> <span class="pre">::1</span></code> and adapt it to
 your network.</p>
+</section>
+<section id="the-web-interface-shows-no-result">
+<h3>The Web interface shows no result<a class="headerlink" href="#the-web-interface-shows-no-result" title="Permalink to this headline"></a></h3>
+<p><strong>I have inserted scan results, yet when I open the Web interface, it
+remains empty.</strong></p>
+<p>Two problems can explain this situation:</p>
+<ul class="simple">
+<li><p>The results are stored in the scan collection, but no view has been
+created (the Web interface displays results from the view).</p></li>
+<li><p>The Web interface does not access the database for some reason.</p></li>
+</ul>
+<p>First, from the command line, check that a view has been created by
+running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span> <span class="pre">--count</span></code>. If it displays <code class="docutils literal notranslate"><span class="pre">0</span></code>, it means that
+while you have inserted results in the <code class="docutils literal notranslate"><span class="pre">scan</span></code> database, you have not
+updated the <code class="docutils literal notranslate"><span class="pre">view</span></code> (see <a class="reference internal" href="principles.html#purposes"><span class="std std-ref">Purposes</span></a>). You
+can create a view by using the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span></code> CLI tool.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span> <span class="pre">--count</span></code> does not display <code class="docutils literal notranslate"><span class="pre">0</span></code> but a (positive!)
+number, it means that, for some reason, the CGI cannot access the
+database. It could be because you are using a user-specific
+configuration (in <code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code>) and the CGI application runs with
+a different user. To investigate the problem, you have to check the
+Web server error logs.</p>
 </section>
 <section id="how-can-i-restrict-access-to-ivre-s-web-interface">
 <h3>How can I restrict access to IVRE’s Web interface<a class="headerlink" href="#how-can-i-restrict-access-to-ivre-s-web-interface" title="Permalink to this headline"></a></h3>
