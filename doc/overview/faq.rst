@@ -21,6 +21,31 @@ default, to local users only. If you are using Apache, you can look
 for an ACL like ``Allow from localhost 127.0.0.1 ::1`` and adapt it to
 your network.
 
+The Web interface shows no result
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**I have inserted scan results, yet when I open the Web interface, it
+remains empty.**
+
+Two problems can explain this situation:
+
+- The results are stored in the scan collection, but no view has been
+  created (the Web interface displays results from the view).
+- The Web interface does not access the database for some reason.
+
+First, from the command line, check that a view has been created by
+running ``ivre view --count``. If it displays ``0``, it means that
+while you have inserted results in the ``scan`` database, you have not
+updated the ``view`` (see :ref:`overview/principles:Purposes`). You
+can create a view by using the ``ivre db2view`` CLI tool.
+
+If ``ivre view --count`` does not display ``0`` but a (positive!)
+number, it means that, for some reason, the CGI cannot access the
+database. It could be because you are using a user-specific
+configuration (in ``~/.ivre.conf``) and the CGI application runs with
+a different user. To investigate the problem, you have to check the
+Web server error logs.
+  
 How can I restrict access to IVRE's Web interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
