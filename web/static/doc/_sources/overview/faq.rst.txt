@@ -45,7 +45,7 @@ database. It could be because you are using a user-specific
 configuration (in ``~/.ivre.conf``) and the CGI application runs with
 a different user. To investigate the problem, you have to check the
 Web server error logs.
-  
+
 How can I restrict access to IVRE's Web interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

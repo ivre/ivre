@@ -59,3 +59,6 @@ jobs:
     - run: flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py
     - run: flake8 --ignore=E203,E501,W503 ./ivre_bak/
     - run: flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi
+
+    - run: rstcheck -r ./doc/
+    - run: if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi

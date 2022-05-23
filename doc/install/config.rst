@@ -250,7 +250,7 @@ the IVRE application; for example:
 
 Authentication and ACLs
 ~~~~~~~~~~~~~~~~~~~~~~~
-   
+
 If you want to use an authentication in IVRE, you have to configure
 your Web server (e.g., Apache or Nginx) to do so and set the
 environment variable ``REMOTE_USER`` to the username.
@@ -308,7 +308,7 @@ all results in category ``site-a``:
    WEB_INIT_QUERIES = {
        '@admin.sitea': 'category:site-a',
    }
-   
+
 Misc
 ----
 

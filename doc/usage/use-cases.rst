@@ -65,7 +65,7 @@ following example (the results come from a PCAP file used in IVRE's
    ipv4.icanhazip.com A 216.69.252.100 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
    ipv4.icanhazip.com A 216.69.252.100 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
-   
+
    $ ivre iphost 216.69.252.101
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
@@ -134,7 +134,7 @@ Here is a list of other blog posts about or around IVRE:
 
    - `Who's Attacking Me?
      <https://isc.sans.edu/forums/diary/Whos+Attacking+Me/21933/>`_
-      
+
    - `Three Honeypots and a Month After
      <https://www.serializing.me/2019/01/27/three-honeypots-and-a-month-after/>`_
 
