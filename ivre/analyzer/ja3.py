@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -50,8 +50,9 @@ GREASE = {
 
 
 def banner2ja3c(banner: bytes) -> Optional[str]:
-    # "lazy" import for scapy, as this import is slow
-    global HAS_SCAPY
+    # "lazy" import for scapy, as this import is slow.
+    # TLS is assigned by the import statement, but pylint seems to miss it.
+    global HAS_SCAPY, TLS  # pylint: disable=global-variable-not-assigned
     if HAS_SCAPY is None:
         try:
             # noqa: E402
@@ -64,7 +65,7 @@ def banner2ja3c(banner: bytes) -> Optional[str]:
     if not HAS_SCAPY:
         utils.LOGGER.warning("Scapy not found: cannot parse TLS banners")
         return None
-    data = TLS(banner)
+    data = TLS(banner)  # type: ignore
     try:
         if data.type != 22:  # handshake
             return None
