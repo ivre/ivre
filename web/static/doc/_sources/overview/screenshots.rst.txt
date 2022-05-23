@@ -105,13 +105,13 @@ using data from IVRE.
 
 |opencti_connector_scans|
 
-Fictitious investigation in `OpenCTI <https://www.opencti.io/>`_ based
-on scans data from IVRE.
+Fictitious investigation in `OpenCTI <https://www.opencti.io/>`__
+based on scans data from IVRE.
 
 |opencti_connector_passive|
 
-Fictitious investigation in `OpenCTI <https://www.opencti.io/>`_ based
-on passive data from IVRE.
+Fictitious investigation in `OpenCTI <https://www.opencti.io/>`__
+based on passive data from IVRE.
 
 .. |screenshot_heatmap| image:: ../screenshots/webui-home-heatmap.png
 .. |screenshot_heatmap_zoom| image:: ../screenshots/webui-details-heatmapzoom.png

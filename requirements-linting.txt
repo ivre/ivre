@@ -3,3 +3,4 @@ codespell
 flake8
 mypy
 pylint
+rstcheck[sphinx]
