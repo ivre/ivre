@@ -416,7 +416,12 @@ var GraphTopValues = (function(_super) {
 	    }
 	    else if(field === 'tag') {
 		prepareoutput = function(x) {
-		    return x[0];
+		    if(x[1].length > 30) {
+			return x[0] + ' (' + x[1].substr(0, 30) + '...)';
+		    }
+		    else {
+			return x[0] + ' (' + x[1] + ')';
+		    }
 		};
 		preparetitle = function(x) {
 		    return x[1];
