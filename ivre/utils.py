@@ -2517,8 +2517,11 @@ def download_if_newer(
             )
         )
     try:
-        with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
-            processor(udesc, wdesc)
+        with opener.open(url) as udesc:
+            # use two distinct with statements to avoid erasing the
+            # output file if opener.open(url) fails
+            with open(outfile, "wb") as wdesc:
+                processor(udesc, wdesc)
     except HTTPError as exc:
         if exc.status == 304:
             LOGGER.debug("Won't download %s: our copy is up-to-date", url)
