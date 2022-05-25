@@ -4155,6 +4155,14 @@ class DBPassive(DB):
         """
         raise NotImplementedError
 
+    @classmethod
+    def searchdomain(cls, name):
+        return cls.searchdns(name=name, subdomains=True)
+
+    @classmethod
+    def searchhostname(cls, name):
+        return cls.searchdns(name=name, subdomains=False)
+
     def get(self, spec, **kargs):
         """Queries the active column with the provided filter "spec",
         and returns a generator."""
