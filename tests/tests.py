@@ -836,7 +836,12 @@ class IvreTests(unittest.TestCase):
             return
         subprocess.check_call(["mongorestore", "--db", "ivre", "../backup/"])
         for cmd in ["scancli", "ipinfo"]:
-            RUN(["ivre", cmd, "--update-schema"])
+            res, out, err = RUN(["ivre", cmd, "--update-schema"])
+            print(f"ivre {cmd} --update-schema")
+            print(res)
+            print(repr(out))
+            print(repr(err))
+            self.assertEqual(res, 0)
 
         # Fetch data for auto tags
         res, out, _ = RUN(["ivre", "getwebdata"])
@@ -850,9 +855,13 @@ class IvreTests(unittest.TestCase):
         #
 
         # Fetch data for auto tags
-        res, out, _ = RUN(["ivre", "getwebdata"])
+        res, out, err = RUN(["ivre", "getwebdata"])
+        print("ivre getwebdata")
+        print(res)
+        print(repr(out))
+        print(repr(err))
         self.assertEqual(res, 0)
-        self.assertFalse(out, 0)
+        self.assertFalse(out)
 
         # Init DB
         self.init_nmap_db()
