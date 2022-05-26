@@ -121,9 +121,7 @@ Using pip
 ^^^^^^^^^
 
 Another way to create the ``ivre/base`` image is to use
-`pip <https://pypi.python.org/pypi/pip>`__ and thus get IVRE from
-`PyPI <https://pypi.python.org>`__, the Python Package Index. Please
-note that the version of IVRE on PyPI is not always up-to-date. From the
+`pip <https://pypi.python.org/pypi/pip>`__. From the
 ``docker/`` directory, run:
 
 ::

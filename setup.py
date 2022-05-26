@@ -73,7 +73,7 @@ class smart_install_lib(install_lib):
             with open(tmpfname, encoding="utf8") as oldf:
                 for line in oldf:
                     if line.startswith("import "):
-                        newf.write("VERSION = %r\n" % VERSION)
+                        newf.write("__version__ = VERSION = %r\n" % VERSION)
                         break
                     newf.write(line)
         os.chown(fullfname, stat.st_uid, stat.st_gid)

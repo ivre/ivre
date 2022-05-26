@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
-# pylint: disable=no-name-in-module,wrong-import-position,redefined-builtin
+# pylint: disable=wrong-import-position,redefined-builtin
 project = "IVRE"
 copyright = "2011 - 2022, Pierre LALET"
 author = "Pierre LALET"
@@ -29,7 +29,7 @@ from ivre import __version__ as version
 
 # pylint: enable=no-name-in-module,wrong-import-position,redefined-builtin
 
-version = version.split("dev")[0]
+version = version.split("dev", 1)[0]
 if version.endswith("."):
     version += "dev"
 
