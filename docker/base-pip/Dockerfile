@@ -26,4 +26,8 @@ RUN apt-get -q update && \
     apt-get -qy autoremove python3-dev python3-pip python3-setuptools git && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Fix version
+RUN echo -en "-docker" >> /usr/local/lib/python*/dist-packages/ivre/VERSION && \
+    sed -ri 's#(VERSION = .*)(['\''"])$#\1-docker\2#' /usr/local/lib/python*/dist-packages/ivre/__init__.py
+
 RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf
