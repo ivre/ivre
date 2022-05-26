@@ -4571,6 +4571,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             {
                 None: (1, self.migrate_schema_passive_0_1),
                 1: (2, self.migrate_schema_passive_1_2),
+                2: (3, self.migrate_schema_passive_2_3),
             },
         ]
 
@@ -4646,6 +4647,21 @@ class MongoDBPassive(MongoDB, DBPassive):
             if info:
                 doc["infos"] = info
             doc["value"] = utils.encode_b64(doc["value"]).decode()
+        return doc
+
+    @classmethod
+    def migrate_schema_passive_2_3(cls, doc):
+        """Converts a record from version 2 to version 3. In version 3 the
+        SSH host keys are base64 encoded (easier for lookups).
+
+        """
+        assert doc["schema_version"] == 2
+        doc = cls.internal2rec(doc)
+        doc["schema_version"] = 3
+        if doc["recontype"] == "SSH_SERVER_HOSTKEY":
+            doc["value"] = utils.encode_b64(
+                utils.nmap_decode_data(doc["value"])
+            ).decode()
         return doc
 
     def _get(self, flt, **kargs):
@@ -5300,14 +5316,19 @@ class MongoDBPassive(MongoDB, DBPassive):
         )
 
     @staticmethod
-    def searchsshkey(keytype=None):
-        if keytype is None:
-            return {"recontype": "SSH_SERVER_HOSTKEY", "source": "SSHv2"}
-        return {
-            "recontype": "SSH_SERVER_HOSTKEY",
-            "source": "SSHv2",
-            "infos.algo": "ssh-" + keytype,
-        }
+    def searchsshkey(fingerprint=None, key=None, keytype=None, bits=None):
+        res = {"recontype": "SSH_SERVER_HOSTKEY", "source": "SSHv2"}
+        if fingerprint is not None:
+            if not isinstance(fingerprint, utils.REGEXP_T):
+                fingerprint = fingerprint.replace(":", "").lower()
+            res["infos.md5"] = fingerprint
+        if key is not None:
+            res["value"] = key
+        if keytype is not None:
+            res["infos.algo"] = "ssh-" + keytype
+        if bits is not None:
+            res["infos.bits"] = bits
+        return res
 
     @staticmethod
     def searchbasicauth():

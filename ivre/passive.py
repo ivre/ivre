@@ -33,7 +33,7 @@ from ivre.analyzer import ntlm
 from ivre.data import scanners
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 DNSBL_START = re.compile(
     "^(?:"
@@ -375,6 +375,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
         value = spec["value"]
         spec.setdefault("infos", {})["raw"] = value
         spec["value"] = hashlib.new("md5", value.encode()).hexdigest()
+    # SSH_SERVER_HOSTKEY
+    elif spec["recontype"] == "SSH_SERVER_HOSTKEY":
+        spec["value"] = utils.encode_b64(utils.nmap_decode_data(spec["value"])).decode()
     # Check DNS Blacklist answer
     elif spec["recontype"] == "DNS_ANSWER":
         if any(
@@ -602,7 +605,7 @@ def _getinfos_ssh(spec):
 def _getinfos_ssh_hostkey(spec):
     """Parse SSH host keys."""
     infos = {}
-    data = utils.nmap_decode_data(spec["value"])
+    data = utils.decode_b64(spec["value"].encode())
     for hashtype in ["md5", "sha1", "sha256"]:
         infos[hashtype] = hashlib.new(hashtype, data).hexdigest()
     info = utils.parse_ssh_key(data)

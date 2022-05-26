@@ -3409,21 +3409,23 @@ class SQLDBPassive(SQLDB, DBPassive):
         )
 
     @classmethod
-    def searchsshkey(cls, keytype=None):
-        if keytype is None:
-            return PassiveFilter(
-                main=(
-                    (cls.tables.passive.recontype == "SSH_SERVER_HOSTKEY")
-                    & (cls.tables.passive.source == "SSHv2")
-                )
-            )
-        return PassiveFilter(
-            main=(
-                (cls.tables.passive.recontype == "SSH_SERVER_HOSTKEY")
-                & (cls.tables.passive.source == "SSHv2")
-                & (cls.tables.passive.moreinfo.op("->>")("algo") == "ssh-" + keytype)
-            )
+    def searchsshkey(cls, fingerprint=None, key=None, keytype=None, bits=None):
+        cnd = (cls.tables.passive.recontype == "SSH_SERVER_HOSTKEY") & (
+            cls.tables.passive.source == "SSHv2"
         )
+        if fingerprint is not None:
+            if not isinstance(fingerprint, utils.REGEXP_T):
+                fingerprint = fingerprint.replace(":", "").lower()
+            cnd &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op("->>")("md5"), fingerprint
+            )
+        if key is not None:
+            cnd &= cls._searchstring_re(cls.tables.passive.value, key)
+        if keytype is not None:
+            cnd &= cls.tables.passive.moreinfo.op("->>")("algo") == "ssh-" + keytype
+        if bits is not None:
+            cnd &= cls.tables.passive.moreinfo.op("->>")("bits") == bits
+        return PassiveFilter(main=cnd)
 
     @classmethod
     def searchtcpsrvbanner(cls, banner):
