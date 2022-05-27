@@ -1734,7 +1734,7 @@ class IvreTests(unittest.TestCase):
         self.check_nmap_top_value("nmap_top_tag_value", "tag.value")
         self.check_nmap_top_value("nmap_top_tag_info", "tag.info")
         self.check_nmap_top_value("nmap_top_tag_type", "tag.type")
-        self.check_nmap_top_value("nmap_top_tag_tor", "tag:TOR")
+        self.check_nmap_top_value("nmap_top_tag_cdn", "tag:CDN")
 
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
