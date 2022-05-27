@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -204,7 +204,7 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         SSLKey.__init__(self)
 
     def getkeys(self, record: Filter) -> Generator[Key, None, None]:
-        certtext = self._der2key(record["value"])
+        certtext = self._der2key(utils.decode_b64(record["value"].encode()))
         if certtext is None:
             return
 

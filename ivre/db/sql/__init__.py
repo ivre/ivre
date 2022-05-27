@@ -2833,7 +2833,6 @@ class SQLDBPassive(SQLDB, DBPassive):
                 "cert",
                 "cacert",
             }:
-                rec["value"] = self.from_binary(rec["value"])
                 for fld in ["not_before", "not_after"]:
                     try:
                         rec["infos"][fld] = utils.all2datetime(rec["infos"][fld])

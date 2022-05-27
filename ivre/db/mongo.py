@@ -4704,6 +4704,10 @@ class MongoDBPassive(MongoDB, DBPassive):
         for key in ["value", "targetval"]:
             if "full" + key in rec:
                 rec[key] = rec.pop("full" + key)
+        if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
+            "source"
+        ) in {"cert", "cacert"}:
+            rec["value"] = utils.encode_b64(rec["value"]).decode()
         if "fullinfos" in rec:
             rec.setdefault("infos", {}).update(rec.pop("fullinfos"))
         return rec

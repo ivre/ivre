@@ -434,7 +434,7 @@ def _extract_passive_SSL_cert(rec, cacert=False, server=True):
     if info:
         pem = []
         pem.append("-----BEGIN CERTIFICATE-----")
-        pem.extend(wrap(utils.encode_b64(rec["value"]).decode(), 64))
+        pem.extend(wrap(rec["value"], 64))
         pem.append("-----END CERTIFICATE-----")
         pem.append("")
         info["pem"] = "\n".join(pem)

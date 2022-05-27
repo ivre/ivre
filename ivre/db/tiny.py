@@ -2835,13 +2835,6 @@ class TinyDBPassive(TinyDB, DBPassive):
                 rec[fld] = utils.all2datetime(rec[fld])
             except KeyError:
                 pass
-        if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
-            "source"
-        ) in {
-            "cert",
-            "cacert",
-        }:
-            rec["value"] = cls.from_binary(rec["value"])
         if isinstance(rec, Document):
             rec["_id"] = rec.doc_id
         return rec

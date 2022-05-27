@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -141,11 +141,6 @@ def disp_recs_json(
             del rec["_id"]
         except KeyError:
             pass
-        if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
-            "cert",
-            "cacert",
-        }:
-            rec["value"] = utils.encode_b64(rec["value"]).decode()
         print(json.dumps(rec, indent=indent, default=dbase.serialize))
 
 
