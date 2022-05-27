@@ -46,7 +46,7 @@ place your samples there (the PCAP files must have the extension
 and the Nmap JSON results must have the extension ``.json``).
 
 Then, run ``python ./tests.py`` (optionally replace ``python`` by the
-alternative interpreter you want to use, e.g., ``python3.9``; note
+alternative interpreter you want to use, e.g., ``python3.10``; note
 that ``coverage.py`` must be installed for this interpreter).  The
 first run will create a ``samples/results`` file with the expected
 values for some results. The next runs will use those values to check
@@ -87,6 +87,6 @@ GitHub actions
 
 Tests are run with several MongoDB and PostgreSQL versions, as well as
 TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
-with Python 3.7 to 3.9.
+with Python 3.7 to 3.10.
 
 The configurations are in the `.github/workflows/*.yml` YAML files.

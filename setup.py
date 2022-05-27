@@ -23,6 +23,7 @@ $ python setup.py build
 """
 
 
+# pylint: disable=deprecated-module
 from distutils.core import setup
 from distutils.command.install_data import install_data
 from distutils.command.install_lib import install_lib
@@ -151,6 +152,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Security",
         "Topic :: System :: Networking",
