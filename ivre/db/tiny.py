@@ -2835,13 +2835,6 @@ class TinyDBPassive(TinyDB, DBPassive):
                 rec[fld] = utils.all2datetime(rec[fld])
             except KeyError:
                 pass
-        if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
-            "source"
-        ) in {
-            "cert",
-            "cacert",
-        }:
-            rec["value"] = cls.from_binary(rec["value"])
         if isinstance(rec, Document):
             rec["_id"] = rec.doc_id
         return rec
@@ -3417,13 +3410,21 @@ class TinyDBPassive(TinyDB, DBPassive):
             & cls._searchstring_re(getattr(q.infos.client, key), client_value_or_hash)
         )
 
-    @staticmethod
-    def searchsshkey(keytype=None):
+    @classmethod
+    def searchsshkey(cls, fingerprint=None, key=None, keytype=None, bits=None):
         q = Query()
-        req = (q.recontype == "SSH_SERVER_HOSTKEY") & (q.source == "SSHv2")
-        if keytype is None:
-            return req
-        return req & (q.infos.algo == "ssh-" + keytype)
+        res = (q.recontype == "SSH_SERVER_HOSTKEY") & (q.source == "SSHv2")
+        if fingerprint is not None:
+            if not isinstance(fingerprint, utils.REGEXP_T):
+                fingerprint = fingerprint.replace(":", "").lower()
+            res &= cls._searchstring_re(q.infos.md5, fingerprint)
+        if key is not None:
+            res &= cls._searchstring_re(q.value, key)
+        if keytype is not None:
+            res &= q.infos.algo == "ssh-" + keytype
+        if bits is not None:
+            res &= q.infos.bits == bits
+        return res
 
     @staticmethod
     def searchbasicauth():

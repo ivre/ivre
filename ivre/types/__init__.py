@@ -207,7 +207,13 @@ if HAS_TYPED_DICT:
         pass
 
     class DBPassive(DB, Protocol):
-        def searchsshkey(self, keytype: Optional[str] = None) -> Filter:
+        def searchsshkey(
+            self,
+            fingerprint: Optional[str] = None,
+            key: Optional[str] = None,
+            keytype: Optional[str] = None,
+            bits: Optional[int] = None,
+        ) -> Filter:
             ...
 
     class DBView(DBActive, Protocol):

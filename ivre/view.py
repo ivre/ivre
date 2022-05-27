@@ -289,9 +289,12 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
     # entry per key type.
     #
     # (MAYBE) we should add a "lastseen" tag to every intel in view.
-    value = utils.encode_b64(utils.nmap_decode_data(rec["value"])).decode()
     fingerprint = rec["infos"]["md5"]
-    key = {"type": rec["infos"]["algo"], "key": value, "fingerprint": fingerprint}
+    key = {
+        "type": rec["infos"]["algo"],
+        "key": rec["value"],
+        "fingerprint": fingerprint,
+    }
     if "bits" in rec["infos"]:  # FIXME
         key["bits"] = rec["infos"]["bits"]
     fingerprint = utils.decode_hex(fingerprint)
@@ -310,7 +313,7 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
                 (key["type"][4:] if key["type"][:4] == "ssh-" else key["type"]).upper(),
             ),
             key["type"],
-            value,
+            rec["value"],
         ),
         "key": key,
     }
@@ -431,7 +434,7 @@ def _extract_passive_SSL_cert(rec, cacert=False, server=True):
     if info:
         pem = []
         pem.append("-----BEGIN CERTIFICATE-----")
-        pem.extend(wrap(utils.encode_b64(rec["value"]).decode(), 64))
+        pem.extend(wrap(rec["value"], 64))
         pem.append("-----END CERTIFICATE-----")
         pem.append("")
         info["pem"] = "\n".join(pem)
