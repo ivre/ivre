@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.7', '3.9']
+        python-version: ['3.7', '3.10']
         postgresql-version: ['12', '13']
 
     steps:

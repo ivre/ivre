@@ -34,5 +34,5 @@ GitHub actions
 Code linting and spell checking is performed in a dedicated `GitHub
 action <https://github.com/ivre/ivre/actions/workflows/linting.yml>`_
 (see :ref:`dev/tests:GitHub actions`), togethter with the Maxmind
-tests. Pylint and Codespell only run with Python 3.9, while Flake8
+tests. Pylint and Codespell only run with Python 3.10, while Flake8
 runs with all Python versions.
