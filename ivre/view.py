@@ -278,11 +278,6 @@ def _extract_passive_HTTP_HONEYPOT_REQUEST(rec):
     }
 
 
-_KEYS = {
-    "ecdsa-sha2-nistp256": "ECDSA",
-}
-
-
 def _extract_passive_SSH_SERVER_HOSTKEY(rec):
     """Handle SSH host keys."""
     # TODO: should (probably) be merged, sorted by date/time, keep one
@@ -308,7 +303,7 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
                 "%02x" % (ord(i) if isinstance(i, (bytes, str)) else i)
                 for i in fingerprint
             ),
-            _KEYS.get(
+            utils.SSH_KEYS.get(
                 key["type"],
                 (key["type"][4:] if key["type"][:4] == "ssh-" else key["type"]).upper(),
             ),

@@ -2927,6 +2927,10 @@ class SQLDBPassive(SQLDB, DBPassive):
 
         """
         more_filter = None
+
+        def outputproc(val):
+            return val
+
         if flt is None:
             flt = PassiveFilter()
         if field == "domains":
@@ -2990,16 +2994,48 @@ class SQLDBPassive(SQLDB, DBPassive):
                 field = self.tables.passive.value
             else:
                 field = self.tables.passive.moreinfo[subfield]
+        elif field == "sshkey.bits":
+            flt = self.flt_and(flt, self.searchsshkey())
 
-        if isinstance(field, str):
-            field = self.fields[field]
+            def outputproc(val):  # noqa: F811
+                return (
+                    utils.SSH_KEYS.get(
+                        val[0],
+                        (val[0][4:] if val[0][:4] == "ssh-" else val[0]).upper(),
+                    ),
+                    val[1],
+                )
 
-        if field is not None and field == self.fields["addr"]:
-            outputproc = self.internal2ip
-        else:
+            field = [
+                self.tables.passive.moreinfo["algo"],
+                self.tables.passive.moreinfo["bits"],
+            ]
+        elif field == "sshkey.keytype":
+            flt = self.flt_and(flt, self.searchsshkey())
 
             def outputproc(val):
-                return val
+                return utils.SSH_KEYS.get(
+                    val,
+                    (val[4:] if val[:4] == "ssh-" else val).upper(),
+                )
+
+            field = self.tables.passive.moreinfo["algo"]
+        elif field.startswith("sshkey."):
+            flt = self.flt_and(flt, self.searchsshkey())
+            subfield = field[7:]
+            field = {
+                "fingerprint": self.tables.passive.moreinfo["md5"],
+                "key": self.tables.passive.value,
+            }.get(subfield, self.tables.passive.moreinfo[subfield])
+
+        if not isinstance(field, list):
+            field = [field]
+
+        for i, fld in enumerate(field):
+            if isinstance(fld, str):
+                field[i] = self.fields[fld]
+        if field == [self.fields["addr"]]:
+            outputproc = self.internal2ip  # noqa: F811
 
         order = "count" if least else desc("count")
         if more_filter is None:
@@ -3010,12 +3046,12 @@ class SQLDBPassive(SQLDB, DBPassive):
                             func.count()
                             if distinct
                             else func.sum(self.tables.passive.count)
-                        ).label("count"),
-                        field,
+                        ).label("count")
                     ]
+                    + field
                 )
                 .select_from(flt.select_from)
-                .group_by(field)
+                .group_by(*field)
             )
         else:
             base1 = flt.query(
@@ -3025,14 +3061,16 @@ class SQLDBPassive(SQLDB, DBPassive):
                             func.count()
                             if distinct
                             else func.sum(self.tables.passive.count)
-                        ).label("count"),
-                        field,
+                        ).label("count")
                     ]
+                    + field
                 )
                 .select_from(flt.select_from)
-                .group_by(field)
+                .group_by(*field)
             ).cte("base1")
-            req = select([base1.c.count, base1.c.field]).where(more_filter(base1.c))
+            req = select(
+                [base1.c.count] + [getattr(base1.c, fld.name) for fld in field]
+            ).where(more_filter(base1.c))
         return (
             {
                 "count": result[0],

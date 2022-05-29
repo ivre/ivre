@@ -4979,6 +4979,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         outputproc = None
         aggrflt = None
         specialproj = None
+        specialflt = []
         if field == "addr":
             specialproj = {
                 "_id": 0,
@@ -5057,8 +5058,60 @@ class MongoDBPassive(MongoDB, DBPassive):
                 field = "value"
             else:
                 field = "infos.%s" % subfield
+        elif field == "sshkey.bits":
+            flt = self.flt_and(flt, self.searchsshkey())
+            specialproj = {"infos.algo": 1, "infos.bits": 1}
+            specialflt = [
+                {
+                    "$project": {
+                        "_id": 0,
+                        "bits": ["$infos.algo", "$infos.bits"],
+                    }
+                }
+            ]
+
+            def outputproc(x):
+                def _fixval(value):
+                    return (
+                        utils.SSH_KEYS.get(
+                            value[0],
+                            (
+                                value[0][4:] if value[0][:4] == "ssh-" else value[0]
+                            ).upper(),
+                        ),
+                        value[1],
+                    )
+
+                return {"count": x["count"], "_id": _fixval(x["_id"])}
+
+            field = "bits"
+        elif field == "sshkey.keytype":
+            flt = self.flt_and(flt, self.searchsshkey())
+
+            def outputproc(x):
+                def _fixval(value):
+                    return utils.SSH_KEYS.get(
+                        value,
+                        (value[4:] if value[:4] == "ssh-" else value).upper(),
+                    )
+
+                return {"count": x["count"], "_id": _fixval(x["_id"])}
+
+            field = "infos.algo"
+        elif field.startswith("sshkey."):
+            flt = self.flt_and(flt, self.searchsshkey())
+            subfield = field[7:]
+            field = {
+                "fingerprint": "infos.md5",
+                "key": "value",
+            }.get(subfield, f"infos.{subfield}")
         pipeline = self._topvalues(
-            field, flt=flt, aggrflt=aggrflt, specialproj=specialproj, **kargs
+            field,
+            flt=flt,
+            aggrflt=aggrflt,
+            specialproj=specialproj,
+            specialflt=specialflt,
+            **kargs,
         )
         log_pipeline(pipeline)
         cursor = self.set_limits(

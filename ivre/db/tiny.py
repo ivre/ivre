@@ -2271,10 +2271,7 @@ class TinyDBActive(TinyDB, DBActive):
                                 yield (hostk.get("type"), hostk.get("bits"))
 
         elif field.startswith("sshkey."):
-
-            def _newflt(field):
-                return self.searchsshkey()
-
+            flt = self.flt_and(flt, self.searchsshkey())
             field = "ports.scripts.ssh-hostkey." + field[7:]
         elif field == "ike.vendor_ids":
 
@@ -3126,6 +3123,58 @@ class TinyDBPassive(TinyDB, DBPassive):
                 field = "value"
             else:
                 field = "infos.%s" % subfield
+            if distinct:
+                fields = [field]
+            else:
+                fields = [field, "count"]
+        elif field == "sshkey.bits":
+
+            def _newflt(field):
+                return self.searchsshkey()
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["infos.algo", "infos.bits"],
+                ):
+                    algo = rec["infos"].get("algo")
+                    yield (
+                        utils.SSH_KEYS.get(
+                            algo,
+                            (algo[4:] if algo[:4] == "ssh-" else algo).upper(),
+                        ),
+                        rec["infos"].get("bits"),
+                    )
+
+        elif field == "sshkey.keytype":
+
+            def _newflt(field):
+                return self.searchsshkey()
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                    flt,
+                    sort=sort,
+                    limit=limit,
+                    skip=skip,
+                    fields=["infos.algo"],
+                ):
+                    algo = rec["infos"].get("algo")
+                    yield utils.SSH_KEYS.get(
+                        algo,
+                        (algo[4:] if algo[:4] == "ssh-" else algo).upper(),
+                    )
+
+        elif field.startswith("sshkey."):
+            flt = self.flt_and(flt, self.searchsshkey())
+            subfield = field[7:]
+            field = {
+                "fingerprint": "infos.md5",
+                "key": "value",
+            }.get(subfield, f"infos.{subfield}")
             if distinct:
                 fields = [field]
             else:
