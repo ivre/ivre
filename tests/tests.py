@@ -2499,6 +2499,12 @@ class IvreTests(unittest.TestCase):
                 )
                 self.check_passive_top_value_api(valname, field, distinct)
 
+        for subfld in ["bits", "fingerprint", "keytype"]:
+            self.check_passive_top_value(
+                f"passive_top_sshkey_{subfld}",
+                f"sshkey.{subfld}",
+            )
+
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
                 if DATABASE == "sqlite" and field not in {"", ".md5"}:
