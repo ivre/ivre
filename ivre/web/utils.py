@@ -420,9 +420,9 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchhttpauth())
         elif not neg and param == "banner":
             flt = dbase.flt_and(flt, dbase.searchbanner(utils.str2regexp(value)))
-        elif param == "cookie":
+        elif not neg and param == "cookie":
             flt = dbase.flt_and(flt, dbase.searchcookie(value))
-        elif param == "file":
+        elif not neg and param == "file":
             if value is None:
                 flt = dbase.flt_and(flt, dbase.searchfile())
             else:
@@ -439,7 +439,7 @@ def flt_from_query(dbase, query, base_flt=None):
                             scripts=value[0].split(","),
                         ),
                     )
-        elif param == "vuln":
+        elif not neg and param == "vuln":
             try:
                 vulnid, status = value.split(":", 1)
             except ValueError:
@@ -455,7 +455,7 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchhttptitle(utils.str2regexp(value)))
         elif not neg and param == "nfs":
             flt = dbase.flt_and(flt, dbase.searchnfs())
-        elif not neg and param in ["nis", "yp"]:
+        elif not neg and param in {"nis", "yp"}:
             flt = dbase.flt_and(flt, dbase.searchypserv())
         elif not neg and param == "mssqlemptypwd":
             flt = dbase.flt_and(flt, dbase.searchmssqlemptypwd())
@@ -470,7 +470,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchsshkey())
         elif not neg and param.startswith("sshkey."):
             subfield = param.split(".", 1)[1]
-            if subfield in ["fingerprint", "key", "type", "bits"]:
+            if subfield in {"fingerprint", "key", "type", "bits"}:
                 if subfield == "type":
                     subfield = "keytype"
                 elif subfield == "bits":
@@ -490,7 +490,7 @@ def flt_from_query(dbase, query, base_flt=None):
             if subfield == "self_signed" and value is None:
                 flt = dbase.flt_and(flt, dbase.searchcert(self_signed=not neg))
             elif not neg:
-                if subfield in ["md5", "sha1", "sha256", "subject", "issuer"]:
+                if subfield in {"md5", "sha1", "sha256", "subject", "issuer"}:
                     flt = dbase.flt_and(
                         flt,
                         dbase.searchcert(
@@ -499,7 +499,7 @@ def flt_from_query(dbase, query, base_flt=None):
                             }
                         ),
                     )
-                elif subfield in ["pubkey.md5", "pubkey.sha1", "pubkey.sha256"]:
+                elif subfield in {"pubkey.md5", "pubkey.sha1", "pubkey.sha256"}:
                     flt = dbase.flt_and(
                         flt,
                         dbase.searchcert(
@@ -569,7 +569,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt,
                 dbase.searchsmbshares(access="" if value is None else value),
             )
-        elif param == "torcert":
+        elif not neg and param == "torcert":
             flt = dbase.flt_and(flt, dbase.searchtorcert())
         elif not neg and param == "webfiles":
             flt = dbase.flt_and(flt, dbase.searchwebfiles())
@@ -623,7 +623,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt, dbase.searchjarm(value=utils.str2regexp(value), neg=neg)
                 )
-        elif param in {"hassh", "hassh-client", "hassh-server"}:
+        elif not neg and param in {"hassh", "hassh-client", "hassh-server"}:
             server = {"hassh": None, "hassh-client": False, "hassh-server": True}[param]
             flt = dbase.flt_and(
                 flt,
@@ -635,7 +635,8 @@ def flt_from_query(dbase, query, base_flt=None):
         elif param == "useragent":
             if value:
                 flt = dbase.flt_and(
-                    flt, dbase.searchuseragent(useragent=utils.str2regexp(value))
+                    flt,
+                    dbase.searchuseragent(useragent=utils.str2regexp(value), neg=neg),
                 )
             else:
                 flt = dbase.flt_and(flt, dbase.searchuseragent())
@@ -643,11 +644,11 @@ def flt_from_query(dbase, query, base_flt=None):
         elif not neg and param == "os":
             flt = dbase.flt_and(flt, dbase.searchos(utils.str2regexp(value)))
         # device types
-        elif param in ["devicetype", "devtype"]:
+        elif not neg and param in {"devicetype", "devtype"}:
             flt = dbase.flt_and(flt, dbase.searchdevicetype(utils.str2regexp(value)))
-        elif param in ["netdev", "networkdevice"]:
+        elif not neg and param in {"netdev", "networkdevice"}:
             flt = dbase.flt_and(flt, dbase.searchnetdev())
-        elif param == "phonedev":
+        elif not neg and param == "phonedev":
             flt = dbase.flt_and(flt, dbase.searchphonedev())
         # traceroute
         elif param == "hop":
@@ -660,7 +661,7 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchhopname(value, neg=neg))
         elif param == "hopdomain":
             flt = dbase.flt_and(flt, dbase.searchhopdomain(value, neg=neg))
-        elif not neg and param in ["ike.vendor_id.name", "ike.vendor_id.value"]:
+        elif not neg and param in {"ike.vendor_id.name", "ike.vendor_id.value"}:
             flt = dbase.flt_and(
                 flt,
                 dbase.searchscript(
@@ -682,7 +683,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 sortby.append((value, -1))
             else:
                 sortby.append((value, 1))
-        elif param in ["open", "filtered", "closed"]:
+        elif not neg and param in {"open", "filtered", "closed"}:
             value = value.replace("_", "/").split(",")
             protos = {}
             for port in value:
@@ -698,7 +699,7 @@ def flt_from_query(dbase, query, base_flt=None):
                     if len(ports) == 1
                     else dbase.searchports(ports, protocol=proto, state=param),
                 )
-        elif param == "otheropenport":
+        elif not neg and param == "otheropenport":
             flt = dbase.flt_and(
                 flt, dbase.searchportsother([int(val) for val in value.split(",")])
             )
@@ -753,7 +754,7 @@ def flt_from_query(dbase, query, base_flt=None):
                     flt = dbase.flt_and(
                         flt, dbase.searchscreenshot(service=value, neg=neg, words=words)
                     )
-        elif param == "cpe":
+        elif not neg and param == "cpe":
             if value:
                 cpe_kwargs = {}
                 cpe_fields = ["cpe_type", "vendor", "product", "version"]
@@ -779,7 +780,7 @@ def flt_from_query(dbase, query, base_flt=None):
                     )
             else:
                 flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
-        elif param == "search":
+        elif not neg and param == "search":
             try:
                 flt = dbase.flt_and(flt, dbase.searchtext(value))
             except AttributeError:  # .searchtext() only exists in MongoDB
