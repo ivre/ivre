@@ -1859,6 +1859,11 @@ def only_printable(string: AnyStr) -> AnyStr:
     return "".join(c for c in string if " " <= c <= "~")
 
 
+SSH_KEYS = {
+    "ecdsa-sha2-nistp256": "ECDSA",
+}
+
+
 def _parse_ssh_key(data: bytes) -> Generator[bytes, None, None]:
     """Generates SSH key elements"""
     while data:
