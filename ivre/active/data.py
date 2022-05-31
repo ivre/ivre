@@ -802,7 +802,7 @@ def merge_axfr_scripts(
         if any(data["domain"] == r["domain"] for r in res):
             continue
         res.append(data)
-    res = sorted(res, key=lambda r: key_sort_dom(r["domain"].split(".")))
+    res = sorted(res, key=lambda r: key_sort_dom(r["domain"]))
     line_fmt = "| %%-%ds  %%-%ds  %%s" % (
         max(len(r["name"]) for data in res for r in data["records"]),
         max(len(r["type"]) for data in res for r in data["records"]),
