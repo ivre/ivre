@@ -3906,6 +3906,25 @@ class IvreTests(unittest.TestCase):
             ),
         )
 
+        res, out, _ = RUN(["ivre", "ipdata", "--json", "8.8.8.8"])
+        self.assertEqual(res, 0)
+        self.assertEqual(
+            json.loads(out),
+            {
+                "addr": "8.8.8.8",
+                "as_num": 15169,
+                "as_name": "Google LLC",
+                "continent_code": "NA",
+                "continent_name": "North America",
+                "country_code": "US",
+                "country_name": "United States",
+                "registered_country_code": "US",
+                "registered_country_name": "United States",
+                "coordinates": [37.751, -97.822],
+                "coordinates_accuracy_radius": 1000,
+            },
+        )
+
         res, out, _ = RUN(["ivre", "ipdata", "10.0.0.1"])
         self.assertEqual(res, 0)
         out = sorted(out.splitlines())
@@ -3916,6 +3935,12 @@ class IvreTests(unittest.TestCase):
     address_type Private
 """.splitlines()
             ),
+        )
+
+        res, out, _ = RUN(["ivre", "ipdata", "--json", "10.0.0.1"])
+        self.assertEqual(res, 0)
+        self.assertEqual(
+            json.loads(out), {"addr": "10.0.0.1", "address_type": "Private"}
         )
 
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--routable"])

@@ -596,6 +596,7 @@ SSLBL_CERTIFICATES = {
     "1cf9050f75c9310e5961fecda4202870d5e3ace7": "Malware C&C",
     "1d05c6fef14d2671d759a05b496464b831c650e8": "Gootkit C&C",
     "1d1b4f67f070df5cae8f39553978f0adb3abd0c0": "Gozi C&C",
+    "1d24f76b652957735a93544173b1832343dd46b1": "AsyncRAT C&C",
     "1d3a5463a0940a8587d361b23b3bdb1f0570895f": "AsyncRAT C&C",
     "1d4be8f125619bbe6ed8153579e878debf7369a4": "Dridex C&C",
     "1d515bdb771dad480db077e214ac7de947e593ff": "BazaLoader C&C",

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,6 +24,8 @@ AS number and country information.
 
 
 from argparse import ArgumentParser
+import json
+from sys import stdout
 from typing import Callable, List, Tuple, cast
 
 
@@ -41,6 +43,7 @@ def main() -> None:
         help="Create all CSV files for reverse lookups.",
     )
     parser.add_argument("--quiet", "-q", action="store_true", help="Quiet mode.")
+    parser.add_argument("--json", "-j", action="store_true", help="Output JSON data.")
     parser.add_argument(
         "ip",
         nargs="*",
@@ -58,10 +61,19 @@ def main() -> None:
     for addr in args.ip:
         if addr.isdigit():
             addr = utils.int2ip(int(addr))
-        print(addr)
         info = utils.get_addr_type(addr)
-        if info:
-            print("    address_type %s" % info)
-        for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
-            for key, value in (subinfo or {}).items():
-                print("    %s %s" % (key, value))
+        if args.json:
+            res = {"addr": addr}
+            if info:
+                res["address_type"] = info
+            for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
+                res.update(subinfo or {})
+            json.dump(res, stdout)
+            print()
+        else:
+            print(addr)
+            if info:
+                print("    address_type %s" % info)
+            for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
+                for key, value in (subinfo or {}).items():
+                    print("    %s %s" % (key, value))
