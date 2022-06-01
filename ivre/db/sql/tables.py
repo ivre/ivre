@@ -215,7 +215,6 @@ class Point(UserDefinedType):
 
     cache_ok = True
 
-    # pylint: disable=no-self-use
     def get_col_spec(self):
         return "POINT"
 

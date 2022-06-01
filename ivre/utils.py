@@ -564,11 +564,13 @@ def ports2nmapspec(portlist: Iterable[int]) -> str:
             current = (current[0], port)
         else:
             if current[0] is not None:
+                # pylint: disable=bad-string-format-type
                 result.append(
                     str(current[0]) if current[0] == current[1] else "%d-%d" % current  # type: ignore
                 )
             current = (port, port)
     if current[0] is not None:
+        # pylint: disable=bad-string-format-type
         result.append(
             str(current[0]) if current[0] == current[1] else "%d-%d" % current  # type: ignore
         )
