@@ -15,6 +15,7 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -110,16 +111,16 @@
            <div itemprop="articleBody">
              
   <section id="web-user-interface">
-<h1>Web User Interface<a class="headerlink" href="#web-user-interface" title="Permalink to this headline"></a></h1>
+<h1>Web User Interface<a class="headerlink" href="#web-user-interface" title="Permalink to this heading"></a></h1>
 <p>This web interface presents results of the <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see
 <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that can be filtered with
 keywords (for some of them, shortcuts are available in the menus).</p>
 <p>Keep in mind that the information available in this interface highly
 depends on the options used to run Nmap.</p>
 <section id="the-interface">
-<h2>The interface<a class="headerlink" href="#the-interface" title="Permalink to this headline"></a></h2>
+<h2>The interface<a class="headerlink" href="#the-interface" title="Permalink to this heading"></a></h2>
 <section id="the-top-navigation-bar">
-<h3>The top navigation bar<a class="headerlink" href="#the-top-navigation-bar" title="Permalink to this headline"></a></h3>
+<h3>The top navigation bar<a class="headerlink" href="#the-top-navigation-bar" title="Permalink to this heading"></a></h3>
 <p>It contains several elements; from left to right:</p>
 <ul class="simple">
 <li><p>A shortcut to the start page, that cleans every keyword.</p></li>
@@ -129,7 +130,7 @@ depends on the options used to run Nmap.</p>
 </ul>
 </section>
 <section id="the-left-side-bar">
-<h3>The left side bar<a class="headerlink" href="#the-left-side-bar" title="Permalink to this headline"></a></h3>
+<h3>The left side bar<a class="headerlink" href="#the-left-side-bar" title="Permalink to this heading"></a></h3>
 <p>The first part allows to navigate within the results. Be careful with
 the last button that goes to the last result page, as it can be very
 slow when a lot of results are available.</p>
@@ -202,7 +203,7 @@ represents the IP addresses.</p></li>
 </ul>
 </section>
 <section id="scan-results">
-<h3>Scan results<a class="headerlink" href="#scan-results" title="Permalink to this headline"></a></h3>
+<h3>Scan results<a class="headerlink" href="#scan-results" title="Permalink to this heading"></a></h3>
 <p>Ten results (maximum) are displayed per page by default.</p>
 <p>Each result has its own frame. In the default display mode, it displays
 a summary for the host. Long-clicking a result frame toggles between the
@@ -213,9 +214,9 @@ current host (see below) in the rightmost part of the screen.</p>
 </section>
 </section>
 <section id="available-commands">
-<h2>Available commands<a class="headerlink" href="#available-commands" title="Permalink to this headline"></a></h2>
+<h2>Available commands<a class="headerlink" href="#available-commands" title="Permalink to this heading"></a></h2>
 <section id="command-specification">
-<h3>Command specification<a class="headerlink" href="#command-specification" title="Permalink to this headline"></a></h3>
+<h3>Command specification<a class="headerlink" href="#command-specification" title="Permalink to this heading"></a></h3>
 <p>The commands might require a parameter, provided after the colon sign
 <code class="docutils literal notranslate"><span class="pre">:</span></code>. Some commands can be used negatively, by prefixing them with
 <code class="docutils literal notranslate"><span class="pre">!</span></code> or <code class="docutils literal notranslate"><span class="pre">-</span></code>.</p>
@@ -232,11 +233,11 @@ appropriate, a regular expression can be used, with the
 or double quotes.</p>
 </section>
 <section id="command-list">
-<h3>Command list<a class="headerlink" href="#command-list" title="Permalink to this headline"></a></h3>
+<h3>Command list<a class="headerlink" href="#command-list" title="Permalink to this heading"></a></h3>
 </section>
 </section>
 <section id="filters">
-<h2>Filters<a class="headerlink" href="#filters" title="Permalink to this headline"></a></h2>
+<h2>Filters<a class="headerlink" href="#filters" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">[!]host:[IP</span> <span class="pre">address]</span></code> filter a specific IP address. Using the IP
 address directly (without <code class="docutils literal notranslate"><span class="pre">host:</span></code>) is equivalent.</p></li>
@@ -359,7 +360,7 @@ those specified.</p></li>
 </ul>
 </section>
 <section id="sort">
-<h2>Sort<a class="headerlink" href="#sort" title="Permalink to this headline"></a></h2>
+<h2>Sort<a class="headerlink" href="#sort" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">skip:[count]</span></code> skip <code class="docutils literal notranslate"><span class="pre">count</span></code> first results.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">limit:[count]</span></code> only display <code class="docutils literal notranslate"><span class="pre">count</span></code> results.</p></li>
@@ -369,7 +370,7 @@ terrible.</p></li>
 </ul>
 </section>
 <section id="display">
-<h2>Display<a class="headerlink" href="#display" title="Permalink to this headline"></a></h2>
+<h2>Display<a class="headerlink" href="#display" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">display:host</span></code> set the default display mode.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">display:cpe</span></code> only display CPEs.</p></li>

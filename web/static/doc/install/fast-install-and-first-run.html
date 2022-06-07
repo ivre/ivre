@@ -15,6 +15,7 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -100,7 +101,7 @@
            <div itemprop="articleBody">
              
   <section id="fast-install-first-run">
-<h1>Fast install &amp; first run<a class="headerlink" href="#fast-install-first-run" title="Permalink to this headline"></a></h1>
+<h1>Fast install &amp; first run<a class="headerlink" href="#fast-install-first-run" title="Permalink to this heading"></a></h1>
 <p>This file describes the steps to install IVRE, run the first scans and
 add the results to the database with all components (scanner, web
 server, database server) on the same (Debian or Ubuntu) machine.</p>
@@ -116,7 +117,7 @@ getting them via <code class="docutils literal notranslate"><span class="pre">ap
 <p>For another way to run IVRE easily (probably even more easily), see
 <a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a>.</p>
 <section id="install">
-<h2>Install<a class="headerlink" href="#install" title="Permalink to this headline"></a></h2>
+<h2>Install<a class="headerlink" href="#install" title="Permalink to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
 &gt;   python3-crypto python3-bottle python3-openssl apache2 \
 &gt;   libapache2-mod-wsgi-py3 dokuwiki
@@ -128,7 +129,7 @@ $ sudo python3 setup.py install
 </div>
 </section>
 <section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h2>
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo -s
 # cd /var/www/html ## or depending on your version /var/www
 # rm index.html
@@ -161,7 +162,7 @@ IVRE Web UI should show up, with no result of course. Click the HELP
 button to check if everything works.</p>
 </section>
 <section id="database-init-data-download-importation">
-<h2>Database init, data download &amp; importation<a class="headerlink" href="#database-init-data-download-importation" title="Permalink to this headline"></a></h2>
+<h2>Database init, data download &amp; importation<a class="headerlink" href="#database-init-data-download-importation" title="Permalink to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ yes | ivre ipinfo --init
 $ yes | ivre scancli --init
 $ yes | ivre view --init
@@ -172,7 +173,7 @@ $ sudo ivre ipdata --download
 </div>
 </section>
 <section id="run-a-first-scan">
-<h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Permalink to this headline"></a></h2>
+<h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Permalink to this heading"></a></h2>
 <p>Against 1k (routable) IP addresses, with a single nmap process:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000
 </pre></div>
@@ -199,7 +200,7 @@ differences depending on where the scans are run from.</p>
 <p>Go back to the Web UI and browse your first scan results!</p>
 </section>
 <section id="some-remarks">
-<h2>Some remarks<a class="headerlink" href="#some-remarks" title="Permalink to this headline"></a></h2>
+<h2>Some remarks<a class="headerlink" href="#some-remarks" title="Permalink to this heading"></a></h2>
 <p>There is no tool (for now) to automatically import scan results to the
 database. It is your job to do so, according to your settings.</p>
 <p>If you run very large scans (particularly against random hosts on the
