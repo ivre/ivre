@@ -15,6 +15,7 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -103,9 +104,9 @@
            <div itemprop="articleBody">
              
   <section id="passive">
-<h1>Passive<a class="headerlink" href="#passive" title="Permalink to this headline"></a></h1>
+<h1>Passive<a class="headerlink" href="#passive" title="Permalink to this heading"></a></h1>
 <section id="with-zeek">
-<h2>With Zeek<a class="headerlink" href="#with-zeek" title="Permalink to this headline"></a></h2>
+<h2>With Zeek<a class="headerlink" href="#with-zeek" title="Permalink to this heading"></a></h2>
 <p>You need to run <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as
 Bro), version 3.0 minimum (tested with 3.0 and 3.1) with the option
 <code class="docutils literal notranslate"><span class="pre">-b</span></code> and the location of the <code class="docutils literal notranslate"><span class="pre">passiverecon/bare.zeek</span></code> file. If you
@@ -140,14 +141,14 @@ intermediate files:</p>
 </div>
 </section>
 <section id="with-p0f">
-<h2>With p0f<a class="headerlink" href="#with-p0f" title="Permalink to this headline"></a></h2>
+<h2>With p0f<a class="headerlink" href="#with-p0f" title="Permalink to this heading"></a></h2>
 <p>You need to install <a class="reference external" href="https://lcamtuf.coredump.cx/p0f3/">p0f v3</a>, and
 use it with the option <code class="docutils literal notranslate"><span class="pre">-o</span></code> to produce an output file. Then, provide
 that output file to <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">p0f2db</span></code>.</p>
 <p>For now, only <code class="docutils literal notranslate"><span class="pre">syn</span></code> and <code class="docutils literal notranslate"><span class="pre">syn+ack</span></code> modes are supported.</p>
 </section>
 <section id="enjoying-the-results">
-<h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this headline"></a></h2>
+<h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this heading"></a></h2>
 <p>You have several options, depending on what you want to do:</p>
 <ul>
 <li><p>Command line interfaces (see also <a class="reference internal" href="../overview/screenshots.html#passive-network-analysis"><span class="std std-ref">Passive network analysis</span></a> in the screenshots gallery):</p>
@@ -172,7 +173,7 @@ passive data, that can then be accessed by the <code class="docutils literal not
 </li>
 </ul>
 <section id="cli">
-<h3>CLI<a class="headerlink" href="#cli" title="Permalink to this headline"></a></h3>
+<h3>CLI<a class="headerlink" href="#cli" title="Permalink to this heading"></a></h3>
 <p>To show everything stored about an IP address or a network:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre ipinfo 1.2.3.4
 $ ivre ipinfo 1.2.3.0/24
@@ -181,7 +182,7 @@ $ ivre ipinfo 1.2.3.0/24
 <p>See the output of <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">ipinfo</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">iphost</span></code>.</p>
 </section>
 <section id="python-module">
-<h3>Python module<a class="headerlink" href="#python-module" title="Permalink to this headline"></a></h3>
+<h3>Python module<a class="headerlink" href="#python-module" title="Permalink to this heading"></a></h3>
 <p>To use the Python module, run for example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python
 &gt;&gt;&gt; from ivre.db import db
