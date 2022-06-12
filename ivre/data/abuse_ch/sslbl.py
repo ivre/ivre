@@ -4425,6 +4425,7 @@ SSLBL_CERTIFICATES = {
     "e95061ed3d62873c2232c2fce27244978c77b2d1": "QuasarRAT C&C",
     "e95a3388c2a796fbe05ec11e1ff5bcb4b67260f5": "Gozi C&C",
     "e9665d2dcd5b06c8c13daa53d2f0e08b0d27398f": "Dridex C&C",
+    "e9675107f7d0f18a2716481a81bd930b7123af30": "Smoke Loader C&C",
     "e974a418a760d43041bfd9502b4b6a2ce8835b82": "Dridex C&C",
     "e975bed42061b58ef76dd44cd69c8e82b039d730": "Gootkit C&C",
     "e9761aa8442c5a77d2d367cb6b4c5b0db97cda64": "PandaZeuS C&C",
