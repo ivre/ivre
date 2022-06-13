@@ -26,19 +26,11 @@ IVRE is a network recon framework. See https://ivre.rocks/
 import os
 import re
 import subprocess
-from typing import Optional, Tuple, cast
+from typing import Tuple, cast
 
 
 _DIR = os.path.dirname(__file__)
 _VERSION_FILE = os.path.join(_DIR, "VERSION")
-
-
-def _get_version_from_file() -> Optional[str]:
-    try:
-        with open(_VERSION_FILE, encoding="utf8") as fdesc:
-            return fdesc.read()
-    except IOError:
-        return None
 
 
 def _get_version_from_git() -> str:
@@ -74,7 +66,7 @@ def _get_version_from_git() -> str:
     return value
 
 
-def _version() -> Optional[str]:
+def _version() -> str:
     try:
         tag = _get_version_from_git()
     except (subprocess.CalledProcessError, OSError, ValueError):
@@ -96,9 +88,9 @@ def _version() -> Optional[str]:
         return next(ref[6:] for ref in refnames.split(", ") if ref.startswith("tag: v"))
     except StopIteration:
         pass
-    if hashval == "$Format:%h":
+    if not hashval or hashval == "$Format:%h":
         return "unknown.version"
-    return hashval if hashval else "unknown.version"
+    return hashval
 
 
 __version__ = VERSION = _version()
