@@ -20,11 +20,11 @@ Running the linters
 -------------------
 
 To install the Python code linters and Codespell you can simply use
-the `requirements-linting.txt` file with Pip, or use any method to
-install the latest versions of the `black`, `codespell`, `flake8` and
-`pylint` Python modules.
+the ``requirements-linting.txt`` file with Pip, or use any method to
+install the latest versions of the ``black``, ``codespell``,
+``flake8`` and ``pylint`` Python modules.
 
-The script `pkg/runchecks` will run all the tests for you with the
+The script ``pkg/runchecks`` will run all the tests for you with the
 expected options and exceptions.
 
 

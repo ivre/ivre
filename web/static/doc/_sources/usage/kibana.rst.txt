@@ -46,14 +46,14 @@ server running on the local machine:
 
 .. code:: bash
 
-          echo 'DB_VIEW = "elastic://127.0.0.1:9200/ivre"' > ~/.ivre-elastic.conf
+    echo 'DB_VIEW = "elastic://127.0.0.1:9200/ivre"' > ~/.ivre-elastic.conf
 
 Then, to use this dedicated configuration file, we just have to set
 the ``IVRE_CONF`` environment variable:
 
 .. code:: bash
 
-          IVRE_CONF=~/.ivre-elastic.conf ivre view --count
+    IVRE_CONF=~/.ivre-elastic.conf ivre view --count
 
 Index creation & Data insertion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,8 +64,8 @@ records from the ``nmap`` and ``passive`` purposes:
 
 .. code:: bash
 
-          IVRE_CONF=~/.ivre-elastic.conf ivre view --init < /dev/null
-          IVRE_CONF=~/.ivre-elastic.conf ivre db2view
+    IVRE_CONF=~/.ivre-elastic.conf ivre view --init < /dev/null
+    IVRE_CONF=~/.ivre-elastic.conf ivre db2view
 
 The first command will drop any existing data, and create the index
 and mapping, and the second will create the view itself.

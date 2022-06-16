@@ -4,3 +4,4 @@ flake8
 mypy
 pylint
 rstcheck[sphinx]
+sphinx-lint
