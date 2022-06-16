@@ -62,3 +62,5 @@ jobs:
 
     - run: rstcheck -r ./doc/
     - run: if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi
+
+    - run: sphinx-lint -e all -d line-too-long ./doc/

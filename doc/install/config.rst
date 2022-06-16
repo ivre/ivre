@@ -175,7 +175,8 @@ their default values:
 The ``data`` purpose
 --------------------
 
-The URLs used to get IP address databases are set in the dictionary ``IPDATA_URLS``:
+The URLs used to get IP address databases are set in the dictionary
+``IPDATA_URLS``:
 
 .. literalinclude:: ../../ivre/config.py
    :start-after: Begin IPDATA_URLS

@@ -33,7 +33,7 @@
             <img src="../_static/logo.png" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                0.9.17.dev
+                0.9.18.dev
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -242,7 +242,8 @@ configured to send logs.</p>
 careful with the OUTPUT rule if the logs are sent over the network!</p>
 <p>On the syslog server or on each host, just run grep to collect the
 data needed for the iptables flow2db parser:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ grep -l <span class="s1">&#39;IPTABLES/&#39;</span> /var/log/syslog /var/log/kernel.log ... &gt; syslog-iptables.log
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ grep -l <span class="s1">&#39;IPTABLES/&#39;</span> /var/log/syslog /var/log/kernel.log ... <span class="se">\</span>
+    &gt; syslog-iptables.log
 </pre></div>
 </div>
 <p>Then import data to ivredb using flow2db tool:</p>

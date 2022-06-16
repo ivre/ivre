@@ -173,7 +173,8 @@ data needed for the iptables flow2db parser:
 
 .. code:: bash
 
-      $ grep -l 'IPTABLES/' /var/log/syslog /var/log/kernel.log ... > syslog-iptables.log
+      $ grep -l 'IPTABLES/' /var/log/syslog /var/log/kernel.log ... \
+          > syslog-iptables.log
 
 Then import data to ivredb using flow2db tool:
 

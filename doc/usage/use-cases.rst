@@ -140,7 +140,8 @@ Here is a list of other blog posts about or around IVRE:
 
 - Scanning SAP Services:
 
-   - `gelim/nmap-erpscan <https://github.com/gelim/nmap-erpscan>`_ on Github
+   - `gelim/nmap-erpscan <https://github.com/gelim/nmap-erpscan>`_ on
+     Github
 
    - `SAP Services detection via nmap probes
      <https://erpscan.io/press-center/blog/sap-services-detection-via-nmap-probes/>`_

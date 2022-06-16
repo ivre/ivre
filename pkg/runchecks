@@ -35,3 +35,5 @@ pylint -e all -d unused-argument,too-many-arguments,missing-function-docstring,m
 
 rstcheck -r ./doc/ && echo "rstcheck OK"
 if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi
+
+sphinx-lint -e all -d line-too-long ./doc/ && echo "sphinx-lint OK"
