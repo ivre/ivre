@@ -28,24 +28,24 @@ from ivre import utils
 HAS_SCAPY = None
 
 
-# https://tools.ietf.org/html/draft-davidben-tls-grease-01
+# https://datatracker.ietf.org/doc/html/draft-ietf-tls-grease
 GREASE = {
-    2570,
-    6682,
-    10794,
-    14906,
-    19018,
-    23130,
-    27242,
-    31354,
-    35466,
-    39578,
-    43690,
-    47802,
-    51914,
-    56026,
-    60138,
-    64250,
+    0x0A0A,
+    0x1A1A,
+    0x2A2A,
+    0x3A3A,
+    0x4A4A,
+    0x5A5A,
+    0x6A6A,
+    0x7A7A,
+    0x8A8A,
+    0x9A9A,
+    0xAAAA,
+    0xBABA,
+    0xCACA,
+    0xDADA,
+    0xEAEA,
+    0xFAFA,
 }
 
 
