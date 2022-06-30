@@ -31,6 +31,7 @@ tools for passive and active recon. IVRE can use data from:
   - [Nuclei](https://nuclei.projectdiscovery.io/)
   - [httpx](https://github.com/projectdiscovery/httpx)
   - [dnsx](https://github.com/projectdiscovery/dnsx)
+  - [Dismap](https://github.com/zhzyker/dismap/)
 
 The advertising slogans are:
 
