@@ -36,7 +36,11 @@ from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, add_service_hostname
+from ivre.xmlnmap import (
+    SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION,
+    add_cert_hostnames,
+    add_service_hostname,
+)
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -426,6 +430,7 @@ def _extract_passive_SSL_cert(rec, cacert=False, server=True):
             "port": -1,
         }
     info = rec["infos"]
+    host = {"ports": [port]}
     if info:
         pem = []
         pem.append("-----BEGIN CERTIFICATE-----")
@@ -436,10 +441,11 @@ def _extract_passive_SSL_cert(rec, cacert=False, server=True):
         script["output"] = "\n".join(create_ssl_output(info))
         script["ssl-cert"] = [info]
         port["scripts"] = [script]
+        add_cert_hostnames(info, host.setdefault("hostnames", []))
     elif not server:
         # nothing interesting on a client w/o cert
         return {}
-    return {"ports": [port]}
+    return host
 
 
 def _extract_passive_SSL_SERVER_ja3(rec):
