@@ -482,6 +482,11 @@ event dns_AAAA_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {
 }
 
 event dns_PTR_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
+@if(Version::number >= 40000)
+    if (! ends_with(ans$query, ".arpa")) {
+        return;
+    }
+@endif
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=ptr_name_to_addr(ans$query),
