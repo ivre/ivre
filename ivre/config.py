@@ -239,8 +239,8 @@ IPDATA_URLS = {
     # that if you get your files from Maxmind.
     "GeoLite2-dumps.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz",
     "iso3166.csv": "https://dev.maxmind.com/csv-files/codes/iso3166.csv",
-    # This one is not from maxmind -- see http://thyme.apnic.net/
-    "BGP.raw": "http://thyme.apnic.net/current/data-raw-table",
+    # This one is not from maxmind -- see https://thyme.apnic.net/
+    "BGP.raw": "https://thyme.apnic.net/current/data-raw-table",
 }
 MAXMIND_LICENSE_KEY = None
 # End IPDATA_URLS
