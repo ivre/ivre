@@ -441,7 +441,8 @@ def _extract_passive_SSL_cert(rec, cacert=False, server=True):
         script["output"] = "\n".join(create_ssl_output(info))
         script["ssl-cert"] = [info]
         port["scripts"] = [script]
-        add_cert_hostnames(info, host.setdefault("hostnames", []))
+        if not cacert:
+            add_cert_hostnames(info, host.setdefault("hostnames", []))
     elif not server:
         # nothing interesting on a client w/o cert
         return {}
