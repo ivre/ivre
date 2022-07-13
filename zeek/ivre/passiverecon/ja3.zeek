@@ -138,7 +138,7 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         c$ivreja3c = IvreJA3CStore();
     }
 
-    local ciphers_string = vector();
+    local ciphers_string: vector of string = vector();
     for (i in ciphers) {
         local cipher = ciphers[i];
         if (cipher in grease) {

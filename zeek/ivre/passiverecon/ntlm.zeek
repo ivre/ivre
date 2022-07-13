@@ -33,7 +33,7 @@ function _get_protocol_version(c: connection): string {
 
 # Returns a string made from the list of protocols detected by Zeek
 function _get_source(c: connection, src: port, proto: string &default=""): string {
-    local protocols = vector();
+    local protocols: vector of string = vector();
     for (p in c$service) {
         if (p !in set("GSSAPI", "NTLM", proto)) {
             protocols += p;
