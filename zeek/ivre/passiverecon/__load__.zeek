@@ -701,7 +701,7 @@ event http_request (c: connection, method: string, original_URI: string, unescap
 event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
     # Build a string with all the host information found with NTLM
     # (the resulting string is a list of "field:val" with values encoded in b64)
-    local value = vector();
+    local value: vector of string = vector();
 
     if (challenge?$target_name) {
         value += fmt("Target_Name:%s", encode_base64(challenge$target_name));
@@ -753,7 +753,7 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
 
 event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
 
-    local value = vector();
+    local value: vector of string = vector();
     if (negotiate?$domain_name) {
         value += "NetBIOS_Domain_Name:" + encode_base64(negotiate$domain_name);
     }
@@ -787,7 +787,7 @@ event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
 
 event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
 
-    local value = vector();
+    local value: vector of string = vector();
     if (request?$domain_name) {
         value += "NetBIOS_Domain_Name:" + encode_base64(request$domain_name);
     }
@@ -844,7 +844,7 @@ event smb1_session_setup_andx_request(c: connection, hdr: SMB1::Header, request:
 }
 
 event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, response: SMB1::SessionSetupAndXResponse) {
-    local value = vector();
+    local value: vector of string = vector();
     if (response?$native_os) {
         value += "os:" + encode_base64(response$native_os);
     }
