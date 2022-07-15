@@ -62,10 +62,10 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
-ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2 ./phantomjs-1.9.8-linux-x86_64.tar.bz2
-RUN tar jxf phantomjs-1.9.8-linux-x86_64.tar.bz2 phantomjs-1.9.8-linux-x86_64/bin/phantomjs && \
-    mv phantomjs-1.9.8-linux-x86_64/bin/phantomjs /usr/local/bin/ && \
-    rm -rf phantomjs-1.9.8-linux-x86_64*
+ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 ./phantomjs-2.1.1-linux-x86_64.tar.bz2
+RUN tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs && \
+    mv phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/ && \
+    rm -rf phantomjs-2.1.1-linux-x86_64*
 
 # Add our *-screenshot NSE scripts
 RUN for d in /usr /usr/local; do \

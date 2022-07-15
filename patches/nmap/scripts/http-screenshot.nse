@@ -1,5 +1,5 @@
 -- This file is part of IVRE.
--- Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+-- Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 --
 -- IVRE is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by
@@ -114,7 +114,7 @@ setTimeout(phantom.exit, %d * 1000);
 ]]):format(width, height, ssl and "https" or "http", hostname, strport, fname,
 	   timeout))
   tmpfdesc:close()
-  cmd = ("phantomjs --ignore-ssl-errors=true %s >/dev/null 2>&1"):format(tmpfname)
+  cmd = ("OPENSSL_CONF=/dev/null phantomjs --ignore-ssl-errors=true %s >/dev/null 2>&1"):format(tmpfname)
   if not os.execute(cmd) then
     -- See <https://github.com/ariya/phantomjs/issues/14376#issuecomment-236213526>
     os.execute("QT_QPA_PLATFORM=offscreen " .. cmd)

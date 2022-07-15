@@ -1,5 +1,5 @@
 -- This file is part of IVRE.
--- Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+-- Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 --
 -- IVRE is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ function capture(url, fname) {
 capture("%shtml", "%sjpg");
 ]]):format(fname, fname))
   tmpfdesc:close()
-  os.execute(("phantomjs %s >/dev/null 2>&1"):format(tmpfname))
+  os.execute(("OPENSSL_CONF=/dev/null phantomjs %s >/dev/null 2>&1"):format(tmpfname))
   os.remove(tmpfname)
   os.remove(("%shtml"):format(fname))
   fname = ("%sjpg"):format(fname)
