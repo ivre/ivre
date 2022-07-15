@@ -57,7 +57,15 @@ portrule = shortport.http
 
 local function get_hostname(host)
   local arg = stdnse.get_script_args(SCRIPT_NAME .. '.vhost')
-  return arg or host.targetname or host.ip
+  if arg then
+    return arg
+  elseif host.targetname then
+    return host.targetname
+  elseif string.find(host.ip, ':') then
+    return ("[%s]"):format(host.ip)
+  else
+    return host.ip
+  end
 end
 
 action = function(host, port)
@@ -69,7 +77,7 @@ action = function(host, port)
   local port = port.number
   local fname, strport, width, height, cmd
   local hostname = get_hostname(host)
-  if hostname == host.ip then
+  if hostname == host.ip or hostname == ("[%s]"):format(host.ip) then
     fname = ("screenshot-%s-%d.jpg"):format(host.ip, port)
   else
     fname = ("screenshot-%s-%s-%d.jpg"):format(host.ip, hostname, port)
