@@ -1,5 +1,5 @@
 -- This file is part of IVRE.
--- Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+-- Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 --
 -- IVRE is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by
@@ -57,7 +57,15 @@ portrule = shortport.http
 
 local function get_hostname(host)
   local arg = stdnse.get_script_args(SCRIPT_NAME .. '.vhost')
-  return arg or host.targetname or host.ip
+  if arg then
+    return arg
+  elseif host.targetname then
+    return host.targetname
+  elseif string.find(host.ip, ':') then
+    return ("[%s]"):format(host.ip)
+  else
+    return host.ip
+  end
 end
 
 action = function(host, port)
@@ -69,7 +77,7 @@ action = function(host, port)
   local port = port.number
   local fname, strport, width, height, cmd
   local hostname = get_hostname(host)
-  if hostname == host.ip then
+  if hostname == host.ip or hostname == ("[%s]"):format(host.ip) then
     fname = ("screenshot-%s-%d.jpg"):format(host.ip, port)
   else
     fname = ("screenshot-%s-%s-%d.jpg"):format(host.ip, hostname, port)
@@ -106,7 +114,7 @@ setTimeout(phantom.exit, %d * 1000);
 ]]):format(width, height, ssl and "https" or "http", hostname, strport, fname,
 	   timeout))
   tmpfdesc:close()
-  cmd = ("phantomjs --ignore-ssl-errors=true %s >/dev/null 2>&1"):format(tmpfname)
+  cmd = ("OPENSSL_CONF=/dev/null phantomjs --ignore-ssl-errors=true %s >/dev/null 2>&1"):format(tmpfname)
   if not os.execute(cmd) then
     -- See <https://github.com/ariya/phantomjs/issues/14376#issuecomment-236213526>
     os.execute("QT_QPA_PLATFORM=offscreen " .. cmd)
