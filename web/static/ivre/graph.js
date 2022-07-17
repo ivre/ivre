@@ -94,6 +94,10 @@ var GraphTopValues = (function(_super) {
 	this.filename = "TopValues";
     }
 
+    function escapeRegex(string) {
+        return '\\"'+string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\\\$&').trim()+'\\"';
+    }
+
     $.extend(GraphTopValues.prototype, _super.prototype, {
 	get_url: function() {
 	    return 'cgi/view/top/' + encodeURIComponent(this.field) + ':' +
@@ -268,6 +272,11 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "script", "' + x + '");';
 		};
 	    }
+            else if(field.substr(0, 7) === 'script:') {
+                preparefilter = function(x) {
+                    return 'setparam(FILTER, "'+ field +'", "/' + escapeRegex(x) + '/");';
+                };
+            }
 	    else if(field === 'port') {
 		prepareoutput = function(x) {
 		    return x.join(' / ');
@@ -1305,3 +1314,4 @@ var GraphDiffCategories = (function(_super) {
 
     return GraphDiffCategories;
 })(GraphIpPort);
+
