@@ -274,7 +274,7 @@ var GraphTopValues = (function(_super) {
 	    }
             else if(field.substr(0, 7) === 'script:') {
                 preparefilter = function(x) {
-                    return 'setparam(FILTER, "'+ field +'", "/' + escapeRegex(x) + '/");';
+                    return 'setparam(FILTER, "'+ field +'", "/' + escapeRegex(x) + '/");setparam(FILTER, "display:'+ field +'");';
                 };
             }
 	    else if(field === 'port') {
