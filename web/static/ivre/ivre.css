@@ -139,7 +139,7 @@ form {
 }
 
 .preview {
-    overflow: hidden;
+    overflow: scroll;
     border: 1px solid rgba(0, 0, 0, 0.1);
     max-height: 150px;
 }
