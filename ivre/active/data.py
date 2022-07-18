@@ -61,6 +61,7 @@ from ivre.utils import (
     IPV4ADDR,
     LOGGER,
     TORCERT_SUBJECT,
+    get_addr_type,
     get_domains,
     ip2int,
     key_sort_dom,
@@ -324,12 +325,13 @@ def is_synack_honeypot(host: NmapHost) -> bool:
     )
 
 
+TAG_CDN: Tag = {"value": "CDN", "type": "info"}
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
+TAG_RESERVED: Tag = {"value": "Reserved address", "type": "info"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR", "type": "info"}
-TAG_CDN: Tag = {"value": "CDN", "type": "info"}
 TAG_VULN: Tag = {"value": "Vulnerable", "type": "danger"}
 TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
 TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
@@ -473,6 +475,15 @@ def gen_auto_tags(
                 dict(
                     TAG_SCANNER,
                     info=[f"Listed as a {scanner_name} scanner"],
+                ),
+            )
+        addr_type = get_addr_type(addr)
+        if addr_type is not None:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_RESERVED,
+                    info=[f"Address type {addr_type}"],
                 ),
             )
     for hname in host.get("hostnames", []):
