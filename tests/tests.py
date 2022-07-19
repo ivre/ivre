@@ -5316,6 +5316,34 @@ class IvreTests(unittest.TestCase):
                     "hassh%s%s" % (base, field),
                 )
 
+        # Tags
+        self.check_value(
+            "view_count_tags", ivre.db.db.view.count(ivre.db.db.view.searchtag())
+        )
+        self.check_value(
+            "view_count_tags_honeypot",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag("Honeypot")),
+        )
+        self.check_value(
+            "view_count_tags_honeypot",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "Honeypot"})),
+        )
+        self.check_value(
+            "view_count_tags_tor",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR"})),
+        )
+        self.check_value(
+            "view_count_tags_honeypot_mushmush_102",
+            ivre.db.db.view.count(
+                ivre.db.db.view.searchtag(
+                    {
+                        "value": "Honeypot",
+                        "info": "honeypot / MushMush Conpot on port tcp/102",
+                    }
+                )
+            ),
+        )
+
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
             # lot of functionalities. The next tests will fail for
@@ -5852,34 +5880,6 @@ class IvreTests(unittest.TestCase):
         self.check_value("view_features_versions_noyieldall_FRDE_ncolumns", ncolumns)
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("view_features_versions_noyieldall_FRDE_ndata", len(data))
-
-        # Tags
-        self.check_value(
-            "view_count_tags", ivre.db.db.view.count(ivre.db.db.view.searchtag())
-        )
-        self.check_value(
-            "view_count_tags_honeypot",
-            ivre.db.db.view.count(ivre.db.db.view.searchtag("Honeypot")),
-        )
-        self.check_value(
-            "view_count_tags_honeypot",
-            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "Honeypot"})),
-        )
-        self.check_value(
-            "view_count_tags_tor",
-            ivre.db.db.view.count(ivre.db.db.view.searchtag({"value": "TOR"})),
-        )
-        self.check_value(
-            "view_count_tags_honeypot_mushmush_102",
-            ivre.db.db.view.count(
-                ivre.db.db.view.searchtag(
-                    {
-                        "value": "Honeypot",
-                        "info": "honeypot / MushMush Conpot on port tcp/102",
-                    }
-                )
-            ),
-        )
 
         # Full-text
         if DATABASE == "mongo":
