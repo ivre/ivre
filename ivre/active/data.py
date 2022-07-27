@@ -23,6 +23,7 @@ active (nmap & view) purposes.
 
 
 from bisect import bisect_left
+from collections import Counter
 from datetime import datetime
 from itertools import chain
 import json
@@ -683,31 +684,81 @@ def gen_auto_tags(
                     elif template_name.endswith("Default Password"):
                         yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
-    n_ports = len(host.get("ports", []))
+    n_ports = sum(
+        1 for port in host.get("ports", []) if port.get("state_state") == "open"
+    )
     if n_ports and is_synack_honeypot(host):
         # 1. If the host is already considered a SYN+ACK honeypot,
         # let's just clean the ports
-        newports = [port for port in host["ports"] if is_real_service_port(port)]
-        if len(newports) != n_ports:
+        newports = [
+            port
+            for port in host["ports"]
+            if port.get("state_state") != "open" or is_real_service_port(port)
+        ]
+        if n_ports != sum(1 for port in newports if port.get("state_state") == "open"):
             host["ports"] = newports
             if update_openports:
                 set_openports_attribute(host)
-        return
     # 2. ... Else, let's see if we should add the tag
-    if VIEW_SYNACK_HONEYPOT_COUNT is None:
-        return
-    if n_ports < VIEW_SYNACK_HONEYPOT_COUNT:
-        return
-    # check if we have too many open ports that could be "syn-ack
-    # honeypots"...
-    newports = [port for port in host["ports"] if is_real_service_port(port)]
-    if n_ports - len(newports) > VIEW_SYNACK_HONEYPOT_COUNT:
-        # ... if so, keep only the ports that cannot be "syn-ack
-        # honeypots"
-        host["ports"] = newports
-        if update_openports:
-            set_openports_attribute(host)
+    elif (
+        VIEW_SYNACK_HONEYPOT_COUNT is not None and n_ports >= VIEW_SYNACK_HONEYPOT_COUNT
+    ):
+        # check if we have too many open ports that could be "syn-ack
+        # honeypots"...
+        newports = [
+            port
+            for port in host["ports"]
+            if port.get("state_state") != "open" or is_real_service_port(port)
+        ]
+        if (
+            n_ports - sum(1 for port in newports if port.get("state_state") == "open")
+            > VIEW_SYNACK_HONEYPOT_COUNT
+        ):
+            # ... if so, keep only the ports that cannot be "syn-ack
+            # honeypots"
+            host["ports"] = newports
+            if update_openports:
+                set_openports_attribute(host)
         yield cast(Tag, dict(TAG_HONEYPOT, info=["SYN+ACK honeypot"]))
+    # Now the "closed" / "filtered" ports. Note: this won't create any
+    # tag but it is probably the best place to have this code!
+    for status in ["closed", "filtered"]:
+        n_ports = sum(
+            1 for port in host.get("ports", []) if port.get("state_state") == status
+        )
+        if status in host.get("extraports", {}):
+            # 1. If the host already has too many ports in `status`,
+            # let's just update and clean the ports
+            host["extraports"][status]["total"] += n_ports
+            reasons = Counter(
+                port.get("state_reason")
+                for port in host.get("ports", [])
+                if port.get("state_state") == status and port.get("state_reason")
+            )
+            for reason, count in reasons.items():
+                host["extraports"][status].setdefault("reasons", {})[reason] = (
+                    host["extraports"][status].get("reasons", {}).get(reason, 0) + count
+                )
+            host["ports"] = [
+                port for port in host["ports"] if port.get("state_state") != status
+            ]
+        # 2. ... Else, let's see if we should remove some ports in
+        # `status`.
+        elif (
+            VIEW_SYNACK_HONEYPOT_COUNT is not None
+            and n_ports >= VIEW_SYNACK_HONEYPOT_COUNT
+        ):
+            host.setdefault("extraports", {})[status] = {"total": n_ports}
+            reasons = Counter(
+                port.get("state_reason")
+                for port in host.get("ports", [])
+                if port.get("state_state") == status and port.get("state_reason")
+            )
+            for reason, count in reasons.items():
+                host["extraports"][status].setdefault("reasons", {})[reason] = count
+            host["ports"] = [
+                port for port in host["ports"] if port.get("state_state") != status
+            ]
 
 
 def set_auto_tags(host: NmapHost, update_openports: bool = True) -> None:
@@ -1282,6 +1333,10 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
                     for port in record.get("ports", [])
                     if is_real_service_port(port)
                 ]
+    if "extraports" in rec1 and "extraports" not in rec2:
+        rec["extraports"] = rec1["extraports"]
+    elif "extraports" in rec2 and "extraports" not in rec1:
+        rec["extraports"] = rec2["extraports"]
     ports = dict(
         ((port.get("protocol"), port["port"]), port.copy())
         for port in rec2.get("ports", [])
