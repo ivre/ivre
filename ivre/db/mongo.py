@@ -138,6 +138,21 @@ class MongoDB(DB):
             self.maxtime = int(params.pop("maxtime", None))
         except TypeError:
             self.maxtime = None
+        if "ssl" in params:
+            if params["ssl"].lower() == "true":
+                params["ssl"] = True
+            elif params["ssl"].lower() == "false":
+                params["ssl"] = False
+        if "readPreference" in params:
+            params["read_preference"] = {
+                "nearest": pymongo.ReadPreference.NEAREST,
+                "primary": pymongo.ReadPreference.PRIMARY,
+                "primarypreferred": pymongo.ReadPreference.PRIMARY_PREFERRED,
+                "primary_preferred": pymongo.ReadPreference.PRIMARY_PREFERRED,
+                "secondary": pymongo.ReadPreference.SECONDARY,
+                "secondarypreferred": pymongo.ReadPreference.SECONDARY_PREFERRED,
+                "secondary_preferred": pymongo.ReadPreference.SECONDARY_PREFERRED,
+            }.get(params["readPreference"].lower(), params["readPreference"])
         self.params = params
         self.schema_migrations = []
 
@@ -167,10 +182,7 @@ class MongoDB(DB):
             if self.mongodb_srv is not None:
                 self._db_client = pymongo.MongoClient(self.mongodb_srv)
             else:
-                self._db_client = pymongo.MongoClient(
-                    host=self.host,
-                    read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED,
-                )
+                self._db_client = pymongo.MongoClient(host=self.host, **self.params)
             return self._db_client
 
     @property
