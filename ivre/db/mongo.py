@@ -849,7 +849,7 @@ class MongoDBActive(MongoDB, DBActive):
                     ("ports.service_product", pymongo.ASCENDING),
                     ("ports.service_version", pymongo.ASCENDING),
                 ],
-                {},
+                {"name": "ivre.hosts.$ports.service"},
             ),
             ([("ports.scripts.id", pymongo.ASCENDING)], {}),
             (
@@ -857,14 +857,20 @@ class MongoDBActive(MongoDB, DBActive):
                     ("ports.scripts.http-headers.name", pymongo.ASCENDING),
                     ("ports.scripts.http-headers.value", pymongo.ASCENDING),
                 ],
-                {"sparse": True},
+                {
+                    "sparse": True,
+                    "name": "ivre.hosts.$ports.$scripts.http-headers",
+                },
             ),
             (
                 [
                     ("ports.scripts.http-app.application", pymongo.ASCENDING),
                     ("ports.scripts.http-app.version", pymongo.ASCENDING),
                 ],
-                {"sparse": True},
+                {
+                    "sparse": True,
+                    "name": "ivre.hosts.$ports.$scripts.http-app",
+                },
             ),
             (
                 [("ports.scripts.dns-domains.parents", pymongo.ASCENDING)],
@@ -1000,7 +1006,7 @@ class MongoDBActive(MongoDB, DBActive):
                     ("traces.hops.ipaddr_1", pymongo.ASCENDING),
                     ("traces.hops.ttl", pymongo.ASCENDING),
                 ],
-                {},
+                {"name": "ivre.hosts.$traces.$hops"},
             ),
             (
                 [
