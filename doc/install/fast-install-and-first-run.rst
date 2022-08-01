@@ -49,7 +49,7 @@ Setup
    # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
    # ln -s /usr/local/share/ivre/dokuwiki/media/doc
    # cd /usr/share/dokuwiki
-   # patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks.patch
+   # patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks-20200729.patch
    # cd /etc/apache2/mods-enabled
    # for m in rewrite.load wsgi.conf wsgi.load ; do
    >   [ -L $m ] || ln -s ../mods-available/$m ; done
