@@ -2108,6 +2108,7 @@ class DBNmap(DBActive):
     backends = {
         "http": ("http", "HttpDBNmap"),
         "mongodb": ("mongo", "MongoDBNmap"),
+        "documentdb": ("document", "DocumentDBNmap"),
         "postgresql": ("sql.postgres", "PostgresDBNmap"),
         "tinydb": ("tiny", "TinyDBNmap"),
     }
@@ -3625,6 +3626,7 @@ class DBView(DBActive):
         "elastic": ("elastic", "ElasticDBView"),
         "http": ("http", "HttpDBView"),
         "mongodb": ("mongo", "MongoDBView"),
+        "documentdb": ("document", "DocumentDBView"),
         "postgresql": ("sql.postgres", "PostgresDBView"),
         "tinydb": ("tiny", "TinyDBView"),
     }
@@ -3793,6 +3795,7 @@ class DBPassive(DB):
     backends = {
         "http": ("http", "HttpDBPassive"),
         "mongodb": ("mongo", "MongoDBPassive"),
+        "documentdb": ("document", "DocumentDBPassive"),
         "postgresql": ("sql.postgres", "PostgresDBPassive"),
         "sqlite": ("sql.sqlite", "SqliteDBPassive"),
         "tinydb": ("tiny", "TinyDBPassive"),
@@ -4268,6 +4271,7 @@ class DBAgent(DB):
 
     backends = {
         "mongodb": ("mongo", "MongoDBAgent"),
+        "documentdb": ("document", "DocumentDBAgent"),
         "tinydb": ("tiny", "TinyDBAgent"),
     }
 
@@ -4722,6 +4726,7 @@ class DBFlow(DB):
 
     backends = {
         "mongodb": ("mongo", "MongoDBFlow"),
+        "documentdb": ("document", "DocumentDBFlow"),
         "postgresql": ("sql.postgres", "PostgresDBFlow"),
         "tinydb": ("tiny", "TinyDBFlow"),
     }
