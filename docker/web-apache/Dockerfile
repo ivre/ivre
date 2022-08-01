@@ -45,7 +45,7 @@ RUN echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
 RUN apt-get update && \
     apt-get -qy --no-install-recommends install patch && \
     cd usr/share/dokuwiki && \
-    patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks.patch && \
+    patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks-20200729.patch && \
     apt-get -qy --purge autoremove patch && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

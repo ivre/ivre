@@ -455,7 +455,13 @@ setup(
         # Dokuwiki
         ("share/ivre/dokuwiki/media", ["web/dokuwiki/media/logo.png"]),
         # Patches
-        ("share/ivre/patches/dokuwiki", ["patches/dokuwiki/backlinks.patch"]),
+        (
+            "share/ivre/patches/dokuwiki",
+            [
+                "patches/dokuwiki/backlinks.patch",
+                "patches/dokuwiki/backlinks-20200729.patch",
+            ],
+        ),
         (
             "share/ivre/patches/nmap",
             ["patches/nmap/rtsp-url-brute.patch"],

@@ -27,13 +27,13 @@ RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 RUN mkdir /var/run/uwsgi
 
 # Download & install Dokuwiki
-ADD http://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz ./dokuwiki-stable.tgz
+ADD https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz ./dokuwiki-stable.tgz
 RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-stable.tgz && rm ./dokuwiki-stable.tgz
 
 # IVRE-specific
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install patch && \
-    patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/patches/dokuwiki/backlinks.patch && \
+    patch var/www/dokuwiki/inc/Ui/Backlinks.php usr/local/share/ivre/patches/dokuwiki/backlinks.patch && \
     apt-get -qy --purge autoremove patch && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc && \
