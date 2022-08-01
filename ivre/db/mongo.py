@@ -182,7 +182,14 @@ class MongoDB(DB):
             if self.mongodb_srv is not None:
                 self._db_client = pymongo.MongoClient(self.mongodb_srv)
             else:
-                self._db_client = pymongo.MongoClient(host=self.host, **self.params)
+                self._db_client = pymongo.MongoClient(
+                    host=self.host,
+                    **{
+                        param: value
+                        for param, value in self.params.items()
+                        if not param.startswith("colname_")
+                    },
+                )
             return self._db_client
 
     @property
