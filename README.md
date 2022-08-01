@@ -138,8 +138,6 @@ Here is the appropriate bibtex entry:
         author={IVRE contributors},
         url = {https://ivre.rocks/},
         howpublished = {\url{https://github.com/ivre/ivre/}},
-        institution = {{ANSSI}: the National Cybersecurity Agency of France and
-                       {CEA}: the French Alternative Energies and Atomic Energy Commission},
         year = {2011--2022},
     }
 
