@@ -169,12 +169,12 @@ def query_from_params(params):
         raise ValueError("Parameter parsing error") from exc
 
 
-def get_user():
+def get_user() -> str:
     """Return the connected user."""
     return request.environ.get("REMOTE_USER")
 
 
-def get_anonymized_user():
+def get_anonymized_user() -> str:
     """Return the HMAC value of the current user authenticated with
     the HMAC secret.
 
@@ -185,7 +185,7 @@ def get_anonymized_user():
         secret = config.WEB_SECRET
     return utils.encode_b64(
         hmac.new(secret, msg=get_user().encode(), digestmod="sha256").digest()[:9]
-    )
+    ).decode()
 
 
 def _parse_query(dbase, query):
