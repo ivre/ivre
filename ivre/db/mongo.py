@@ -82,6 +82,7 @@ def log_pipeline(pipeline):
 
 class MongoDB(DB):
 
+    is_documentdb = False  # set to True for AWS DocumentDB sub-classes
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = []
     schema_migrations_indexes: List[
         Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
@@ -3322,10 +3323,18 @@ class MongoDBActive(MongoDB, DBActive):
             field = "addr"
             # This should not overflow thanks to .searchipv4() filter
             addr = {"$add": ["$addr_1", 0x7FFF000100000000]}
-            specialproj = {
-                "_id": 0,
-                "addr": {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}},
-            }
+            specialproj = {"_id": 0}
+            if self.is_documentdb:
+                # AWS DocumentDB lacks $floor aggregation operator,
+                # just like MongoDB < 3.2
+                specialproj["addr"] = {
+                    "$subtract": [
+                        {"$divide": [addr, 2 ** (32 - mask)]},
+                        {"$mod": [{"$divide": [addr, 2 ** (32 - mask)]}, 1]},
+                    ]
+                }
+            else:
+                specialproj["addr"] = {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}}
             flt = self.flt_and(flt, self.searchipv4())
 
             def outputproc(x):
@@ -5025,10 +5034,18 @@ class MongoDBPassive(MongoDB, DBPassive):
             field = "addr"
             # This should not overflow thanks to .searchipv4() filter
             addr = {"$add": ["$addr_1", 0x7FFF000100000000]}
-            specialproj = {
-                "_id": 0,
-                "addr": {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}},
-            }
+            specialproj = {"_id": 0}
+            if self.is_documentdb:
+                # AWS DocumentDB lacks $floor aggregation operator,
+                # just like MongoDB < 3.2
+                specialproj["addr"] = {
+                    "$subtract": [
+                        {"$divide": [addr, 2 ** (32 - mask)]},
+                        {"$mod": [{"$divide": [addr, 2 ** (32 - mask)]}, 1]},
+                    ]
+                }
+            else:
+                specialproj["addr"] = {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}}
             flt = self.flt_and(flt, self.searchipv4())
 
             def outputproc(x):

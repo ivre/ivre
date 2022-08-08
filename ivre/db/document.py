@@ -34,17 +34,18 @@ from ivre.db.mongo import (
 
 
 class DocumentDBNmap(MongoDBNmap):
-    pass
+    is_documentdb = True
 
 
 class DocumentDBView(MongoDBView):
+    is_documentdb = True
     # DocumentDB has no support for text indexes
     indexes = MongoDBActive.indexes
     schema_migrations_indexes = MongoDBActive.schema_migrations_indexes
 
 
 class DocumentDBPassive(MongoDBPassive):
-    pass
+    is_documentdb = True
 
 
 class DocumentDBAgent(MongoDBAgent):
