@@ -29,22 +29,14 @@ RUN apt-get -q update && \
         ffmpeg s3270 patch bash-completion bzip2 python3-pil nfdump && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Nmap. Use included libpcap as a workaround for Nmap issue
-# #34 (https://github.com/nmap/nmap/issues/34) since we do not know
-# which kernel version will be used
-# ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.92.tgz ./nmap.tar.gz
+# Install Nmap using the official RPM package.
+ADD https://nmap.org/dist/nmap-7.92-1.x86_64.rpm ./nmap.rpm
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install build-essential libssl-dev flex bison && \
-    tar zxf nmap.tar.gz && \
-    mv nmap-* nmap && \
-    cd nmap && \
-    ./configure --without-ndiff --without-zenmap --without-nping \
-                --without-ncat --without-nmap-update \
-                --with-libpcap=included && \
-    make && make install && \
-    cd ../ && rm -rf nmap nmap.tar.gz && \
-    apt-get -qy --purge autoremove build-essential libssl-dev flex bison && \
+    apt-get -qy --no-install-recommends install alien && \
+    alien ./nmap.rpm && \
+    dpkg -i ./nmap*.deb && \
+    rm -f ./nmap.rpm ./nmap*.deb && \
+    apt-get -qy --purge autoremove alien && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Zeek
