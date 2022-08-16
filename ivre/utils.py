@@ -2492,6 +2492,12 @@ def key_sort_dom_addr(value: str) -> List[str]:
             return [encode_hex(ip2bin(value)).decode()]
         # IPv4 addresses before IPv6
         return ["00000000000000000000000000000000%08x" % ip2int(value)]
+    if NETADDR.search(value):
+        addr, mask = value.split("/", 1)
+        if ":" in addr:
+            return [encode_hex(ip2bin(addr)).decode(), mask]
+        # IPv4 addresses before IPv6
+        return ["00000000000000000000000000000000%08x" % ip2int(addr), mask]
     return value.strip().split(".")[::-1]
 
 
