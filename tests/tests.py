@@ -4708,19 +4708,37 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(isinstance(json.loads(line), dict))
 
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
-            fdesc.write(b"ivre.rocks\ngithub.com\n::1\n127.0.0.1\nivre.rocks\n")
+            fdesc.write(
+                b"ivre.rocks\ngithub.com\n::1\n127.0.0.1\nivre.rocks\n127.1.0.0/16\n127.1.0.0/24"
+            )
         res, out, err = RUN(["ivre", "sort"], stdin=open(fdesc.name, "rb"))
         self.assertEqual(res, 0)
         self.assertFalse(err)
         self.assertEqual(
             out.splitlines(),
-            [b"127.0.0.1", b"::1", b"github.com", b"ivre.rocks", b"ivre.rocks"],
+            [
+                b"127.0.0.1",
+                b"127.1.0.0/16",
+                b"127.1.0.0/24",
+                b"::1",
+                b"github.com",
+                b"ivre.rocks",
+                b"ivre.rocks",
+            ],
         )
         res, out, err = RUN(["ivre", "sort", "-u"], stdin=open(fdesc.name, "rb"))
         self.assertEqual(res, 0)
         self.assertFalse(err)
         self.assertEqual(
-            out.splitlines(), [b"127.0.0.1", b"::1", b"github.com", b"ivre.rocks"]
+            out.splitlines(),
+            [
+                b"127.0.0.1",
+                b"127.1.0.0/16",
+                b"127.1.0.0/24",
+                b"::1",
+                b"github.com",
+                b"ivre.rocks",
+            ],
         )
         os.unlink(fdesc.name)
 
