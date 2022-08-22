@@ -25,12 +25,13 @@
      >
   <div host-summary=""></div>
 <!-- Tags -->
-<dd ng-repeat="tag in ::host.tags"
+<dd ng-repeat-start="tag in ::host.tags"
     class="label label-status label-{{::tag.type}} clickable"
     title="{{::tag.info.join('\n')}}"
     ng-click="setparam('tag', tag.value)">
   {{tag.value}}
 </dd>
+<span ng-repeat-end ng-if="!$last"></span>
 <!-- Next div is only displayed in summary mode-->
 <div class="summary"
      ng-hide="host.fulldisplay"
