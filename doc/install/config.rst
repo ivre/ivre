@@ -153,7 +153,7 @@ Masscan source code (compile-time) and options (run-time). You can
 adjust what IVRE will use per port (from the configuration) or
 globally (from the command-line option).
 
-The default congiguration value is based on the Masscan fork of the
+The default configuration value is based on the Masscan fork of the
 IVRE project.
 
 .. literalinclude:: ../../ivre/config.py
