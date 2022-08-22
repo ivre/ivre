@@ -404,7 +404,7 @@ def handle_rec(
     sensor,
     ignorenets,
     neverignore,
-    # these argmuments are provided by **bro_line
+    # these arguments are provided by **bro_line
     timestamp=None,
     uid=None,
     host=None,
