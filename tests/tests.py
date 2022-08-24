@@ -4136,7 +4136,7 @@ class IvreTests(unittest.TestCase):
             ivre.utils.net2range("0.0.0.0/0"), ("0.0.0.0", "255.255.255.255")
         )
         self.assertEqual(
-            ivre.utils.net2range("::ffff:ffff:ffff:ffff/ffff:ffff:ffff:ffff:ffff::0"),
+            ivre.utils.net2range("::ffff:ffff:ffff:ffff/80"),
             ("::ffff:0:0:0", "::ffff:ffff:ffff:ffff"),
         )
         self.assertEqual(

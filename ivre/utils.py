@@ -35,6 +35,7 @@ import functools
 import gzip
 import hashlib
 from io import BytesIO
+import ipaddress
 import logging
 import math
 import os
@@ -348,82 +349,20 @@ def int2mask(mask: int) -> int:
     return (0xFFFFFFFF00000000 >> mask) & 0xFFFFFFFF
 
 
-def int2mask6(mask: int) -> int:
-    """Converts the number of bits set to 1 in a mask (the 48 in
-    2001:db8:1234::/48) to the 128-bit integer corresponding to the IP address
-    of the mask (ip2int("ffff:ffff:ffff::") for 48)
-
-    """
-    return (
-        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000 >> mask
-    ) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-
-
-def net2range(network: AnyStr) -> Tuple[str, str]:
+def net2range(network: str) -> Tuple[str, str]:
     """Converts a network to a (start, stop) tuple."""
-    if isinstance(network, bytes):
-        data = network.decode()
-    else:
-        data = network
-    addr, mask = data.split("/")
-    ipv6 = ":" in addr
-    addr_int = ip2int(addr)
-    if (not ipv6 and "." in mask) or (ipv6 and ":" in mask):
-        mask_int = ip2int(mask)
-    elif ipv6:
-        mask_int = int2mask6(int(mask))
-    else:
-        mask_int = int2mask(int(mask))
-    start = addr_int & mask_int
-    if ipv6:
-        return int2ip6(start), int2ip6(
-            start + 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF - mask_int
-        )
-    return int2ip(start), int2ip(start + 0xFFFFFFFF - mask_int)
+    net = ipaddress.ip_interface(network).network
+    return str(net.network_address), str(net.broadcast_address)
 
 
 def range2nets(
-    rng: Tuple[Union[AnyStr, int], Union[AnyStr, int]]
+    rng: Tuple[Union[str, int], Union[str, int]]
 ) -> Generator[str, None, None]:
-    """Converts a (start, stop) tuple to a list of networks."""
-    start, stop = (force_ip2int(addr) for addr in rng)
-    if stop < start:
-        raise ValueError()
-    ipv6 = False
-    cur = start
-    for val in rng:
-        if isinstance(val, bytes):
-            if b":" in val:
-                ipv6 = True
-                break
-        elif isinstance(val, str):
-            if ":" in val:
-                ipv6 = True
-                break
-    if stop > 0xFFFFFFFF:
-        ipv6 = True
-    if ipv6:
-        maskint = 128
-        _int2mask = int2mask6
-        _int2ip = int2ip6
-    else:
-        maskint = 32
-        _int2mask = int2mask
-        _int2ip = int2ip
-    fullmask = mask = _int2mask(maskint)
-    while True:
-        while cur & mask == cur and cur | (~mask & fullmask) <= stop:
-            maskint -= 1
-            if maskint < 0:
-                break
-            mask = _int2mask(maskint)
-        yield "%s/%d" % (_int2ip(cur), maskint + 1)
-        mask = _int2mask(maskint + 1)
-        if stop & mask == cur:
-            return
-        cur = (cur | (~mask & fullmask)) + 1
-        maskint = 128 if ipv6 else 32
-        mask = _int2mask(maskint)
+    """Converts a (start, stop) tuple to a generator of networks."""
+    for net in ipaddress.summarize_address_range(
+        ipaddress.ip_address(rng[0]), ipaddress.ip_address(rng[1])
+    ):
+        yield str(net)
 
 
 def get_domains(name: str) -> Generator[str, None, None]:
