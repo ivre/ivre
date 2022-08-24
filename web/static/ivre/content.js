@@ -998,7 +998,7 @@ var HELP_TOPVALUES = {
 	    "content": "Top tag types.",
 	},
 	"tag.info": {
-	    "title": "tag.value</b>",
+	    "title": "tag.info</b>",
 	    "content": "Top tag info strings.",
 	},
 	"httphdr": {
