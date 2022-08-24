@@ -49,7 +49,7 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
         for line in fdesc:
             start, stop = (
                 utils.ip2int(elt)
-                for elt in utils.net2range(line[:-1].split(None, 1)[0])
+                for elt in utils.net2range(line[:-1].decode().split(None, 1)[0])
             )
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
