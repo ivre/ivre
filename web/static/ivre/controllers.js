@@ -424,13 +424,15 @@ ivreWebUi
 	    case "closed": return "label-danger";
 	    case "filtered":
 	    case "open|filtered":
+	    case "tcpwrapped":
 		 return "label-warning";
 	    }
 	};
 	$scope.short_port_status = function(status) {
 	    return {
 		"filtered": "flt",
-		"open|filtered": "opn|flt"
+		"open|filtered": "opn|flt",
+		"tcpwrapped": "tcpwrpd"
 	    }[status] || status;
 	};
 	$scope.url_from_port = function(port, addr) {
