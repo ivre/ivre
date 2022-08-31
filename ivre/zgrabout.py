@@ -29,12 +29,18 @@ from typing import Any, Dict, List, Optional, cast
 
 from ivre.analyzer import ntlm
 from ivre.active.cpe import add_cpe_values
-from ivre.active.data import add_hostname, handle_http_content, handle_http_headers
+from ivre.active.data import (
+    add_cert_hostnames,
+    add_hostname,
+    create_ssl_cert,
+    handle_http_content,
+    handle_http_headers,
+)
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
 from ivre.types.active import HttpHeader, NmapHost, NmapPort, NmapScript
 from ivre import utils
-from ivre.xmlnmap import add_cert_hostnames, add_service_hostname, create_ssl_cert
+from ivre.xmlnmap import add_service_hostname
 
 
 _EXPR_TITLE = re.compile("<title[^>]*>([^<]*)</title>", re.I)

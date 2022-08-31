@@ -27,7 +27,8 @@ types of data IVRE handles), which can be stored by one or more
   <https://github.com/zmap/zgrab2/>`_, `ZDNS
   <https://github.com/zmap/zdns>`_, `Nuclei
   <https://github.com/projectdiscovery/nuclei>`_, `httpx
-  <https://github.com/projectdiscovery/httpx>`_ and `dnsx
+  <https://github.com/projectdiscovery/httpx>`_, `tlsx
+  <https://github.com/projectdiscovery/tlsx>`_ and `dnsx
   <https://github.com/projectdiscovery/dnsx>`_ scan results, as well
   as ``ivre auditdom`` results. Each record represents one host seen
   during one network scan. It can be queried using:
@@ -94,6 +95,7 @@ Storing data
       "Zdns";
       "Nuclei";
       "httpx";
+      "tlsx";
       "dnsx";
       "Dismap";
       "airodump-ng";
@@ -126,6 +128,7 @@ Storing data
       "Zdns" -> JSON [label="-o"];
       "Nuclei" -> JSON [label="-json -o"];
       "httpx" -> JSON [label="-json -o"];
+      "tlsx" -> JSON [label="-json -o"];
       "dnsx" -> JSON [label="-json -o"];
       "Dismap" -> JSON [label="-j"];
       "airodump-ng" -> CSV_LOG [label="-w"];
@@ -148,7 +151,7 @@ Storing data
       {
         rank = same;
         edge[style=invis];
-        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Zdns" -> "Nuclei" -> "httpx" -> "dnsx" -> "Dismap" -> "airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
+        "maxmind.com" -> "Nmap" -> "Masscan" -> "ivre auditdom" -> "Zgrab2" -> "Zdns" -> "Nuclei" -> "httpx" -> "tlsx" -> "dnsx" -> "Dismap" -> "airodump-ng" -> "p0f" -> "Zeek" -> "Zeek" -> "Argus" -> "Nfdump";
         rankdir = UD;
       }
    }

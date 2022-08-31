@@ -15,10 +15,13 @@ You can use network scanners directly:
 - `ZDNS <https://github.com/zmap/zdns>`_
 - `Nuclei <https://github.com/projectdiscovery/nuclei>`_
 - `httpx <https://github.com/projectdiscovery/httpx>`_
+- `tlsx <https://github.com/projectdiscovery/tlsx>`_
+- `dnsx <https://github.com/projectdiscovery/dnsx>`_
+- `Dismap <https://github.com/zhzyker/dismap/>`_
 
 IVRE can insert XML output files for Nmap and Masscan, and JSON output
-files for Zgrab2, ZDNS, Nuclei and httpx, using the command line tool
-``ivre scan2db``.
+files for the other tools, using the command line tool ``ivre
+scan2db``.
 
 You can insert scan results from different tools, then use ``ivre
 db2view nmap`` to merge results from different scans and create a view

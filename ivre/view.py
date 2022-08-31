@@ -27,6 +27,7 @@ import struct
 
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
+    add_cert_hostnames,
     add_hostname,
     create_ssl_output,
     set_auto_tags,
@@ -38,7 +39,6 @@ from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
 from ivre.xmlnmap import (
     SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION,
-    add_cert_hostnames,
     add_service_hostname,
 )
 
