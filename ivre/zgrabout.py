@@ -463,7 +463,13 @@ def zgrap_parser_jarm(
         "port": port,
         "protocol": "tcp",
         "service_tunnel": "ssl",
-        "scripts": [{"id": "ssl-jarm", "output": data["fingerprint"]}],
+        "scripts": [
+            {
+                "id": "ssl-jarm",
+                "output": data["fingerprint"],
+                "ssl-jarm": data["fingerprint"],
+            }
+        ],
     }
 
 
