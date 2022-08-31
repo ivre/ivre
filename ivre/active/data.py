@@ -43,6 +43,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import urlparse
 
 
 from ivre.active.cpe import add_cpe_values
@@ -62,7 +63,10 @@ from ivre.utils import (
     IPV4ADDR,
     LOGGER,
     TORCERT_SUBJECT,
+    decode_b64,
+    encode_b64,
     get_addr_type,
+    get_cert_info,
     get_domains,
     ip2int,
     key_sort_dom,
@@ -219,6 +223,52 @@ def create_ssl_output(info: ParsedCertificate) -> List[str]:
     except KeyError:
         pass
     return out
+
+
+def create_ssl_cert(
+    data: bytes, b64encoded: bool = True
+) -> Tuple[str, List[ParsedCertificate]]:
+    """Produces an output similar to Nmap script ssl-cert from Masscan
+    X509 "service" tag.
+
+    """
+    if b64encoded:
+        cert = decode_b64(data)
+    else:
+        cert = data
+        data = encode_b64(cert)
+    info = get_cert_info(cert)
+    b64cert = data.decode()
+    pem = []
+    pem.append("-----BEGIN CERTIFICATE-----")
+    pem.extend(wrap(b64cert, 64))
+    pem.append("-----END CERTIFICATE-----")
+    pem.append("")
+    info["pem"] = "\n".join(pem)
+    return "\n".join(create_ssl_output(info)), [info]
+
+
+def add_cert_hostnames(cert: ParsedCertificate, hostnames: List[NmapHostname]) -> None:
+    if "commonName" in cert.get("subject", {}):
+        add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
+    for san in cert.get("san", []):
+        if san.startswith("DNS:"):
+            add_hostname(san[4:], "cert-san-dns", hostnames)
+            continue
+        if san.startswith("URI:"):
+            try:
+                netloc = urlparse(san[4:]).netloc
+            except Exception:
+                LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
+                continue
+            if not netloc:
+                continue
+            if netloc.startswith("["):
+                # IPv6
+                continue
+            if ":" in netloc:
+                netloc = netloc.split(":", 1)[0]
+            add_hostname(netloc, "cert-san-uri", hostnames)
 
 
 def is_real_service_port(port: NmapPort) -> bool:

@@ -29,24 +29,21 @@ import re
 import struct
 import sys
 from textwrap import wrap
-from typing import List, Tuple
-from urllib.parse import urlparse
 from xml.sax.handler import ContentHandler, EntityResolver
 
 
 from ivre.active.cpe import cpe2dict
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
+    add_cert_hostnames,
     add_hostname,
-    create_ssl_output,
+    create_ssl_cert,
     handle_http_content,
     handle_http_headers,
     set_auto_tags,
 )
 from ivre.analyzer import dicom, ike, ja3
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
-from ivre.types import ParsedCertificate
-from ivre.types.active import NmapHostname
 from ivre import utils
 from ivre.config import MASSCAN_PROBES
 
@@ -1454,29 +1451,6 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def create_ssl_cert(
-    data: bytes, b64encoded: bool = True
-) -> Tuple[str, List[ParsedCertificate]]:
-    """Produces an output similar to Nmap script ssl-cert from Masscan
-    X509 "service" tag.
-
-    """
-    if b64encoded:
-        cert = utils.decode_b64(data)
-    else:
-        cert = data
-        data = utils.encode_b64(cert)
-    info = utils.get_cert_info(cert)
-    b64cert = data.decode()
-    pem = []
-    pem.append("-----BEGIN CERTIFICATE-----")
-    pem.extend(wrap(b64cert, 64))
-    pem.append("-----END CERTIFICATE-----")
-    pem.append("")
-    info["pem"] = "\n".join(pem)
-    return "\n".join(create_ssl_output(info)), [info]
-
-
 def ignore_script(script):
     """Predicate that decides whether an Nmap script should be ignored
     or not, based on IGNORE_* constants. Nmap scripts are ignored when
@@ -1514,29 +1488,6 @@ def add_service_hostname(service_info, hostnames):
                 name += "." + data[7:].strip()
                 break
     add_hostname(name, "service", hostnames)
-
-
-def add_cert_hostnames(cert: ParsedCertificate, hostnames: List[NmapHostname]) -> None:
-    if "commonName" in cert.get("subject", {}):
-        add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
-    for san in cert.get("san", []):
-        if san.startswith("DNS:"):
-            add_hostname(san[4:], "cert-san-dns", hostnames)
-            continue
-        if san.startswith("URI:"):
-            try:
-                netloc = urlparse(san[4:]).netloc
-            except Exception:
-                utils.LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
-                continue
-            if not netloc:
-                continue
-            if netloc.startswith("["):
-                # IPv6
-                continue
-            if ":" in netloc:
-                netloc = netloc.split(":", 1)[0]
-            add_hostname(netloc, "cert-san-uri", hostnames)
 
 
 class NoExtResolver(EntityResolver):

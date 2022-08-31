@@ -56,6 +56,8 @@ from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
+    add_cert_hostnames,
+    create_ssl_cert,
     handle_http_content,
     handle_http_headers,
     merge_host_docs,
@@ -2163,6 +2165,8 @@ class DBNmap(DBActive):
                     for tmpl in ["template", "templateID", "template-id"]
                 ):
                     store_scan_function = self.store_scan_json_nuclei
+                elif "tls_connection" in firstres:
+                    store_scan_function = self.store_scan_json_tlsx
                 elif "input" in firstres:
                     store_scan_function = self.store_scan_json_httpx
                 elif "ip" in firstres or "domain" in firstres:
@@ -3219,6 +3223,142 @@ class DBNmap(DBActive):
                 # remaining fields (TODO): path body-sha256
                 # header-sha256 url content-type method content-length
                 # status-code response-time failed
+                set_auto_tags(host, update_openports=False)
+                set_openports_attribute(host)
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                if (
+                    add_addr_infos
+                    and self.globaldb is not None
+                    and (force_info or "infos" not in host or not host["infos"])
+                ):
+                    host["infos"] = {}
+                    for func in [
+                        self.globaldb.data.country_byip,
+                        self.globaldb.data.as_byip,
+                        self.globaldb.data.location_byip,
+                    ]:
+                        host["infos"].update(func(host["addr"]) or {})
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({"_id": filehash, "scanner": "httpx"})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_tlsx(
+        self,
+        fname,
+        filehash=None,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        add_addr_infos=True,
+        force_info=False,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by tlsx, displays
+        the parsing result, and return True if everything went fine,
+        False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
+                if rec.get("failed"):
+                    continue
+                port = {
+                    "protocol": "tcp",
+                    "port": int(rec["port"]),
+                    "state_state": "open",
+                    "state_reason": "response",
+                    "service_tunnel": "ssl",
+                }
+                timestamp = rec["timestamp"][:19].replace("T", " ")
+                host = {
+                    "addr": rec["ip"],
+                    "state": "up",
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [port],
+                }
+                if "certificate" in rec:
+                    try:
+                        output, info_cert = create_ssl_cert(
+                            "".join(rec["certificate"].splitlines()[1:-1]).encode(),
+                            b64encoded=True,
+                        )
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot parse certificate %r",
+                            rec["certificate"],
+                            exc_info=True,
+                        )
+                    else:
+                        if info_cert:
+                            port.setdefault("scripts", []).append(
+                                {
+                                    "id": "ssl-cert",
+                                    "output": output,
+                                    "ssl-cert": info_cert,
+                                }
+                            )
+                            for cert in info_cert:
+                                add_cert_hostnames(
+                                    cert, host.setdefault("hostnames", [])
+                                )
+                if "jarm_hash" in rec:
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "ssl-jarm",
+                            "output": rec["jarm_hash"],
+                            "ssl-jarm": rec["jarm_hash"],
+                        }
+                    )
+                structured = {}
+                output = []
+                for fld in ["tls_version", "cipher", "tls_connection"]:
+                    if fld in rec:
+                        structured[fld] = rec[fld]
+                        output.append(
+                            f"{fld.replace('_', ' ').capitalize().replace('Tls', 'TLS')}: {rec[fld]}"
+                        )
+                if structured:
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "ssl-tlsx",
+                            "output": "\n".join(output),
+                            "ssl-jarm": structured,
+                        }
+                    )
+                # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
                 set_auto_tags(host, update_openports=False)
                 set_openports_attribute(host)
                 if categories:

@@ -117,7 +117,7 @@ be queried using:</p>
 </ul>
 </div></blockquote>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://github.com/zhzyker/dismap/">Dismap</a>, <a class="reference external" href="https://github.com/zmap/zgrab2/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>, <a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>, <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a> and <a class="reference external" href="https://github.com/projectdiscovery/dnsx">dnsx</a> scan results, as well
+<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a>, <a class="reference external" href="https://github.com/zhzyker/dismap/">Dismap</a>, <a class="reference external" href="https://github.com/zmap/zgrab2/">Zgrab2</a>, <a class="reference external" href="https://github.com/zmap/zdns">ZDNS</a>, <a class="reference external" href="https://github.com/projectdiscovery/nuclei">Nuclei</a>, <a class="reference external" href="https://github.com/projectdiscovery/httpx">httpx</a>, <a class="reference external" href="https://github.com/projectdiscovery/tlsx">tlsx</a> and <a class="reference external" href="https://github.com/projectdiscovery/dnsx">dnsx</a> scan results, as well
 as <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditdom</span></code> results. Each record represents one host seen
 during one network scan. It can be queried using:</p>
 <blockquote>
@@ -179,7 +179,7 @@ your favorite open-source tools to IVRE’s databases.</p>
 </section>
 <section id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this heading"></a></h2>
-<div class="graphviz"><img src="../_images/graphviz-c4e3df823978f785c558615d3cccab16146f4481.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-2f6369a26823883990bcb83b9ac3555fffef6cc9.png" alt="digraph {
    graph [rankdir=LR];
 
    &quot;maxmind.com&quot;;
@@ -190,6 +190,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Zdns&quot;;
    &quot;Nuclei&quot;;
    &quot;httpx&quot;;
+   &quot;tlsx&quot;;
    &quot;dnsx&quot;;
    &quot;Dismap&quot;;
    &quot;airodump-ng&quot;;
@@ -222,6 +223,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    &quot;Zdns&quot; -&gt; JSON [label=&quot;-o&quot;];
    &quot;Nuclei&quot; -&gt; JSON [label=&quot;-json -o&quot;];
    &quot;httpx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
+   &quot;tlsx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
    &quot;dnsx&quot; -&gt; JSON [label=&quot;-json -o&quot;];
    &quot;Dismap&quot; -&gt; JSON [label=&quot;-j&quot;];
    &quot;airodump-ng&quot; -&gt; CSV_LOG [label=&quot;-w&quot;];
@@ -244,7 +246,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    {
      rank = same;
      edge[style=invis];
-     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Zdns&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;dnsx&quot; -&gt; &quot;Dismap&quot; -&gt; &quot;airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
+     &quot;maxmind.com&quot; -&gt; &quot;Nmap&quot; -&gt; &quot;Masscan&quot; -&gt; &quot;ivre auditdom&quot; -&gt; &quot;Zgrab2&quot; -&gt; &quot;Zdns&quot; -&gt; &quot;Nuclei&quot; -&gt; &quot;httpx&quot; -&gt; &quot;tlsx&quot; -&gt; &quot;dnsx&quot; -&gt; &quot;Dismap&quot; -&gt; &quot;airodump-ng&quot; -&gt; &quot;p0f&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Zeek&quot; -&gt; &quot;Argus&quot; -&gt; &quot;Nfdump&quot;;
      rankdir = UD;
    }
 }" class="graphviz" /></div>
