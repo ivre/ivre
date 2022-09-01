@@ -2351,10 +2351,12 @@ class DBNmap(DBActive):
                 except KeyError:
                     if "domain" in rec:
                         domain = rec["domain"]
-                        if (
+                        if utils.IPADDR.search(domain):
+                            host["addr"] = domain
+                        elif (
                             domain.startswith("[")
                             and domain.endswith("]")
-                            and utils.IPADDR.search(domain[1:-1]) is not None
+                            and utils.IPADDR.search(domain[1:-1])
                         ):
                             host["addr"] = domain[1:-1]
                         else:
@@ -3301,7 +3303,6 @@ class DBNmap(DBActive):
                 }
                 timestamp = rec["timestamp"][:19].replace("T", " ")
                 host = {
-                    "addr": rec["ip"],
                     "state": "up",
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
@@ -3309,6 +3310,25 @@ class DBNmap(DBActive):
                     "endtime": timestamp,
                     "ports": [port],
                 }
+                try:
+                    host["addr"] = rec.pop("ip")
+                except KeyError:
+                    if "host" in rec:
+                        domain = rec["host"]
+                        if utils.IPADDR.search(domain):
+                            host["addr"] = domain
+                        elif (
+                            domain.startswith("[")
+                            and domain.endswith("]")
+                            and utils.IPADDR.search(domain[1:-1])
+                        ):
+                            host["addr"] = domain[1:-1]
+                        else:
+                            utils.LOGGER.warning('Record has no "ip" field %r', rec)
+                            continue
+                    else:
+                        utils.LOGGER.warning('Record has no "ip" field %r', rec)
+                        continue
                 if "certificate" in rec:
                     try:
                         output, info_cert = create_ssl_cert(
