@@ -3375,7 +3375,7 @@ class DBNmap(DBActive):
                         {
                             "id": "ssl-tlsx",
                             "output": "\n".join(output),
-                            "ssl-jarm": structured,
+                            "ssl-tlsx": structured,
                         }
                     )
                 # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
