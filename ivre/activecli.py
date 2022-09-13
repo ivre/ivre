@@ -530,34 +530,49 @@ def displayfunction_honeyd(cur: Iterable[NmapHost]) -> None:
     _display_honeyd_epilogue(honeyd_routes, honeyd_entries, sys.stdout)
 
 
-def displayfunction_http_urls(cur: Iterable[NmapHost]) -> None:
+def displayfunction_http_urls(
+    cur: Iterable[NmapHost],
+    with_addrs: bool = True,
+    with_names: bool = False,
+    add_addrs: bool = False,
+) -> None:
     for h in cur:
         addr = h["addr"]
-        if ":" in addr:
-            addr = f"[{addr}]"
-        names = [addr]
-        names.extend(
-            sorted(
-                {hn["name"] for hn in h.get("hostnames", [])}, key=utils.key_sort_dom
+        names = []
+        if with_addrs:
+            if ":" in addr:
+                names.append(f"[{addr}]")
+            else:
+                names.append(addr)
+        if with_names:
+            names.extend(
+                sorted(
+                    {
+                        hn["name"]
+                        for hn in h.get("hostnames", [])
+                        if "*" not in hn["name"]
+                    },
+                    key=utils.key_sort_dom,
+                )
             )
-        )
+        prefix = f"{addr}, " if add_addrs else ""
         for p in h.get("ports", []):
             if p.get("service_name") not in {"http", "http-proxy", "https"}:
                 continue
             if p.get("service_tunnel") == "ssl" or p.get("service_name") == "https":
                 if p.get("port") == 443:
                     for name in names:
-                        sys.stdout.write(f"https://{name}/\n")
+                        sys.stdout.write(f"{prefix}https://{name}/\n")
                 else:
                     for name in names:
-                        sys.stdout.write(f"https://{name}:{p['port']}/\n")
+                        sys.stdout.write(f"{prefix}https://{name}:{p['port']}/\n")
             else:
                 if p.get("port") == 80:
                     for name in names:
-                        sys.stdout.write(f"http://{name}/\n")
+                        sys.stdout.write(f"{prefix}http://{name}/\n")
                 else:
                     for name in names:
-                        sys.stdout.write(f"http://{name}:{p['port']}/\n")
+                        sys.stdout.write(f"{prefix}http://{name}:{p['port']}/\n")
 
 
 def displayfunction_nmapxml(
