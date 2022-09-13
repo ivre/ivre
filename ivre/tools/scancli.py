@@ -182,6 +182,18 @@ def main() -> None:
         displayfunction = displayfunction_honeyd
     elif args.http_urls:
         displayfunction = displayfunction_http_urls
+    elif args.http_urls_names:
+
+        def displayfunction(cur: DBCursor) -> None:
+            return displayfunction_http_urls(cur, with_addrs=False, with_names=True)
+
+    elif args.http_urls_full:
+
+        def displayfunction(cur: DBCursor) -> None:
+            return displayfunction_http_urls(
+                cur, with_addrs=False, with_names=True, add_addrs=True
+            )
+
     elif args.nmap_xml:
         displayfunction = displayfunction_nmapxml
     elif args.gnmap:

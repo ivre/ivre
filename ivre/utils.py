@@ -912,6 +912,16 @@ CLI_ARGPARSER.add_argument(
     help="Output results as HTTP URLs, one per line.",
 )
 CLI_ARGPARSER.add_argument(
+    "--http-urls-names",
+    action="store_true",
+    help="Output results as HTTP URLs, one per line.",
+)
+CLI_ARGPARSER.add_argument(
+    "--http-urls-full",
+    action="store_true",
+    help="Output results as HTTP URLs, one per line.",
+)
+CLI_ARGPARSER.add_argument(
     "--from-db",
     metavar="DB_URL",
     help="Get data from the provided URL instead of using IVRE's configuration.",
