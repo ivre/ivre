@@ -52,7 +52,7 @@ GREASE = {
 def banner2ja3c(banner: bytes) -> Optional[str]:
     # "lazy" import for scapy, as this import is slow.
     # TLS is assigned by the import statement, but pylint seems to miss it.
-    global HAS_SCAPY, TLS  # pylint: disable=global-variable-not-assigned
+    global HAS_SCAPY, TLS
     if HAS_SCAPY is None:
         try:
             # noqa: E402
