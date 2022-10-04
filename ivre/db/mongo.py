@@ -23,6 +23,7 @@ databases.
 """
 
 
+from __future__ import annotations  # drop when Python 3.10+ only is supported
 from collections import OrderedDict
 from copy import deepcopy
 import datetime
@@ -80,6 +81,64 @@ def log_pipeline(pipeline):
     utils.LOGGER.debug("DB: MongoDB aggregation pipeline: %r", pipeline)
 
 
+class MongoDBConnection:
+    __instances: Dict[str, MongoDBConnection] = {}
+
+    def __new__(cls, url, *args):
+        del args
+        raw_url = url.geturl()
+        try:
+            return cls.__instances[raw_url]
+        except KeyError:
+            instance = cls.__instances[raw_url] = super().__new__(cls)
+            instance.raw_url = raw_url
+            return instance
+
+    def __init__(self, url, params):
+        self.url = url
+        self.params = params
+
+    @property
+    def client(self):
+        try:
+            return self._client  # pylint: disable=access-member-before-definition
+        except AttributeError:
+            pass
+        if self.url.scheme == "mongodb+srv":
+            self._client = pymongo.MongoClient(self.raw_url)
+            return self._client
+        host = self.url.netloc
+        if "@" in host:
+            self.auth, host = host.split("@", 1)
+        else:
+            self.auth = None
+        self._client = pymongo.MongoClient(host=host or None, **self.params)
+        return self._client
+
+    @property
+    def db(self):
+        try:
+            return self._db  # pylint: disable=access-member-before-definition
+        except AttributeError:
+            pass
+        self._db = self.client[self.url.path.lstrip("/") or "ivre"]
+        if not self.auth:
+            return self._db
+        if ":" in self.auth:
+            username, password = (unquote(val) for val in self.auth.split(":", 1))
+            self._db.authenticate(username, password)
+            return self._db
+        username = unquote(self.auth)
+        if HAS_KRBV:
+            if username == "GSSAPI":
+                username = krbV.default_context().default_ccache().principal().name
+                self._db.authenticate(username, mechanism="GSSAPI")
+                return self._db
+        if "@" in username:
+            self._db.authenticate(username, mechanism="GSSAPI")
+        raise TypeError("provide either 'password' or 'mechanism' with 'username'")
+
+
 class MongoDB(DB):
 
     is_documentdb = False  # set to True for AWS DocumentDB sub-classes
@@ -93,39 +152,6 @@ class MongoDB(DB):
 
     def __init__(self, url):
         super().__init__()
-        self.host = None
-        self.username = None
-        self.password = None
-        self.mechanism = None
-        self.mongodb_srv = None
-        if url.scheme == "mongodb+srv":
-            self.mongodb_srv = url.geturl()
-        elif "@" in url.netloc:
-            username, self.host = url.netloc.split("@", 1)
-            if ":" in username:
-                self.username, self.password = (
-                    unquote(val) for val in username.split(":", 1)
-                )
-            elif HAS_KRBV:
-                username = unquote(username)
-                if username == "GSSAPI":
-                    self.username = (
-                        krbV.default_context().default_ccache().principal().name
-                    )
-                    self.mechanism = "GSSAPI"
-                else:
-                    self.username = username
-                    if "@" in username:
-                        self.mechanism = "GSSAPI"
-            else:
-                self.username = username
-        else:
-            self.host = url.netloc
-        if not self.host:
-            self.host = None
-        self.dbname = url.path.lstrip("/")
-        if not self.dbname:
-            self.dbname = "ivre"
         params = dict(
             x.split("=", 1) if "=" in x else (x, None)
             for x in url.query.split("&")
@@ -155,6 +181,14 @@ class MongoDB(DB):
                 "secondary_preferred": pymongo.ReadPreference.SECONDARY_PREFERRED,
             }.get(params["readPreference"].lower(), params["readPreference"])
         self.params = params
+        self._db = MongoDBConnection(
+            url,
+            {
+                param: value
+                for param, value in params.items()
+                if not param.startswith("colname_")
+            },
+        )
         self.schema_migrations = []
 
     def set_limits(self, cur):
@@ -177,39 +211,12 @@ class MongoDB(DB):
     @property
     def db_client(self):
         """The DB connection."""
-        try:
-            return self._db_client
-        except AttributeError:
-            if self.mongodb_srv is not None:
-                self._db_client = pymongo.MongoClient(self.mongodb_srv)
-            else:
-                self._db_client = pymongo.MongoClient(
-                    host=self.host,
-                    **{
-                        param: value
-                        for param, value in self.params.items()
-                        if not param.startswith("colname_")
-                    },
-                )
-            return self._db_client
+        return self._db.client
 
     @property
     def db(self):
         """The DB."""
-        try:
-            return self._db
-        except AttributeError:
-            self._db = self.db_client[self.dbname]
-            if self.username is not None:
-                if self.password is not None:
-                    self.db.authenticate(self.username, self.password)
-                elif self.mechanism is not None:
-                    self.db.authenticate(self.username, mechanism=self.mechanism)
-                else:
-                    raise TypeError(  # pylint: disable=raise-missing-from
-                        "provide either 'password' or 'mechanism' with 'username'"
-                    )
-            return self._db
+        return self._db.db
 
     @property
     def server_info(self):
