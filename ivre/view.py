@@ -782,18 +782,27 @@ def passive_to_view(flt, category=None):
     function.
 
     """
-    for rec in db.passive.get(flt, sort=[("addr", 1)]):
-        if rec.get("schema_version") != PASSIVE_SCHEMA_VERSION:
-            utils.LOGGER.warning(
-                "Will not handle record with schema_version %d (%d needed) [%r]",
-                rec.get("schema_version", 0),
-                PASSIVE_SCHEMA_VERSION,
-                rec,
-            )
-            continue
-        outrec = passive_record_to_view(rec, category=category)
-        if outrec is not None:
-            yield outrec
+    done = False
+    skip = 0
+    while not done:
+        try:
+            for rec in db.passive.get(flt, sort=[("addr", 1)], skip=skip):
+                if rec.get("schema_version") != PASSIVE_SCHEMA_VERSION:
+                    utils.LOGGER.warning(
+                        "Will not handle record with schema_version %d (%d needed) [%r]",
+                        rec.get("schema_version", 0),
+                        PASSIVE_SCHEMA_VERSION,
+                        rec,
+                    )
+                    skip += 1
+                    continue
+                outrec = passive_record_to_view(rec, category=category)
+                if outrec is not None:
+                    yield outrec
+                skip += 1
+            done = True
+        except db.passive.cursor_timeout_exceptions:
+            pass
 
 
 def from_passive(flt, category=None):
@@ -848,34 +857,42 @@ def from_nmap(flt, category=None):
     cur_addr = None
     cur_rec = None
     result = None
-    for rec in db.nmap.get(flt, sort=[("addr", 1)]):
-        if rec.get("schema_version") != ACTIVE_SCHEMA_VERSION:
-            utils.LOGGER.warning(
-                "Will not handle record with schema_version %d (%d needed) [%r]",
-                rec.get("schema_version", 0),
-                ACTIVE_SCHEMA_VERSION,
-                rec,
-            )
-            continue
-        if "addr" not in rec:
-            continue
-        rec = nmap_record_to_view(rec, category=category)
-        if cur_addr is None:
-            cur_addr = rec["addr"]
-            cur_rec = rec
-            continue
-        if cur_addr != rec["addr"]:
-            result = cur_rec
-            cur_rec = rec
-            cur_addr = rec["addr"]
-            set_auto_tags(result)
-            yield result
-        else:
-            cur_rec = db.view.merge_host_docs(cur_rec, rec)
-            continue
-    if cur_rec is not None:
-        set_auto_tags(cur_rec)
-        yield cur_rec
+    done = False
+    skip = 0
+    while not done:
+        try:
+            for rec in db.nmap.get(flt, sort=[("addr", 1)], skip=skip):
+                if rec.get("schema_version") != ACTIVE_SCHEMA_VERSION:
+                    utils.LOGGER.warning(
+                        "Will not handle record with schema_version %d (%d needed) [%r]",
+                        rec.get("schema_version", 0),
+                        ACTIVE_SCHEMA_VERSION,
+                        rec,
+                    )
+                    skip += 1
+                    continue
+                if "addr" not in rec:
+                    skip += 1
+                    continue
+                rec = nmap_record_to_view(rec, category=category)
+                if cur_addr is None:
+                    cur_addr = rec["addr"]
+                    cur_rec = rec
+                elif cur_addr == rec["addr"]:
+                    cur_rec = db.view.merge_host_docs(cur_rec, rec)
+                else:
+                    result = cur_rec
+                    cur_rec = rec
+                    cur_addr = rec["addr"]
+                    set_auto_tags(result)
+                    yield result
+                skip += 1
+            if cur_rec is not None:
+                set_auto_tags(cur_rec)
+                yield cur_rec
+            done = True
+        except db.nmap.cursor_timeout_exceptions:
+            pass
 
 
 def to_view(itrs):

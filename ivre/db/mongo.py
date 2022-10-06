@@ -40,7 +40,7 @@ import uuid
 
 
 import bson
-from pymongo.errors import BulkWriteError
+from pymongo.errors import BulkWriteError, CursorNotFound
 import pymongo
 
 try:
@@ -149,6 +149,7 @@ class MongoDB(DB):
     schema_latest_versions: List[int] = []
     hint_indexes: List[Dict[str, List[IndexKey]]] = []
     no_limit = 0
+    cursor_timeout_exceptions = (CursorNotFound,)
 
     def __init__(self, url):
         super().__init__()
