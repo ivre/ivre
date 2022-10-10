@@ -95,6 +95,7 @@ class DB:
     datetime_fields = []
     list_fields = []
     text_fields = []
+    cursor_timeout_exceptions = ()
 
     def __init__(self):
         self.argparser = ArgumentParser(add_help=False)
