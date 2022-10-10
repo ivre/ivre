@@ -63,8 +63,8 @@ RUN tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bi
 RUN for d in /usr /usr/local; do \
         d="$d/share/ivre/patches"; \
         [ -d "$d" ] && ( \
-            cp $d/nmap/scripts/*.nse /usr/local/share/nmap/scripts; \
-            cd /usr/local/share/nmap/; \
+            cp $d/nmap/scripts/*.nse /usr/share/nmap/scripts; \
+            cd /usr/share/nmap/; \
             for p in $d/nmap/*.patch; do \
                  patch -p0 < $p; \
             done ; \
