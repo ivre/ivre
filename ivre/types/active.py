@@ -35,7 +35,6 @@ else:
 
 from ivre.types import NmapServiceMatch
 
-
 NmapHost = Dict[str, Any]  # TODO (see below)
 NmapAddress = Dict[str, Any]  # TODO & TO FIX...
 NmapScript = Dict[str, Any]  # seems hard to do better for now (lots of keys)

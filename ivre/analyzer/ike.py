@@ -20,10 +20,9 @@
 import struct
 from typing import Any, Dict, Tuple, Union, cast
 
-
 from ivre.types import NmapServiceMatch
 from ivre.types.active import NmapPort
-from ivre.utils import find_ike_vendor_id, encode_hex
+from ivre.utils import encode_hex, find_ike_vendor_id
 
 
 class Values(Dict[int, str]):

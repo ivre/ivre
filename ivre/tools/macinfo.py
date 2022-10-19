@@ -24,10 +24,8 @@ import argparse
 import re
 from typing import List, Tuple
 
-
-from ivre.db import db
 from ivre import utils
-
+from ivre.db import db
 
 MAC_ADDR = re.compile(
     "^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})"

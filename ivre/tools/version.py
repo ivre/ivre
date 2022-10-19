@@ -23,7 +23,6 @@
 import os
 import sys
 
-
 from ivre import VERSION
 
 

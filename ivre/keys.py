@@ -23,21 +23,18 @@ database.
 """
 
 
-from collections import namedtuple
 import re
 import subprocess
+from collections import namedtuple
 from typing import AnyStr, Dict, Generator, Optional, Pattern, Union
-
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 
-
+from ivre import config, utils
 from ivre.db import db
-from ivre import config
-from ivre.types import DBPassive, DBNmap, DBView, Filter, Record
+from ivre.types import DBNmap, DBPassive, DBView, Filter, Record
 from ivre.types.active import NmapScript
-from ivre import utils
 
 DB = Union[DBPassive, DBNmap, DBView]
 

@@ -39,14 +39,12 @@ import termios
 import time
 from typing import Any, BinaryIO, Dict, List, Optional, Set, Tuple, Type
 
-
 import ivre.agent
 import ivre.geoiputils
-import ivre.utils
-import ivre.target
-from ivre.types import Target
 import ivre.nmapopt
-
+import ivre.target
+import ivre.utils
+from ivre.types import Target
 
 STATUS_NEW = 0
 STATUS_DONE_UP = 1

@@ -23,12 +23,11 @@ files.
 
 
 import codecs
+import os
+import struct
+import sys
 from functools import partial, reduce
 from multiprocessing import Pool
-import os
-import sys
-import struct
-
 
 from ivre import config, utils
 from ivre.db import DBData

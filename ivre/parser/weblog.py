@@ -19,14 +19,13 @@
 """Support for http server log files"""
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
+
 import datetime
 import re
 from typing import Any, Dict
 
-
 from ivre.parser import Parser
 from ivre.utils import LOGGER
-
 
 LINE_RE = re.compile(
     r'^(?P<addr>[^ ]*) (?P<identity>[^ ]*) (?P<username>[^ ]*) \[(?P<datetime>[^]]*)\] "(?P<request>[^"]*)" (?P<status>[^ ]*) (?P<size>[^ ]*) "(?P<referer>[^"]*)" "(?P<useragent>[^"]*)"\r?$'

@@ -25,11 +25,11 @@ DocumentDB databases.
 
 from ivre.db.mongo import (
     MongoDBActive,
-    MongoDBNmap,
-    MongoDBView,
-    MongoDBPassive,
     MongoDBAgent,
     MongoDBFlow,
+    MongoDBNmap,
+    MongoDBPassive,
+    MongoDBView,
 )
 
 

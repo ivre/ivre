@@ -20,27 +20,16 @@
 """Sub-module to run DNS checks."""
 
 
+import re
+import subprocess
 from ast import literal_eval
 from collections import namedtuple
 from datetime import datetime
-import re
-import subprocess
-from typing import (
-    Dict,
-    FrozenSet,
-    Generator,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
-
+from typing import Dict, FrozenSet, Generator, List, Optional, Sequence, Set, Tuple
 
 from ivre.types.active import NmapHost
 from ivre.utils import LOGGER, get_domains
 from ivre.xmlnmap import SCHEMA_VERSION
-
 
 nsrecord = namedtuple("nsrecord", ["name", "ttl", "rclass", "rtype", "data"])
 

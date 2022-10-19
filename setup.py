@@ -23,14 +23,14 @@ $ python setup.py build
 """
 
 
+import os
+
 # pylint: disable=deprecated-module
-from distutils.core import setup
 from distutils.command.install_data import install_data
 from distutils.command.install_lib import install_lib
+from distutils.core import setup
 from distutils.dist import DistributionMetadata
-import os
 from tempfile import TemporaryFile
-
 
 VERSION = __import__("ivre").VERSION
 

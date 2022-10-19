@@ -37,7 +37,6 @@
 import datetime
 from typing import Any, Dict, Optional
 
-
 from ivre.parser import Parser
 from ivre.utils import LOGGER
 

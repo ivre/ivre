@@ -25,10 +25,9 @@ from functools import partial
 from sys import stdin
 from typing import Dict, Generator, List, Optional, Tuple
 
-
 from ivre.db import DBPassive, db
 from ivre.parser.p0f import P0fFile
-from ivre.passive import handle_rec, getinfos
+from ivre.passive import getinfos, handle_rec
 from ivre.tools.passiverecon2db import _get_ignore_rules
 from ivre.types import Record
 from ivre.utils import LOGGER

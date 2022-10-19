@@ -23,12 +23,11 @@ See doc/FLOW.md for more information.
 """
 
 
-from argparse import ArgumentParser
 import datetime
 import os
 import sys
+from argparse import ArgumentParser
 from typing import Dict, Tuple
-
 
 try:
     import matplotlib  # type: ignore
@@ -37,10 +36,9 @@ except ImportError:
     plt = None
 
 
-from ivre.db import db
-from ivre import utils, config
 import ivre.flow
-
+from ivre import config, utils
+from ivre.db import db
 
 addr_fields = {
     "src": {"type": "edges", "field": "src.addr"},

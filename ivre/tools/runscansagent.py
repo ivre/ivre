@@ -23,11 +23,9 @@ import shlex
 import subprocess
 import sys
 
-
+import ivre.scanengine
 import ivre.target
 import ivre.utils
-import ivre.scanengine
-
 
 MAINDIR = "./agentsdata"
 

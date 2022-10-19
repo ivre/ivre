@@ -21,9 +21,7 @@
 import datetime
 from typing import Any, Callable, Dict, Optional
 
-
 from ivre.parser import Parser
-
 
 TYPE_INT = 0
 TYPE_DATE = 1

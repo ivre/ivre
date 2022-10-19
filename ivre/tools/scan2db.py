@@ -20,17 +20,16 @@
 """Parse NMAP scan results and add them in DB."""
 
 
-from argparse import ArgumentParser
 import os
 import sys
+from argparse import ArgumentParser
 from typing import Generator, Iterable, List
 
-
 import ivre.db
-from ivre.types import Record
 import ivre.utils
-from ivre.view import nmap_record_to_view
 import ivre.xmlnmap
+from ivre.types import Record
+from ivre.view import nmap_record_to_view
 
 
 def recursive_filelisting(

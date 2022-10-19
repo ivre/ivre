@@ -25,16 +25,15 @@ sub-module or script.
 
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
-import ast
+
 import argparse
-from bisect import bisect_left
+import ast
 import base64
 import bz2
 import datetime
 import functools
 import gzip
 import hashlib
-from io import BytesIO
 import ipaddress
 import logging
 import math
@@ -45,6 +44,8 @@ import socket
 import struct
 import subprocess
 import time
+from bisect import bisect_left
+from io import BytesIO
 from types import TracebackType
 from typing import (
     Any,
@@ -68,10 +69,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import build_opener
 
-
 try:
-    from OpenSSL import crypto as osslc  # type: ignore
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from OpenSSL import crypto as osslc  # type: ignore
 except ImportError:
     USE_PYOPENSSL = False
 else:
@@ -85,10 +85,8 @@ else:
     USE_PIL = True
 
 
-from ivre import VERSION
-from ivre import config
+from ivre import VERSION, config
 from ivre.types import NmapProbe, NmapProbeRec, NmapServiceMatch, Record
-
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations

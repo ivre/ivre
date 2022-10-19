@@ -21,7 +21,6 @@ import argparse
 from sys import stdin
 from typing import Iterable
 
-
 from ivre.utils import key_sort_dom_addr
 
 

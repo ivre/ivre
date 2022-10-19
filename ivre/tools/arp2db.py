@@ -19,14 +19,12 @@
 """Update the flow database from ARP requests in PCAP files"""
 
 
+import subprocess
 from argparse import ArgumentParser
 from datetime import datetime
-import subprocess
-from typing import cast, Iterable
-
+from typing import Iterable, cast
 
 from scapy.all import ARP, Packet, PcapReader  # type: ignore
-
 
 from ivre import config
 from ivre.db import db

@@ -34,9 +34,7 @@ import os
 import stat
 from typing import Dict, Generator, List, Optional
 
-
 from ivre.types import NmapScanTemplate
-
 
 # Default values:
 DEBUG = False

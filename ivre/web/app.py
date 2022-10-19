@@ -26,22 +26,19 @@ application.
 """
 
 
-from collections import namedtuple
 import datetime
-from functools import wraps
 import json
 import os
 import tempfile
+from collections import namedtuple
+from functools import wraps
 
+from bottle import Bottle, abort, request, response
 
-from bottle import abort, request, response, Bottle
-
-
-from ivre import config, utils, VERSION
+from ivre import VERSION, config, utils
 from ivre.db import db
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
-
 
 application = Bottle()
 

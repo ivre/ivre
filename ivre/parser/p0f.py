@@ -19,14 +19,13 @@
 """Support for p0f log files"""
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
+
 import datetime
 import re
 from typing import Any, Dict
 
-
 from ivre.parser import Parser
 from ivre.utils import LOGGER
-
 
 LINE_RE = re.compile(r"^\[(?P<time>[^\]]+)\] (?P<data>.*)$")
 

@@ -41,7 +41,6 @@ except ImportError:
 
 from bottle import request  # type: ignore
 
-
 from ivre import config, utils
 
 

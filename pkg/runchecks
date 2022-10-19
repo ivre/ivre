@@ -33,6 +33,8 @@ pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init
 
 pylint -e all -d unused-argument,too-many-arguments,missing-function-docstring,missing-class-docstring,missing-module-docstring,multiple-statements,invalid-name,too-few-public-methods ./pkg/stubs/*.pyi && echo "pylint stubs OK"
 
+isort --profile black --check-only ivre ./doc/conf.py ./setup.py ./bin/ivre ./pkg/stubs/*.pyi && echo "isort OK"
+
 rstcheck -r ./doc/ && echo "rstcheck OK"
 if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi
 

@@ -20,9 +20,8 @@
 import struct
 from typing import Dict, Generator, Tuple, Union, cast
 
-
-from ivre.types.active import NmapPort
 from ivre import utils
+from ivre.types.active import NmapPort
 
 
 def _gen_items(data: bytes) -> Generator[Tuple[int, bytes], None, None]:

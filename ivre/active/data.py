@@ -22,13 +22,13 @@ active (nmap & view) purposes.
 """
 
 
+import json
+import os
+import re
 from bisect import bisect_left
 from collections import Counter
 from datetime import datetime
 from itertools import chain
-import json
-import os
-import re
 from textwrap import wrap
 from typing import (
     Any,
@@ -45,11 +45,10 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-
 from ivre.active.cpe import add_cpe_values
 from ivre.config import DATA_PATH, VIEW_SYNACK_HONEYPOT_COUNT
-from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
+from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch, ParsedCertificate, Tag
 from ivre.types.active import (
     HttpHeader,
@@ -75,7 +74,6 @@ from ivre.utils import (
     nmap_encode_data,
     ports2nmapspec,
 )
-
 
 ALIASES_TABLE_ELEMS = {
     # Use the same structured output for both ssl-cert and ssl-cacert

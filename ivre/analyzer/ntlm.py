@@ -22,7 +22,6 @@ import binascii
 import struct
 from typing import Any, Dict, Optional
 
-
 from ivre import utils
 
 

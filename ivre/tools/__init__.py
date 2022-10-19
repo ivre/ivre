@@ -20,8 +20,7 @@
 """This sub-module contains functions to implement ivre commands."""
 
 
-from typing import Callable, Optional, List, cast
-
+from typing import Callable, List, Optional, cast
 
 __all__ = [
     "airodump2db",

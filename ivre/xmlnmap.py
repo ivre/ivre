@@ -31,7 +31,7 @@ import sys
 from textwrap import wrap
 from xml.sax.handler import ContentHandler, EntityResolver
 
-
+from ivre import utils
 from ivre.active.cpe import cpe2dict
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
@@ -43,10 +43,8 @@ from ivre.active.data import (
     set_auto_tags,
 )
 from ivre.analyzer import dicom, ike, ja3
-from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
-from ivre import utils
 from ivre.config import MASSCAN_PROBES
-
+from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
 
 SCHEMA_VERSION = 21
 

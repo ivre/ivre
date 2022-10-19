@@ -22,13 +22,10 @@
 
 
 import re
-from typing import Dict, List, Generator, Optional, Union
+from typing import Dict, Generator, List, Optional, Union
 
-
-from ivre import config
-from ivre import utils
+from ivre import config, utils
 from ivre.types.flow import Clause
-
 
 SCHEMA_VERSION = 1
 

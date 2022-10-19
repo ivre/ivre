@@ -22,15 +22,14 @@ instance via an HTTP server.
 """
 
 
+import json
+import re
 from datetime import datetime
 from functools import update_wrapper
 from getpass import getpass
 from io import BytesIO
-import json
-import re
 from urllib.parse import quote
 from urllib.request import URLopener
-
 
 try:
     import pycurl
@@ -51,7 +50,6 @@ try:
 except ImportError:
     MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBView = None
 from ivre import utils
-
 
 RESULTS_COUNT = 200
 

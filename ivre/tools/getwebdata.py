@@ -41,7 +41,6 @@ import os
 import re
 from typing import BinaryIO, Callable, Generator, List, Tuple, cast
 
-
 from ivre import config
 from ivre.utils import (
     IPADDR,

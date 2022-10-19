@@ -24,8 +24,7 @@ databases.
 
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
-from collections import OrderedDict
-from copy import deepcopy
+
 import datetime
 import hashlib
 import json
@@ -34,14 +33,15 @@ import re
 import socket
 import struct
 import time
+import uuid
+from collections import OrderedDict
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
 from urllib.parse import unquote
-import uuid
-
 
 import bson
-from pymongo.errors import BulkWriteError, CursorNotFound
 import pymongo
+from pymongo.errors import BulkWriteError, CursorNotFound
 
 try:
     import krbV  # type: ignore
@@ -51,19 +51,19 @@ else:
     HAS_KRBV = True
 
 
+from ivre import config, flow, passive, utils, xmlnmap
 from ivre.active.data import ALIASES_TABLE_ELEMS, is_synack_honeypot, set_auto_tags
 from ivre.db import (
     DB,
     DBActive,
-    DBNmap,
-    DBPassive,
     DBAgent,
-    DBView,
     DBFlow,
     DBFlowMeta,
+    DBNmap,
+    DBPassive,
+    DBView,
     LockError,
 )
-from ivre import config, passive, utils, xmlnmap, flow
 from ivre.types import Filter, IndexKey
 
 

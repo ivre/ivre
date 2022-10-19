@@ -23,11 +23,10 @@
 import argparse
 from typing import Generator, List
 
-
 from ivre.activecli import displayfunction_json
-from ivre.db import db, DB, DBView
+from ivre.db import DB, DBView, db
 from ivre.types import Record
-from ivre.view import from_passive, from_nmap, to_view
+from ivre.view import from_nmap, from_passive, to_view
 
 
 def main() -> None:

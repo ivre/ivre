@@ -25,6 +25,5 @@ Specific type definitions for IVRE (flows)
 
 from typing import Any, Dict, Optional, Union
 
-
 Clause = Dict[str, Optional[Union[bool, str]]]
 Bulk = Any

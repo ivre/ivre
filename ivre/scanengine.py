@@ -28,7 +28,6 @@ import re
 import subprocess
 import time
 
-
 from ivre import utils
 
 

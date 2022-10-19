@@ -30,7 +30,6 @@ import getopt
 import sys
 from typing import Dict, Set, Tuple, Type, Union
 
-
 import ivre.db
 import ivre.keys
 import ivre.utils

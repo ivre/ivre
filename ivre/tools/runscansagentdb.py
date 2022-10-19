@@ -27,11 +27,10 @@ import sys
 import time
 from typing import Any, Dict
 
-
-import ivre.target
-import ivre.db
-import ivre.utils
 import ivre.config
+import ivre.db
+import ivre.target
+import ivre.utils
 
 
 def display_scan(scan: Dict[str, Any], verbose: bool = True) -> None:
