@@ -21,9 +21,7 @@
 import hashlib
 from typing import Any, Dict, List, Optional
 
-
 from ivre import utils
-
 
 HAS_SCAPY = None
 

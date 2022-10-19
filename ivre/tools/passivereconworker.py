@@ -20,18 +20,16 @@
 """Handle ivre passiverecon2db files."""
 
 
-from argparse import ArgumentParser
 import os
 import re
 import shutil
 import signal
 import subprocess
 import time
+from argparse import ArgumentParser
 from typing import Any, Dict, List, Match, Optional
 
-
 from ivre import utils
-
 
 SENSORS: Dict[str, str] = {}  # shortname: fullname
 FILEFORMAT = "^(?P<sensor>%s)[.-](?P<datetime>[0-9-]+)\\.log(?:\\.(?:gz|bz2))?$"

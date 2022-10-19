@@ -21,15 +21,13 @@
 
 from argparse import ArgumentParser
 
-
-from ivre import config
-from ivre import utils
+from ivre import config, utils
 from ivre.db import db
 
 # from ivre.parser.airodump import Airodump
 from ivre.parser.argus import Argus
-from ivre.parser.netflow import NetFlow
 from ivre.parser.iptables import Iptables
+from ivre.parser.netflow import NetFlow
 
 PARSERS_CHOICE = {
     # 'airodump': Airodump,

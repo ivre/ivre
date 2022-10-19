@@ -27,16 +27,13 @@ tested with both Apache and Nginx).
 """
 
 
-from argparse import ArgumentParser, Namespace
 import os
-
+from argparse import ArgumentParser, Namespace
 
 from bottle import HTTPResponse, default_app, get, redirect, run, static_file
 
-
 from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
 from ivre.web import app as webapp
-
 
 #
 # Index page

@@ -20,10 +20,10 @@
 
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
+
 import subprocess
 from types import TracebackType
 from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Type, Union, cast
-
 
 from ivre.utils import FileOpener
 

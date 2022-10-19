@@ -22,11 +22,6 @@ backends.
 
 """
 
-from argparse import ArgumentParser
-from collections import OrderedDict
-from datetime import datetime, timedelta
-from functools import reduce
-from importlib import import_module
 import json
 import os
 import pickle
@@ -38,10 +33,14 @@ import struct
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlparse
 import uuid
 import xml.sax
-
+from argparse import ArgumentParser
+from collections import OrderedDict
+from datetime import datetime, timedelta
+from functools import reduce
+from importlib import import_module
+from urllib.parse import urlparse
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -52,7 +51,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, geoiputils, nmapout, passive, utils, xmlnmap, flow
+from ivre import config, flow, geoiputils, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,

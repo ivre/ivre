@@ -26,16 +26,13 @@ import json
 import re
 from urllib.parse import unquote
 
-
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Q
 from elasticsearch_dsl.query import Query
 
-
+from ivre import utils
 from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBView
-from ivre import utils
-
 
 PAGESIZE = 250
 

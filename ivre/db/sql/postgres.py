@@ -31,7 +31,6 @@ import datetime
 import re
 import time
 
-
 from sqlalchemy import (
     ARRAY,
     Column,
@@ -58,19 +57,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.sqltypes import TupleType
 
-
 from ivre import config, utils, xmlnmap
 from ivre.db.sql import (
+    SQLDB,
     PassiveCSVFile,
     ScanCSVFile,
-    SQLDB,
     SQLDBActive,
     SQLDBFlow,
     SQLDBNmap,
     SQLDBPassive,
     SQLDBView,
 )
-
 
 # Workaround an SQLAlchemy regression
 del TupleType.result_processor

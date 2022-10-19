@@ -23,10 +23,9 @@
 import getopt
 import sys
 
-
+from ivre import utils
 from ivre.db import db
 from ivre.types import Record
-from ivre import utils
 
 
 def disp_rec(r: Record) -> None:

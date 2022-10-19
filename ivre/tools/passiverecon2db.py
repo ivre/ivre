@@ -20,19 +20,17 @@
 """Update the database from output of the Zeek script 'passiverecon'"""
 
 
-from argparse import ArgumentParser
 import functools
 import signal
 import sys
+from argparse import ArgumentParser
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
-
-from ivre.db import db, DBPassive
-from ivre.passive import getinfos, handle_rec
+from ivre.db import DBPassive, db
 from ivre.parser.zeek import ZeekFile
+from ivre.passive import getinfos, handle_rec
 from ivre.types import Record
 from ivre.utils import force_ip2int
-
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)

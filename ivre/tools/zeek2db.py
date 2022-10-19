@@ -19,14 +19,13 @@
 """Update the flow database from Zeek logs"""
 
 
-from argparse import ArgumentParser
 import os
+from argparse import ArgumentParser
 from typing import Any, Callable, Dict, Iterable
 
-
-from ivre.parser.zeek import ZeekFile
+from ivre import config, flow, utils
 from ivre.db import db
-from ivre import config, utils, flow
+from ivre.parser.zeek import ZeekFile
 from ivre.types import Record
 from ivre.types.flow import Bulk
 

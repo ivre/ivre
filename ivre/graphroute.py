@@ -30,21 +30,9 @@ try:
 except ImportError:
     HAVE_DBUS = False
 import hashlib
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Optional,
-    Set,
-    TextIO,
-    Tuple,
-    Union,
-)
-
+from typing import Any, Callable, Dict, Iterable, Optional, Set, TextIO, Tuple, Union
 
 from ivre import utils
-
 
 Graph = Dict[str, Set[str]]
 

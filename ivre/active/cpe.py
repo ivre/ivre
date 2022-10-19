@@ -24,9 +24,8 @@ documents from the active (nmap & view) purposes.
 
 from typing import Any, Dict, List
 
-
-from ivre.utils import LOGGER
 from ivre.types import CpeDict
+from ivre.utils import LOGGER
 
 
 def cpe2dict(cpe_str: str) -> CpeDict:

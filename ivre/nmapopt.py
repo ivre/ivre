@@ -21,13 +21,11 @@
 """This sub-module is responsible for generating Nmap options."""
 
 
-from argparse import ArgumentParser
 import pipes
+from argparse import ArgumentParser
 from typing import Dict, Iterable, List, Optional
 
-
 from ivre import config
-
 
 ARGPARSER = ArgumentParser(add_help=False)
 

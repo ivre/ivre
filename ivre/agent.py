@@ -22,7 +22,6 @@
 
 from ivre import nmapopt
 
-
 AGENT_TEMPLATE = """#! /bin/sh
 
 # This file is part of IVRE.

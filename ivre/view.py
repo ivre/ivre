@@ -20,11 +20,11 @@
 """Put selected results in views."""
 
 
+import struct
 from datetime import datetime
 from textwrap import wrap
-import struct
 
-
+from ivre import utils
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_cert_hostnames,
@@ -36,11 +36,8 @@ from ivre.active.data import (
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
-from ivre import utils
-from ivre.xmlnmap import (
-    SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION,
-    add_service_hostname,
-)
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
+from ivre.xmlnmap import add_service_hostname
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):

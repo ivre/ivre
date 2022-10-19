@@ -23,10 +23,9 @@ results as they are stored in the database (JSON).
 """
 
 
-import sys
-import os
 import json
-
+import os
+import sys
 
 from ivre import utils
 

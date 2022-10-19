@@ -20,11 +20,10 @@
 """IVRE command line"""
 
 
-from errno import EPIPE
 import os
 import sys
 import warnings
-
+from errno import EPIPE
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 # because some "dev" of the cryptography module decided that
@@ -36,7 +35,7 @@ warnings.filterwarnings(
 
 
 # pylint: disable=wrong-import-position,cyclic-import
-from ivre import utils, tools  # noqa: E402
+from ivre import tools, utils  # noqa: E402
 from ivre.tools.version import main as version  # noqa: E402
 
 # pylint: enable=wrong-import-position,cyclic-import

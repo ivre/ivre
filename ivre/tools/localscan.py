@@ -23,17 +23,17 @@ netstat or ss
 """
 
 import argparse
-from datetime import datetime
 import json
 import re
 import subprocess
 import sys
+from datetime import datetime
 from typing import Dict, Generator, Set, Tuple
 
+from ivre import utils
 from ivre.activecli import displayfunction_nmapxml
 from ivre.types import DBCursor
 from ivre.types.active import NmapHost
-from ivre import utils
 
 
 class LocalPorts:

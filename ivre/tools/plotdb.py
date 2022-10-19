@@ -21,18 +21,15 @@ import argparse
 import math
 from typing import List, Optional, Tuple
 
-
 import matplotlib  # type: ignore
 import matplotlib.pyplot  # type: ignore
 
 # from mpl_toolkits.mplot3d import Axes3D
 # pylint: disable=unused-import
-from mpl_toolkits.mplot3d import axes3d, Axes3D  # type: ignore # noqa: F401
+from mpl_toolkits.mplot3d import Axes3D, axes3d  # type: ignore # noqa: F401
 
-
-from ivre import db
+from ivre import db, utils
 from ivre.types import Filter, Record
-from ivre import utils
 
 
 def graphhost(host: Record) -> Tuple[List[int], List[int]]:

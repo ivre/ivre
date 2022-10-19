@@ -25,23 +25,22 @@ import os
 import sys
 from typing import Callable
 
-
 from ivre import graphroute
-from ivre.db import DBView, db
-from ivre.nmapout import displayhosts
 from ivre.activecli import (
-    display_short,
     display_distinct,
-    displayfunction_json,
-    displayfunction_honeyd,
-    displayfunction_http_urls,
-    displayfunction_nmapxml,
+    display_short,
+    displayfunction_csv,
+    displayfunction_explain,
     displayfunction_gnmap,
     displayfunction_graphroute,
-    displayfunction_explain,
+    displayfunction_honeyd,
+    displayfunction_http_urls,
+    displayfunction_json,
+    displayfunction_nmapxml,
     displayfunction_remove,
-    displayfunction_csv,
 )
+from ivre.db import DBView, db
+from ivre.nmapout import displayhosts
 from ivre.types import DBCursor
 from ivre.utils import CLI_ARGPARSER, LOGGER
 

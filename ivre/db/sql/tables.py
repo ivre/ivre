@@ -26,32 +26,29 @@ import json
 import re
 import sqlite3
 
-
 from sqlalchemy import (
-    event,
-    func,
     Column,
-    ForeignKey,
-    Index,
     DateTime,
     Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
-    ForeignKeyConstraint,
+    event,
+    func,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.types import UserDefinedType, TypeDecorator
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.operators import custom_op, json_getitem_op
-from sqlalchemy.sql.expression import BinaryExpression
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.engine import Engine
-
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql.expression import BinaryExpression
+from sqlalchemy.sql.operators import custom_op, json_getitem_op
+from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 from ivre import passive, utils, xmlnmap
-
 
 # sqlite
 

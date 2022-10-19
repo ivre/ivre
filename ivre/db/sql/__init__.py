@@ -27,12 +27,11 @@
 
 
 import codecs
-from collections import namedtuple
 import csv
 import datetime
 import json
 import re
-
+from collections import namedtuple
 
 from sqlalchemy import (
     Boolean,
@@ -43,8 +42,9 @@ from sqlalchemy import (
     create_engine,
     delete,
     desc,
-    func,
     exists,
+    func,
+    insert,
     join,
     not_,
     nullsfirst,
@@ -53,15 +53,14 @@ from sqlalchemy import (
     text,
     true,
     update,
-    insert,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
-
+from ivre import config, utils, xmlnmap
 from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
-from ivre import config, utils, xmlnmap
 from ivre.db.sql.tables import (
+    Flow,
     N_Association_Scan_Category,
     N_Association_Scan_Hostname,
     N_Association_Scan_ScanFile,
@@ -74,6 +73,8 @@ from ivre.db.sql.tables import (
     N_Script,
     N_Tag,
     N_Trace,
+    Passive,
+    Point,
     V_Association_Scan_Category,
     V_Association_Scan_Hostname,
     V_Category,
@@ -84,11 +85,7 @@ from ivre.db.sql.tables import (
     V_Script,
     V_Tag,
     V_Trace,
-    Flow,
-    Passive,
-    Point,
 )
-
 
 # Data
 

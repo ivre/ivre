@@ -19,14 +19,13 @@
 """Support for Zeek log files"""
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
+
 import datetime
 import re
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
 
-
 from ivre.parser import Parser
 from ivre.utils import LOGGER, decode_hex
-
 
 CONTAINER_TYPE = re.compile(b"^(table|set|vector)\\[([a-z]+)\\]$")
 

@@ -20,19 +20,17 @@
 "Access and query the passive database."
 
 
+import argparse
 import functools
 import json
 import os
-import time
-import argparse
 import sys
+import time
 from typing import Callable, Optional, cast
 
-
+from ivre import utils
 from ivre.db import DBPassive, db
 from ivre.types import Filter, Record, Sort, SortKey
-from ivre import utils
-
 
 Displayer = Callable[[DBPassive, Filter, Sort, Optional[int], Optional[int]], None]
 

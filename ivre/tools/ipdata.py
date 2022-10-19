@@ -23,14 +23,13 @@ AS number and country information.
 """
 
 
-from argparse import ArgumentParser
 import json
+from argparse import ArgumentParser
 from sys import stdout
 from typing import Callable, List, Tuple, cast
 
-
-from ivre.db import db
 from ivre import geoiputils, utils
+from ivre.db import db
 
 
 def main() -> None:

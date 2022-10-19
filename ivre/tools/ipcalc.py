@@ -19,7 +19,6 @@
 
 import argparse
 
-
 from ivre import utils
 
 

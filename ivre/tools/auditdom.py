@@ -22,12 +22,11 @@ Nmap script result."""
 
 
 import argparse
-from datetime import datetime
 import json
 import pipes
 import sys
+from datetime import datetime
 from typing import Any, Iterable, Optional
-
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml

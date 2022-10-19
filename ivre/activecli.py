@@ -17,10 +17,10 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-from collections import OrderedDict
 import json
 import os
 import sys
+from collections import OrderedDict
 from typing import (
     Any,
     Callable,
@@ -36,15 +36,12 @@ from typing import (
 )
 from xml.sax import saxutils
 
-
+from ivre import graphroute, utils
 from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.config import HONEYD_IVRE_SCRIPTS_PATH
 from ivre.db import db
-from ivre import graphroute
 from ivre.types import DB, Filter, Record
 from ivre.types.active import NmapHost, NmapPort, NmapScript
-from ivre import utils
-
 
 HONEYD_ACTION_FROM_NMAP_STATE = {
     "resets": "reset",

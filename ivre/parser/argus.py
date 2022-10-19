@@ -22,7 +22,6 @@
 import datetime
 from typing import Any, BinaryIO, Dict, Optional, Union
 
-
 from ivre.parser import CmdParser
 
 

@@ -26,8 +26,7 @@ import binascii
 import re
 from typing import Any, Dict, List, Optional, cast
 
-
-from ivre.analyzer import ntlm
+from ivre import utils
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_cert_hostnames,
@@ -36,12 +35,11 @@ from ivre.active.data import (
     handle_http_content,
     handle_http_headers,
 )
+from ivre.analyzer import ntlm
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch
 from ivre.types.active import HttpHeader, NmapHost, NmapPort, NmapScript
-from ivre import utils
 from ivre.xmlnmap import add_service_hostname
-
 
 _EXPR_TITLE = re.compile("<title[^>]*>([^<]*)</title>", re.I)
 _EXPR_OWA_VERSION = re.compile('"/owa/(?:auth/)?((?:[0-9]+\\.)+[0-9]+)/')

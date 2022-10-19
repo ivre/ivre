@@ -30,7 +30,7 @@ databases.
 from sqlalchemy import Index, and_, func, insert, update
 from sqlalchemy.exc import IntegrityError
 
-from ivre import utils, config
+from ivre import config, utils
 from ivre.db.sql import SQLDB, SQLDBPassive
 
 

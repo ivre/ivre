@@ -24,20 +24,20 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 
 
 from __future__ import annotations  # drop when Python 3.10+ only is supported
+
 import codecs
 import csv
 import os.path
-from shutil import copyfileobj
 import sys
-import time
 import tarfile
+import time
+import zipfile
+from shutil import copyfileobj
 from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
 from urllib.error import HTTPError
 from urllib.request import build_opener
-import zipfile
 
-
-from ivre import VERSION, utils, config
+from ivre import VERSION, config, utils
 
 
 def bgp_raw_to_csv(fname: str, outname: str) -> None:

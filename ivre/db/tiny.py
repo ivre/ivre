@@ -27,41 +27,37 @@ databases.
 # pylint: disable=singleton-comparison
 
 
-from collections import defaultdict, Counter
-from copy import deepcopy
-from datetime import datetime, time, timedelta
-from functools import cmp_to_key
-from itertools import product as cartesian_prod
 import operator
 import os
 import re
 import socket
 import struct
-from uuid import uuid1, UUID
+from collections import Counter, defaultdict
+from copy import deepcopy
+from datetime import datetime, time, timedelta
+from functools import cmp_to_key
+from itertools import product as cartesian_prod
+from uuid import UUID, uuid1
 
-
-from tinydb import TinyDB as TDB, Query
+from tinydb import Query
+from tinydb import TinyDB as TDB
 from tinydb.database import Document
 from tinydb.operations import add, increment
 
-
+from ivre import config, flow, utils
 from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import (
     DB,
     DBActive,
     DBAgent,
+    DBFlow,
+    DBFlowMeta,
     DBNmap,
     DBPassive,
     DBView,
-    DBFlow,
-    DBFlowMeta,
     LockError,
 )
-from ivre import config
-from ivre import flow
-from ivre import utils
 from ivre.xmlnmap import Nmap2DB
-
 
 try:
     EMPTY_QUERY = Query().noop()

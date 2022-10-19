@@ -23,19 +23,18 @@ lists.
 """
 
 
-from argparse import ArgumentParser
-from functools import reduce
-from math import gcd
-from operator import add, mul
 import os
 import random
 import re
 import shlex
 import subprocess
 import tempfile
+from argparse import ArgumentParser
+from functools import reduce
+from math import gcd
+from operator import add, mul
 
-
-from ivre import utils, geoiputils, mathutils
+from ivre import geoiputils, mathutils, utils
 
 
 class Target:

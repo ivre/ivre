@@ -24,7 +24,6 @@ from argparse import ArgumentParser
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
-
 from ivre.db import DBPassive, db
 from ivre.parser.airodump import Airodump
 from ivre.passive import _prepare_rec, getinfos

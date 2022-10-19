@@ -23,17 +23,8 @@ Specific type definitions for IVRE
 """
 
 from __future__ import annotations
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+
+from typing import Any, Dict, Generator, Iterable, List, Optional, Set, Tuple, Union
 
 try:
     from typing import Literal, Protocol, TypedDict

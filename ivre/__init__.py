@@ -28,7 +28,6 @@ import re
 import subprocess
 from typing import Tuple, cast
 
-
 _DIR = os.path.dirname(__file__)
 _VERSION_FILE = os.path.join(_DIR, "VERSION")
 

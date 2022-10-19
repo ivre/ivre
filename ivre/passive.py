@@ -22,16 +22,14 @@
 """
 
 
+import binascii
 import hashlib
 import re
 import struct
-import binascii
 
-
-from ivre import utils, config
+from ivre import config, utils
 from ivre.analyzer import ntlm
 from ivre.data import scanners
-
 
 SCHEMA_VERSION = 3
 
