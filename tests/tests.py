@@ -5143,7 +5143,16 @@ class IvreTests(unittest.TestCase):
         print("Counting")
         view_count = 0
         # Count passive results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        command = ["ivre", "db2view"]
+        shard = random.randint(0, 4)
+        self.assertEqual(
+            RUN(
+                command
+                + ([] if shard == 0 else ["--parallel", str(shard)])
+                + ["passive"]
+            )[0],
+            0,
+        )
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -5155,7 +5164,13 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         # Count active results
-        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        shard = random.randint(0, 4)
+        self.assertEqual(
+            RUN(
+                command + ([] if shard == 0 else ["--parallel", str(shard)]) + ["nmap"]
+            )[0],
+            0,
+        )
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -5164,8 +5179,14 @@ class IvreTests(unittest.TestCase):
         self.assertGreater(view_count, 0)
         self.check_value("view_count_active", view_count)
         # Count merged results
+        shard = random.randint(0, 4)
         self.assertEqual(
-            RUN(["ivre", "db2view", "--view-category", "PASSIVE", "passive"])[0], 0
+            RUN(
+                command
+                + ([] if shard == 0 else ["--parallel", str(shard)])
+                + ["--view-category", "PASSIVE", "passive"]
+            )[0],
+            0,
         )
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)

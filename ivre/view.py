@@ -20,9 +20,11 @@
 """Put selected results in views."""
 
 
+import hashlib
 import struct
 from datetime import datetime
 from textwrap import wrap
+from typing import Optional, Tuple
 
 from ivre import utils
 from ivre.active.cpe import add_cpe_values
@@ -892,7 +894,7 @@ def from_nmap(flt, category=None):
             pass
 
 
-def to_view(itrs):
+def to_view(itrs, shard: Optional[Tuple[int, int]] = None):
     """Takes a list of iterators over view-formated results, and returns an
     iterator over merged results, sorted by ip.
 
@@ -916,19 +918,34 @@ def to_view(itrs):
                     )
         return rec
 
+    def accept_addr(addr: str):
+        if shard is None:
+            return True
+        return (
+            struct.unpack("Q", hashlib.new("sha256", addr.encode()).digest()[:8])[0]
+            % shard[1]
+            == shard[0]
+        )
+
     # We cannot use a `for itr in itrs` loop here because itrs is
     # modified in the loop.
     i = 0
     while i < len(itrs):
-        try:
-            next_recs.append(next(itrs[i]))
-        except StopIteration:
-            # We need to remove the corresponding iterator from itrs,
-            # which happens to be the n-th where n is the current
-            # length of next_recs.
-            del itrs[len(next_recs)]  # Do not increment i here
-        else:
+        while True:
+            try:
+                rec = next(itrs[i])
+            except StopIteration:
+                # We need to remove the corresponding iterator from itrs,
+                # which happens to be the n-th where n is the current
+                # length of next_recs.
+                del itrs[len(next_recs)]  # Do not increment i here
+                break
+            else:
+                if not accept_addr(rec["addr"]):
+                    continue
+            next_recs.append(rec)
             i += 1
+            break
     next_addrs = [rec["addr"] for rec in next_recs]
     cur_rec = None
     cur_addr = min(next_addrs, key=utils.ip2int, default=None)
@@ -937,8 +954,9 @@ def to_view(itrs):
         # itrs is modified in the loop.
         i = 0
         while i < len(itrs):
-            while next_addrs[i] == cur_addr:
-                cur_rec = next_record(cur_rec, next_recs[i])
+            while next_addrs[i] == cur_addr or not accept_addr(next_addrs[i]):
+                if next_addrs[i] == cur_addr:
+                    cur_rec = next_record(cur_rec, next_recs[i])
                 try:
                     next_recs[i] = next(itrs[i])
                 except StopIteration:

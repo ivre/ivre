@@ -21,6 +21,7 @@
 
 
 import argparse
+from multiprocessing import Process
 from typing import Generator, List
 
 from ivre.activecli import displayfunction_json
@@ -69,7 +70,13 @@ def main() -> None:
         metavar="DB_URL",
         help="Store data to the provided URL instead of the default DB for view.",
     )
-
+    parser.add_argument(
+        "--parallel",
+        "-p",
+        type=int,
+        metavar="COUNT",
+        help="Number of parallel processes to run",
+    )
     subparsers = parser.add_subparsers(
         dest="view_source",
         help=("Accepted values are 'nmap' and 'passive'. None or 'all' will do both"),
@@ -93,6 +100,8 @@ def main() -> None:
         if db.passive is not None:
             fltpass = db.passive.parse_args(args, flt=fltpass)
             _from.append(from_passive(fltpass, category=view_category))
+        if not _from:
+            parser.error("No Nmap or Passive database exists")
     elif args.view_source == "nmap":
         if db.nmap is None:
             parser.error('Cannot use "nmap" (no Nmap database exists)')
@@ -117,10 +126,21 @@ def main() -> None:
     else:
         output = outdb.store_or_merge_host
     # Output results
-    itr = to_view(_from)
-    if not itr:
-        return
     outdb.start_store_hosts()
-    for elt in itr:
-        output(elt)
+    if args.parallel:
+
+        def inserter(shard: int) -> None:
+            for elt in to_view(_from, shard=(shard, args.parallel)):
+                output(elt)
+
+        processes = [
+            Process(target=inserter, args=(shard,)) for shard in range(args.parallel)
+        ]
+        for proc in processes:
+            proc.start()
+        for proc in processes:
+            proc.join()
+    else:
+        for elt in to_view(_from):
+            output(elt)
     outdb.stop_store_hosts()
