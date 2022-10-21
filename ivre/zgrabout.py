@@ -150,7 +150,7 @@ def zgrap_parser_http(
         if port is None:
             port = guessed_port
         # Specific paths
-        if url.get("path").endswith("/.git/index"):
+        if url.get("path", "").endswith("/.git/index"):
             if resp.get("status_code") != 200:
                 return {}
             if not resp.get("body", "").startswith("DIRC"):
@@ -170,7 +170,7 @@ def zgrap_parser_http(
                 }
             )
             return res
-        if url.get("path").endswith("/owa/auth/logon.aspx"):
+        if url.get("path", "").endswith("/owa/auth/logon.aspx"):
             if resp.get("status_code") != 200:
                 return {}
             version_set = set(
@@ -218,7 +218,7 @@ def zgrap_parser_http(
                     }
                 )
             return res
-        if url.get("path").endswith("/centreon/"):
+        if url.get("path", "").endswith("/centreon/"):
             if resp.get("status_code") != 200:
                 return {}
             if not resp.get("body"):
@@ -254,7 +254,7 @@ def zgrap_parser_http(
                 }
             )
             return res
-        if url.get("path").endswith("/.well-known/security.txt"):
+        if url.get("path", "").endswith("/.well-known/security.txt"):
             if resp.get("status_code") != 200:
                 return {}
             if not resp.get("headers"):
@@ -288,7 +288,7 @@ def zgrap_parser_http(
                 }
             )
             return res
-        if url.get("path") != "/":
+        if url.get("path", "") != "/":
             utils.LOGGER.warning("URL path not supported yet: %s", url.get("path"))
             return {}
     elif port is None:
