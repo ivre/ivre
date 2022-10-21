@@ -300,7 +300,7 @@ def zgrap_parser_http(
     # Since Zgrab does not preserve the order of the headers, we need
     # to reconstruct a banner to use Nmap fingerprints
     # define empty banner for log in case banner is never set in the following blocks
-    banner = b""
+    banner = None
     if resp.get("headers"):
         headers = resp["headers"]
         # Check the Authenticate header first: if we requested it with
@@ -410,8 +410,10 @@ def zgrap_parser_http(
                 script["masscan"] = {"raw": utils.encode_b64(banner).decode()}
             res.setdefault("scripts", []).append(script)
             handle_http_headers(hostrec, res, http_hdrs, path=url.get("path"))
-    info: NmapServiceMatch = utils.match_nmap_svc_fp(
-        banner, proto="tcp", probe="GetRequest"
+    info: NmapServiceMatch = (
+        utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
+        if banner
+        else None
     )
     if info:
         add_cpe_values(hostrec, "ports.port:%s" % port, info.pop("cpe", []))
