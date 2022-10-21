@@ -406,14 +406,14 @@ def zgrap_parser_http(
                 "output": "\n".join(output_list),
                 "http-headers": http_hdrs,
             }
-            if has_raw_value:
+            if has_raw_value and banner is not None:
                 script["masscan"] = {"raw": utils.encode_b64(banner).decode()}
             res.setdefault("scripts", []).append(script)
             handle_http_headers(hostrec, res, http_hdrs, path=url.get("path"))
     info: NmapServiceMatch = (
-        utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
-        if banner
-        else None
+        {}
+        if banner is None
+        else utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
     )
     if info:
         add_cpe_values(hostrec, "ports.port:%s" % port, info.pop("cpe", []))
