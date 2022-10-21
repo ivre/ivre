@@ -2186,6 +2186,9 @@ class DBNmap(DBActive):
                     )
             elif fchar == b"[":
                 store_scan_function = self.store_scan_json_dismap
+            elif fchar == b"":
+                # empty input file
+                return lambda a, b: True
             else:
                 raise ValueError(  # pylint: disable=raise-missing-from
                     f"Unknown file type {fname}"
