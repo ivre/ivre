@@ -299,6 +299,8 @@ def zgrap_parser_http(
     res["port"] = port
     # Since Zgrab does not preserve the order of the headers, we need
     # to reconstruct a banner to use Nmap fingerprints
+    # define empty banner for log in case banner is never set in the following blocks
+    banner = b""
     if resp.get("headers"):
         headers = resp["headers"]
         # Check the Authenticate header first: if we requested it with
