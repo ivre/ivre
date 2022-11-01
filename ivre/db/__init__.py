@@ -1795,6 +1795,7 @@ class DBActive(DB):
         pksha1=None,
         pksha256=None,
         cacert=False,
+        neg=False,
     ):
         # This method exists for backends with no specific
         # implementation. It has the drawback of not being capable of
@@ -1827,7 +1828,7 @@ class DBActive(DB):
                 continue
             values[key] = hashval.lower()
         return cls.searchscript(
-            name="ssl-cacert" if cacert else "ssl-cert", values=values
+            name="ssl-cacert" if cacert else "ssl-cert", values=values, neg=neg
         )
 
     @classmethod

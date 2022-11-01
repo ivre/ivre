@@ -1562,6 +1562,7 @@ return result;
         pksha1=None,
         pksha256=None,
         cacert=False,
+        neg=False,
     ):
         req = []
         if keytype is not None:
@@ -1624,8 +1625,32 @@ return result;
                 req.append(Q("terms", **{key: [val.lower() for val in hashval]}))
                 continue
             req.append(Q("match", **{key: hashval.lower()}))
-        if not req:
-            return Q(
+        if req:
+            res = Q(
+                "nested",
+                path="ports",
+                query=Q(
+                    "nested",
+                    path="ports.scripts",
+                    query=cls.flt_and(
+                        Q(
+                            "match",
+                            **{
+                                "ports.scripts.id": "ssl-cacert"
+                                if cacert
+                                else "ssl-cert"
+                            },
+                        ),
+                        Q(
+                            "nested",
+                            path="ports.scripts.ssl-cert",
+                            query=cls.flt_and(*req),
+                        ),
+                    ),
+                ),
+            )
+        else:
+            res = Q(
                 "nested",
                 path="ports",
                 query=Q(
@@ -1637,21 +1662,9 @@ return result;
                     ),
                 ),
             )
-        return Q(
-            "nested",
-            path="ports",
-            query=Q(
-                "nested",
-                path="ports.scripts",
-                query=cls.flt_and(
-                    Q(
-                        "match",
-                        **{"ports.scripts.id": "ssl-cacert" if cacert else "ssl-cert"},
-                    ),
-                    Q("nested", path="ports.scripts.ssl-cert", query=cls.flt_and(*req)),
-                ),
-            ),
-        )
+        if neg:
+            return ~res
+        return res
 
     @classmethod
     def searchhassh(cls, value_or_hash=None, server=None):
