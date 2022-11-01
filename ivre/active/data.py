@@ -787,9 +787,10 @@ def gen_auto_tags(
                 host["extraports"][status].setdefault("reasons", {})[reason] = (
                     host["extraports"][status].get("reasons", {}).get(reason, 0) + count
                 )
-            host["ports"] = [
-                port for port in host["ports"] if port.get("state_state") != status
-            ]
+            if host.get("ports"):
+                host["ports"] = [
+                    port for port in host["ports"] if port.get("state_state") != status
+                ]
         # 2. ... Else, let's see if we should remove some ports in
         # `status`.
         elif (
@@ -804,9 +805,10 @@ def gen_auto_tags(
             )
             for reason, count in reasons.items():
                 host["extraports"][status].setdefault("reasons", {})[reason] = count
-            host["ports"] = [
-                port for port in host["ports"] if port.get("state_state") != status
-            ]
+            if host.get("ports"):
+                host["ports"] = [
+                    port for port in host["ports"] if port.get("state_state") != status
+                ]
 
 
 def set_auto_tags(host: NmapHost, update_openports: bool = True) -> None:
