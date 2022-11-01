@@ -482,33 +482,39 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchsshkey(**{subfield: value}))
             else:
                 add_unused(neg, param, value)
-        elif not neg and param == "cert":
-            flt = dbase.flt_and(flt, dbase.searchcert())
-        elif param.startswith("cert."):
+        elif param == "cert":
+            flt = dbase.flt_and(flt, dbase.searchcert(neg=neg))
+        elif param == "cacert":
+            flt = dbase.flt_and(flt, dbase.searchcert(neg=neg, cacert=True))
+        elif param.startswith("cert.") or param.startswith("cacert."):
+            cacert = param.split(".", 1)[0] == "cacert"
             subfield = param.split(".", 1)[1]
             if subfield == "self_signed" and value is None:
-                flt = dbase.flt_and(flt, dbase.searchcert(self_signed=not neg))
-            elif not neg:
-                if subfield in {"md5", "sha1", "sha256", "subject", "issuer"}:
-                    flt = dbase.flt_and(
-                        flt,
-                        dbase.searchcert(
-                            **{
-                                subfield: utils.str2regexp(value),
-                            }
-                        ),
-                    )
-                elif subfield in {"pubkey.md5", "pubkey.sha1", "pubkey.sha256"}:
-                    flt = dbase.flt_and(
-                        flt,
-                        dbase.searchcert(
-                            **{
-                                "pk%s" % subfield[7:]: utils.str2regexp(value),
-                            }
-                        ),
-                    )
-                else:
-                    add_unused(neg, param, value)
+                flt = dbase.flt_and(
+                    flt, dbase.searchcert(self_signed=not neg, cacert=cacert)
+                )
+            elif subfield in {"md5", "sha1", "sha256", "subject", "issuer"}:
+                flt = dbase.flt_and(
+                    flt,
+                    dbase.searchcert(
+                        cacert=cacert,
+                        neg=neg,
+                        **{
+                            subfield: utils.str2regexp(value),
+                        },
+                    ),
+                )
+            elif subfield in {"pubkey.md5", "pubkey.sha1", "pubkey.sha256"}:
+                flt = dbase.flt_and(
+                    flt,
+                    dbase.searchcert(
+                        cacert=cacert,
+                        neg=neg,
+                        **{
+                            "pk%s" % subfield[7:]: utils.str2regexp(value),
+                        },
+                    ),
+                )
             else:
                 add_unused(neg, param, value)
         elif not neg and param == "httphdr":
