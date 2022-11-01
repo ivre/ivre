@@ -2931,6 +2931,7 @@ class MongoDBActive(MongoDB, DBActive):
         pksha1=None,
         pksha256=None,
         cacert=False,
+        neg=False,
     ):
         return cls.searchscript(
             name="ssl-cacert" if cacert else "ssl-cert",
@@ -2946,6 +2947,7 @@ class MongoDBActive(MongoDB, DBActive):
                 pksha1=pksha1,
                 pksha256=pksha256,
             ),
+            neg=neg,
         )
 
     def searchhttptitle(self, title):

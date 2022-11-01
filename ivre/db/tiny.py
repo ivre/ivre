@@ -1046,9 +1046,10 @@ class TinyDBActive(TinyDB, DBActive):
         pksha1=None,
         pksha256=None,
         cacert=False,
+        neg=False,
     ):
         q = Query()
-        return q.ports.any(
+        res = q.ports.any(
             q.scripts.any(
                 (q.id == ("ssl-cacert" if cacert else "ssl-cert"))
                 & getattr(q, "ssl-cert").any(
@@ -1068,6 +1069,9 @@ class TinyDBActive(TinyDB, DBActive):
                 )
             )
         )
+        if neg:
+            return ~res
+        return res
 
     @classmethod
     def searchhttptitle(cls, title):
