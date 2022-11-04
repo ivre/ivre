@@ -16,11 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-# pip install -U black flake8 mypy codespell pylint
+# pip install -U -r requirements-linting.txt
 
 black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
 
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
+
+bandit --severity-level high -r ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "bandit OK"
 
 # TODO: remove --follow-imports=skip
 MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout}.py && echo "mypy OK"

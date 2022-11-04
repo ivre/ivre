@@ -357,7 +357,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
     ):
         value = spec["value"]
         spec.setdefault("infos", {})["raw"] = value
-        spec["value"] = hashlib.new("md5", value.encode()).hexdigest()
+        spec["value"] = hashlib.new(
+            "md5", data=value.encode(), usedforsecurity=False
+        ).hexdigest()
         if spec["recontype"] == "SSL_SERVER":
             clientvalue = spec["source"][4:]
             spec["infos"].setdefault("client", {})["raw"] = clientvalue
@@ -365,14 +367,17 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 "ja3-%s"
                 % hashlib.new(
                     "md5",
-                    clientvalue.encode(),
+                    data=clientvalue.encode(),
+                    usedforsecurity=False,
                 ).hexdigest()
             )
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
         spec.setdefault("infos", {})["raw"] = value
-        spec["value"] = hashlib.new("md5", value.encode()).hexdigest()
+        spec["value"] = hashlib.new(
+            "md5", data=value.encode(), usedforsecurity=False
+        ).hexdigest()
     # SSH_SERVER_HOSTKEY
     elif spec["recontype"] == "SSH_SERVER_HOSTKEY":
         spec["value"] = utils.encode_b64(utils.nmap_decode_data(spec["value"])).decode()

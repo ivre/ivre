@@ -94,11 +94,10 @@ if HAVE_MYSQL:
         page exists.
 
         """
-        ipaddr_page = "^" + re.escape(base) + "\\/\\d+\\.\\d+\\.\\d+\\.\\d+$"
         cur = MySQLdb.Connect(server, username, password, dbname).cursor()
         cur.execute(
-            "SELECT `page_title` FROM `wiki_page` WHERE `page_title` "
-            "REGEXP '%s'" % ipaddr_page
+            "SELECT `page_title` FROM `wiki_page` WHERE `page_title` REGEXP %s",
+            ("^" + re.escape(base) + "\\/\\d+\\.\\d+\\.\\d+\\.\\d+$",),
         )
         return [page[0][len(base) + 1 :] for page in cur]
 
