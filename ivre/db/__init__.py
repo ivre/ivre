@@ -779,7 +779,9 @@ class DB:
         if key == "raw":
             return (
                 "md5",
-                utils.hashlib.new("md5", value_or_hash.encode()).hexdigest(),
+                utils.hashlib.new(
+                    "md5", data=value_or_hash.encode(), usedforsecurity=False
+                ).hexdigest(),
             )
         return (key, value_or_hash.lower())
 

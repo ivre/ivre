@@ -4814,7 +4814,9 @@ class MongoDBPassive(MongoDB, DBPassive):
                 value = spec[key]
                 if not isinstance(value, bytes):
                     value = value.encode()
-                spec[key] = hashlib.sha1(value).hexdigest()
+                spec[key] = hashlib.new(
+                    "sha1", data=value, usedforsecurity=False
+                ).hexdigest()
         # We enforce a utils.MAXVALLEN // 10 size limits for subkey values in
         # infos; this is because MongoDB cannot index values longer than 1024
         # bytes.

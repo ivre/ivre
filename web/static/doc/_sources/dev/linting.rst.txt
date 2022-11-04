@@ -7,8 +7,9 @@ to do so).
 
 So far, only the Python code uses such linters (`Flake8
 <https://flake8.pycqa.org>`_, `Pylint <https://pylint.org/>`_, `Mypy
-<http://mypy-lang.org/>`_ and `Black
-<https://github.com/psf/black>`_). Adding similar code linting
+<http://mypy-lang.org/>`_, `Bandit <https://github.com/PyCQA/bandit>`_
+and `Black <https://github.com/psf/black>`_). Adding similar code
+linting capabilities to the Zeek scripts (`zeek/`), LUA
 capabilities to the Zeek scripts (`zeek/`), LUA
 (`patches/nmap/scripts/`) and JavaScript / HTML (`web/static/`) could
 be a good PR idea!

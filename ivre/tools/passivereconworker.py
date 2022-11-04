@@ -22,6 +22,7 @@
 
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -34,7 +35,6 @@ from ivre import utils
 SENSORS: Dict[str, str] = {}  # shortname: fullname
 FILEFORMAT = "^(?P<sensor>%s)[.-](?P<datetime>[0-9-]+)\\.log(?:\\.(?:gz|bz2))?$"
 SLEEPTIME = 2
-CMDLINE = "%(progname)s -s %(sensor)s"
 WANTDOWN = False
 
 
@@ -73,8 +73,7 @@ def create_process(progname: str, sensor: str) -> subprocess.Popen:
 
     """
     return subprocess.Popen(
-        CMDLINE % {"progname": progname, "sensor": SENSORS.get(sensor, sensor)},
-        shell=True,
+        shlex.split(progname) + ["-s", SENSORS.get(sensor, sensor)],
         stdin=subprocess.PIPE,
     )
 

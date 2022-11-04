@@ -1,3 +1,4 @@
+bandit
 black
 codespell
 flake8

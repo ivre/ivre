@@ -84,9 +84,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="index.html">Development</a> &raquo;</li>
-      <li>Code linting</li>
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Development</a></li>
+      <li class="breadcrumb-item active">Code linting</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/dev/linting.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -101,7 +101,9 @@
 <p>IVRE uses code linters to prevent some easy-to-spot (for a computer)
 mistakes and to enforce a consistent code style (or at least, attempt
 to do so).</p>
-<p>So far, only the Python code uses such linters (<a class="reference external" href="https://flake8.pycqa.org">Flake8</a>, <a class="reference external" href="https://pylint.org/">Pylint</a>, <a class="reference external" href="http://mypy-lang.org/">Mypy</a> and <a class="reference external" href="https://github.com/psf/black">Black</a>). Adding similar code linting
+<p>So far, only the Python code uses such linters (<a class="reference external" href="https://flake8.pycqa.org">Flake8</a>, <a class="reference external" href="https://pylint.org/">Pylint</a>, <a class="reference external" href="http://mypy-lang.org/">Mypy</a>, <a class="reference external" href="https://github.com/PyCQA/bandit">Bandit</a>
+and <a class="reference external" href="https://github.com/psf/black">Black</a>). Adding similar code
+linting capabilities to the Zeek scripts (<cite>zeek/</cite>), LUA
 capabilities to the Zeek scripts (<cite>zeek/</cite>), LUA
 (<cite>patches/nmap/scripts/</cite>) and JavaScript / HTML (<cite>web/static/</cite>) could
 be a good PR idea!</p>
