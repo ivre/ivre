@@ -28,6 +28,9 @@ data files to add tags to scan results. For now, the following lists are used:
   - Scanners operated by the French ANSSI, from
     <https://cert.ssi.gouv.fr/scans/>
 
+  - Scanners operated by the UK NCSC, from
+    <https://www.ncsc.gov.uk/information/ncsc-scanning-information>
+
   - Scanners operated by the Censys, from
     <https://support.censys.io/hc/en-us/articles/360043177092-from-faq>
 
@@ -39,6 +42,7 @@ import functools
 import json
 import os
 import re
+import socket
 from typing import BinaryIO, Callable, Generator, List, Tuple, cast
 
 from ivre import config
@@ -81,6 +85,10 @@ def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
                 yield f"{addr}{mask}"
 
 
+def dns_get_names(name: str) -> List[str]:
+    return sorted(set(ans[4][0] for ans in socket.getaddrinfo(name, None)))
+
+
 assert config.DATA_PATH is not None
 URLS: List[Tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
     (
@@ -114,3 +122,11 @@ def main() -> None:
             download_if_newer(url, fname, processor=processor)
         except Exception:
             pass
+    assert config.DATA_PATH is not None
+    with open(
+        os.path.join(config.DATA_PATH, "ukncsc_scanners.txt"), "w", encoding="utf8"
+    ) as fdesc:
+        fdesc.writelines(
+            f"{addr}\n"
+            for addr in dns_get_names("scanner.scanning.service.ncsc.gov.uk")
+        )
