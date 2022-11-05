@@ -440,6 +440,17 @@ def _get_data() -> None:
             )
         try:
             with open(
+                os.path.join(DATA_PATH, "ukncsc_scanners.txt"), encoding="utf8"
+            ) as fdesc:
+                ranges.extend(
+                    (addr, addr, "UK-NCSC") for addr in (line.strip() for line in fdesc)
+                )
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [ukncsc_scanners.txt]. Try running `ivre getwebdata`"
+            )
+        try:
+            with open(
                 os.path.join(DATA_PATH, "censys_scanners.txt"), encoding="utf8"
             ) as fdesc:
                 ranges.extend(net2range(line.strip()) + ("Censys",) for line in fdesc)
