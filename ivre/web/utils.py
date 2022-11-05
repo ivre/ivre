@@ -492,7 +492,16 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt, dbase.searchcert(self_signed=not neg, cacert=cacert)
                 )
-            elif subfield in {"md5", "sha1", "sha256", "subject", "issuer"}:
+            elif subfield in {
+                "md5",
+                "sha1",
+                "sha256",
+                "subject",
+                "issuer",
+                "pkmd5",
+                "pksha1",
+                "pksha256",
+            }:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchcert(

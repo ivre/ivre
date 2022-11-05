@@ -562,7 +562,7 @@ class SQLDB(DB):
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
                 continue
-            key = base.op("->>")("pk{hashtype}")
+            key = base.op("->")("pubkey").op("->>")(hashtype)
             if isinstance(hashval, utils.REGEXP_T):
                 req &= key.op("~*")(hashval.pattern)
                 continue

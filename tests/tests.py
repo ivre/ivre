@@ -1697,6 +1697,26 @@ class IvreTests(unittest.TestCase):
                         if found:
                             break
                     self.assertTrue(found)
+            self.check_nmap_top_value(
+                "nmap_top_cert_pk%s" % hashtype, "cert.pubkey.%s" % hashtype
+            )
+            for val in self._sort_top_values(
+                ivre.db.db.nmap.topvalues("cert.pubkey.%s" % hashtype)
+            ):
+                for host in ivre.db.db.nmap.get(
+                    ivre.db.db.nmap.searchcert(**{f"pk{hashtype}": val})
+                ):
+                    found = False
+                    for port in host["ports"]:
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-cert":
+                                for cert in script.get("ssl-cert", []):
+                                    if cert.get("pubkey", {}).get(hashtype) == val:
+                                        found = True
+                                        break
+                        if found:
+                            break
+                    self.assertTrue(found)
         self._check_top_value_cli("nmap_top_filename", "file", command="scancli")
         self._check_top_value_cli(
             "nmap_top_filename", "file.filename", command="scancli"
@@ -5386,6 +5406,26 @@ class IvreTests(unittest.TestCase):
                             if script["id"] == "ssl-cert":
                                 for cert in script.get("ssl-cert", []):
                                     if cert.get(hashtype) == val:
+                                        found = True
+                                        break
+                        if found:
+                            break
+                    self.assertTrue(found)
+            self.check_view_top_value(
+                "view_top_cert_pk%s" % hashtype, "cert.pubkey.%s" % hashtype
+            )
+            for val in self._sort_top_values(
+                ivre.db.db.view.topvalues("cert.pubkey.%s" % hashtype)
+            ):
+                for host in ivre.db.db.view.get(
+                    ivre.db.db.view.searchcert(**{f"pk{hashtype}": val})
+                ):
+                    found = False
+                    for port in host["ports"]:
+                        for script in port.get("scripts", []):
+                            if script["id"] == "ssl-cert":
+                                for cert in script.get("ssl-cert", []):
+                                    if cert.get("pubkey", {}).get(hashtype) == val:
                                         found = True
                                         break
                         if found:

@@ -482,7 +482,7 @@ class TinyDB(DB):
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
                 continue
-            key = getattr(base, f"pk{hashtype}")
+            key = getattr(base.pubkey, hashtype)
             if isinstance(hashval, utils.REGEXP_T):
                 res &= key.search(hashval.pattern, flags=hashval.flags | re.I)
                 continue

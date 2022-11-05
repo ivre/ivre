@@ -1824,7 +1824,7 @@ class DBActive(DB):
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
                 continue
-            key = f"pk{hashtype}"
+            key = f"pubkey.{hashtype}"
             if isinstance(hashval, utils.REGEXP_T):
                 values[key] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
