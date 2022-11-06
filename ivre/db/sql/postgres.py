@@ -728,14 +728,19 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             )
         elif field.startswith("cert."):
             subfield = field[5:]
+            topfld = func.jsonb_array_elements(self.tables.script.data["ssl-cert"])
+            if "." in subfield:
+                first_fields = subfield.split(".")
+                last_field = first_fields.pop()
+                for subfld in first_fields:
+                    topfld = topfld.op("->")(subfld)
+                topfld = topfld.op("->>")(last_field)
+            else:
+                topfld = topfld.op(
+                    "->" if subfield in ["subject", "issuer", "pubkey"] else "->>"
+                )(subfield)
             field = self._topstructure(
-                self.tables.script,
-                [
-                    func.jsonb_array_elements(self.tables.script.data["ssl-cert"],).op(
-                        "->" if subfield in ["subject", "issuer", "pubkey"] else "->>"
-                    )(subfield)
-                ],
-                self.tables.script.name == "ssl-cert",
+                self.tables.script, [topfld], self.tables.script.name == "ssl-cert"
             )
         elif field.startswith("cacert."):
             subfield = field[5:]

@@ -877,6 +877,18 @@ var HELP_TOPVALUES = {
 	    "content": "cert.sha256",
 	    "title": "<b>(!)</b>cert.sha256"
 	},
+	"cert.pubkey.md5": {
+	    "content": "cert.pubkey.md5",
+	    "title": "<b>(!)</b>cert.pubkey.md5"
+	},
+	"cert.pubkey.sha1": {
+	    "content": "cert.pubkey.sha1",
+	    "title": "<b>(!)</b>cert.pubkey.sha1"
+	},
+	"cert.pubkey.sha256": {
+	    "content": "cert.pubkey.sha256",
+	    "title": "<b>(!)</b>cert.pubkey.sha256"
+	},
 	"sshkey.type": {
 	    "title": "<b>(!)</b>sshkey.type",
 	    "content": "Most common SSH host key types."

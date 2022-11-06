@@ -1617,7 +1617,7 @@ return result;
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
                 continue
-            key = f"ports.scripts.ssl-cert.pk{hashtype}"
+            key = f"ports.scripts.ssl-cert.pubkey.{hashtype}"
             if isinstance(hashval, utils.REGEXP_T):
                 req.append(Q("regexp", **{key: cls._get_pattern(hashval).lower()}))
                 continue

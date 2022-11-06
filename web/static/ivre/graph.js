@@ -178,6 +178,11 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "' + field + '", "' + x + '")';
 		};
 	    }
+	    else if(['cert.pubkey.md5', 'cert.pubkey.sha1', 'cert.pubkey.sha256'].indexOf(field) !== -1) {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "cert.pk' + field.substr(12) + '", "' + x + '")';
+		};
+	    }
 	    else if(field === 'asnum') {
 		preparefilter = function(x) {
 		    return 'setparam(FILTER, "asnum", "' + x + '", true);';

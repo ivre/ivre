@@ -793,7 +793,7 @@ class MongoDB(DB):
             hashval = locals()[f"pk{hashtype}"]
             if hashval is None:
                 continue
-            key = f"{prefix}pk{hashtype}"
+            key = f"{prefix}pubkey.{hashtype}"
             if isinstance(hashval, utils.REGEXP_T):
                 res[key] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
