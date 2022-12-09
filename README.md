@@ -1,5 +1,7 @@
 [![Join the chat at Gitter](https://badges.gitter.im/ivre/ivre.svg)](https://gitter.im/ivre/ivre)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
+[![PyPI downloads](https://pepy.tech/badge/ivre)](https://pepy.tech/project/ivre)
+![Docker pulls](https://img.shields.io/docker/pulls/ivre/web)
 
 [![MongoDB tests](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/?branch=master)
 [![Elasticsearch tests](https://github.com/ivre/ivre/actions/workflows/elastic.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/elastic.yml/?branch=master)
