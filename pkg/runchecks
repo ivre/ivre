@@ -43,3 +43,9 @@ if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; t
 sphinx-lint -e all -d line-too-long -d default-role ./doc/ && echo "sphinx-lint OK"
 
 shellcheck .github/actions/install/install*.sh pkg/builddockers pkg/builddocs pkg/buildrpm pkg/runchecks && echo "shellcheck OK"
+
+FNAME="$(mktemp)"
+ivre runscans --output Agent > "$FNAME"
+shellcheck "$FNAME" && echo "shellcheck agent.sh OK"
+rm -f "$FNAME"
+unset FNAME
