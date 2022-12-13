@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,17 +20,17 @@ docker pull debian:stable
 docker pull debian:buster
 
 # Create ivre/VERSION if needed
-VERSION="`python3 setup.py --version 2>/dev/null`"
+VERSION="$(python3 setup.py --version 2>/dev/null)"
 
 case "$VERSION" in
     *.dev*)
-	branch="`git rev-parse --abbrev-ref HEAD`"
+	branch="$(git rev-parse --abbrev-ref HEAD)"
 	case "$branch" in
 	    master)
 		tag="latest"
 		;;
 	    HEAD)
-		tag="commit-`git rev-parse HEAD | cut -c -8`"
+		tag="commit-$(git rev-parse HEAD | cut -c -8)"
 		echo "WARNING: version $VERSION / HEAD" >&2
 		;;
 	    *)
@@ -50,7 +50,7 @@ esac
 git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
 tar --owner=root:0 --group=root:0 --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/VERSION
 
-cd `dirname $0`/../docker
+cd "$(dirname "$0")/../docker" || exit 255
 
 docker build --no-cache -t "ivre/base:$tag" "base-local" || exit $?
 
