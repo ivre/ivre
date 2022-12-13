@@ -72,3 +72,5 @@ jobs:
     - run: sphinx-lint -e all -d line-too-long -d default-role ./doc/
 
     - run: shellcheck .github/actions/install/install*.sh pkg/builddockers pkg/builddocs pkg/buildrpm pkg/runchecks
+
+    - run: FNAME=`mktemp`; ivre runscans --output Agent > "$FNAME"; shellcheck "$FNAME"; rm -f "$FNAME"

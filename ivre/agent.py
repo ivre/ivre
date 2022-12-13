@@ -75,8 +75,9 @@ post_scan () {
              "$CURDIR/$fname.xml.bz2"; then
         # find screenshots
         OIFS="$IFS"
-        IFS=$'\n'
-        set -- `_get_screenshots "$CURDIR/$fname.xml.bz2"`
+        IFS='\n'
+        # shellcheck disable=SC2046
+        set -- $(_get_screenshots "$CURDIR/$fname.xml.bz2")
         IFS="$OIFS"
         tar cf "$DATADIR/$fname.tar" "$@" 2>/dev/null
         rm -f -- "$@"
@@ -91,7 +92,7 @@ someone_alive () {
     pids=$1
     for pid in $pids; do
         # Is $pid alive?
-        kill -0 $pid 2> /dev/null && return 0
+        kill -0 "$pid" 2> /dev/null && return 0
     done
 
     # Everyone is dead
@@ -105,20 +106,22 @@ if [ -z "$IVRE_WORKER" ]; then
     master_prompt="[master     ] "
 
     # clean children on exit
+    # shellcheck disable=SC2064
     trap "trap - TERM INT EXIT; echo '${master_prompt}shutting down' >&2;\\
           pkill -g 0; exit" TERM INT EXIT
 
     echo "${master_prompt}spawning $THREADS workers" >&2
     export IVRE_WORKER=1
     worker_pids=""
-    for i in `seq 1 $THREADS`; do
-        worker_prompt="[worker `printf %%-4d $i`] "
+    for i in $(seq 1 $THREADS); do
+        worker_prompt="[worker $(printf %%-4d "$i")] "
         ("$0" "$@" 2>&1 | sed -u "s/^/$worker_prompt/") &
         worker_pids="$! $worker_pids"
     done
     unset IVRE_WORKER
 
     # handle wait interruptions (any non terminating signal)
+    # shellcheck disable=SC2086
     while someone_alive $worker_pids; do
         wait
     done
@@ -131,7 +134,8 @@ echo "worker ready" >&2
 
 while true; do
     [ -f "want_down" ] && break
-    fname=`ls -rt "$INDIR" | head -1`
+    # shellcheck disable=SC2012
+    fname="$(ls -rt "$INDIR" | head -1)"
     if [ -z "$fname" ]; then
         $SLEEP
         continue
@@ -150,7 +154,7 @@ while true; do
 
     if ! ($scan < "$CURDIR/$fname.targets" | bzip2 > "$CURDIR/$fname.xml.bz2");
     then
-        now="`date +%%s`"
+        now="$(date +%%s)"
         mv "$CURDIR/$fname.xml.bz2" "$ERRORDIR/$fname-$now.xml.bz2"
         cp "$CURDIR/$fname" "$ERRORDIR/$fname-$now"
         mv "$CURDIR/$fname" "$INDIR/"
