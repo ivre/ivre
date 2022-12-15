@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.7', '3.10']
+        python-version: ['3.7', '3.11']
         mongodb-version: ['5.0']
         elastic-version: ['7.10.2']
 
