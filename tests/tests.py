@@ -17,19 +17,12 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-from ast import literal_eval
-from contextlib import contextmanager
-from datetime import datetime, timedelta
 import errno
-from functools import reduce
-from glob import glob
-from io import BytesIO
 import json
 import os
-import pipes
 import random
 import re
-from select import select
+import shlex
 import shutil
 import signal
 import socket
@@ -39,23 +32,29 @@ import tarfile
 import tempfile
 import time
 import unittest
-from urllib.request import HTTPError, Request, urlopen
+from ast import literal_eval
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+from functools import reduce
+from glob import glob
+from io import BytesIO
+from select import select
 from urllib.parse import quote
-
+from urllib.request import HTTPError, Request, urlopen
 
 import ivre
+import ivre.analyzer
 import ivre.config
 import ivre.db
 import ivre.flow
 import ivre.mathutils
-import ivre.parser.zeek
 import ivre.parser.iptables
+import ivre.parser.zeek
 import ivre.passive
 import ivre.target
 import ivre.utils
 import ivre.web.utils
 import ivre.xmlnmap
-import ivre.analyzer
 
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
@@ -168,7 +167,7 @@ def run_passiverecon_worker(bulk_mode=None):
                 "logs",
                 "--progname",
                 " ".join(
-                    pipes.quote(elt)
+                    shlex.quote(elt)
                     for elt in COVERAGE
                     + [
                         "run",
