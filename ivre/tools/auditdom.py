@@ -23,9 +23,9 @@ Nmap script result."""
 
 import argparse
 import json
-import pipes
 import sys
 from datetime import datetime
+from shlex import quote
 from typing import Any, Iterable, Optional
 
 from ivre import VERSION
@@ -63,7 +63,7 @@ def main() -> None:
         "version": VERSION,
         "xmloutputversion": "1.04",
         # argv[0] does not need quotes due to how it is handled by ivre
-        "args": " ".join(sys.argv[:1] + [pipes.quote(arg) for arg in sys.argv[1:]]),
+        "args": " ".join(sys.argv[:1] + [quote(arg) for arg in sys.argv[1:]]),
         "scaninfos": [
             {
                 "type": "audit DNS domain",

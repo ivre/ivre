@@ -21,8 +21,8 @@
 """This sub-module is responsible for generating Nmap options."""
 
 
-import pipes
 from argparse import ArgumentParser
+from shlex import quote
 from typing import Dict, Iterable, List, Optional
 
 from ivre import config
@@ -167,4 +167,4 @@ def build_nmap_options(template: str = "default") -> List[str]:
 
 
 def build_nmap_commandline(template: str = "default") -> str:
-    return " ".join(pipes.quote(elt) for elt in build_nmap_options(template=template))
+    return " ".join(quote(elt) for elt in build_nmap_options(template=template))
