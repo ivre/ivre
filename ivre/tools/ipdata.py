@@ -29,7 +29,7 @@ from sys import stdout
 from typing import Callable, List, Tuple, cast
 
 from ivre import geoiputils, utils
-from ivre.db import db
+from ivre.db import DBData, db
 
 
 def main() -> None:
@@ -49,12 +49,22 @@ def main() -> None:
         metavar="IP",
         help="Display results for specified IP addresses.",
     )
+    parser.add_argument(
+        "--from-db",
+        metavar="DB_URL",
+        help="Get data from the provided URL instead of using IVRE's configuration.",
+    )
     args = parser.parse_args()
+    if args.from_db:
+        dbase = DBData.from_url(args.from_db)
+        dbase.globaldb = db
+    else:
+        dbase = db.data
     if args.download:
         geoiputils.download_all(verbose=not args.quiet)
-        db.data.reload_files()
+        dbase.reload_files()
     if args.import_all:
-        torun.append((cast(Callable, db.data.build_dumps), [], {}))
+        torun.append((cast(Callable, dbase.build_dumps), [], {}))
     for function, fargs, fkargs in torun:
         function(*fargs, **fkargs)
     for addr in args.ip:
@@ -65,7 +75,7 @@ def main() -> None:
             res = {"addr": addr}
             if info:
                 res["address_type"] = info
-            for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
+            for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
                 res.update(subinfo or {})
             json.dump(res, stdout)
             print()
@@ -73,6 +83,6 @@ def main() -> None:
             print(addr)
             if info:
                 print("    address_type %s" % info)
-            for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
+            for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
                 for key, value in (subinfo or {}).items():
                     print("    %s %s" % (key, value))
