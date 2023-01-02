@@ -122,6 +122,26 @@ To learn more about this connector, have a look at `its documentation
 
 |opencti_connector_passive|
 
+Obsidian plugin
+---------------
+
+`Obsidian <https://obsidian.md/>`_ is a knowledge base and note-taking
+application that relies on Markdown files.
+
+A `community plugin <https://github.com/ivre/obsidian-ivre-plugin>`_
+exists that uses IVRE's data to create notes based on IVRE's data that
+provides context to your notes related to pentest or red team
+engagements, bug bounty hunting, cyber threat intelligence, etc.
+
+See the `plugin's README
+<https://github.com/ivre/obsidian-ivre-plugin/blob/master/README.md>`_.
+
+|obsidian_graph|
+
+|obsidian_domain|
+
+|obsidian_host|
+
 Blog posts and other resources
 ------------------------------
 
@@ -175,3 +195,6 @@ so that we can add a link here!
 .. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png
 .. |opencti_connector_scans| image:: ../screenshots/opencti-connector-scans.png
 .. |opencti_connector_passive| image:: ../screenshots/opencti-connector-passive.png
+.. |obsidian_graph| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/graph_thunderbird.png
+.. |obsidian_domain| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/domain_1password.png
+.. |obsidian_host| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/address_1password.png
