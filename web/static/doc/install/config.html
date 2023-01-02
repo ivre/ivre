@@ -1,41 +1,78 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" />
+  <meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
   <title>Configuration &mdash; IVRE  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
         <script src="../_static/sphinx_highlight.js"></script>
-    <script src="../_static/js/theme.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Fast install &amp; first run" href="fast-install-and-first-run.html" />
     <link rel="prev" title="Installation guidelines" href="installation.html" /> 
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
+
+   
   <div class="wy-grid-for-nav">
+    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
+          
+
+          
             <a href="../index.html" class="icon icon-home"> IVRE
-            <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          
+
+          
           </a>
+
+          
+            
+            
               <div class="version">
                 0.9.18.dev
               </div>
+            
+          
+
+          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -43,7 +80,18 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
@@ -86,33 +134,75 @@
 <li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
 </ul>
 
+            
+          
         </div>
+        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">IVRE</a>
+        
       </nav>
 
+
       <div class="wy-nav-content">
+        
         <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a></li>
-          <li class="breadcrumb-item"><a href="index.html">Installation</a></li>
-      <li class="breadcrumb-item active">Configuration</li>
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Installation</a> &raquo;</li>
+        
+      <li>Configuration</li>
+    
+    
       <li class="wy-breadcrumbs-aside">
+        
+          
             <a href="../_sources/install/config.rst.txt" rel="nofollow"> View page source</a>
+          
+        
       </li>
+    
   </ul>
+
+  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-             
+            
   <section id="configuration">
-<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h1>
+<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading">¶</a></h1>
 <p>IVRE has several configuration variables. The default values are
 hard-coded in <code class="docutils literal notranslate"><span class="pre">ivre/config.py</span></code>. You should not change this file,
 unless you are modifying IVRE and you want to change the default
@@ -131,14 +221,14 @@ user-specific file, so highest priority).</p></li>
 </ul>
 <p>The configuration files are Python files setting global variables.</p>
 <section id="debug">
-<h2>Debug<a class="headerlink" href="#debug" title="Permalink to this heading"></a></h2>
+<h2>Debug<a class="headerlink" href="#debug" title="Permalink to this heading">¶</a></h2>
 <p>Debug messages are turned off by default, since IVRE has no
 bugs. <code class="docutils literal notranslate"><span class="pre">DEBUG_DB</span></code> turns on database-specific debug messages, and can
 be very noisy. Setting <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code> is mandatory to run
 IVRE’s tests.</p>
 </section>
 <section id="databases">
-<h2>Databases<a class="headerlink" href="#databases" title="Permalink to this heading"></a></h2>
+<h2>Databases<a class="headerlink" href="#databases" title="Permalink to this heading">¶</a></h2>
 <p>Databases are specified using URLs:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>db_type://[username[:password]@][host[:port]]/databasename?options
 </pre></div>
@@ -167,7 +257,7 @@ which has the special meaning
 </div>
 </section>
 <section id="paths-and-commands">
-<h2>Paths and commands<a class="headerlink" href="#paths-and-commands" title="Permalink to this heading"></a></h2>
+<h2>Paths and commands<a class="headerlink" href="#paths-and-commands" title="Permalink to this heading">¶</a></h2>
 <p>All variables ending with <code class="docutils literal notranslate"><span class="pre">_PATH</span></code> (except <code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> and
 <code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code>) default to <code class="docutils literal notranslate"><span class="pre">None</span></code>, a special value which means
 “try to guess the path based on IVRE installation”.</p>
@@ -190,7 +280,7 @@ which has the special meaning
 </div>
 </section>
 <section id="nmap-scan-templates">
-<h2>Nmap scan templates<a class="headerlink" href="#nmap-scan-templates" title="Permalink to this heading"></a></h2>
+<h2>Nmap scan templates<a class="headerlink" href="#nmap-scan-templates" title="Permalink to this heading">¶</a></h2>
 <p>Nmap scan templates are defined in the <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code>
 variable. Usually, this variable should <strong>not</strong> be overridden, but
 rather modified.</p>
@@ -260,7 +350,7 @@ Command line to run a scan with template aggressive
 </div>
 </section>
 <section id="masscan-probes">
-<h2>Masscan probes<a class="headerlink" href="#masscan-probes" title="Permalink to this heading"></a></h2>
+<h2>Masscan probes<a class="headerlink" href="#masscan-probes" title="Permalink to this heading">¶</a></h2>
 <p>IVRE can use the service fingerprint database from Nmap to find
 service and product names from Masscan results. For that, IVRE needs
 to know which probe (or “hello string”) has been used. This depends on
@@ -346,7 +436,7 @@ IVRE project.</p>
 </div>
 </section>
 <section id="the-flow-purpose">
-<h2>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose<a class="headerlink" href="#the-flow-purpose" title="Permalink to this heading"></a></h2>
+<h2>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose<a class="headerlink" href="#the-flow-purpose" title="Permalink to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose has several specific configuration options, which
 may have important impacts on performances; here are the options and
 their default values:</p>
@@ -385,7 +475,7 @@ their default values:</p>
 </div>
 </section>
 <section id="the-data-purpose">
-<h2>The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose<a class="headerlink" href="#the-data-purpose" title="Permalink to this heading"></a></h2>
+<h2>The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose<a class="headerlink" href="#the-data-purpose" title="Permalink to this heading">¶</a></h2>
 <p>The URLs used to get IP address databases are set in the dictionary
 <code class="docutils literal notranslate"><span class="pre">IPDATA_URLS</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">IPDATA_URLS</span> <span class="o">=</span> <span class="p">{</span>
@@ -418,14 +508,14 @@ their default values:</p>
 locale to use is set in <code class="docutils literal notranslate"><span class="pre">GEOIP_LANG</span></code> and defaults to <code class="docutils literal notranslate"><span class="pre">&quot;en&quot;</span></code>.</p>
 </section>
 <section id="web-server">
-<h2>Web server<a class="headerlink" href="#web-server" title="Permalink to this heading"></a></h2>
+<h2>Web server<a class="headerlink" href="#web-server" title="Permalink to this heading">¶</a></h2>
 <section id="paths">
-<h3>Paths<a class="headerlink" href="#paths" title="Permalink to this heading"></a></h3>
+<h3>Paths<a class="headerlink" href="#paths" title="Permalink to this heading">¶</a></h3>
 <p>Two variables (<code class="docutils literal notranslate"><span class="pre">WEB_STATIC_PATH</span></code> and <code class="docutils literal notranslate"><span class="pre">WEB_DOKU_PATH</span></code>) are used for
 the Web application; see <a class="reference internal" href="#paths-and-commands"><span class="std std-ref">Paths and commands</span></a>.</p>
 </section>
 <section id="notepad">
-<h3>Notepad<a class="headerlink" href="#notepad" title="Permalink to this heading"></a></h3>
+<h3>Notepad<a class="headerlink" href="#notepad" title="Permalink to this heading">¶</a></h3>
 <p>If Dokuwiki (or another web application for notes) is used, the
 variable <code class="docutils literal notranslate"><span class="pre">WEB_NOTES_BASE</span></code> should be set to the URL path to access
 the notes (<code class="docutils literal notranslate"><span class="pre">#IP#</span></code> will be replaced with the IP address). This
@@ -447,7 +537,7 @@ from the default <code class="docutils literal notranslate"><span class="pre">&q
 </div>
 </section>
 <section id="anti-csrf">
-<h3>Anti-CSRF<a class="headerlink" href="#anti-csrf" title="Permalink to this heading"></a></h3>
+<h3>Anti-CSRF<a class="headerlink" href="#anti-csrf" title="Permalink to this heading">¶</a></h3>
 <p>As an anti-CSRF option, IVRE will check the <code class="docutils literal notranslate"><span class="pre">Referer:</span></code> header of the
 requests to any dynamic URLs (under <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code>). Normally (when <code class="docutils literal notranslate"><span class="pre">ivre</span>
 <span class="pre">httpd</span></code> is used or when the WSGI application is exposed directly, IVRE
@@ -470,7 +560,7 @@ the IVRE application; for example:</p>
 </div>
 </section>
 <section id="authentication-and-acls">
-<h3>Authentication and ACLs<a class="headerlink" href="#authentication-and-acls" title="Permalink to this heading"></a></h3>
+<h3>Authentication and ACLs<a class="headerlink" href="#authentication-and-acls" title="Permalink to this heading">¶</a></h3>
 <p>If you want to use an authentication in IVRE, you have to configure
 your Web server (e.g., Apache or Nginx) to do so and set the
 environment variable <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> to the username.</p>
@@ -521,7 +611,7 @@ all results in category <code class="docutils literal notranslate"><span class="
 </section>
 </section>
 <section id="misc">
-<h2>Misc<a class="headerlink" href="#misc" title="Permalink to this heading"></a></h2>
+<h2>Misc<a class="headerlink" href="#misc" title="Permalink to this heading">¶</a></h2>
 <p>IVRE handles DNS blacklist (as defined in the <a class="reference external" href="https://tools.ietf.org/html/rfc5782">RFC 5782</a>) answers, for domains listed
 in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLACKLIST_DOMAINS</span></code>. By default, it is defined as:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Domains used for DNS blacklists (RFC 5782)</span>
@@ -549,33 +639,50 @@ in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLAC
 
 
            </div>
+           
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="installation.html" class="btn btn-neutral float-left" title="Installation guidelines" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
         <a href="fast-install-and-first-run.html" class="btn btn-neutral float-right" title="Fast install &amp; first run" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation guidelines" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2011 - 2022, Pierre LALET.</p>
-  </div>
+    <p>
+        &#169; Copyright 2011 - 2023, Pierre LALET.
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
         </div>
       </div>
+
     </section>
+
   </div>
-  <script>
+  
+
+  <script type="text/javascript">
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+
+  
+  
+    
+   
 
 </body>
 </html>
