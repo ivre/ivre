@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -121,6 +121,7 @@ class DB:
         self.argparser.add_argument("--net", metavar="IP/MASK")
         self.argparser.add_argument("--ipv4", action="store_true")
         self.argparser.add_argument("--ipv6", action="store_true")
+        self.argparser.add_argument("--mac", metavar="MAC")
         self.argparser.add_argument(
             "--hassh", metavar="VALUE_OR_HASH", nargs="?", const=False, default=None
         )
@@ -222,6 +223,8 @@ class DB:
             flt = self.flt_and(flt, self.searchipv4())
         if args.ipv6:
             flt = self.flt_and(flt, self.searchipv6())
+        if args.mac is not None:
+            flt = self.flt_and(flt, self.searchmac(args.mac))
         if args.hassh is not None:
             flt = self.flt_and(
                 flt,
