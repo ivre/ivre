@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -4304,8 +4304,7 @@ class MongoDBActive(MongoDB, DBActive):
         )
 
     def diff_categories(self, category1, category2, flt=None, include_both_open=True):
-        """`category1` and `category2` must be categories (provided as str or
-        unicode objects)
+        """`category1` and `category2` must be categories (provided as str objects)
 
         Returns a generator of tuples:
         ({'addr': address, 'proto': protocol, 'port': port}, value)
@@ -4367,7 +4366,12 @@ class MongoDBActive(MongoDB, DBActive):
             return (state2 > state1) - (state2 < state1)
 
         cursor = (
-            dict(x["_id"], value=categories_to_val(x["categories"])) for x in cursor
+            dict(
+                x["_id"],
+                addr=self.internal2ip(x["_id"]["addr"]),
+                value=categories_to_val(x["categories"]),
+            )
+            for x in cursor
         )
         if include_both_open:
             return cursor
