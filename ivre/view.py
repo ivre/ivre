@@ -455,18 +455,15 @@ def _extract_passive_SSL_SERVER_ja3(rec):
         "protocol": rec.get("protocol", "tcp"),
     }
     script["output"] = rec["value"] + " - " + rec["source"][4:]
-    info = {
-        "raw": rec["infos"]["raw"],
-        "sha256": rec["infos"]["sha256"],
-        "sha1": rec["infos"]["sha1"],
-        "md5": rec["value"],
-        "client": {
-            "raw": rec["infos"]["client"]["raw"],
-            "sha256": rec["infos"]["client"]["sha256"],
-            "sha1": rec["infos"]["client"]["sha1"],
-            "md5": rec["source"][4:],
-        },
-    }
+    info = {"md5": rec["value"], "client": {"md5": rec["source"][4:]}}
+    if "infos" in rec:
+        for k in ["raw", "sha256", "sha1"]:
+            if k in rec["infos"]:
+                info[k] = rec["infos"][k]
+        if "client" in rec["infos"]:
+            for k in ["raw", "sha256", "sha1"]:
+                if k in rec["infos"]["client"]:
+                    info["client"][k] = rec["infos"]["client"][k]
     script["ssl-ja3-server"] = [info]
     port["scripts"] = [script]
     return {"ports": [port]}
@@ -523,14 +520,12 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
     """Handle SSL client ja3 extraction."""
     script = {"id": "ssl-ja3-client"}
     script["output"] = rec["value"]
-    script["ssl-ja3-client"] = [
-        {
-            "raw": rec["infos"]["raw"],
-            "sha256": rec["infos"]["sha256"],
-            "sha1": rec["infos"]["sha1"],
-            "md5": rec["value"],
-        }
-    ]
+    info = {"md5": rec["value"]}
+    if "infos" in rec:
+        for k in ["raw", "sha256", "sha1"]:
+            if k in rec["infos"]:
+                info[k] = rec["infos"][k]
+    script["ssl-ja3-client"] = [info]
     port = {"port": -1, "scripts": [script]}
     if rec["value"] in scanners.JA3_CLIENT_VALUES:
         scanner, probe = scanners.JA3_CLIENT_VALUES[rec["value"]]
