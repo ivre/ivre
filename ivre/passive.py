@@ -42,6 +42,7 @@ DNSBL_START = re.compile(
     ")",
     re.I,
 )
+MD5 = re.compile("^[0-9a-f]{32}$", re.I)
 
 
 # Zeek specific
@@ -356,21 +357,25 @@ def _prepare_rec(spec, ignorenets, neverignore):
         spec["recontype"] == "SSL_SERVER" and spec["source"].startswith("ja3-")
     ):
         value = spec["value"]
-        spec.setdefault("infos", {})["raw"] = value
-        spec["value"] = hashlib.new(
-            "md5", data=value.encode(), usedforsecurity=False
-        ).hexdigest()
+        if MD5.search(value) is None:
+            spec.setdefault("infos", {})["raw"] = value
+            spec["value"] = hashlib.new(
+                "md5", data=value.encode(), usedforsecurity=False
+            ).hexdigest()
         if spec["recontype"] == "SSL_SERVER":
             clientvalue = spec["source"][4:]
-            spec["infos"].setdefault("client", {})["raw"] = clientvalue
-            spec["source"] = (
-                "ja3-%s"
-                % hashlib.new(
-                    "md5",
-                    data=clientvalue.encode(),
-                    usedforsecurity=False,
-                ).hexdigest()
-            )
+            if MD5.search(clientvalue) is None:
+                spec["infos"].setdefault("client", {})["raw"] = clientvalue
+                spec["source"] = (
+                    "ja3-%s"
+                    % hashlib.new(
+                        "md5",
+                        data=clientvalue.encode(),
+                        usedforsecurity=False,
+                    ).hexdigest()
+                )
+            else:
+                spec["source"] = f"ja3-{clientvalue}"
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
@@ -556,26 +561,35 @@ def _getinfos_cert(spec):
 
 def _getinfos_ja3_hassh(spec):
     """Extract hashes from JA3 & HASSH fingerprint strings."""
-    value = spec["infos"]["raw"]
-    data = value.encode()
-
-    info = dict(
-        (
-            (hashtype, hashlib.new(hashtype, data).hexdigest())
-            for hashtype in ["sha1", "sha256"]
-        ),
-        **spec["infos"],
-    )
-
-    if spec.get("recontype") == "SSL_SERVER":
-        clientvalue = spec["infos"]["client"]["raw"]
-        clientdata = clientvalue.encode()
-        info["client"].update(
-            (hashtype, hashlib.new(hashtype, clientdata).hexdigest())
-            for hashtype in ["sha1", "sha256"]
+    try:
+        value = spec["infos"]["raw"]
+    except KeyError:
+        info = dict(spec.get("infos", {}))
+    else:
+        data = value.encode()
+        info = dict(
+            (
+                (hashtype, hashlib.new(hashtype, data).hexdigest())
+                for hashtype in ["sha1", "sha256"]
+            ),
+            **spec["infos"],
         )
 
-    return {"infos": info}
+    if spec.get("recontype") == "SSL_SERVER":
+        try:
+            clientvalue = spec["infos"]["client"]["raw"]
+        except KeyError:
+            pass
+        else:
+            clientdata = clientvalue.encode()
+            info["client"].update(
+                (hashtype, hashlib.new(hashtype, clientdata).hexdigest())
+                for hashtype in ["sha1", "sha256"]
+            )
+
+    if info:
+        return {"infos": info}
+    return {}
 
 
 def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):

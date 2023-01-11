@@ -838,8 +838,8 @@ def merge_ja3_scripts(
         return script_id == "ssl-ja3-server"
 
     def ja3_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
-        return a["raw"] == b["raw"] and (
-            not is_server(script_id) or a["client"]["raw"] == b["client"]["raw"]
+        return a["md5"] == b["md5"] and (
+            not is_server(script_id) or a["client"]["md5"] == b["client"]["md5"]
         )
 
     def ja3_output(ja3: Dict[str, Any], script_id: str) -> str:
