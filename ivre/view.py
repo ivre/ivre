@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,6 +24,14 @@ import struct
 from datetime import datetime
 from textwrap import wrap
 
+try:
+    from importlib.metadata import entry_points
+except ImportError:
+    HAS_PLUGINS = False
+else:
+    HAS_PLUGINS = True
+
+
 from ivre import utils
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
@@ -38,6 +46,12 @@ from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 from ivre.xmlnmap import add_service_hostname
+
+
+def load_plugins():
+    for entry_point in entry_points(group="ivre.plugins.view"):
+        if entry_point.name.startswith("_install_"):
+            entry_point.load()(globals())
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -950,3 +964,7 @@ def to_view(itrs):
             cur_addr = min(next_addrs, key=utils.ip2int)
     if cur_rec is not None:
         yield prepare_record(cur_rec)
+
+
+if HAS_PLUGINS:
+    load_plugins()
