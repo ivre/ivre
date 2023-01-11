@@ -333,12 +333,12 @@ configured to send logs.</p>
 careful with the OUTPUT rule if the logs are sent over the network!</p>
 <p>On the syslog server or on each host, just run grep to collect the
 data needed for the iptables flow2db parser:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ grep -l <span class="s1">&#39;IPTABLES/&#39;</span> /var/log/syslog /var/log/kernel.log ... <span class="se">\</span>
-    &gt; syslog-iptables.log
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>grep<span class="w"> </span>-l<span class="w"> </span><span class="s1">&#39;IPTABLES/&#39;</span><span class="w"> </span>/var/log/syslog<span class="w"> </span>/var/log/kernel.log<span class="w"> </span>...<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>&gt;<span class="w"> </span>syslog-iptables.log
 </pre></div>
 </div>
 <p>Then import data to ivredb using flow2db tool:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db -t iptables syslog-iptables.log
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ivre<span class="w"> </span>flow2db<span class="w"> </span>-t<span class="w"> </span>iptables<span class="w"> </span>syslog-iptables.log
 </pre></div>
 </div>
 </section>

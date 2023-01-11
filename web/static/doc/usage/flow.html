@@ -209,22 +209,22 @@ known network (but there is no such thing as a “known network”)</p></li>
 <h3>Data insertion<a class="headerlink" href="#data-insertion" title="Permalink to this heading">¶</a></h3>
 <p>There are two tools for data insertion, the first is based on Zeek
 (previously known as Bro):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ zeek -r capture_file.pcap
-$ ivre zeek2db ./*.log
-$ ivre flowcli
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>zeek<span class="w"> </span>-r<span class="w"> </span>capture_file.pcap
+$<span class="w"> </span>ivre<span class="w"> </span>zeek2db<span class="w"> </span>./*.log
+$<span class="w"> </span>ivre<span class="w"> </span>flowcli
 </pre></div>
 </div>
 <p>The second can take either argus logs or netflow logs:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ argus -m -r capture_file.pcap -w flows.argus
-$ ivre flow2db flows.argus
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>argus<span class="w"> </span>-m<span class="w"> </span>-r<span class="w"> </span>capture_file.pcap<span class="w"> </span>-w<span class="w"> </span>flows.argus
+$<span class="w"> </span>ivre<span class="w"> </span>flow2db<span class="w"> </span>flows.argus
 </pre></div>
 </div>
 <p>Or:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db flows.nfdump
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ivre<span class="w"> </span>flow2db<span class="w"> </span>flows.nfdump
 </pre></div>
 </div>
 <p>Or:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db -t iptables iptables-from-syslog.log
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>ivre<span class="w"> </span>flow2db<span class="w"> </span>-t<span class="w"> </span>iptables<span class="w"> </span>iptables-from-syslog.log
 </pre></div>
 </div>
 <p>Any of these tools can be called with ‘–init’ to reinitialize the DB.</p>

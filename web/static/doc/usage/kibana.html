@@ -232,12 +232,12 @@ purposes using the command line: <code class="docutils literal notranslate"><spa
 are going to create a dedicated IVRE configuration file, for example
 in <code class="docutils literal notranslate"><span class="pre">~/.ivre-elastic.conf</span></code>; for example, to use an Elasticsearch
 server running on the local machine:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span> <span class="s1">&#39;DB_VIEW = &quot;elastic://127.0.0.1:9200/ivre&quot;&#39;</span> &gt; ~/.ivre-elastic.conf
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;DB_VIEW = &quot;elastic://127.0.0.1:9200/ivre&quot;&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>~/.ivre-elastic.conf
 </pre></div>
 </div>
 <p>Then, to use this dedicated configuration file, we just have to set
 the <code class="docutils literal notranslate"><span class="pre">IVRE_CONF</span></code> environment variable:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre view --count
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf<span class="w"> </span>ivre<span class="w"> </span>view<span class="w"> </span>--count
 </pre></div>
 </div>
 </section>
@@ -246,8 +246,8 @@ the <code class="docutils literal notranslate"><span class="pre">IVRE_CONF</span
 <p>So now, we can create a view as we would do with any other
 backend. For example, if we want to create a view using all the
 records from the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">passive</span></code> purposes:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre view --init &lt; /dev/null
-<span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre db2view
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf<span class="w"> </span>ivre<span class="w"> </span>view<span class="w"> </span>--init<span class="w"> </span>&lt;<span class="w"> </span>/dev/null
+<span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf<span class="w"> </span>ivre<span class="w"> </span>db2view
 </pre></div>
 </div>
 <p>The first command will drop any existing data, and create the index
