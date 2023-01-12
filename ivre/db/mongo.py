@@ -5163,6 +5163,14 @@ class MongoDBPassive(MongoDB, DBPassive):
                 "fingerprint": "infos.md5",
                 "key": "value",
             }.get(subfield, f"infos.{subfield}")
+        elif field == "useragent" or field.startswith("useragent:"):
+            if field == "useragent":
+                flt = self.flt_and(flt, self.searchuseragent())
+            else:
+                flt = self.flt_and(
+                    flt, self.searchuseragent(useragent=utils.str2regexp(field[10:]))
+                )
+            field = "value"
         pipeline = self._topvalues(
             field,
             flt=flt,
