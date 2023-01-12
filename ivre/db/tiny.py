@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3175,6 +3175,19 @@ class TinyDBPassive(TinyDB, DBPassive):
                 "fingerprint": "infos.md5",
                 "key": "value",
             }.get(subfield, f"infos.{subfield}")
+            if distinct:
+                fields = [field]
+            else:
+                fields = [field, "count"]
+
+        elif field == "useragent" or field.startswith("useragent:"):
+            if field == "useragent":
+                flt = self.flt_and(flt, self.searchuseragent())
+            else:
+                flt = self.flt_and(
+                    flt, self.searchuseragent(useragent=utils.str2regexp(field[10:]))
+                )
+            field = "value"
             if distinct:
                 fields = [field]
             else:

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3024,6 +3024,14 @@ class SQLDBPassive(SQLDB, DBPassive):
                 "fingerprint": self.tables.passive.moreinfo["md5"],
                 "key": self.tables.passive.value,
             }.get(subfield, self.tables.passive.moreinfo[subfield])
+        elif field == "useragent" or field.startswith("useragent:"):
+            if field == "useragent":
+                flt = self.flt_and(flt, self.searchuseragent())
+            else:
+                flt = self.flt_and(
+                    flt, self.searchuseragent(useragent=utils.str2regexp(field[10:]))
+                )
+            field = self.tables.passive.value
 
         if not isinstance(field, list):
             field = [field]

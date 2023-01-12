@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -491,11 +491,11 @@ class IvreTests(unittest.TestCase):
 
     def check_passive_top_value_api(self, name, field, distinct):
         values = self._sort_top_values(
-            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=10)
+            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=12)
         )
         self.check_value(name, values, check=self.assertCountEqual)
         cur = iter(
-            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=10)
+            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=12)
         )
         values = next(cur)
         while values.get("_id") is None:
@@ -2507,13 +2507,15 @@ class IvreTests(unittest.TestCase):
                 "domains:2",
                 "domains:com",
                 "domains:com:2",
+                "useragent",
+                "useragent:/Windows/",
             ]:
                 if DATABASE == "sqlite" and field.startswith("domains"):
                     # BUG in sqlite backend: cannot use topvalues with
                     # JSON fields
                     continue
                 valname = "passive_top_%s_%sdistinct" % (
-                    field.replace(":", "_"),
+                    field.replace(":", "_").replace("/", ""),
                     "" if distinct else "not_",
                 )
                 self.check_passive_top_value_api(valname, field, distinct)
