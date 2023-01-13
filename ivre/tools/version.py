@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,14 +22,49 @@
 
 import os
 import sys
+from importlib import import_module
+
+try:
+    from importlib.metadata import entry_points
+except ImportError:
+    HAS_PLUGINS = False
+else:
+    HAS_PLUGINS = True
+from typing import Dict, List, Optional, Set, Tuple
 
 from ivre import VERSION
+
+
+def get_version(module: str) -> Optional[str]:
+    try:
+        mod = import_module(module)
+    except ImportError:
+        return None
+    for attr in ["__version__", "VERSION", "version"]:
+        try:
+            return str(getattr(mod, attr))
+        except AttributeError:
+            pass
+    return "[unknown version]"
+
+
+def list_plugins() -> Optional[Dict[str, List[Tuple[str, Optional[str]]]]]:
+    if not HAS_PLUGINS:
+        return None
+    modules: Dict[str, Set[str]] = {}
+    for category in ["view"]:
+        for entry_point in entry_points(group=f"ivre.plugins.{category}"):
+            modules.setdefault(category, set()).add(entry_point.module)
+    return {
+        category: sorted((module, get_version(module)) for module in sorted(modules))
+        for category, modules in modules.items()
+    }
 
 
 def main() -> None:
     """Display IVRE's version"""
     print("IVRE - Network recon framework")
-    print("Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>")
+    print("Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>")
     print("Version %s" % VERSION)
     print()
     print("Python %s" % sys.version)
@@ -42,29 +77,31 @@ def main() -> None:
     print()
     print("Dependencies:")
     for module in [
+        "MySQLdb",
+        "OpenSSL",
+        "PIL",
+        "bottle",
+        "cryptography",
+        "dbus",
+        "krbV",
+        "matplotlib",
+        "psycopg2",
+        "pycurl",
         "pymongo",
         "sqlalchemy",
-        "psycopg2",
-        "cryptography",
-        "krbV",
-        "pycurl",
-        "PIL",
-        "MySQLdb",
-        "dbus",
-        "matplotlib",
-        "bottle",
-        "OpenSSL",
         "tinydb",
     ]:
-        try:
-            version = __import__(module).__version__
-        except AttributeError:
-            try:
-                version = __import__(module).version
-            except AttributeError:
-                version = "[unknown version]"
-        except ImportError:
-            print("    Python module %s: missing" % (module,))
-            continue
-        print("    Python module %s: %s" % (module, version))
+        version = get_version(module)
+        if version is None:
+            version = "*missing*"
+        print(f"    {module}: {version}")
     print()
+    cat_plugins = list_plugins()
+    if cat_plugins:
+        print("Plugins:")
+        for cat in sorted(cat_plugins):
+            print(f"    {cat}:")
+            plugins = cat_plugins[cat]
+            for plugin, version in plugins:
+                print(f"        {plugin}: {version}")
+        print()
