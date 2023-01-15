@@ -38,6 +38,10 @@ jobs:
 
     - run: pip install -r requirements-tinydb.txt
 
+    # this should be a dependency of tinydb
+    - run: pip install typing_extensions
+      if: ${{ matrix.python-version <= 3.7 }}
+
     - name: Install IVRE
       uses: ./.github/actions/install
 
