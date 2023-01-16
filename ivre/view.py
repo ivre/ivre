@@ -49,7 +49,11 @@ from ivre.xmlnmap import add_service_hostname
 
 
 def load_plugins():
-    for entry_point in entry_points(group="ivre.plugins.view"):
+    try:
+        my_entry_points = entry_points(group="ivre.plugins.view")
+    except TypeError:
+        my_entry_points = entry_points().get("ivre.plugins.view", [])
+    for entry_point in my_entry_points:
         if entry_point.name.startswith("_install_"):
             entry_point.load()(globals())
 
