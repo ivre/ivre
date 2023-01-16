@@ -53,7 +53,12 @@ def list_plugins() -> Optional[Dict[str, List[Tuple[str, Optional[str]]]]]:
         return None
     modules: Dict[str, Set[str]] = {}
     for category in ["view"]:
-        for entry_point in entry_points(group=f"ivre.plugins.{category}"):
+        group = f"ivre.plugins.{category}"
+        try:
+            my_entry_points = entry_points(group=group)
+        except TypeError:
+            my_entry_points = entry_points().get(group, [])  # type: ignore
+        for entry_point in my_entry_points:
             modules.setdefault(category, set()).add(entry_point.module)
     return {
         category: sorted((module, get_version(module)) for module in sorted(modules))
