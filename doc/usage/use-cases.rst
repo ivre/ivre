@@ -195,6 +195,6 @@ so that we can add a link here!
 .. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png
 .. |opencti_connector_scans| image:: ../screenshots/opencti-connector-scans.png
 .. |opencti_connector_passive| image:: ../screenshots/opencti-connector-passive.png
-.. |obsidian_graph| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/graph_thunderbird.png
-.. |obsidian_domain| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/domain_1password.png
-.. |obsidian_host| image:: https://raw.githubusercontent.com/ivre/obsidian-ivre-plugin/master/doc/screenshots/address_1password.png
+.. |obsidian_graph| image:: ../screenshots/obsidian_graph_thunderbird.png
+.. |obsidian_domain| image:: ../screenshots/obsidian_domain_1password.png
+.. |obsidian_host| image:: ../screenshots/obsidian_address_1password.png
