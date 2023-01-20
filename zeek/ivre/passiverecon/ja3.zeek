@@ -1,7 +1,7 @@
 # This file is part of IVRE.
 #
 # Copyright 2017 salesforce.com, inc.
-# Copyright 2018 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2018 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -85,11 +85,11 @@ const grease: set[int] = {
 
 event ssl_extension(c: connection, is_orig: bool, code: count, val: string) {
     if (is_orig) {
+        if (code in grease) {
+            return;
+        }
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
-        }
-        if (code in grease) {
-            next;
         }
         c$ivreja3c$extensions[|c$ivreja3c$extensions|] = cat(code);
     }
