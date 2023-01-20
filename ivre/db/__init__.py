@@ -4130,8 +4130,8 @@ class DBPassive(DB):
         for val in timestamp, lastseen:
             if val is not None:
                 timestamps.append(val)
-        spec["firstseen"] = min(*timestamps)
-        spec["lastseen"] = max(*timestamps)
+        spec["firstseen"] = min(timestamps)
+        spec["lastseen"] = max(timestamps)
         if getinfos is not None:
             spec.update(getinfos(spec))
         self.output_function(spec)
