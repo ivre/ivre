@@ -47,7 +47,7 @@ from sqlalchemy import (
     insert,
     join,
     not_,
-    nullsfirst,
+    nulls_first,
     or_,
     select,
     text,
@@ -1124,7 +1124,6 @@ class SQLDBActive(SQLDB, DBActive):
             )
         )
         for rec in self.db.execute(req):
-            print(repr(rec))
             if rec.name in rec.data:
                 migr_func = {
                     "ms-sql-info": xmlnmap.change_ms_sql_info,
@@ -3112,7 +3111,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             fields = [self.tables.passive.port]
         req = flt.query(select(fields).group_by(*fields))
         if not yieldall:
-            req = req.order_by(*(nullsfirst(fld) for fld in fields))
+            req = req.order_by(*(nulls_first(fld) for fld in fields))
             return self.db.execute(req)
         # results will be modified, we cannot keep a RowProxy
         # instance, so we convert the results to lists
