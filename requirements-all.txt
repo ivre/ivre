@@ -17,5 +17,5 @@ Sphinx
 sphinxcontrib-httpdomain
 sphinx_rtd_theme
 sphinx-lint
-sqlalchemy
+sqlalchemy<2
 tinydb

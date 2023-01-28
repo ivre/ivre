@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ from sqlalchemy import (
     insert,
     join,
     not_,
-    nullsfirst,
+    nulls_first,
     select,
     text,
     tuple_,
@@ -1260,7 +1260,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             )
         )
         if not yieldall:
-            req = req.order_by(*(nullsfirst(fld) for fld in fields))
+            req = req.order_by(*(nulls_first(fld) for fld in fields))
             return self.db.execute(req)
         # results will be modified, we cannot keep a RowProxy
         # instance, so we convert the results to lists
