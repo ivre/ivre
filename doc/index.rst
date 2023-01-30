@@ -13,6 +13,7 @@ response, monitoring, etc.
 
 - Web site: `https://ivre.rocks/ <https://ivre.rocks/>`_
 - Twitter: `@IvreRocks <https://twitter.com/IvreRocks>`_
+- Mastodon: `@ivre@infosec.exchange <https://infosec.exchange/@ivre>`_
 - Github: `ivre/ivre <https://github.com/ivre/ivre/>`_
 
 Features
@@ -105,6 +106,9 @@ touch for questions), or use the e-mail ``dev`` on the domain
 
 On Twitter, you can follow and/or mention `@IvreRocks
 <https://twitter.com/IvreRocks>`__.
+
+On Mastodon, you can follow and/or mention `@ivre@infosec.exchange
+<https://infosec.exchange/@ivre>`__.
 
 Content
 -------
