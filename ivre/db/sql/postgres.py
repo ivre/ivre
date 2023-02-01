@@ -1995,6 +1995,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             )
             self.db.execute(delete(tmp))
             if config.DEBUG_DB:
+                # pylint: disable=used-before-assignment,undefined-variable
                 stop_time = time.time()
                 time_spent = stop_time - start_time
                 total_upserted += count_upserted

@@ -4852,10 +4852,10 @@ class DBFlowMeta(type):
     instances of MongoDBFlow and TinyDBFlow.
     """
 
-    def __new__(cls, name, bases, attrs):
+    def __new__(mcs, name, bases, attrs):
         attrs["meta_desc"] = DBFlowMeta.compute_meta_desc()
         attrs["list_fields"] = DBFlowMeta.compute_list_fields(attrs["meta_desc"])
-        return type.__new__(cls, name, bases, attrs)
+        return type.__new__(mcs, name, bases, attrs)
 
     @staticmethod
     def compute_meta_desc():

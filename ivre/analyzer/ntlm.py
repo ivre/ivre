@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -329,14 +329,13 @@ def _is_ntlm_message(message: str) -> bool:
         val1, val2 = message.split(None, 1)
     except ValueError:
         return False
-    else:
-        if not val2:
-            return False
-        if val1.lower() == "ntlm":
-            return True
-        if val1.lower() == "negotiate":
-            try:
-                return utils.decode_b64(val2.encode())[:7] == b"NTLMSSP"
-            except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
-                pass
+    if not val2:
+        return False
+    if val1.lower() == "ntlm":
+        return True
+    if val1.lower() == "negotiate":
+        try:
+            return utils.decode_b64(val2.encode())[:7] == b"NTLMSSP"
+        except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
+            pass
     return False
