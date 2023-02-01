@@ -1582,9 +1582,9 @@ def _read_wireshark_manuf_db() -> None:
     _WIRESHARK_MANUF_DB_POPULATED = True
 
 
-def get_wireshark_manuf_db() -> Tuple[
-    List[int], List[Optional[Tuple[str, Optional[str]]]]
-]:
+def get_wireshark_manuf_db() -> (
+    Tuple[List[int], List[Optional[Tuple[str, Optional[str]]]]]
+):
     if not _WIRESHARK_MANUF_DB_POPULATED:
         _read_wireshark_manuf_db()
     return _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES

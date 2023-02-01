@@ -278,7 +278,6 @@ class PassiveCSVFile(CSVFile):
 
 
 class SQLDB(DB):
-
     table_layout = namedtuple("empty_layout", [])
     tables = table_layout()
     fields = {}

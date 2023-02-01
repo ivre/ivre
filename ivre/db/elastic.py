@@ -38,7 +38,6 @@ PAGESIZE = 250
 
 
 class ElasticDB(DB):
-
     nested_fields = []
 
     # filters
@@ -231,7 +230,6 @@ def _create_mappings(nested, all_mappings):
 
 
 class ElasticDBActive(ElasticDB, DBActive):
-
     nested_fields = [
         "ports",
         "ports.scripts",

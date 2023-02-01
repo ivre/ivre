@@ -848,7 +848,6 @@ class DB:
 
 
 class DBActive(DB):
-
     ipaddr_fields = ["addr", "traces.hops.ipaddr", "ports.state_reason_ip"]
     datetime_fields = [
         "starttime",
@@ -2112,7 +2111,6 @@ class DBActive(DB):
 
 
 class DBNmap(DBActive):
-
     backends = {
         "http": ("http", "HttpDBNmap"),
         "mongodb": ("mongo", "MongoDBNmap"),
@@ -3790,7 +3788,6 @@ class DBNmap(DBActive):
 
 
 class DBView(DBActive):
-
     backends = {
         "elastic": ("elastic", "ElasticDBView"),
         "http": ("http", "HttpDBView"),
@@ -3956,7 +3953,6 @@ class _RecInfo:
 
 
 class DBPassive(DB):
-
     argparser_insert = ArgumentParser(add_help=False)
     ipaddr_fields = ["addr"]
     datetime_fields = ["firstseen", "lastseen", "infos.not_after", "infos.not_before"]
@@ -4403,7 +4399,6 @@ class DBPassive(DB):
 
 
 class DBData(DB):
-
     country_codes = None
     backends = {
         "http": ("http", "HttpDBData"),
@@ -5314,7 +5309,6 @@ class DBFlow(DB):
 
 
 class MetaDB:
-
     db_types = {
         "nmap": DBNmap,
         "view": DBView,

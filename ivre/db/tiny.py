@@ -110,7 +110,6 @@ class TinyDB(DB):
     def _db_get(self, flt, fields=None, sort=None, limit=None, skip=None):
         result = self.db.search(flt)
         if fields is not None:
-
             _fields = {}
             for fld in fields:
                 try:
@@ -158,7 +157,7 @@ class TinyDB(DB):
             return result
 
         def _cmp(v1, v2):
-            for (k, o) in sort:
+            for k, o in sort:
                 f1 = v1
                 f2 = v2
                 for sk in k.split("."):

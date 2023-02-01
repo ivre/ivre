@@ -747,7 +747,9 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             field = self._topstructure(
                 self.tables.script,
                 [
-                    func.jsonb_array_elements(self.tables.script.data["ssl-cert"],).op(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssl-cert"],
+                    ).op(
                         "->" if subfield in ["subject", "issuer", "pubkey"] else "->>"
                     )(subfield)
                 ],

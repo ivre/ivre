@@ -315,7 +315,6 @@ class MaxMindFile:
 
 
 class MaxMindDBData(DBData):
-
     LANG = "en"
 
     AS_KEYS = {

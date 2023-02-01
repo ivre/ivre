@@ -261,7 +261,7 @@ def flt_from_query(dbase, query, base_flt=None):
             )
         )
 
-    for (neg, param, value) in query:
+    for neg, param, value in query:
         if not neg and param == "skip":
             skip = int(value)
         elif not neg and param == "limit":

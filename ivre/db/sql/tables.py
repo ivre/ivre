@@ -122,7 +122,6 @@ def extend_binary_expression(element, compiler, **kwargs):
 
 
 class DefaultJSONB(UserDefinedType):
-
     python_type = dict
     cache_ok = False
 
@@ -155,7 +154,6 @@ SQLJSONB = postgresql.JSONB().with_variant(DefaultJSONB(), "sqlite")
 
 
 class DefaultARRAY(TypeDecorator):
-
     impl = Text
     cache_ok = False
 
@@ -181,7 +179,6 @@ def SQLARRAY(item_type):
 
 
 class DefaultINET(UserDefinedType):
-
     python_type = bytes
     cache_ok = True
 
@@ -209,7 +206,6 @@ SQLINET = postgresql.INET().with_variant(DefaultINET(), "sqlite")
 
 
 class Point(UserDefinedType):
-
     cache_ok = True
 
     def get_col_spec(self):

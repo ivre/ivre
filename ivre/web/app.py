@@ -69,7 +69,6 @@ def check_referer(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-
         # Header with an existing X-API-Key header or an
         # Authorization: Bearer XXX are OK. Note: IVRE does not check
         # those values, they only serve as anti-CSRF protections.
