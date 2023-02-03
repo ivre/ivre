@@ -302,7 +302,6 @@ class AgentScanner:
 
 
 class IvreTests(unittest.TestCase):
-
     maxDiff = None
 
     def setUp(self):
@@ -848,7 +847,6 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(out, 0)
 
     def test_30_nmap(self):
-
         #
         # Database tests
         #
@@ -2064,7 +2062,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
     def test_40_passive(self):
-
         if DATABASE == "postgres":
             # FIXME: tests are broken with PostgreSQL & --no-bulk
             bulk_mode = random.choice(["--bulk", "--local-bulk"])
@@ -3304,7 +3301,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
-
         # Unit tests #
 
         # Test _get_timeslots
@@ -4872,14 +4868,14 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertTrue(("  - locked (by %d)\n" % os.getpid()).encode() in out)
         # Attempt to lock it again
-        with (self.assertRaises(ivre.db.LockError)):
+        with self.assertRaises(ivre.db.LockError):
             ivre.db.db.agent.lock_scan(scanid)
         # Unlock it
         self.assertEqual(ivre.db.db.agent.unlock_scan(locked_scan), True)
         # Attempt to unlock it again
-        with (self.assertRaises(ivre.db.LockError)):
+        with self.assertRaises(ivre.db.LockError):
             ivre.db.db.agent.unlock_scan(locked_scan)
-        with (self.assertRaises(ivre.db.LockError)):
+        with self.assertRaises(ivre.db.LockError):
             ivre.db.db.agent.unlock_scan(ivre.db.db.agent.get_scan(scanid))
         # Check no scan is locked
         res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
@@ -5049,7 +5045,6 @@ class IvreTests(unittest.TestCase):
         shutil.rmtree("output")
 
     def test_50_view(self):
-
         #
         # Web server tests
         #

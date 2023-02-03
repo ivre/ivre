@@ -140,7 +140,6 @@ class MongoDBConnection:
 
 
 class MongoDB(DB):
-
     is_documentdb = False  # set to True for AWS DocumentDB sub-classes
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = []
     schema_migrations_indexes: List[
@@ -809,7 +808,6 @@ class MongoDB(DB):
 
 
 class MongoDBActive(MongoDB, DBActive):
-
     column_hosts = 0
     _features_column = 0
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
@@ -4379,7 +4377,6 @@ class MongoDBActive(MongoDB, DBActive):
 
 
 class MongoDBNmap(MongoDBActive, DBNmap):
-
     column_scans = 1
     content_handler = Nmap2Mongo
 
@@ -4499,7 +4496,6 @@ class MongoDBView(MongoDBActive, DBView):
 
 
 class MongoDBPassive(MongoDB, DBPassive):
-
     column_passive = 0
     _features_column = 0
     indexes = [

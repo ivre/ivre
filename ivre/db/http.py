@@ -193,7 +193,6 @@ if HAS_CURL:
 
 
 class HttpDB(DB):
-
     flt_empty = {}
     no_limit = None
 

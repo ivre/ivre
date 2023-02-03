@@ -37,7 +37,6 @@ from ivre.types.active import NmapHost
 
 
 class LocalPorts:
-
     cmd_addrs = ["ip", "addr", "show"]
     cmd_openports = ["ss", "-ltunp"]
     match_addrs = re.compile("^ +inet (?P<addr>[0-9\\.]+)/")

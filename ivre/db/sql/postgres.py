@@ -747,7 +747,9 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             field = self._topstructure(
                 self.tables.script,
                 [
-                    func.jsonb_array_elements(self.tables.script.data["ssl-cert"],).op(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssl-cert"],
+                    ).op(
                         "->" if subfield in ["subject", "issuer", "pubkey"] else "->>"
                     )(subfield)
                 ],
@@ -1993,6 +1995,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             )
             self.db.execute(delete(tmp))
             if config.DEBUG_DB:
+                # pylint: disable=used-before-assignment,undefined-variable
                 stop_time = time.time()
                 time_spent = stop_time - start_time
                 total_upserted += count_upserted

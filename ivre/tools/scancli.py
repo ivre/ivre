@@ -218,7 +218,6 @@ def main() -> None:
             )
 
     elif args.to_db is not None:
-
         outdb = DBNmap.from_url(args.to_db)
 
         def displayfunction(cur: DBCursor) -> None:
