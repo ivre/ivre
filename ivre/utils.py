@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ from typing import (
     Union,
     cast,
 )
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import build_opener
 
@@ -2476,20 +2476,29 @@ def download_if_newer(
                 ),
             )
         )
+    file_opened = False
     try:
-        with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
-            processor(udesc, wdesc)
+        # attempt to remove the file only if it has been open()ed by
+        # us
+        with opener.open(url) as udesc:
+            # make sure opener.open(url) works before opening the file
+            with open(outfile, "wb") as wdesc:
+                file_opened = True
+                processor(udesc, wdesc)
     except HTTPError as exc:
         if exc.status == 304:
             LOGGER.debug("Won't download %s: our copy is up-to-date", url)
             return False
         LOGGER.error("Cannot download %s [%s]", url, exc)
+    except URLError as exc:
+        LOGGER.error("Cannot download %s [%s]", url, exc)
     except Exception as exc:
         LOGGER.error("Error processing %s [%s]", url, exc)
-        try:
-            os.unlink(outfile)
-        except FileNotFoundError:
-            pass
+        if file_opened:
+            try:
+                os.unlink(outfile)
+            except FileNotFoundError:
+                pass
         raise
     return True
 
