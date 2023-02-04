@@ -44,6 +44,9 @@ done
 
 mv tests/geoip/GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2 "$(python -c 'from ivre import config; print(config.GEOIP_PATH)')"; bunzip2 "/$(python -c 'from ivre import config; print(config.GEOIP_PATH)')/GeoLite2-"{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2
 
+# This particular files often fail
+wget -q --no-check-certificate "https://ivre.rocks/data/tests/share_data.tar.bz2" -O - | (cd "$(python -c "import ivre.config; print(ivre.config.guess_prefix('data'))")" && tar jxf -)
+
 for path_val in "$(pwd)/usr/local/nmap/bin" "$(pwd)/usr/local/nfdump/bin"; do
     echo "$path_val" >> "$GITHUB_PATH"
     export PATH="$path_val:$PATH"
