@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ for env_val in "LD_LIBRARY_PATH=$(pwd)/usr/local/zeek/lib:$(pwd)/usr/local/nfdum
 done
 
 cp "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/nmap/scripts/"*.nse "$(pwd)/usr/local/nmap/share/nmap/scripts/"
-for patch in "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/nmap/"*; do (cd "$(pwd)/usr/local/nmap/share/nmap" && patch -p0 < "$patch"); done
+for patch in "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/nmap/"*.patch; do (cd "$(pwd)/usr/local/nmap/share/nmap" && patch -p0 < "$patch"); done
 nmap --script-updatedb
 
 sudo patch /etc/p0f/p0f.fp "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/p0f/p0f.fp.patch"
