@@ -30,9 +30,11 @@ RUN apt-get -q update && \
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install git && \
     git clone https://github.com/ivre/ivre && \
-    cd ivre/ && python3 setup.py build && python3 setup.py install && \
-    apt-get -qy --purge autoremove git && cd ../ && rm -rf ivre/ && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    cd ivre/ && \
+    python3 setup.py build && python3 setup.py install && \
+    apt-get -qy --purge autoremove git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    cd ../ && rm -rf ivre/
 
 # Fix version
 RUN sed -ri 's#$#-docker#' /usr/local/lib/python*/dist-packages/ivre/VERSION && \

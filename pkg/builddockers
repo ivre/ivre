@@ -1,7 +1,7 @@
 #! /bin/bash
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -54,12 +54,12 @@ cd "$(dirname "$0")/../docker" || exit 255
 
 docker build --no-cache -t "ivre/base:$tag" "base-local" || exit $?
 
-for img in client agent db web web-apache ; do
+for img in client agent db web web-doku web-uwsgi ; do
     docker build --no-cache --build-arg TAG="$tag" -t "ivre/$img:$tag" "$img" || exit $?
 done
 
 # Uncomment to push images
 # docker login
-# for img in base client agent db web web-apache ; do
+# for img in base client agent db web web-doku web-uwsgi ; do
 #     docker push "ivre/$img:$tag"
 # done

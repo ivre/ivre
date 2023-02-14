@@ -99,8 +99,8 @@ how to install and configure them.
 
 Configuration file samples are provided in IVRE's source repository,
 under ``pkg/apache`` and ``pkg/nginx``. Also, the
-:ref:`install/docker:Docker` creation files in ``docker/web`` and
-``docker/web-apache`` can provide useful examples.
+:ref:`install/docker:Docker` creation files in ``docker/web*`` can
+provide useful examples.
 
 If you do not want (or cannot) to install a Web server, you can try
 IVRE's integrated server, suited for tests or tiny installations. Just

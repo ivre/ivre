@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,20 @@ services:
       - ./var_lib_mongodb:/var/lib/mongodb
       - ./var_log_mongodb:/var/log/mongodb
     restart: always
+  ivreuwsgi:
+    image: ivre/web-uwsgi
+    container_name: ivreuwsgi
+    restart: always
+    depends_on:
+      - ivredb
+    volumes:
+      - ./dokuwiki_data:/var/www/dokuwiki/data
+  ivredoku:
+    image: ivre/web-doku
+    container_name: ivredoku
+    restart: always
+    volumes:
+      - ./dokuwiki_data:/var/www/dokuwiki/data
   ivreweb:
     image: ivre/web
     container_name: ivreweb
@@ -30,7 +44,10 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - ivredb
+      - ivreuwsgi
+      - ivredoku
+    volumes:
+      - ./dokuwiki_data:/var/www/dokuwiki/data
   ivreclient:
     image: ivre/client
     container_name: ivreclient
