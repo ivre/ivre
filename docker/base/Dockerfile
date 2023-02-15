@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -30,12 +30,14 @@ RUN apt-get -q update && \
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install git && \
     git clone https://github.com/ivre/ivre && \
-    cd ivre/ && python3 setup.py build && python3 setup.py install && \
-    apt-get -qy --purge autoremove git && cd ../ && rm -rf ivre/ && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    cd ivre/ && \
+    python3 setup.py build && python3 setup.py install && \
+    apt-get -qy --purge autoremove git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    cd ../ && rm -rf ivre/
 
 # Fix version
-RUN echo -en "-docker" >> /usr/local/lib/python*/dist-packages/ivre/VERSION && \
+RUN sed -ri 's#$#-docker#' /usr/local/lib/python*/dist-packages/ivre/VERSION && \
     sed -ri 's#(VERSION = .*)(['\''"])$#\1-docker\2#' /usr/local/lib/python*/dist-packages/ivre/__init__.py
 
 RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

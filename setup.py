@@ -221,18 +221,21 @@ setup(
         ("share/ivre/docker/db", ["docker/db/Dockerfile"]),
         (
             "share/ivre/docker/web",
+            ["docker/web/Dockerfile", "docker/web/nginx-default-site"],
+        ),
+        (
+            "share/ivre/docker/web-doku",
             [
-                "docker/web/Dockerfile",
-                "docker/web/doku-conf-acl.auth.php",
-                "docker/web/doku-conf-local.php",
-                "docker/web/doku-conf-plugins.local.php",
-                "docker/web/doku-conf-users.auth.php",
-                "docker/web/nginx-default-site",
+                "docker/web-doku/Dockerfile",
+                "docker/web-doku/doku-conf-acl.auth.php",
+                "docker/web-doku/doku-conf-local.php",
+                "docker/web-doku/doku-conf-plugins.local.php",
+                "docker/web-doku/doku-conf-users.auth.php",
             ],
         ),
         (
-            "share/ivre/docker/web-apache",
-            ["docker/web-apache/Dockerfile", "docker/web-apache/doku-conf-local.php"],
+            "share/ivre/docker/web-uwsgi",
+            ["docker/web-uwsgi/Dockerfile"],
         ),
         (
             "share/ivre/web/static",

@@ -1,97 +1,51 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>Flow &mdash; IVRE  documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/doctools.js"></script>
         <script src="../_static/sphinx_highlight.js"></script>
-    
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-
-    
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Web User Interface" href="web-ui.html" />
     <link rel="prev" title="Passive" href="passive.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="../index.html" class="icon icon-home"> IVRE
           
-
-          
+          <a href="../index.html" class="icon icon-home">
+            IVRE
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
           </a>
-
-          
-            
-            
               <div class="version">
                 0.9.20.dev
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
@@ -125,75 +79,33 @@
 <li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">IVRE</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-        
-          <li><a href="index.html">Usage</a> &raquo;</li>
-        
-      <li>Flow</li>
-    
-    
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Usage</a></li>
+      <li class="breadcrumb-item active">Flow</li>
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="../_sources/usage/flow.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <section id="flow">
-<h1>Flow<a class="headerlink" href="#flow" title="Permalink to this heading">¶</a></h1>
+<h1>Flow<a class="headerlink" href="#flow" title="Permalink to this heading"></a></h1>
 <p>IVRE flow is a beta feature meant to analyze network flows between
 hosts. It can be seen as:</p>
 <ul class="simple">
@@ -204,9 +116,9 @@ known network (but there is no such thing as a “known network”)</p></li>
 <li><p>a monitoring tool to spot unwanted flows in your network</p></li>
 </ul>
 <section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">¶</a></h2>
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h2>
 <section id="data-insertion">
-<h3>Data insertion<a class="headerlink" href="#data-insertion" title="Permalink to this heading">¶</a></h3>
+<h3>Data insertion<a class="headerlink" href="#data-insertion" title="Permalink to this heading"></a></h3>
 <p>There are two tools for data insertion, the first is based on Zeek
 (previously known as Bro):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>zeek<span class="w"> </span>-r<span class="w"> </span>capture_file.pcap
@@ -230,11 +142,11 @@ $<span class="w"> </span>ivre<span class="w"> </span>flow2db<span class="w"> </s
 <p>Any of these tools can be called with ‘–init’ to reinitialize the DB.</p>
 </section>
 <section id="data-exploration">
-<h3>Data exploration<a class="headerlink" href="#data-exploration" title="Permalink to this heading">¶</a></h3>
+<h3>Data exploration<a class="headerlink" href="#data-exploration" title="Permalink to this heading"></a></h3>
 <p>The main exploration tool are the CLI (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>) and the Web UI
 (<code class="docutils literal notranslate"><span class="pre">&lt;ivre-web-root&gt;/flow.html</span></code>).</p>
 <section id="cli">
-<h4>CLI<a class="headerlink" href="#cli" title="Permalink to this heading">¶</a></h4>
+<h4>CLI<a class="headerlink" href="#cli" title="Permalink to this heading"></a></h4>
 <p>You can access the CLI through <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>. Features include:</p>
 <ul class="simple">
 <li><p>Searching for flows and nodes with filters (see the Flow Filters
@@ -245,9 +157,9 @@ section of this document)</p></li>
 <p>See <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span> <span class="pre">-h</span></code> for usage details.</p>
 </section>
 <section id="web-ui">
-<h4>Web UI<a class="headerlink" href="#web-ui" title="Permalink to this heading">¶</a></h4>
+<h4>Web UI<a class="headerlink" href="#web-ui" title="Permalink to this heading"></a></h4>
 <section id="overview">
-<h5>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h5>
+<h5>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h5>
 <p>The central view is a graph representing the network:</p>
 <ul class="simple">
 <li><p>nodes represent hosts; white ones represent hosts that have incoming
@@ -276,7 +188,7 @@ nodes and edges, timeline precision).</p></li>
 </ul>
 </section>
 <section id="interaction">
-<h5>Interaction<a class="headerlink" href="#interaction" title="Permalink to this heading">¶</a></h5>
+<h5>Interaction<a class="headerlink" href="#interaction" title="Permalink to this heading"></a></h5>
 <p>Hover nodes and edges to display their basic properties in the
 <strong>Details</strong> tab. Click on an edge or a node to query the database for
 more information, including any associated metadata (for example DNS
@@ -307,7 +219,7 @@ the ‘Play timeline’ button.</p>
 </section>
 </section>
 <section id="flow-filters">
-<h4>Flow Filters<a class="headerlink" href="#flow-filters" title="Permalink to this heading">¶</a></h4>
+<h4>Flow Filters<a class="headerlink" href="#flow-filters" title="Permalink to this heading"></a></h4>
 <p>To write filters, the syntax is as follows:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>[!][ANY|ALL|ONE|LEN ][src.|dst.][meta.]&lt;attribute&gt; [&lt;operator&gt; &lt;value&gt;]
 [OR &lt;other filter&gt;]
@@ -359,50 +271,33 @@ matches <code class="docutils literal notranslate"><span class="pre">'.*example.
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="web-ui.html" class="btn btn-neutral float-right" title="Web User Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="passive.html" class="btn btn-neutral float-left" title="Passive" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="web-ui.html" class="btn btn-neutral float-right" title="Web User Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright 2011 - 2023, Pierre LALET.
-
-    </p>
+    <p>&#169; Copyright 2011 - 2023, Pierre LALET.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

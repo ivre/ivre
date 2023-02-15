@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -59,18 +59,11 @@ RUN tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bi
     mv phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/ && \
     rm -rf phantomjs-2.1.1-linux-x86_64*
 
-# Add our *-screenshot NSE scripts
-RUN for d in /usr /usr/local; do \
-        d="$d/share/ivre/patches"; \
-        [ -d "$d" ] && ( \
-            cp $d/nmap/scripts/*.nse /usr/share/nmap/scripts; \
-            cd /usr/share/nmap/; \
-            for p in $d/nmap/*.patch; do \
-                 patch -p0 < $p; \
-            done ; \
-            patch /etc/p0f/p0f.fp $d/p0f/p0f.fp.patch \
-        ) \
-    done; true
-RUN nmap --script-update
+# Add our *-screenshot NSE scripts  # /usr/local/share/ivre/patches
+RUN cp /usr/local/share/ivre/patches/nmap/scripts/*.nse /usr/share/nmap/scripts && \
+    cd /usr/share/nmap/ && \
+    for p in /usr/local/share/ivre/patches/nmap/*.patch; do patch -p0 < $p; done && \
+    patch /etc/p0f/p0f.fp /usr/local/share/ivre/patches/p0f/p0f.fp.patch && \
+    nmap --script-update
 
 RUN mkdir /var/lib/ivre
