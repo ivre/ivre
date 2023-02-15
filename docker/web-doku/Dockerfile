@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-ARG TAG=latest
 FROM debian:stable
+ARG TAG=latest
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 RUN apt-get -q update && \
@@ -31,10 +31,11 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # IVRE-specific
-ADD https://raw.githubusercontent.com/ivre/ivre/${TAG}/web/dokuwiki/media/logo.png /var/www/dokuwiki/data/media/wiki/
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install curl ca-certificates patch && \
-    curl https://raw.githubusercontent.com/ivre/ivre/${TAG}/patches/dokuwiki/backlinks.patch | \
+    curl https://raw.githubusercontent.com/ivre/ivre/$(echo ${TAG} | sed 's/^latest$/master/')/web/dokuwiki/media/logo.png > \
+    /var/www/dokuwiki/data/media/wiki/logo.png && \
+    curl https://raw.githubusercontent.com/ivre/ivre/$(echo ${TAG} | sed 's/^latest$/master/')/patches/dokuwiki/backlinks.patch | \
     patch var/www/dokuwiki/inc/Ui/Backlinks.php - && \
     rm -f /backlinks.patch && \
     apt-get -qy --purge autoremove curl ca-certificates patch && \
