@@ -1,6 +1,6 @@
 [![Join the chat at Gitter](https://badges.gitter.im/ivre/ivre.svg)](https://gitter.im/ivre/ivre)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
-![Follow on Mastodon](https://img.shields.io/mastodon/follow/109349639355238149?domain=https%3A%2F%2Finfosec.exchange&style=social)
+[![Follow on Mastodon](https://img.shields.io/mastodon/follow/109349639355238149?domain=https%3A%2F%2Finfosec.exchange&style=social)](https://infosec.exchange/@ivre)
 [![GitHub stars](https://img.shields.io/github/stars/ivre/ivre?style=social)](https://github.com/ivre/ivre)
 [![PyPI downloads](https://pepy.tech/badge/ivre)](https://pypi.org/project/ivre/)
 [![Docker pulls](https://img.shields.io/docker/pulls/ivre/web)](https://hub.docker.com/u/ivre/)
