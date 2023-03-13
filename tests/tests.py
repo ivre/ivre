@@ -5018,7 +5018,9 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(os.path.exists(up_files[0]))
         with tarfile.open(data_files[0]) as data_archive:
             data_archive = tarfile.open(data_files[0])
-            data_archive.extractall()
+            data_archive.extractall(
+                members=[m for m in data_archive.getmembers() if "/" not in m.name]
+            )
         self.assertTrue(os.path.exists("screenshot-%s-80.jpg" % ipaddr))
         res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
         self.assertEqual(res, 0)

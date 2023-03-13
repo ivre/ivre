@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ from ivre import nmapopt
 AGENT_TEMPLATE = """#! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -135,7 +135,7 @@ echo "worker ready" >&2
 while true; do
     [ -f "want_down" ] && break
     # shellcheck disable=SC2012
-    fname="$(ls -rt "$INDIR" | head -1)"
+    fname="$(ls "$INDIR" | shuf | head -1)"
     if [ -z "$fname" ]; then
         $SLEEP
         continue
