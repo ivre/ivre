@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ class NetFlow(CmdParser):
         ("bytes2", "%ibyt"),
         ("flags", "%flg"),
     ]
-    field_idx = dict((fld, idx) for idx, (fld, _) in enumerate(fields))
+    field_idx = {fld: idx for idx, (fld, _) in enumerate(fields)}
     fmt = "fmt:" + ",".join(fmt for _, fmt in fields)
     units = {
         "K": 1000,
@@ -84,10 +84,10 @@ class NetFlow(CmdParser):
 
     @classmethod
     def parse_line(cls, line: bytes) -> Dict[str, Any]:
-        fields: Dict[str, Any] = dict(
-            (name[0], val.strip())
+        fields: Dict[str, Any] = {
+            name[0]: val.strip()
             for name, val in zip(cls.fields, line.decode().split(","))
-        )
+        }
         fields["proto"] = fields["proto"].lower()
         srv_idx = None
         if fields["proto"] == "icmp":

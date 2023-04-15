@@ -1370,8 +1370,8 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             scan["scaninfo"] = scan.pop("scaninfos")
         scan["sha256"] = utils.decode_hex(scan.pop("_id"))
         insrt = insert(self.tables.scanfile).values(
-            **dict(
-                (key, scan[key])
+            **{
+                key: scan[key]
                 for key in [
                     "sha256",
                     "args",
@@ -1382,7 +1382,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                     "xmloutputversion",
                 ]
                 if key in scan
-            )
+            }
         )
         if config.DEBUG:
             scanfileid = self.db.execute(
@@ -1399,9 +1399,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         self.db.execute(
             update(self.tables.scanfile)
             .where(self.tables.scanfile.sha256 == utils.decode_hex(scan_id))
-            .values(
-                **dict((key, data[key]) for key in ["end", "elapsed"] if key in data)
-            )
+            .values(**{key: data[key] for key in ["end", "elapsed"] if key in data})
         )
 
     def _store_host(self, host):
@@ -1561,11 +1559,11 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                 info=info,
                 time_start=host_tstart,
                 time_stop=host_tstop,
-                **dict(
-                    (key, host.get(key))
+                **{
+                    key: host.get(key)
                     for key in ["state", "state_reason", "state_reason_ttl"]
                     if key in host
-                ),
+                },
             )
             .on_conflict_do_update(
                 index_elements=["addr"],
@@ -1617,7 +1615,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                 insrt.values(scan=scanid, **port)
                 .on_conflict_do_update(
                     index_elements=["scan", "port", "protocol"],
-                    set_=dict(scan=scanid, **(port if newest else {})),
+                    set_={"scan": scanid, **(port if newest else {})},
                 )
                 .returning(self.tables.port.id)
             ).fetchone()[0]

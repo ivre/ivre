@@ -480,7 +480,7 @@ class DB:
         .features_port_list().
 
         """
-        features = dict((f, i) for i, f in enumerate(features))
+        features = {f: i for i, f in enumerate(features)}
         return self._features_port_get(
             features, flt, yieldall, use_service, use_product, use_version
         )
@@ -5403,7 +5403,7 @@ class MetaDB:
 
 db = MetaDB(
     url=config.DB if hasattr(config, "DB") else None,
-    urls=dict(
-        [x[3:].lower(), getattr(config, x)] for x in dir(config) if x.startswith("DB_")
-    ),
+    urls={
+        x[3:].lower(): getattr(config, x) for x in dir(config) if x.startswith("DB_")
+    },
 )

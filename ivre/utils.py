@@ -796,10 +796,10 @@ class FileOpener(BinaryIO):
     def writable(self) -> bool:
         return self.fdesc.writable()
 
-    def write(self, s: bytes) -> int:
+    def write(self, s: bytes) -> int:  # type: ignore[override]
         return self.fdesc.write(s)
 
-    def writelines(self, lines: Iterable[bytes]) -> None:
+    def writelines(self, lines: Iterable[bytes]) -> None:  # type: ignore[override]
         self.fdesc.writelines(lines)
 
 
@@ -2060,7 +2060,7 @@ PUBKEY_TYPES = {
     "dhpublicnumber": "dh",
 }
 
-PUBKEY_REV_TYPES = dict((val, key) for key, val in PUBKEY_TYPES.items())
+PUBKEY_REV_TYPES = {val: key for key, val in PUBKEY_TYPES.items()}
 
 
 def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
@@ -2259,9 +2259,9 @@ else:
                         for key, value in _parse_cert_subject(fdata_str)
                     ]
                     # replace '.' by '_' in keys to produce valid JSON
-                    result[field] = dict(
-                        (key.replace(".", "_"), value) for key, value in flddata
-                    )
+                    result[field] = {
+                        key.replace(".", "_"): value for key, value in flddata
+                    }
                     result["%s_text" % field] = "/".join(
                         "%s=%s" % item for item in flddata
                     )
@@ -2460,7 +2460,8 @@ def download_if_newer(
 
     """
     if processor is None:
-        processor = shutil.copyfileobj
+        processor = shutil.copyfileobj  # type: ignore[assignment]
+    assert processor is not None
     opener = build_opener()
     opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
     try:

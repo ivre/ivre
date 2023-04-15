@@ -261,15 +261,11 @@ class PassiveCSVFile(CSVFile):
                 line[key] = "".join(
                     chr(c) if 32 <= c <= 126 else "\\x%02x" % c for c in value
                 ).replace("\\", "\\\\")
-        line["info"] = "%s" % json.dumps(
-            dict((key, line.pop(key)) for key in list(line) if key in self.info_fields),
+        line["info"] = json.dumps(
+            {key: line.pop(key) for key in list(line) if key in self.info_fields}
         ).replace("\\", "\\\\")
-        line["moreinfo"] = "%s" % json.dumps(
-            dict(
-                (key, line.pop(key))
-                for key in list(line)
-                if key not in self.table.columns
-            ),
+        line["moreinfo"] = json.dumps(
+            {key: line.pop(key) for key in list(line) if key not in self.table.columns}
         ).replace("\\", "\\\\")
         return [
             "\\N" if line.get(col.name) is None else str(line.get(col.name))
@@ -405,9 +401,7 @@ class SQLDB(DB):
 
     @staticmethod
     def fmt_results(fields, result):
-        return dict(
-            (fld, value) for fld, value in zip(fields, result) if value is not None
-        )
+        return {fld: value for fld, value in zip(fields, result) if value is not None}
 
     @classmethod
     def searchobjectid(cls, oid, neg=False):
@@ -1645,11 +1639,11 @@ class SQLDBActive(SQLDB, DBActive):
                         ]
                     ).where(self.tables.script.port == portid)
                 ):
-                    data = dict(
-                        id=script.name,
-                        output=script.output,
+                    data = {
+                        "id": script.name,
+                        "output": script.output,
                         **(script.data if script.data else {}),
-                    )
+                    }
                     if "ssl-cert" in data:
                         for cert in data["ssl-cert"]:
                             for fld in ["not_before", "not_after"]:
@@ -1672,10 +1666,10 @@ class SQLDBActive(SQLDB, DBActive):
                     .where(self.tables.hop.trace == trace["id"])
                     .order_by(self.tables.hop.ttl)
                 ):
-                    values = dict(
-                        (key, hop[key])
+                    values = {
+                        key: hop[key]
                         for key in ["ipaddr", "ttl", "rtt", "host", "domains"]
-                    )
+                    }
                     try:
                         values["ipaddr"] = self.internal2ip(values["ipaddr"])
                     except ValueError:
@@ -1687,7 +1681,7 @@ class SQLDBActive(SQLDB, DBActive):
                 )
             ):
                 rec.setdefault("hostnames", []).append(
-                    dict((key, hostname[key]) for key in ["name", "type", "domains"])
+                    {key: hostname[key] for key in ["name", "type", "domains"]}
                 )
             yield rec
 
@@ -2816,7 +2810,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         """
         req = self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields)
         for rec in self.db.execute(req):
-            rec = dict((key, value) for key, value in rec.items() if value is not None)
+            rec = {key: value for key, value in rec.items() if value is not None}
             try:
                 rec["addr"] = self.internal2ip(rec["addr"])
             except (KeyError, ValueError):
@@ -2877,15 +2871,15 @@ class SQLDBPassive(SQLDB, DBPassive):
                     spec[fld] = spec[fld].timestamp()
                 elif isinstance(spec[fld], str):
                     spec[fld] = utils.all2datetime(spec[fld]).timestamp()
-        otherfields = dict(
-            (key, spec.pop(key, ""))
+        otherfields = {
+            key: spec.pop(key, "")
             for key in ["sensor", "source", "targetval", "recontype", "value"]
-        )
-        info = dict(
-            (key, spec.pop(key))
+        }
+        info = {
+            key: spec.pop(key)
             for key in ["distance", "signature", "version"]
             if key in spec
-        )
+        }
         vals = {
             "addr": addr,
             # sensor: otherfields
