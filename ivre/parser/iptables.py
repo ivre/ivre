@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -58,13 +58,13 @@ class Iptables(Parser):
             return next(self)
 
         # Converts the syslog iptables log into hash
-        fields: Dict[str, Any] = dict(
-            (key.decode().lower(), value.decode())
+        fields: Dict[str, Any] = {
+            key.decode().lower(): value.decode()
             for key, value in (
                 val.split(b"=", 1) if b"=" in val else (val, b"")
                 for val in line[field_idx:].rstrip(b"\r\n").split()
             )
-        )
+        }
 
         try:
             fields["start_time"] = datetime.datetime.strptime(

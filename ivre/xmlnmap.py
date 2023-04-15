@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -2056,7 +2056,7 @@ class NmapHandler(ContentHandler):
                     "self._curscript should be None at this point (got %r)",
                     self._curscript,
                 )
-            self._curscript = dict([attr, attrs[attr]] for attr in attrs.keys())
+            self._curscript = {attr: attrs[attr] for attr in attrs.keys()}
         elif name in ["table", "elem"]:
             if self._curscript.get("id") in IGNORE_TABLE_ELEMS:
                 return

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -66,10 +66,10 @@ class Argus(CmdParser):
 
     @classmethod
     def parse_line(cls, line: bytes) -> Dict[str, Any]:
-        fields: Dict[str, Any] = dict(
-            (name, val.strip().decode())
+        fields: Dict[str, Any] = {
+            name: val.strip().decode()
             for name, val in zip(cls.fields, line.split(b","))
-        )
+        }
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(

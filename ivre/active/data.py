@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1363,10 +1363,10 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
     # We want to make sure of (type, name) unicity
-    hostnames = dict(
-        ((h["type"], h["name"]), h.get("domains"))
+    hostnames = {
+        (h["type"], h["name"]): h.get("domains")
         for h in (rec1.get("hostnames", []) + rec2.get("hostnames", []))
-    )
+    }
     rec["hostnames"] = [
         {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
     ]
@@ -1398,10 +1398,10 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
         rec["extraports"] = rec1["extraports"]
     elif "extraports" in rec2 and "extraports" not in rec1:
         rec["extraports"] = rec2["extraports"]
-    ports = dict(
-        ((port.get("protocol"), port["port"]), port.copy())
+    ports = {
+        (port.get("protocol"), port["port"]): port.copy()
         for port in rec2.get("ports", [])
-    )
+    }
     for port in rec1.get("ports", []):
         if (port.get("protocol"), port["port"]) in ports:
             curport = ports[(port.get("protocol"), port["port"])]
@@ -1504,9 +1504,9 @@ def create_http_ls(data: bytes, volname: str = "???") -> Optional[NmapScript]:
         for i, t in enumerate(title[:-1]):
             column_width[i] = max(column_width[i], len(fobj.get(t, "-")))
     line_fmt = "%%(size)-%ds  %%(time)-%ds  %%(filename)s" % tuple(column_width)
-    output.append(line_fmt % dict((t, t.upper()) for t in title))
+    output.append(line_fmt % {t: t.upper() for t in title})
     for fobj in files:
-        output.append(line_fmt % dict({"size": "-", "time": "-"}, **fobj))
+        output.append(line_fmt % {"size": "-", "time": "-", **fobj})
     output.append("")
     return {
         "id": "http-ls",

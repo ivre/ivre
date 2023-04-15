@@ -3172,7 +3172,7 @@ class MongoDBActive(MongoDB, DBActive):
             ("product", product),
             ("version", version),
         ]
-        flt = dict((field, value) for field, value in fields if value is not None)
+        flt = {field: value for field, value in fields if value is not None}
         nflt = len(flt)
         if nflt == 0:
             return {"cpes": {"$exists": True}}
@@ -3665,7 +3665,7 @@ class MongoDBActive(MongoDB, DBActive):
                     for key, value in cpeflt
                 )
             )
-            cpeflt2 = dict(("cpes.%s" % key, value) for key, value in cpeflt)
+            cpeflt2 = {f"cpes.{key}": value for key, value in cpeflt}
             # We need to keep enough cpes.* fields for the projection
             # *and* for our filter
             fields = fields[: max(fields.index(field), len(cpeflt2)) + 1]
