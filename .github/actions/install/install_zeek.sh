@@ -47,4 +47,4 @@ for env_val in "ZEEKPATH=.:$(pwd)/usr/local/zeek/share/zeek:$(pwd)/usr/local/zee
     export "${env_val?}"
 done
 
-LD_LIBRARY_PATH="$(pwd)/usr/local/zeek/lib zeek --version"
+LD_LIBRARY_PATH="$(pwd)/usr/local/zeek/lib" zeek --version
