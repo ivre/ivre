@@ -58,10 +58,11 @@ RUN ln -s /usr/sbin/php-fpm?* /usr/sbin/php-fpm
 RUN sed -i 's/^listen *=.*/listen = 0.0.0.0:8000/' /etc/php/*/fpm/pool.d/www.conf
 
 EXPOSE 8000
-CMD [ -d "/var/www/dokuwiki/data/media/wiki" ] || \
-    # on first run, populate /var/www/dokuwiki/data
-    cp -rp  /var/www/dokuwiki/data-base/* /var/www/dokuwiki/data && \
-    cp -rp /var/www/dokuwiki/lib /var/www/dokuwiki/data/lib && \
+CMD [ -d "/var/www/dokuwiki/data/media/wiki" ] || (\
+        # on first run, populate /var/www/dokuwiki/data
+        cp -rp  /var/www/dokuwiki/data-base/* /var/www/dokuwiki/data && \
+        cp -rp /var/www/dokuwiki/lib /var/www/dokuwiki/data/lib \
+    ) && \
     mkdir -p /run/php && \
     chown -Rh www-data:www-data /var/www/dokuwiki/data && \
     /usr/sbin/php-fpm7.4 -F
