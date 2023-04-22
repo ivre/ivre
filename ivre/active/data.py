@@ -1290,7 +1290,12 @@ def merge_scripts(
     return func(curscript, script, script_id)
 
 
-def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
+def merge_host_docs(
+    rec1: NmapHost,
+    rec2: NmapHost,
+    auto_tags: bool = True,
+    openports_attribute: bool = True,
+) -> NmapHost:
     """Merge two host records and return the result. Unmergeable /
     hard-to-merge fields are lost (e.g., extraports).
 
@@ -1451,8 +1456,10 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
             port.get("port"),
         ),
     )
-    set_auto_tags(rec, update_openports=False)
-    set_openports_attribute(rec)
+    if auto_tags:
+        set_auto_tags(rec, update_openports=False)
+    if openports_attribute:
+        set_openports_attribute(rec)
     for field in ["traces", "infos", "ports", "cpes"]:
         if not rec[field]:
             del rec[field]

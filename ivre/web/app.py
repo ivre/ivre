@@ -36,6 +36,7 @@ from functools import wraps
 from bottle import Bottle, abort, request, response
 
 from ivre import VERSION, config, utils
+from ivre.active.data import set_auto_tags, set_openports_attribute
 from ivre.db import db
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
@@ -744,6 +745,13 @@ def import_files(subdb, source, categories, files):
             result = nmap_record_to_view(x)
             set_auto_tags(result, update_openports=False)
             set_openports_attribute(result)
+            result["infos"] = {}
+            for func in [
+                db.data.country_byip,
+                db.data.as_byip,
+                db.data.location_byip,
+            ]:
+                result["infos"].update(func(result["addr"]) or {})
             db.view.store_or_merge_host(result)
 
         db.view.start_store_hosts()

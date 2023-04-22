@@ -40,13 +40,12 @@ from ivre.active.data import (
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
-    set_auto_tags,
 )
 from ivre.analyzer import dicom, ike, ja3
 from ivre.config import MASSCAN_PROBES
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -2168,7 +2167,6 @@ class NmapHandler(ContentHandler):
                     # hosts with an open port are marked as up by
                     # default (masscan)
                     self._curhost["state"] = "up"
-                set_auto_tags(self._curhost)
                 self._pre_addhost()
                 self._addhost()
             self._curhost = None
@@ -2702,7 +2700,6 @@ class Nmap2DB(NmapHandler):
         categories=None,
         source=None,
         callback=None,
-        add_addr_infos=True,
         **kargs,
     ):
         self._db = db
@@ -2710,7 +2707,6 @@ class Nmap2DB(NmapHandler):
             self.categories = []
         else:
             self.categories = categories
-        self._add_addr_infos = add_addr_infos
         self.source = source
         self.callback = callback
         NmapHandler.__init__(
@@ -2718,7 +2714,6 @@ class Nmap2DB(NmapHandler):
             fname,
             categories=categories,
             source=source,
-            add_addr_infos=add_addr_infos,
             **kargs,
         )
 
@@ -2731,14 +2726,6 @@ class Nmap2DB(NmapHandler):
     def _addhost(self):
         if self.categories:
             self._curhost["categories"] = self.categories[:]
-        if self._add_addr_infos:
-            self._curhost["infos"] = {}
-            for func in [
-                self._db.data.country_byip,
-                self._db.data.as_byip,
-                self._db.data.location_byip,
-            ]:
-                self._curhost["infos"].update(func(self._curhost["addr"]) or {})
         if self.source:
             self._curhost["source"] = self.source
         # We are about to insert data based on this file, so we want

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -302,15 +302,15 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(
                 flt, dbase.searchcategory(utils.str2regexp(value), neg=neg)
             )
-        elif param == "country":
+        elif param == "country" and hasattr(dbase, "searchcountry"):
             flt = dbase.flt_and(
                 flt, dbase.searchcountry(utils.str2list(value.upper()), neg=neg)
             )
-        elif param == "city":
+        elif param == "city" and hasattr(dbase, "searchcity"):
             flt = dbase.flt_and(flt, dbase.searchcity(utils.str2regexp(value), neg=neg))
-        elif param == "asnum":
+        elif param == "asnum" and hasattr(dbase, "searchasnum"):
             flt = dbase.flt_and(flt, dbase.searchasnum(utils.str2list(value), neg=neg))
-        elif param == "asname":
+        elif param == "asname" and hasattr(dbase, "searchasname"):
             flt = dbase.flt_and(
                 flt, dbase.searchasname(utils.str2regexp(value), neg=neg)
             )
@@ -776,7 +776,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchcpe(**cpe_kwargs))
             else:
                 flt = dbase.flt_and(flt, dbase.searchcpe())
-        elif param == "tag":
+        elif param == "tag" and hasattr(dbase, "searchtag"):
             if value:
                 if ":" in value:
                     tag_val, tag_info = value.split(":", 1)

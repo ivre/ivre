@@ -51,7 +51,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, flow, geoiputils, nmapout, passive, utils, xmlnmap
+from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
@@ -61,7 +61,6 @@ from ivre.active.data import (
     handle_http_headers,
     merge_host_docs,
     set_auto_tags,
-    set_openports_attribute,
 )
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.zgrabout import ZGRAB_PARSERS
@@ -100,14 +99,6 @@ class DB:
         self.argparser = ArgumentParser(add_help=False)
         self.argparser.add_argument(
             "--category", metavar="CAT", help="show only results from this category"
-        )
-        self.argparser.add_argument(
-            "--country", metavar="CODE", help="show only results from this country"
-        )
-        self.argparser.add_argument(
-            "--asnum",
-            metavar="NUM[,NUM[...]]",
-            help="show only results from this(those) AS(es)",
         )
         self.argparser.add_argument("--port", metavar="PORT")
         self.argparser.add_argument("--service", metavar="SVC[:PORT]")
@@ -150,15 +141,6 @@ class DB:
             flt = self.flt_empty
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(utils.str2list(args.category)))
-        if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
-        if args.asnum is not None:
-            if args.asnum[:1] in "!-":
-                flt = self.flt_and(
-                    flt, self.searchasnum(utils.str2list(args.asnum[1:]), neg=True)
-                )
-            else:
-                flt = self.flt_and(flt, self.searchasnum(utils.str2list(args.asnum)))
         if args.port is not None:
             port = args.port.replace("_", "/")
             if "/" in port:
@@ -958,16 +940,11 @@ class DBActive(DB):
                 18: (19, self.__migrate_schema_hosts_18_19),
                 19: (20, self.__migrate_schema_hosts_19_20),
                 20: (21, self.__migrate_schema_hosts_20_21),
+                21: (22, self.__migrate_schema_hosts_21_22),
             },
         }
         self.argparser.add_argument(
-            "--asname", metavar="NAME", help="show only results from this(those) AS(es)"
-        )
-        self.argparser.add_argument(
             "--source", metavar="SRC", help="show only results from this source"
-        )
-        self.argparser.add_argument(
-            "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
         )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
@@ -1520,7 +1497,7 @@ class DBActive(DB):
 
     @staticmethod
     def __migrate_schema_hosts_20_21(doc):
-        """Converts a record from version 20 to version 21. Version 20
+        """Converts a record from version 20 to version 21. Version 21
         introduces a structured output for data from ssl-jarm.
 
         """
@@ -1532,6 +1509,15 @@ class DBActive(DB):
                     if script.get("output"):
                         script["ssl-jarm"] = script["output"].strip()
         return doc
+
+    @staticmethod
+    def __migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        changes only for the scans (Nmap) purpose.
+
+        """
+        assert doc["schema_version"] == 21
+        doc["schema_version"] = 22
 
     @staticmethod
     def json2dbrec(host):
@@ -1952,24 +1938,11 @@ class DBActive(DB):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
-        if not hasattr(args, "asname"):
+        if not hasattr(args, "source"):
             # This is not from DBActive, probably from DB
             return flt
-        if args.asname is not None:
-            flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
-        if args.tag is not None:
-            tag = {}
-            if ":" in args.tag:
-                value, info = args.tag.split(":", 1)
-                if value:
-                    tag["value"] = utils.str2regexp(value)
-                if info:
-                    tag["info"] = utils.str2regexp(info)
-            elif args.tag:
-                tag["value"] = utils.str2regexp(args.tag)
-            flt = self.flt_and(flt, self.searchtag(tag))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
@@ -2122,10 +2095,26 @@ class DBNmap(DBActive):
 
     def __init__(self, output_mode="json", output=sys.stdout):
         super().__init__()
+        self._schema_migrations["hosts"][21] = (22, self.__migrate_schema_hosts_21_22)
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
         self.output = output
+
+    @staticmethod
+    def __migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        for the scans (Nmap) purpose remove the infos and tags fields
+        (they are only used in the View purpose).
+
+        """
+        assert doc["schema_version"] == 21
+        doc["schema_version"] = 22
+        for key in ["infos", "tags"]:
+            try:
+                del doc[key]
+            except KeyError:
+                pass
 
     def store_host(self, host):
         if self.output_function is not None:
@@ -2241,8 +2230,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2277,18 +2264,6 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # Update schema if/as needed.
                 while host.get("schema_version") in self._schema_migrations["hosts"]:
                     oldvers = host.get("schema_version")
@@ -2320,8 +2295,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         zgrab_port=None,
         **_,
@@ -2410,8 +2383,6 @@ class DBNmap(DBActive):
                             host.setdefault("ports", []).append(port)
                 if not host.get("ports"):
                     continue
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if "cpes" in host:
                     host["cpes"] = list(host["cpes"].values())
                     for cpe in host["cpes"]:
@@ -2427,18 +2398,6 @@ class DBNmap(DBActive):
                     )
                 ):
                     continue
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -2458,8 +2417,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2518,18 +2475,6 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -2549,8 +2494,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2606,18 +2549,6 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
-                    if (
-                        add_addr_infos
-                        and self.globaldb is not None
-                        and (force_info or "infos" not in host or not host["infos"])
-                    ):
-                        host["infos"] = {}
-                        for func in [
-                            self.globaldb.data.country_byip,
-                            self.globaldb.data.as_byip,
-                            self.globaldb.data.location_byip,
-                        ]:
-                            host["infos"].update(func(host["addr"]) or {})
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
                     if not scan_doc_saved:
@@ -2637,8 +2568,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         masscan_probes=None,
         **_,
@@ -2745,20 +2674,7 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                set_openports_attribute(host)
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -2814,8 +2730,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2864,18 +2778,6 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
-                    if (
-                        add_addr_infos
-                        and self.globaldb is not None
-                        and (force_info or "infos" not in host or not host["infos"])
-                    ):
-                        host["infos"] = {}
-                        for func in [
-                            self.globaldb.data.country_byip,
-                            self.globaldb.data.as_byip,
-                            self.globaldb.data.location_byip,
-                        ]:
-                            host["infos"].update(func(host["addr"]) or {})
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
                     if not scan_doc_saved:
@@ -2901,8 +2803,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3109,25 +3009,11 @@ class DBNmap(DBActive):
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
                         "T", " "
                     )
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -3147,8 +3033,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3232,25 +3116,11 @@ class DBNmap(DBActive):
                 # remaining fields (TODO): path body-sha256
                 # header-sha256 url content-type method content-length
                 # status-code response-time failed
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -3270,8 +3140,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3386,25 +3254,11 @@ class DBNmap(DBActive):
                         }
                     )
                 # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -3424,8 +3278,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3552,25 +3404,11 @@ class DBNmap(DBActive):
                 # os
                 # _shodan / opts.raw
                 # tags (["cloud"]) / cloud
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
@@ -3590,8 +3428,6 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3760,21 +3596,11 @@ class DBNmap(DBActive):
                     )
             # remaining fields / TODO:
             # banner.string note path uri
-            set_auto_tags(host, update_openports=False)
-            set_openports_attribute(host)
             if categories:
                 host["categories"] = categories
             if source is not None:
                 host["source"] = source
             host = self.json2dbrec(host)
-            if add_addr_infos and self.globaldb is not None:
-                host["infos"] = {}
-                for func in [
-                    self.globaldb.data.country_byip,
-                    self.globaldb.data.as_byip,
-                    self.globaldb.data.location_byip,
-                ]:
-                    host["infos"].update(func(host["addr"]) or {})
             # We are about to insert data based on this file,
             # so we want to save the scan document
             if not scan_doc_saved:
@@ -3799,6 +3625,20 @@ class DBView(DBActive):
 
     def __init__(self):
         super().__init__()
+        self.argparser.add_argument(
+            "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
+        )
+        self.argparser.add_argument(
+            "--country", metavar="CODE", help="show only results from this country"
+        )
+        self.argparser.add_argument(
+            "--asname", metavar="NAME", help="show only results from this(those) AS(es)"
+        )
+        self.argparser.add_argument(
+            "--asnum",
+            metavar="NUM[,NUM[...]]",
+            help="show only results from this(those) AS(es)",
+        )
         if hasattr(self, "searchtext"):
             self.argparser.add_argument(
                 "--search", metavar="FREE TEXT", help="perform a full-text search"
@@ -3820,9 +3660,31 @@ class DBView(DBActive):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
-        if not hasattr(args, "ssl_ja3_client"):
+        if not hasattr(args, "tag"):
             # This is not from DBView, probably from DB
             return flt
+        if args.tag is not None:
+            tag = {}
+            if ":" in args.tag:
+                value, info = args.tag.split(":", 1)
+                if value:
+                    tag["value"] = utils.str2regexp(value)
+                if info:
+                    tag["info"] = utils.str2regexp(info)
+            elif args.tag:
+                tag["value"] = utils.str2regexp(args.tag)
+            flt = self.flt_and(flt, self.searchtag(tag))
+        if args.asname is not None:
+            flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
+        if args.asnum is not None:
+            if args.asnum[:1] in "!-":
+                flt = self.flt_and(
+                    flt, self.searchasnum(utils.str2list(args.asnum[1:]), neg=True)
+                )
+            else:
+                flt = self.flt_and(flt, self.searchasnum(utils.str2list(args.asnum)))
+        if args.country is not None:
+            flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
         if hasattr(self, "searchtext") and args.search is not None:
             flt = self.flt_and(flt, self.searchtext(args.search))
         if args.ssl_ja3_client is not None:
@@ -4290,12 +4152,6 @@ class DBPassive(DB):
 
     def _search_field_exists(self, field):
         raise NotImplementedError
-
-    def searchcountry(self, code, neg=False):
-        return self.searchranges(geoiputils.get_ranges_by_country(code), neg=neg)
-
-    def searchasnum(self, asnum, neg=False):
-        return self.searchranges(geoiputils.get_ranges_by_asnum(asnum), neg=neg)
 
     @classmethod
     def searchranges(cls, ranges, neg=False):

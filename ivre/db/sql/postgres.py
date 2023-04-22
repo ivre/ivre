@@ -1147,21 +1147,21 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     ),
                 ),
             )
-        elif field == "tag":
+        elif field == "tag" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = self._topstructure(
                 self.tables.tag, [self.tables.tag.value, self.tables.tag.info]
             )
-        elif field == "tag.value":
+        elif field == "tag.value" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = self._topstructure(self.tables.tag, [self.tables.tag.value])
-        elif field == "tag.info":
+        elif field == "tag.info" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = self._topstructure(self.tables.tag, [self.tables.tag.info])
-        elif field == "tag.type":
+        elif field == "tag.type" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = self._topstructure(self.tables.tag, [self.tables.tag.type])
-        elif field.startswith("tag:"):
+        elif field.startswith("tag:") and hasattr(self, "searchtag"):
             subfield = field[4:]
             flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
             field = self._topstructure(

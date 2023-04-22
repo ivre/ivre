@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -306,7 +306,7 @@ class ElasticDBActive(ElasticDB, DBActive):
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
-        if field == "infos.coordinates":
+        if field == "infos.coordinates" and hasattr(self, "searchhaslocation"):
 
             def fix_result(value):
                 return tuple(float(v) for v in value.split(", "))
@@ -341,39 +341,6 @@ class ElasticDBActive(ElasticDB, DBActive):
             )
             for value in result["aggregations"]["values"]["buckets"]:
                 yield fix_result(value["key"][field])
-            if "after_key" not in result["aggregations"]["values"]:
-                break
-            query["after"] = result["aggregations"]["values"]["after_key"]
-
-    def getlocations(self, flt):
-        query = {
-            "size": PAGESIZE,
-            "sources": [
-                {
-                    "coords": {
-                        "terms": {
-                            "script": {
-                                "lang": "painless",
-                                "source": "doc['infos.coordinates'].value",
-                            }
-                        }
-                    }
-                }
-            ],
-        }
-        flt = self.flt_and(flt & self.searchhaslocation())
-        while True:
-            result = self.db_client.search(
-                body={"query": flt.to_dict(), "aggs": {"values": {"composite": query}}},
-                index=self.indexes[0],
-                ignore_unavailable=True,
-                size=0,
-            )
-            for value in result["aggregations"]["values"]["buckets"]:
-                yield {
-                    "_id": tuple(float(v) for v in value["key"]["coords"].split(", ")),
-                    "count": value["doc_count"],
-                }
             if "after_key" not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
@@ -1212,7 +1179,7 @@ return result;
                     }
                 },
             }
-        elif field == "tag":
+        elif field == "tag" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
 
             def outputproc(value):
@@ -1232,10 +1199,10 @@ return result;
                     }
                 },
             }
-        elif field.startswith("tag."):
+        elif field.startswith("tag.") and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = {"field": f"tags.{field[4:]}"}
-        elif field.startswith("tag:"):
+        elif field.startswith("tag:") and hasattr(self, "searchtag"):
             subfield = field[4:]
             flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
             nested = {
@@ -1292,86 +1259,6 @@ return result;
             res = Q("regexp", categories=cls._get_pattern(cat))
         else:
             res = Q("match", categories=cat)
-        if neg:
-            return ~res
-        return res
-
-    @classmethod
-    def searchtag(cls, tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            res = Q("exists", field="tags.value")
-            if neg:
-                return ~res
-            return res
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        all_res = []
-        for key, value in tag.items():
-            if isinstance(value, list) and len(value) == 1:
-                value = value[0]
-            if isinstance(value, list):
-                res = Q("terms", **{f"tags.{key}": value})
-            elif isinstance(value, utils.REGEXP_T):
-                res = Q("regexp", **{f"tags.{key}": cls._get_pattern(value)})
-            else:
-                res = Q("match", **{f"tags.{key}": value})
-            if neg:
-                all_res.append(~res)
-            else:
-                all_res.append(res)
-        if neg:
-            return cls.flt_or(
-                ~Q("exists", field="tags.value"),
-                Q("nested", path="tags", query=cls.flt_or(*all_res)),
-            )
-        return Q("nested", path="tags", query=cls.flt_and(*all_res))
-
-    @staticmethod
-    def searchcountry(country, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        country, or a list of countries.
-
-        """
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            res = Q("terms", infos__country_code=country)
-        else:
-            res = Q("match", infos__country_code=country)
-        if neg:
-            return ~res
-        return res
-
-    @staticmethod
-    def searchasnum(asnum, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
-        """
-        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            res = Q("terms", infos__as_num=[int(val) for val in asnum])
-        else:
-            res = Q("match", infos__as_num=int(asnum))
-        if neg:
-            return ~res
-        return res
-
-    @classmethod
-    def searchasname(cls, asname, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS.
-
-        """
-        if isinstance(asname, utils.REGEXP_T):
-            res = Q("regexp", infos__as_name=cls._get_pattern(asname))
-        else:
-            res = Q("match", infos__as_name=asname)
         if neg:
             return ~res
         return res
@@ -1712,3 +1599,116 @@ class ElasticDBView(ElasticDBActive, DBView):
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            res = Q("exists", field="tags.value")
+            if neg:
+                return ~res
+            return res
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        all_res = []
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, list):
+                res = Q("terms", **{f"tags.{key}": value})
+            elif isinstance(value, utils.REGEXP_T):
+                res = Q("regexp", **{f"tags.{key}": cls._get_pattern(value)})
+            else:
+                res = Q("match", **{f"tags.{key}": value})
+            if neg:
+                all_res.append(~res)
+            else:
+                all_res.append(res)
+        if neg:
+            return cls.flt_or(
+                ~Q("exists", field="tags.value"),
+                Q("nested", path="tags", query=cls.flt_or(*all_res)),
+            )
+        return Q("nested", path="tags", query=cls.flt_and(*all_res))
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            res = Q("terms", infos__country_code=country)
+        else:
+            res = Q("match", infos__country_code=country)
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
+            res = Q("terms", infos__as_num=[int(val) for val in asnum])
+        else:
+            res = Q("match", infos__as_num=int(asnum))
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        if isinstance(asname, utils.REGEXP_T):
+            res = Q("regexp", infos__as_name=cls._get_pattern(asname))
+        else:
+            res = Q("match", infos__as_name=asname)
+        if neg:
+            return ~res
+        return res
+
+    def getlocations(self, flt):
+        query = {
+            "size": PAGESIZE,
+            "sources": [
+                {
+                    "coords": {
+                        "terms": {
+                            "script": {
+                                "lang": "painless",
+                                "source": "doc['infos.coordinates'].value",
+                            }
+                        }
+                    }
+                }
+            ],
+        }
+        flt = self.flt_and(flt & self.searchhaslocation())
+        while True:
+            result = self.db_client.search(
+                body={"query": flt.to_dict(), "aggs": {"values": {"composite": query}}},
+                index=self.indexes[0],
+                ignore_unavailable=True,
+                size=0,
+            )
+            for value in result["aggregations"]["values"]["buckets"]:
+                yield {
+                    "_id": tuple(float(v) for v in value["key"]["coords"].split(", ")),
+                    "count": value["doc_count"],
+                }
+            if "after_key" not in result["aggregations"]["values"]:
+                break
+            query["after"] = result["aggregations"]["values"]["after_key"]

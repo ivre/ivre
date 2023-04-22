@@ -834,13 +834,6 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {},
             ),
-            (
-                [
-                    ("tags.value", pymongo.ASCENDING),
-                    ("tags.info", pymongo.ASCENDING),
-                ],
-                {"sparse": True},
-            ),
             ([("hostnames.domains", pymongo.ASCENDING)], {}),
             ([("traces.hops.domains", pymongo.ASCENDING)], {}),
             ([("openports.count", pymongo.ASCENDING)], {}),
@@ -1006,7 +999,6 @@ class MongoDBActive(MongoDB, DBActive):
                 [("ports.scripts.ntlm-info.Product_Version", pymongo.ASCENDING)],
                 {"sparse": True},
             ),
-            ([("infos.as_num", pymongo.ASCENDING)], {}),
             (
                 [
                     ("traces.hops.ipaddr_0", pymongo.ASCENDING),
@@ -1015,14 +1007,6 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"name": "ivre.hosts.$traces.$hops"},
             ),
-            (
-                [
-                    ("infos.country_code", pymongo.ASCENDING),
-                    ("infos.city", pymongo.ASCENDING),
-                ],
-                {},
-            ),
-            ([("infos.loc", pymongo.GEOSPHERE)], {}),
             (
                 [
                     ("cpes.type", pymongo.ASCENDING),
@@ -1296,6 +1280,7 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ]
             },
+            22: {},  # needed for MongoDBNmap
         },
     ]
     schema_latest_versions = [
@@ -1329,6 +1314,7 @@ class MongoDBActive(MongoDB, DBActive):
                 18: (19, self.migrate_schema_hosts_18_19),
                 19: (20, self.migrate_schema_hosts_19_20),
                 20: (21, self.migrate_schema_hosts_20_21),
+                21: (22, self.migrate_schema_hosts_21_22),
             },
         ]
 
@@ -1951,7 +1937,7 @@ class MongoDBActive(MongoDB, DBActive):
 
     @staticmethod
     def migrate_schema_hosts_20_21(doc):
-        """Converts a record from version 20 to version 21. Version 20
+        """Converts a record from version 20 to version 21. Version 21
         introduces a structured output for data from ssl-jarm.
 
         """
@@ -1967,6 +1953,15 @@ class MongoDBActive(MongoDB, DBActive):
         if updated:
             update["$set"]["ports"] = doc["ports"]
         return update
+
+    @staticmethod
+    def migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        changes only for the scans (Nmap) purpose.
+
+        """
+        assert doc["schema_version"] == 21
+        return {"$set": {"schema_version": 22}}
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
@@ -2135,19 +2130,6 @@ class MongoDBActive(MongoDB, DBActive):
                 {"_id": host["_id"]}, {"$set": {"ports": host["ports"]}}
             )
 
-    def getlocations(self, flt):
-        col = self.db[self.columns[self.column_hosts]]
-        pipeline = [
-            {"$match": self.flt_and(flt, self.searchhaslocation())},
-            {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
-            {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
-        ]
-        log_pipeline(pipeline)
-        return (
-            {"_id": tuple(rec["_id"][::-1]), "count": rec["count"]}
-            for rec in col.aggregate(pipeline, cursor={})
-        )
-
     def get_ips_ports(self, flt, limit=None, skip=None):
         cur = self._get(
             flt,
@@ -2255,23 +2237,6 @@ class MongoDBActive(MongoDB, DBActive):
     def remove_many(self, flt):
         """Removes hosts from the active column, based on the filter `flt`."""
         self.db[self.columns[self.column_hosts]].delete_many(flt)
-
-    def apply_auto_tags(self, flt):
-        fields = {"tags", "ports", "openports"}
-        for rec in self.get(flt):
-            orig = {fld: deepcopy(rec.get(fld)) for fld in fields}
-            set_auto_tags(rec)
-            updatespec = {}
-            for fld in fields:
-                if orig[fld] != rec.get(fld):
-                    if not rec.get(fld):
-                        updatespec.setdefault("$unset", {})[fld] = ""
-                    else:
-                        updatespec.setdefault("$set", {})[fld] = rec[fld]
-            if updatespec:
-                self.db[self.columns[self.column_hosts]].update_one(
-                    {"_id": rec["_id"]}, updatespec
-                )
 
     def store_or_merge_host(self, host):
         raise NotImplementedError
@@ -2483,115 +2448,6 @@ class MongoDBActive(MongoDB, DBActive):
             else:
                 return {"categories": {"$in": cat}}
         return {"categories": cat}
-
-    @staticmethod
-    def searchtag(tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            return {"tags.value": {"$exists": not neg}}
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        req = {}
-        for key, value in tag.items():
-            if isinstance(value, list) and len(value) == 1:
-                value = value[0]
-            if isinstance(value, utils.REGEXP_T):
-                if neg:
-                    req[key] = {"$not": value}
-                else:
-                    req[key] = value
-            elif isinstance(value, list):
-                if neg:
-                    req[key] = {"$nin": value}
-                else:
-                    req[key] = {"$in": value}
-            else:
-                if neg:
-                    req[key] = {"$ne": value}
-                else:
-                    req[key] = value
-        if len(req) == 1:
-            if neg:
-                # Either no tag at all, or no matching tag
-                return {
-                    "$or": [
-                        {"tags.value": {"$exists": False}},
-                        {f"tags.{key}": value for key, value in req.items()},
-                    ]
-                }
-            return {f"tags.{key}": value for key, value in req.items()}
-        if neg:
-            # Either no tag at all, or no matching tag
-            return {
-                "$or": [
-                    {"tags.value": {"$exists": False}},
-                    {
-                        "tags": {
-                            "$elemMatch": {
-                                "$or": [{key: value} for key, value in req.items()]
-                            }
-                        }
-                    },
-                ]
-            }
-        return {"tags": {"$elemMatch": req}}
-
-    @staticmethod
-    def searchcountry(country, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        country, or a list of countries.
-
-        """
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            return {"infos.country_code": {"$nin" if neg else "$in": country}}
-        return {"infos.country_code": {"$ne": country} if neg else country}
-
-    @staticmethod
-    def searchhaslocation(neg=False):
-        return {"infos.loc": {"$exists": not neg}}
-
-    @staticmethod
-    def searchcity(city, neg=False):
-        """
-        Filters (if `neg` == True, filters out) one particular city.
-        """
-        if neg:
-            if isinstance(city, utils.REGEXP_T):
-                return {"infos.city": {"$not": city}}
-            return {"infos.city": {"$ne": city}}
-        return {"infos.city": city}
-
-    @staticmethod
-    def searchasnum(asnum, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
-        """
-        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            return {
-                "infos.as_num": {"$nin" if neg else "$in": [int(val) for val in asnum]}
-            }
-        asnum = int(asnum)
-        return {"infos.as_num": {"$ne": asnum} if neg else asnum}
-
-    @staticmethod
-    def searchasname(asname, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS.
-
-        """
-        if neg:
-            if isinstance(asname, utils.REGEXP_T):
-                return {"infos.as_name": {"$not": asname}}
-            return {"infos.as_name": {"$ne": asname}}
-        return {"infos.as_name": asname}
 
     @staticmethod
     def searchsource(src, neg=False):
@@ -4226,7 +4082,7 @@ class MongoDBActive(MongoDB, DBActive):
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
-        elif field == "tag":
+        elif field == "tag" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             specialproj = {
                 "_id": 0,
@@ -4242,10 +4098,10 @@ class MongoDBActive(MongoDB, DBActive):
                     "_id": (x["_id"]["value"], x["_id"].get("info")),
                 }
 
-        elif field.startswith("tag."):
+        elif field.startswith("tag.") and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = f"tags.{field[4:]}"
-        elif field.startswith("tag:"):
+        elif field.startswith("tag:") and hasattr(self, "searchtag"):
             subfield = field[4:]
             flt = self.flt_and(flt, self.searchtag(tag={"value": subfield}))
             specialproj = {
@@ -4379,6 +4235,40 @@ class MongoDBActive(MongoDB, DBActive):
 class MongoDBNmap(MongoDBActive, DBNmap):
     column_scans = 1
     content_handler = Nmap2Mongo
+    schema_migrations_indexes: List[
+        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    ] = [
+        {
+            key: dict(
+                value,
+                drop=value.get("drop", [])
+                + [
+                    ([("infos.as_num", pymongo.ASCENDING)], {}),
+                    (
+                        [
+                            ("infos.country_code", pymongo.ASCENDING),
+                            ("infos.city", pymongo.ASCENDING),
+                        ],
+                        {},
+                    ),
+                    ([("infos.loc", pymongo.GEOSPHERE)], {}),
+                    (
+                        [
+                            ("tags.value", pymongo.ASCENDING),
+                            ("tags.info", pymongo.ASCENDING),
+                        ],
+                        {"sparse": True},
+                    ),
+                ],
+            )
+            if key == 22
+            else value
+            for key, value in idxs.items()
+        }
+        if i == 0
+        else idxs
+        for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
+    ]
 
     def __init__(self, url):
         super().__init__(url)
@@ -4388,6 +4278,19 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         ]
         self.schema_migrations.append({})  # scans
         self.output_function = None
+
+    @staticmethod
+    def migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        changes only for the scans (Nmap) purpose.
+
+        """
+        assert doc["schema_version"] == 21
+        update = {"$set": {"schema_version": 22}}
+        for key in ["infos", "tags"]:
+            if key in doc:
+                update.setdefault("$unset", {})[key] = ""
+        return update
 
     def store_scan_doc(self, scan):
         ident = self.db[self.columns[self.column_scans]].insert_one(scan).inserted_id
@@ -4463,7 +4366,26 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 class MongoDBView(MongoDBActive, DBView):
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
-        idxs + [([(fld, "text") for fld in DBActive.text_fields], {"name": "text"})]
+        idxs
+        + [
+            ([("infos.as_num", pymongo.ASCENDING)], {}),
+            (
+                [
+                    ("infos.country_code", pymongo.ASCENDING),
+                    ("infos.city", pymongo.ASCENDING),
+                ],
+                {},
+            ),
+            ([("infos.loc", pymongo.GEOSPHERE)], {}),
+            (
+                [
+                    ("tags.value", pymongo.ASCENDING),
+                    ("tags.info", pymongo.ASCENDING),
+                ],
+                {"sparse": True},
+            ),
+            ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
+        ]
         if i == 0
         else idxs
         for i, idxs in enumerate(MongoDBActive.indexes)
@@ -4493,6 +4415,145 @@ class MongoDBView(MongoDBActive, DBView):
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
+
+    def apply_auto_tags(self, flt):
+        fields = {"tags", "ports", "openports"}
+        for rec in self.get(flt):
+            orig = {fld: deepcopy(rec.get(fld)) for fld in fields}
+            set_auto_tags(rec)
+            updatespec = {}
+            for fld in fields:
+                if orig[fld] != rec.get(fld):
+                    if not rec.get(fld):
+                        updatespec.setdefault("$unset", {})[fld] = ""
+                    else:
+                        updatespec.setdefault("$set", {})[fld] = rec[fld]
+            if updatespec:
+                self.db[self.columns[self.column_hosts]].update_one(
+                    {"_id": rec["_id"]}, updatespec
+                )
+
+    def getlocations(self, flt):
+        col = self.db[self.columns[self.column_hosts]]
+        pipeline = [
+            {"$match": self.flt_and(flt, self.searchhaslocation())},
+            {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
+            {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
+        ]
+        log_pipeline(pipeline)
+        return (
+            {"_id": tuple(rec["_id"][::-1]), "count": rec["count"]}
+            for rec in col.aggregate(pipeline, cursor={})
+        )
+
+    @staticmethod
+    def searchtag(tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            return {"tags.value": {"$exists": not neg}}
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        req = {}
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, utils.REGEXP_T):
+                if neg:
+                    req[key] = {"$not": value}
+                else:
+                    req[key] = value
+            elif isinstance(value, list):
+                if neg:
+                    req[key] = {"$nin": value}
+                else:
+                    req[key] = {"$in": value}
+            else:
+                if neg:
+                    req[key] = {"$ne": value}
+                else:
+                    req[key] = value
+        if len(req) == 1:
+            if neg:
+                # Either no tag at all, or no matching tag
+                return {
+                    "$or": [
+                        {"tags.value": {"$exists": False}},
+                        {f"tags.{key}": value for key, value in req.items()},
+                    ]
+                }
+            return {f"tags.{key}": value for key, value in req.items()}
+        if neg:
+            # Either no tag at all, or no matching tag
+            return {
+                "$or": [
+                    {"tags.value": {"$exists": False}},
+                    {
+                        "tags": {
+                            "$elemMatch": {
+                                "$or": [{key: value} for key, value in req.items()]
+                            }
+                        }
+                    },
+                ]
+            }
+        return {"tags": {"$elemMatch": req}}
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            return {"infos.country_code": {"$nin" if neg else "$in": country}}
+        return {"infos.country_code": {"$ne": country} if neg else country}
+
+    @staticmethod
+    def searchhaslocation(neg=False):
+        return {"infos.loc": {"$exists": not neg}}
+
+    @staticmethod
+    def searchcity(city, neg=False):
+        """
+        Filters (if `neg` == True, filters out) one particular city.
+        """
+        if neg:
+            if isinstance(city, utils.REGEXP_T):
+                return {"infos.city": {"$not": city}}
+            return {"infos.city": {"$ne": city}}
+        return {"infos.city": city}
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
+            return {
+                "infos.as_num": {"$nin" if neg else "$in": [int(val) for val in asnum]}
+            }
+        asnum = int(asnum)
+        return {"infos.as_num": {"$ne": asnum} if neg else asnum}
+
+    @staticmethod
+    def searchasname(asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        if neg:
+            if isinstance(asname, utils.REGEXP_T):
+                return {"infos.as_name": {"$not": asname}}
+            return {"infos.as_name": {"$ne": asname}}
+        return {"infos.as_name": asname}
 
 
 class MongoDBPassive(MongoDB, DBPassive):

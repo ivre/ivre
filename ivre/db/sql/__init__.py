@@ -1797,55 +1797,6 @@ class SQLDBActive(SQLDB, DBActive):
         )
 
     @classmethod
-    def searchcountry(cls, country, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        country, or a list of countries.
-
-        """
-        country = utils.country_unalias(country)
-        return cls.base_filter(
-            main=cls._searchstring_list(
-                cls.tables.scan.info["country_code"].astext, country, neg=neg
-            )
-        )
-
-    @classmethod
-    def searchcity(cls, city, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        city
-
-        """
-        return cls.base_filter(
-            main=cls._searchstring_re(
-                cls.tables.scan.info["city"].astext, city, neg=neg
-            )
-        )
-
-    @classmethod
-    def searchasnum(cls, asnum, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
-        """
-        return cls.base_filter(
-            main=cls._searchstring_list(
-                cls.tables.scan.info["as_num"], asnum, neg=neg, map_=str
-            )
-        )
-
-    @classmethod
-    def searchasname(cls, asname, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS.
-
-        """
-        return cls.base_filter(
-            main=cls._searchstring_rec(
-                cls.tables.scan.info["as_name"].astext, asname, neg=neg
-            )
-        )
-
-    @classmethod
     def searchport(cls, port, protocol="tcp", state="open", neg=False):
         """Filters (if `neg` == True, filters out) records with
         specified protocol/port at required state. Be aware that when
@@ -2453,25 +2404,6 @@ class SQLDBActive(SQLDB, DBActive):
             ]
         )
 
-    @classmethod
-    def searchtag(cls, tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            return cls.base_filter(tag=[(not neg, True)])
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        req = [
-            cls._searchstring_re(getattr(cls.tables.tag, key), value)
-            for key, value in tag.items()
-        ]
-        return cls.base_filter(tag=[(not neg, and_(*req))])
-
 
 class SQLDBNmap(SQLDBActive, DBNmap):
     table_layout = namedtuple(
@@ -2662,6 +2594,74 @@ class SQLDBView(SQLDBActive, DBView):
         return cls.base_filter(
             main=cls._searchstring_re_inarray(
                 cls.tables.scan.id, cls.tables.scan.source, src, neg=neg
+            )
+        )
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            return cls.base_filter(tag=[(not neg, True)])
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        req = [
+            cls._searchstring_re(getattr(cls.tables.tag, key), value)
+            for key, value in tag.items()
+        ]
+        return cls.base_filter(tag=[(not neg, and_(*req))])
+
+    @classmethod
+    def searchcountry(cls, country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        return cls.base_filter(
+            main=cls._searchstring_list(
+                cls.tables.scan.info["country_code"].astext, country, neg=neg
+            )
+        )
+
+    @classmethod
+    def searchcity(cls, city, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        city
+
+        """
+        return cls.base_filter(
+            main=cls._searchstring_re(
+                cls.tables.scan.info["city"].astext, city, neg=neg
+            )
+        )
+
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        return cls.base_filter(
+            main=cls._searchstring_list(
+                cls.tables.scan.info["as_num"], asnum, neg=neg, map_=str
+            )
+        )
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        return cls.base_filter(
+            main=cls._searchstring_rec(
+                cls.tables.scan.info["as_name"].astext, asname, neg=neg
             )
         )
 

@@ -40,8 +40,6 @@ from ivre.active.data import (
     add_hostname,
     create_ssl_output,
     merge_host_docs,
-    set_auto_tags,
-    set_openports_attribute,
 )
 from ivre.data import scanners
 from ivre.db import db
@@ -781,8 +779,6 @@ def passive_record_to_view(rec, category=None):
     if isinstance(function, dict):
         function = function.get(rec["source"], lambda _: {})
     outrec.update(function(rec))
-    set_auto_tags(outrec, update_openports=False)
-    set_openports_attribute(outrec)
     if category is not None:
         outrec["categories"] = [category]
     return outrec
@@ -917,7 +913,14 @@ def to_view(itrs):
             while next_addrs[i] == cur_addr:
                 cur_recs.append(prepare_record(next_recs[i]))
                 if len(cur_recs) >= MAX_RECORDS_IN_MEMORY:
-                    cur_recs = [reduce(merge_host_docs, cur_recs)]
+                    cur_recs = [
+                        reduce(
+                            lambda r1, r2: merge_host_docs(
+                                r1, r2, auto_tags=False, openports_attribute=False
+                            ),
+                            cur_recs,
+                        )
+                    ]
                 try:
                     next_recs[i] = next(itrs[i])
                 except StopIteration:

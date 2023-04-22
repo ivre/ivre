@@ -25,7 +25,7 @@ from functools import partial, reduce
 from multiprocessing import Pool, cpu_count
 from typing import Generator, List, Optional
 
-from ivre.active.data import merge_host_docs
+from ivre.active.data import merge_host_docs, set_auto_tags, set_openports_attribute
 from ivre.activecli import displayfunction_json
 from ivre.db import DB, DBView, db
 from ivre.types import Record
@@ -45,7 +45,27 @@ def merge_and_output(
         output = outdb.store_host
     else:
         output = outdb.store_or_merge_host
-    output(reduce(merge_host_docs, records))
+    result = reduce(
+        lambda r1, r2: merge_host_docs(
+            r1, r2, auto_tags=False, openports_attribute=False
+        ),
+        records,
+    )
+    set_auto_tags(result, update_openports=False)
+    set_openports_attribute(result)
+    try:
+        datadb = outdb.globaldb.data
+    except AttributeError:
+        pass
+    else:
+        result["infos"] = {}
+        for func in [
+            datadb.country_byip,
+            datadb.as_byip,
+            datadb.location_byip,
+        ]:
+            result["infos"].update(func(result["addr"]) or {})
+    output(result)
 
 
 def main() -> None:

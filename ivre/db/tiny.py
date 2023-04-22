@@ -612,163 +612,6 @@ class TinyDBActive(TinyDB, DBActive):
         return cls._searchstring_re_inarray(Query().categories, cat, neg=neg)
 
     @classmethod
-    def searchtag(cls, tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            res = cls._search_field_exists("tags.value")
-            if neg:
-                return ~res
-            return res
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        tests = []
-        for key, value in tag.items():
-            if isinstance(value, list) and len(value) == 1:
-                value = value[0]
-            if isinstance(value, utils.REGEXP_T):
-                if neg:
-                    if key == "info":
-
-                        def test(val, value=value):
-                            return not any(
-                                value.search(info) for info in val.get("info", [])
-                            )
-
-                    else:
-
-                        def test(val, key=key, value=value):
-                            return not value.search(val.get(key, ""))
-
-                elif key == "info":
-
-                    def test(val, value=value):
-                        return any(value.search(info) for info in val.get("info", []))
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return value.search(val.get(key, ""))
-
-            elif isinstance(value, list):
-                if neg:
-                    if key == "info":
-
-                        def test(val, value=value):
-                            return not any(
-                                v_info in val.get("info", []) for v_info in value
-                            )
-
-                    else:
-
-                        def test(val, key=key, value=value):
-                            return val.get(key) not in value
-
-                elif key == "info":
-
-                    def test(val, value=value):
-                        return any(v_info in val.get("info", []) for v_info in value)
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return val.get(key) in value
-
-            elif neg:
-                if key == "info":
-
-                    def test(val, value=value):
-                        return value not in val.get("info", [])
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return value != val.get(key)
-
-            elif key == "info":
-
-                def test(val, value=value):
-                    return value in val.get("info", [])
-
-            else:
-
-                def test(val, key=key, value=value):
-                    return value == val.get(key)
-
-            tests.append(test)
-        if neg:
-            return cls.flt_or(
-                ~cls._search_field_exists("tags.value"),
-                Query().tags.test(
-                    lambda tags: all(any(test(tag) for test in tests) for tag in tags)
-                ),
-            )
-        return Query().tags.test(
-            lambda tags: any(all(test(tag) for test in tests) for tag in tags)
-        )
-
-    @staticmethod
-    def searchcountry(country, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        country, or a list of countries.
-
-        """
-        q = Query()
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            res = q.infos.country_code.one_of(country)
-            if neg:
-                return ~res
-            return res
-        if neg:
-            return q.infos.country_code != country
-        return q.infos.country_code == country
-
-    @classmethod
-    def searchcity(cls, city, neg=False):
-        """
-        Filters (if `neg` == True, filters out) one particular city.
-        """
-        return cls._searchstring_re(Query().infos.city, city, neg=neg)
-
-    @staticmethod
-    def searchhaslocation(neg=False):
-        res = Query().infos.coordinates.exists()
-        if neg:
-            return ~res
-        return res
-
-    @staticmethod
-    def searchasnum(asnum, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
-        """
-        q = Query()
-        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            res = q.infos.as_num.one_of([int(val) for val in asnum])
-            if neg:
-                return ~res
-            return res
-        asnum = int(asnum)
-        if neg:
-            return q.infos.as_num != asnum
-        return q.infos.as_num == asnum
-
-    @classmethod
-    def searchasname(cls, asname, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS.
-
-        """
-        return cls._searchstring_re(Query().infos.as_num, asname, neg=neg)
-
-    @classmethod
     def searchsource(cls, src, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         source.
@@ -2509,7 +2352,7 @@ class TinyDBActive(TinyDB, DBActive):
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
-        elif field == "tag":
+        elif field == "tag" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
 
             def _newflt(field):
@@ -2527,10 +2370,10 @@ class TinyDBActive(TinyDB, DBActive):
                         for info in tag.get("info", []):
                             yield (tag["value"], info)
 
-        elif field.startswith("tag."):
+        elif field.startswith("tag.") and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = f"tags.{field[4:]}"
-        elif field.startswith("tag:"):
+        elif field.startswith("tag:") and hasattr(self, "searchtag"):
             subfield = field[4:]
 
             def _newflt(field):
@@ -2753,6 +2596,163 @@ class TinyDBView(TinyDBActive, DBView):
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            res = cls._search_field_exists("tags.value")
+            if neg:
+                return ~res
+            return res
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        tests = []
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, utils.REGEXP_T):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                value.search(info) for info in val.get("info", [])
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return not value.search(val.get(key, ""))
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(value.search(info) for info in val.get("info", []))
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value.search(val.get(key, ""))
+
+            elif isinstance(value, list):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                v_info in val.get("info", []) for v_info in value
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return val.get(key) not in value
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(v_info in val.get("info", []) for v_info in value)
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return val.get(key) in value
+
+            elif neg:
+                if key == "info":
+
+                    def test(val, value=value):
+                        return value not in val.get("info", [])
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value != val.get(key)
+
+            elif key == "info":
+
+                def test(val, value=value):
+                    return value in val.get("info", [])
+
+            else:
+
+                def test(val, key=key, value=value):
+                    return value == val.get(key)
+
+            tests.append(test)
+        if neg:
+            return cls.flt_or(
+                ~cls._search_field_exists("tags.value"),
+                Query().tags.test(
+                    lambda tags: all(any(test(tag) for test in tests) for tag in tags)
+                ),
+            )
+        return Query().tags.test(
+            lambda tags: any(all(test(tag) for test in tests) for tag in tags)
+        )
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        q = Query()
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            res = q.infos.country_code.one_of(country)
+            if neg:
+                return ~res
+            return res
+        if neg:
+            return q.infos.country_code != country
+        return q.infos.country_code == country
+
+    @classmethod
+    def searchcity(cls, city, neg=False):
+        """
+        Filters (if `neg` == True, filters out) one particular city.
+        """
+        return cls._searchstring_re(Query().infos.city, city, neg=neg)
+
+    @staticmethod
+    def searchhaslocation(neg=False):
+        res = Query().infos.coordinates.exists()
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        q = Query()
+        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
+            res = q.infos.as_num.one_of([int(val) for val in asnum])
+            if neg:
+                return ~res
+            return res
+        asnum = int(asnum)
+        if neg:
+            return q.infos.as_num != asnum
+        return q.infos.as_num == asnum
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        return cls._searchstring_re(Query().infos.as_num, asname, neg=neg)
 
 
 def op_update(count, firstseen, lastseen):
