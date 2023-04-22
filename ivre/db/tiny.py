@@ -218,12 +218,7 @@ class TinyDB(DB):
                 fullfield = "%s.%s" % (base, field)
             else:
                 fullfield = field
-            if fullfield in cls.list_fields or (
-                # Hack: this field may or may not be a list (this
-                # needs to be changed in a near future)
-                fullfield == "scanid"
-                and isinstance(record[field], list)
-            ):
+            if fullfield in cls.list_fields:
                 for val in record[field]:
                     if countval is not None:
                         yield val, countval
@@ -527,10 +522,6 @@ class TinyDBActive(TinyDB, DBActive):
         # doc_id: convert it to a dict instance instead.
         host = deepcopy(dict(host))
         try:
-            host["scanid"] = [host["scanid"].decode()]
-        except KeyError:
-            pass
-        try:
             host["addr"] = self.ip2internal(host["addr"])
         except (KeyError, ValueError):
             pass
@@ -568,10 +559,6 @@ class TinyDBActive(TinyDB, DBActive):
         self.db.insert(host)
         utils.LOGGER.debug("HOST STORED: %r in %r", _id, self.dbname)
         return _id
-
-    @staticmethod
-    def getscanids(host):
-        return host.get("scanid", [])
 
     @classmethod
     def searchdomain(cls, name, neg=False):
@@ -2504,87 +2491,13 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
     content_handler = Nmap2DB
     dbname = "nmap"
-    dbname_scans = "nmap_scans"
 
     def __init__(self, url):
         super().__init__(url)
         self.output_function = None
 
-    @property
-    def db_scans(self):
-        """The DB for scan files"""
-        try:
-            return self._db_scans
-        except AttributeError:
-            self._db_scans = TDB(
-                os.path.join(self.basepath, "%s.json" % self.dbname_scans)
-            )
-            return self._db_scans
-
-    def init(self):
-        super().init()
-        try:
-            self.db_scans.drop_tables()
-        except AttributeError:
-            # TinyDB < 4
-            self.db_scans.purge_tables()
-
-    def remove(self, rec):
-        """Removes the record from the active column. `rec` must be the record
-        as returned by `.get()` or the record id.
-
-        """
-        q = Query()
-        if isinstance(rec, dict):
-            scanids = rec.get("scanid", [])
-        else:
-            try:
-                scanids = self.get(q._id == rec)[0].get("scanid", [])
-            except IndexError:
-                scanids = []
-        super().remove(rec)
-        for scanid in scanids:
-            if not self.db.get(q.scanid.any([scanid])):
-                self.db_scans.remove(cond=Query()._id == scanid)
-
-    def remove_many(self, flt):
-        """Removes hosts from the active column, based on the filter `flt`.
-
-        If the hosts removed had `scanid` attributes, and if some of them
-        refer to scans that have no more host record after the deletion of the
-        hosts, then the scan records are also removed.
-
-        """
-        scanids = list(self.distinct("scanid", flt=flt))
-        super().remove_many(flt)
-        for scanid in scanids:
-            if not self.db.get(Query().scanid.any([scanid])):
-                self.db_scans.remove(cond=Query()._id == scanid)
-
     def store_or_merge_host(self, host):
         self.store_host(host)
-
-    def getscan(self, scanid):
-        try:
-            scanid = scanid.decode()
-        except AttributeError:
-            pass
-        return self.db_scans.get(Query()._id == scanid)
-
-    def is_scan_present(self, scanid):
-        return self.getscan(scanid) is not None
-
-    def store_scan_doc(self, scan):
-        scan = deepcopy(scan)
-        _id = scan["_id"] = scan["_id"].decode()
-        if self.db_scans.get(Query()._id == _id) is not None:
-            raise ValueError("Duplicate entry for id %r" % _id)
-        self.db_scans.insert(scan)
-        utils.LOGGER.debug("SCAN STORED: %r in %r", _id, self.dbname_scans)
-        return _id
-
-    def update_scan_doc(self, scan_id, data):
-        self.db_scans.update(deepcopy(data), cond=Query()._id == scan_id.decode())
 
 
 class TinyDBView(TinyDBActive, DBView):

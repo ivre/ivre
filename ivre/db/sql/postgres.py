@@ -35,7 +35,6 @@ from sqlalchemy import (
     ARRAY,
     Column,
     Index,
-    LargeBinary,
     String,
     Table,
     and_,
@@ -1362,46 +1361,6 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
 
 
 class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
-    def store_scan_doc(self, scan):
-        scan = scan.copy()
-        if "start" in scan:
-            scan["start"] = datetime.datetime.utcfromtimestamp(int(scan["start"]))
-        if "scaninfos" in scan:
-            scan["scaninfo"] = scan.pop("scaninfos")
-        scan["sha256"] = utils.decode_hex(scan.pop("_id"))
-        insrt = insert(self.tables.scanfile).values(
-            **{
-                key: scan[key]
-                for key in [
-                    "sha256",
-                    "args",
-                    "scaninfo",
-                    "scanner",
-                    "start",
-                    "version",
-                    "xmloutputversion",
-                ]
-                if key in scan
-            }
-        )
-        if config.DEBUG:
-            scanfileid = self.db.execute(
-                insrt.returning(self.tables.scanfile.sha256)
-            ).fetchone()[0]
-            utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
-        else:
-            self.db.execute(insrt)
-
-    def update_scan_doc(self, scan_id, data):
-        data = data.copy()
-        if "end" in data:
-            data["end"] = datetime.datetime.utcfromtimestamp(int(data["end"]))
-        self.db.execute(
-            update(self.tables.scanfile)
-            .where(self.tables.scanfile.sha256 == utils.decode_hex(scan_id))
-            .values(**{key: data[key] for key in ["end", "elapsed"] if key in data})
-        )
-
     def _store_host(self, host):
         addr = self.ip2internal(host["addr"])
         info = host.get("infos")
@@ -1516,19 +1475,12 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         return scanid
 
     def store_host(self, host):
-        scanid = self._store_host(host)
-        insrt = postgresql.insert(self.tables.association_scan_scanfile)
-        self.db.execute(
-            insrt.values(
-                scan=scanid, scan_file=utils.decode_hex(host["scanid"])
-            ).on_conflict_do_nothing()
-        )
+        self._store_host(host)
 
     def store_hosts(self, hosts):
         tmp = self.create_tmp_table(
             self.tables.scan,
             extracols=[
-                Column("scanfileid", ARRAY(LargeBinary(32))),
                 Column("categories", ARRAY(String(32))),
                 Column("source", String(32)),
                 # Column("cpe", postgresql.JSONB),

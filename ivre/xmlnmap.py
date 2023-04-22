@@ -1508,7 +1508,6 @@ class NmapHandler(ContentHandler):
     def __init__(
         self,
         fname,
-        filehash,
         needports=False,
         needopenports=False,
         masscan_probes=None,
@@ -1517,7 +1516,6 @@ class NmapHandler(ContentHandler):
         ContentHandler.__init__(self)
         self._needports = needports
         self._needopenports = needopenports
-        self._curscan = None
         self._curscript = None
         self._curhost = None
         self._curextraports = None
@@ -1528,11 +1526,9 @@ class NmapHandler(ContentHandler):
         self._curtablepath = []
         self._curhostnames = None
         self._fname = fname
-        self._filehash = filehash
         self.scanner = "nmap"
-        self.scan_doc_saved = False
         self.masscan_probes = masscan_probes or []
-        utils.LOGGER.debug("READING %r (%r)", fname, self._filehash)
+        utils.LOGGER.debug("READING %r", fname)
 
     @staticmethod
     def _to_binary(data):
@@ -1559,40 +1555,9 @@ class NmapHandler(ContentHandler):
     def _addhost(self):
         """Subclasses may store self._curhost here."""
 
-    def _storescan(self):
-        """Subclasses may store self._curscan here."""
-
-    def _updatescan(self, _):
-        """Subclasses may update the scan record here, based on the first
-        argument (a dict object).
-
-        """
-
-    def _addscaninfo(self, _):
-        """Subclasses may add scan information (first argument) to
-        self._curscan here.
-
-        """
-
     def startElement(self, name, attrs):
         if name == "nmaprun":
-            if self._curscan is not None:
-                utils.LOGGER.warning(
-                    "self._curscan should be None at this point (got %r)",
-                    self._curscan,
-                )
-            self._curscan = dict(attrs)
-            self.scanner = self._curscan.get("scanner", self.scanner)
-            self._curscan["_id"] = self._filehash
-        elif name == "finished":
-            curscan_more = dict(attrs)
-            if "time" in curscan_more:
-                curscan_more["end"] = curscan_more.pop("time")
-            if "timestr" in curscan_more:
-                curscan_more["endstr"] = curscan_more.pop("timestr")
-            self._updatescan(curscan_more)
-        elif name == "scaninfo" and self._curscan is not None:
-            self._addscaninfo(dict(attrs))
+            self.scanner = attrs.get("scanner", self.scanner)
         elif name == "host":
             if self._curhost is not None:
                 utils.LOGGER.warning(
@@ -1600,8 +1565,6 @@ class NmapHandler(ContentHandler):
                     self._curhost,
                 )
             self._curhost = {"schema_version": SCHEMA_VERSION}
-            if self._curscan:
-                self._curhost["scanid"] = self._curscan["_id"]
             for attr in attrs.keys():
                 self._curhost[attr] = attrs[attr]
             for field in ["starttime", "endtime"]:
@@ -2149,9 +2112,7 @@ class NmapHandler(ContentHandler):
             self._curdata = ""
 
     def endElement(self, name):
-        if name == "nmaprun":
-            self._curscan = None
-        elif name == "host":
+        if name == "host":
             # masscan -oX output has no "state" tag
             if (
                 self._curhost.get("state", "up") == "up"
@@ -2728,23 +2689,6 @@ class Nmap2DB(NmapHandler):
             self._curhost["categories"] = self.categories[:]
         if self.source:
             self._curhost["source"] = self.source
-        # We are about to insert data based on this file, so we want
-        # to save the scan document
-        if not self.scan_doc_saved:
-            self.scan_doc_saved = True
-            self._storescan()
         self._db.nmap.store_or_merge_host(self._curhost)
         if self.callback is not None:
             self.callback(self._curhost)
-
-    def _storescan(self):
-        ident = self._db.nmap.store_scan_doc(self._curscan)
-        return ident
-
-    def _updatescan(self, curscan_more):
-        self._db.nmap.update_scan_doc(self._filehash, curscan_more)
-
-    def _addscaninfo(self, i):
-        if i.get("numservices"):
-            i["numservices"] = int(i["numservices"])
-        self._curscan.setdefault("scaninfos", []).append(i)

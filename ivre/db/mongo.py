@@ -813,7 +813,6 @@ class MongoDBActive(MongoDB, DBActive):
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
         # hosts
         [
-            ([("scanid", pymongo.ASCENDING)], {}),
             ([("schema_version", pymongo.ASCENDING)], {}),
             (
                 [
@@ -1957,11 +1956,16 @@ class MongoDBActive(MongoDB, DBActive):
     @staticmethod
     def migrate_schema_hosts_21_22(doc):
         """Converts a record from version 21 to version 22. Version 22
-        changes only for the scans (Nmap) purpose.
+        removes the `scanid` field and the `infos` and `tags` fields
+        in the Nmap purpose (they are now only used in the View
+        purpose).
 
         """
         assert doc["schema_version"] == 21
-        return {"$set": {"schema_version": 22}}
+        update = {"$set": {"schema_version": 22}}
+        if "scanid" in doc:
+            update["$unset"] = {"scanid": ""}
+        return update
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
@@ -2015,15 +2019,6 @@ class MongoDBActive(MongoDB, DBActive):
                     ::-1
                 ]
             yield host
-
-    @staticmethod
-    def getscanids(host):
-        scanids = host.get("scanid")
-        if scanids is None:
-            return []
-        if isinstance(scanids, list):
-            return scanids
-        return [scanids]
 
     def count(self, flt):
         """Count documents in hosts column."""
@@ -2210,22 +2205,6 @@ class MongoDBActive(MongoDB, DBActive):
             "HOST STORED: %r in %r", ident, self.columns[self.column_hosts]
         )
         return ident
-
-    def merge_host_docs(self, rec1, rec2):
-        """Merge two host records and return the result. Unmergeable /
-        hard-to-merge fields are lost (e.g., extraports).
-
-        """
-        rec = super().merge_host_docs(rec1, rec2)
-        scanid = set()
-        for record in [rec1, rec2]:
-            scanid.update(self.getscanids(record))
-        if scanid:
-            if len(scanid) == 1:
-                rec["scanid"] = scanid.pop()
-            else:
-                rec["scanid"] = list(scanid)
-        return rec
 
     def remove(self, host):
         """Removes the host from the active column. `host` must be the record
@@ -4233,7 +4212,6 @@ class MongoDBActive(MongoDB, DBActive):
 
 
 class MongoDBNmap(MongoDBActive, DBNmap):
-    column_scans = 1
     content_handler = Nmap2Mongo
     schema_migrations_indexes: List[
         Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
@@ -4274,94 +4252,26 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         super().__init__(url)
         self.columns = [
             self.params.pop("colname_hosts", "hosts"),
-            self.params.pop("colname_scans", "scans"),
         ]
-        self.schema_migrations.append({})  # scans
         self.output_function = None
 
     @staticmethod
     def migrate_schema_hosts_21_22(doc):
         """Converts a record from version 21 to version 22. Version 22
-        changes only for the scans (Nmap) purpose.
+        removes the `scanid` field and the `infos` and `tags` fields
+        in the Nmap purpose (they are now only used in the View
+        purpose).
 
         """
         assert doc["schema_version"] == 21
         update = {"$set": {"schema_version": 22}}
-        for key in ["infos", "tags"]:
+        for key in ["scanid", "infos", "tags"]:
             if key in doc:
                 update.setdefault("$unset", {})[key] = ""
         return update
 
-    def store_scan_doc(self, scan):
-        ident = self.db[self.columns[self.column_scans]].insert_one(scan).inserted_id
-        utils.LOGGER.debug(
-            "SCAN STORED: %r in %r", ident, self.columns[self.column_scans]
-        )
-        return ident
-
-    def update_scan_doc(self, scan_id, data):
-        self.db[self.columns[self.column_scans]].update_one(
-            {"_id": scan_id},
-            {"$set": data},
-        )
-
     def store_or_merge_host(self, host):
         self.store_host(host)
-
-    def cmp_schema_version_scan(self, scan):
-        """Returns 0 if the `scan`'s schema version matches the code's
-        current version, -1 if it is higher (you need to update IVRE),
-        and 1 if it is lower (you need to call .migrate_schema()).
-
-        """
-        return self.cmp_schema_version(self.column_scans, scan)
-
-    def getscan(self, scanid):
-        return self.db[self.columns[self.column_scans]].find_one({"_id": scanid})
-
-    def is_scan_present(self, scanid):
-        if (
-            self.db[self.columns[self.column_scans]].find_one(
-                {"_id": scanid}, projection=[]
-            )
-            is not None
-        ):
-            return True
-        return False
-
-    def remove(self, host):
-        """Removes the host from the active column. `host` must be the host
-        record as returned by `.get()`.
-
-        If `host` has a `scanid` attribute, and if it refers to a scan that
-        have no more host record after the deletion of `host`, then the scan
-        record is also removed.
-
-        """
-        super().remove(host)
-        for scanid in self.getscanids(host):
-            if (
-                self.db[self.columns[self.column_hosts]].find_one({"scanid": scanid})
-                is None
-            ):
-                self.db[self.columns[self.column_scans]].delete_one({"_id": scanid})
-
-    def remove_many(self, flt):
-        """Removes hosts from the active column, based on the filter `flt`.
-
-        If the hosts removed had `scanid` attributes, and if some of them
-        refer to scans that have no more host record after the deletion of the
-        hosts, then the scan records are also removed.
-
-        """
-        scanids = list(self.distinct("scanid", flt=flt))
-        super().remove_many(flt)
-        for scanid in scanids:
-            if (
-                self.db[self.columns[self.column_hosts]].find_one({"scanid": scanid})
-                is None
-            ):
-                self.db[self.columns[self.column_scans]].delete_one({"_id": scanid})
 
 
 class MongoDBView(MongoDBActive, DBView):

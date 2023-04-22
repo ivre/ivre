@@ -63,13 +63,11 @@ from ivre.db.sql.tables import (
     Flow,
     N_Association_Scan_Category,
     N_Association_Scan_Hostname,
-    N_Association_Scan_ScanFile,
     N_Category,
     N_Hop,
     N_Hostname,
     N_Port,
     N_Scan,
-    N_ScanFile,
     N_Script,
     N_Tag,
     N_Trace,
@@ -161,10 +159,6 @@ class ScanCSVFile(CSVFile):
         for field in ["cpes", "extraports", "openports", "os", "traces"]:
             line.pop(field, None)
         line["addr"] = self.ip2internal(line["addr"])
-        scanfileid = line.pop("scanid")
-        if isinstance(scanfileid, str):
-            scanfileid = [scanfileid]
-        line["scanfileid"] = "{%s}" % ",".join('"\\x%s"' % fid for fid in scanfileid)
         line["time_start"] = line.pop("starttime")
         line["time_stop"] = line.pop("endtime")
         line["info"] = line.pop("infos", None)
@@ -2409,7 +2403,6 @@ class SQLDBNmap(SQLDBActive, DBNmap):
     table_layout = namedtuple(
         "nmap_layout",
         [
-            "scanfile",
             "category",
             "scan",
             "hostname",
@@ -2420,11 +2413,9 @@ class SQLDBNmap(SQLDBActive, DBNmap):
             "hop",
             "association_scan_hostname",
             "association_scan_category",
-            "association_scan_scanfile",
         ],
     )
     tables = table_layout(
-        N_ScanFile,
         N_Category,
         N_Scan,
         N_Hostname,
@@ -2435,13 +2426,11 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         N_Hop,
         N_Association_Scan_Hostname,
         N_Association_Scan_Category,
-        N_Association_Scan_ScanFile,
     )
     fields = {
         "_id": N_Scan.id,
         "addr": N_Scan.addr,
         "source": N_Scan.source,
-        "scanid": N_Association_Scan_ScanFile.scan_file,
         "starttime": N_Scan.time_start,
         "endtime": N_Scan.time_stop,
         "infos": N_Scan.info,
@@ -2461,70 +2450,6 @@ class SQLDBNmap(SQLDBActive, DBNmap):
 
     def store_or_merge_host(self, host):
         self.store_host(host)
-
-    def get(self, flt, limit=None, skip=None, sort=None, **kargs):
-        for rec in super().get(flt, limit=limit, skip=skip, sort=sort, **kargs):
-            rec["scanid"] = [
-                scanfile[0]
-                for scanfile in self.db.execute(
-                    select([self.tables.association_scan_scanfile.scan_file]).where(
-                        self.tables.association_scan_scanfile.scan == rec["_id"]
-                    )
-                )
-            ]
-            yield rec
-
-    def _remove_unused_scan_files(self):
-        """Removes unused scan files, useful when some scan results have been
-        removed.
-
-        """
-        base = select([self.tables.association_scan_scanfile.scan_file]).cte("base")
-        self.db.execute(
-            delete(self.tables.scanfile).where(self.tables.scanfile.sha256.notin_(base))
-        )
-
-    def remove(self, host):
-        """Removes the host scan result. `host` must be a record as yielded by
-        .get().
-
-        The scan files that are no longer linked to a scan are removed at the
-        end of the call.
-
-        """
-        super().remove(host)
-        self._remove_unused_scan_files()
-
-    def remove_many(self, flt):
-        """Removes the host scan result. `flt` must be a valid NmapFilter()
-        instance.
-
-        The scan files that are no longer linked to a scan are removed at the
-        end of the call.
-
-        """
-        super().remove_many(flt)
-        self._remove_unused_scan_files()
-
-    @staticmethod
-    def getscanids(host):
-        return host["scanid"]
-
-    def getscan(self, scanid):
-        if isinstance(scanid, (str, bytes)) and len(scanid) == 64:
-            scanid = utils.decode_hex(scanid)
-        return self.db.execute(
-            select([self.tables.scanfile]).where(self.tables.scanfile.sha256 == scanid)
-        ).fetchone()
-
-    def is_scan_present(self, scanid):
-        return bool(
-            self.db.execute(
-                select([True])
-                .where(self.tables.scanfile.sha256 == utils.decode_hex(scanid))
-                .limit(1)
-            ).fetchone()
-        )
 
     @classmethod
     def searchsource(cls, src, neg=False):

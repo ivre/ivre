@@ -819,8 +819,6 @@ def nmap_record_to_view(rec, category=None):
     """Convert an nmap result in view."""
     if "_id" in rec:
         del rec["_id"]
-    if "scanid" in rec:
-        del rec["scanid"]
     if "source" in rec:
         if not rec["source"]:
             rec["source"] = []

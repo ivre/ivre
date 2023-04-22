@@ -1286,13 +1286,6 @@ class IvreTests(unittest.TestCase):
         self.check_count_value_api(
             1, ivre.db.db.nmap.searchid(recid), database=ivre.db.db.nmap
         )
-        self.assertIsNotNone(
-            ivre.db.db.nmap.getscan(
-                ivre.db.db.nmap.getscanids(
-                    next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))
-                )[0]
-            )
-        )
 
         self.check_nmap_count_value(
             0,

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -630,11 +630,10 @@ def get_nmap(subdb):
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
-        for fld in ["_id", "scanid"]:
-            try:
-                del rec[fld]
-            except KeyError:
-                pass
+        try:
+            del rec["_id"]
+        except KeyError:
+            pass
         if flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
         if not flt_params.datesasstrings:
