@@ -22,6 +22,7 @@
 
 import struct
 from datetime import datetime
+from functools import reduce
 from textwrap import wrap
 
 try:
@@ -38,6 +39,7 @@ from ivre.active.data import (
     add_cert_hostnames,
     add_hostname,
     create_ssl_output,
+    merge_host_docs,
     set_auto_tags,
     set_openports_attribute,
 )
@@ -46,6 +48,8 @@ from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 from ivre.xmlnmap import add_service_hostname
+
+MAX_RECORDS_IN_MEMORY = 16384
 
 
 def load_plugins():
@@ -815,30 +819,6 @@ def passive_to_view(flt, category=None):
             pass
 
 
-def from_passive(flt, category=None):
-    """Iterator over passive results, by address."""
-    records = passive_to_view(flt, category=category)
-    cur_addr = None
-    cur_rec = {}
-    for rec in records:
-        if cur_addr is None:
-            cur_addr = rec["addr"]
-            cur_rec = rec
-            continue
-        if cur_addr == rec["addr"]:
-            cur_rec = db.view.merge_host_docs(cur_rec, rec)
-            continue
-        # TODO: add_addr_info should be optional
-        cur_rec["infos"] = {}
-        for func in [db.data.country_byip, db.data.as_byip, db.data.location_byip]:
-            cur_rec["infos"].update(func(cur_addr) or {})
-        yield cur_rec
-        cur_rec = rec
-        cur_addr = rec["addr"]
-    if cur_rec:
-        yield cur_rec
-
-
 def nmap_record_to_view(rec, category=None):
     """Convert an nmap result in view."""
     if "_id" in rec:
@@ -862,11 +842,14 @@ def nmap_record_to_view(rec, category=None):
     return rec
 
 
-def from_nmap(flt, category=None):
-    """Return an Nmap entry in the View format."""
-    cur_addr = None
-    cur_rec = None
-    result = None
+def nmap_to_view(flt, category=None):
+    """Generates nmap entries in the View format.
+
+    Note that this entry is likely to have no sense in itself. This
+    function is intended to be used to format results for the merge
+    function.
+
+    """
     done = False
     skip = 0
     while not done:
@@ -884,22 +867,8 @@ def from_nmap(flt, category=None):
                 if "addr" not in rec:
                     skip += 1
                     continue
-                rec = nmap_record_to_view(rec, category=category)
-                if cur_addr is None:
-                    cur_addr = rec["addr"]
-                    cur_rec = rec
-                elif cur_addr == rec["addr"]:
-                    cur_rec = db.view.merge_host_docs(cur_rec, rec)
-                else:
-                    result = cur_rec
-                    cur_rec = rec
-                    cur_addr = rec["addr"]
-                    set_auto_tags(result)
-                    yield result
+                yield nmap_record_to_view(rec, category=category)
                 skip += 1
-            if cur_rec is not None:
-                set_auto_tags(cur_rec)
-                yield cur_rec
             done = True
         except db.nmap.cursor_timeout_exceptions:
             pass
@@ -910,11 +879,6 @@ def to_view(itrs):
     iterator over merged results, sorted by ip.
 
     """
-
-    def next_record(rec, updt):
-        if rec is None:
-            return updt
-        return db.view.merge_host_docs(rec, updt)
 
     next_recs = []
 
@@ -943,7 +907,7 @@ def to_view(itrs):
         else:
             i += 1
     next_addrs = [rec["addr"] for rec in next_recs]
-    cur_rec = None
+    cur_recs = []
     cur_addr = min(next_addrs, key=utils.ip2int, default=None)
     while next_recs:
         # We cannot use a `for i in range(len(itrs))` loop because
@@ -951,7 +915,9 @@ def to_view(itrs):
         i = 0
         while i < len(itrs):
             while next_addrs[i] == cur_addr:
-                cur_rec = next_record(cur_rec, next_recs[i])
+                cur_recs.append(prepare_record(next_recs[i]))
+                if len(cur_recs) >= MAX_RECORDS_IN_MEMORY:
+                    cur_recs = [reduce(merge_host_docs, cur_recs)]
                 try:
                     next_recs[i] = next(itrs[i])
                 except StopIteration:
@@ -963,11 +929,11 @@ def to_view(itrs):
                 next_addrs[i] = next_recs[i]["addr"]
             i += 1
         if next_addrs and cur_addr not in next_addrs:
-            yield prepare_record(cur_rec)
-            cur_rec = None
+            yield cur_recs
+            cur_recs = []
             cur_addr = min(next_addrs, key=utils.ip2int)
-    if cur_rec is not None:
-        yield prepare_record(cur_rec)
+    if cur_recs:
+        yield cur_recs
 
 
 if HAS_PLUGINS:

@@ -132,9 +132,12 @@ def main() -> None:
     else:
 
         def callback(x: Record) -> None:
-            ivre.db.db.view.start_store_hosts()
-            ivre.db.db.view.store_or_merge_host(nmap_record_to_view(x))
-            ivre.db.db.view.stop_store_hosts()
+            result = nmap_record_to_view(x)
+            set_auto_tags(result, update_openports=False)
+            set_openports_attribute(result)
+            ivre.db.db.view.store_or_merge_host(result)
+
+        ivre.db.db.view.start_store_hosts()
 
     count = 0
     for scan in scans:
@@ -158,5 +161,7 @@ def main() -> None:
         except Exception:
             ivre.utils.LOGGER.warning("Exception (file %r)", scan, exc_info=True)
             error[0] = True
+    if callback is not None:
+        ivre.db.db.view.stop_store_hosts()
     ivre.utils.LOGGER.info("%d results imported.", count)
     sys.exit(error[0])

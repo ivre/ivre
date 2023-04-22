@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,15 +21,35 @@
 
 
 import argparse
-from typing import Generator, List
+from functools import partial, reduce
+from multiprocessing import Pool, cpu_count
+from typing import Generator, List, Optional
 
+from ivre.active.data import merge_host_docs
 from ivre.activecli import displayfunction_json
 from ivre.db import DB, DBView, db
 from ivre.types import Record
-from ivre.view import from_nmap, from_passive, to_view
+from ivre.view import nmap_to_view, passive_to_view, to_view
+
+
+def merge_and_output(
+    dburl: Optional[str], no_merge: bool, test: bool, records: List[Record]
+) -> None:
+    outdb = db.view if dburl is None else DBView.from_url(dburl)
+    if test:
+
+        def output(host: Record) -> None:
+            return displayfunction_json([host], outdb)
+
+    elif no_merge:
+        output = outdb.store_host
+    else:
+        output = outdb.store_or_merge_host
+    output(reduce(merge_host_docs, records))
 
 
 def main() -> None:
+    default_processes = max(2, cpu_count())
     parser = argparse.ArgumentParser(description=__doc__, parents=[DB().argparser])
     if db.nmap is None:
         fltnmap = None
@@ -69,6 +89,13 @@ def main() -> None:
         metavar="DB_URL",
         help="Store data to the provided URL instead of the default DB for view.",
     )
+    parser.add_argument(
+        "--processes",
+        metavar="COUNT",
+        type=int,
+        help=f"The number of processes to use to build the records. Default on this system is {default_processes}.",
+        default=default_processes,
+    )
 
     subparsers = parser.add_subparsers(
         dest="view_source",
@@ -89,38 +116,28 @@ def main() -> None:
         _from = []
         if db.nmap is not None:
             fltnmap = db.nmap.parse_args(args, flt=fltnmap)
-            _from.append(from_nmap(fltnmap, category=view_category))
+            _from.append(nmap_to_view(fltnmap, category=view_category))
         if db.passive is not None:
             fltpass = db.passive.parse_args(args, flt=fltpass)
-            _from.append(from_passive(fltpass, category=view_category))
+            _from.append(passive_to_view(fltpass, category=view_category))
     elif args.view_source == "nmap":
         if db.nmap is None:
             parser.error('Cannot use "nmap" (no Nmap database exists)')
         fltnmap = db.nmap.parse_args(args, fltnmap)
-        _from = [from_nmap(fltnmap, category=view_category)]
+        _from = [nmap_to_view(fltnmap, category=view_category)]
     elif args.view_source == "passive":
         if db.passive is None:
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
-        _from = [from_passive(fltpass, category=view_category)]
-    if args.to_db is not None:
-        outdb = DBView.from_url(args.to_db)
-    else:
-        outdb = db.view
-    if args.test:
+        _from = [passive_to_view(fltpass, category=view_category)]
+    outdb = db.view if args.to_db is None else DBView.from_url(args.to_db)
 
-        def output(host: Record) -> None:
-            return displayfunction_json([host], outdb)
-
-    elif args.no_merge:
-        output = outdb.store_host
-    else:
-        output = outdb.store_or_merge_host
     # Output results
-    itr = to_view(_from)
-    if not itr:
-        return
     outdb.start_store_hosts()
-    for elt in itr:
-        output(elt)
+    with Pool(max(args.processes - 1, 1)) as pool:
+        for _ in pool.imap(
+            partial(merge_and_output, args.to_db, args.no_merge, args.test),
+            to_view(_from),
+        ):
+            pass
     outdb.stop_store_hosts()

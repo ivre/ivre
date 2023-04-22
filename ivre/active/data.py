@@ -1295,6 +1295,10 @@ def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
     hard-to-merge fields are lost (e.g., extraports).
 
     """
+    if not rec2:
+        return rec1
+    if not rec1:
+        return rec2
     if rec1.get("schema_version") != rec2.get("schema_version"):
         raise ValueError(
             "Cannot merge host documents. "

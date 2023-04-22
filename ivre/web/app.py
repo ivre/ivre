@@ -741,11 +741,12 @@ def import_files(subdb, source, categories, files):
     if subdb == "view":
 
         def callback(x):
-            db.view.start_store_hosts()
-            res = db.view.store_or_merge_host(nmap_record_to_view(x))
-            db.view.stop_store_hosts()
-            return res
+            result = nmap_record_to_view(x)
+            set_auto_tags(result, update_openports=False)
+            set_openports_attribute(result)
+            db.view.store_or_merge_host(result)
 
+        db.view.start_store_hosts()
     else:
         callback = None
     for fileelt in files:
@@ -761,6 +762,8 @@ def import_files(subdb, source, categories, files):
                 utils.LOGGER.warning("Could not import %s", fdesc.name)
         except Exception:
             utils.LOGGER.warning("Could not import %s", fdesc.name, exc_info=True)
+    if callback is not None:
+        db.view.stop_store_hosts()
     return count
 
 
