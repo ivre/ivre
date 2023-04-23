@@ -781,6 +781,10 @@ def gen_auto_tags(
         yield cast(Tag, dict(TAG_HONEYPOT, info=["SYN+ACK honeypot"]))
     # Now the "closed" / "filtered" ports. Note: this won't create any
     # tag but it is probably the best place to have this code!
+    clean_nonopen_ports(host)
+
+
+def clean_nonopen_ports(host: NmapHost) -> None:
     for status in ["closed", "filtered"]:
         n_ports = sum(
             1 for port in host.get("ports", []) if port.get("state_state") == status
@@ -1458,6 +1462,34 @@ def merge_host_docs(
     )
     if auto_tags:
         set_auto_tags(rec, update_openports=False)
+    else:
+        # we at least need to clean-up the ports
+        # first: syn-ack honeypot
+        n_ports = sum(
+            1 for port in rec.get("ports", []) if port.get("state_state") == "open"
+        )
+        if (
+            VIEW_SYNACK_HONEYPOT_COUNT is not None
+            and n_ports >= VIEW_SYNACK_HONEYPOT_COUNT
+        ):
+            # check if we have too many open ports that could be
+            # "syn-ack honeypots"...
+            newports = [
+                port
+                for port in rec["ports"]
+                if port.get("state_state") != "open" or is_real_service_port(port)
+            ]
+            if (
+                n_ports
+                - sum(1 for port in newports if port.get("state_state") == "open")
+                > VIEW_SYNACK_HONEYPOT_COUNT
+            ):
+                # ... if so, keep only the ports that cannot be "syn-ack
+                # honeypots"
+                rec["ports"] = newports
+                add_tags(
+                    rec, [cast(Tag, dict(TAG_HONEYPOT, info=["SYN+ACK honeypot"]))]
+                )
     if openports_attribute:
         set_openports_attribute(rec)
     for field in ["traces", "infos", "ports", "cpes"]:
