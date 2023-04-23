@@ -25,23 +25,24 @@ from functools import partial, reduce
 from multiprocessing import Pool, cpu_count
 from typing import Generator, List, Optional
 
-from ivre.active.data import merge_host_docs, set_auto_tags, set_openports_attribute
+from ivre.active.data import merge_host_docs
 from ivre.activecli import displayfunction_json
 from ivre.db import DB, DBView, db
 from ivre.types import Record
-from ivre.view import nmap_to_view, passive_to_view, to_view
+from ivre.view import (
+    nmap_to_view,
+    passive_to_view,
+    prepare_record,
+    to_view,
+    to_view_parallel,
+)
 
 
 def merge_and_output(
-    dburl: Optional[str], no_merge: bool, test: bool, records: List[Record]
+    dburl: Optional[str], no_merge: bool, records: List[Record]
 ) -> None:
     outdb = db.view if dburl is None else DBView.from_url(dburl)
-    if test:
-
-        def output(host: Record) -> None:
-            return displayfunction_json([host], outdb)
-
-    elif no_merge:
+    if no_merge:
         output = outdb.store_host
     else:
         output = outdb.store_or_merge_host
@@ -51,21 +52,11 @@ def merge_and_output(
         ),
         records,
     )
-    set_auto_tags(result, update_openports=False)
-    set_openports_attribute(result)
     try:
         datadb = outdb.globaldb.data
     except AttributeError:
-        pass
-    else:
-        result["infos"] = {}
-        for func in [
-            datadb.country_byip,
-            datadb.as_byip,
-            datadb.location_byip,
-        ]:
-            result["infos"].update(func(result["addr"]) or {})
-    output(result)
+        datadb = None
+    output(prepare_record(result, datadb))
 
 
 def main() -> None:
@@ -150,14 +141,34 @@ def main() -> None:
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
         _from = [passive_to_view(fltpass, category=view_category)]
+    if args.test:
+        args.processes = 1
     outdb = db.view if args.to_db is None else DBView.from_url(args.to_db)
 
     # Output results
     outdb.start_store_hosts()
-    with Pool(max(args.processes - 1, 1)) as pool:
-        for _ in pool.imap(
-            partial(merge_and_output, args.to_db, args.no_merge, args.test),
-            to_view(_from),
-        ):
-            pass
+
+    if args.processes > 1:
+        with Pool(max(args.processes - 1, 1)) as pool:
+            for _ in pool.imap(
+                partial(merge_and_output, args.to_db, args.no_merge),
+                to_view_parallel(_from),
+            ):
+                pass
+    else:
+        if args.test:
+
+            def output(host: Record) -> None:
+                return displayfunction_json([host], outdb)
+
+        elif args.no_merge:
+            output = outdb.store_host
+        else:
+            output = outdb.store_or_merge_host
+        try:
+            datadb = outdb.globaldb.data
+        except AttributeError:
+            datadb = None
+        for record in to_view(_from, datadb):
+            output(record)
     outdb.stop_store_hosts()

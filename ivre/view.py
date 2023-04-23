@@ -40,6 +40,8 @@ from ivre.active.data import (
     add_hostname,
     create_ssl_output,
     merge_host_docs,
+    set_auto_tags,
+    set_openports_attribute,
 )
 from ivre.data import scanners
 from ivre.db import db
@@ -868,24 +870,36 @@ def nmap_to_view(flt, category=None):
             pass
 
 
-def to_view(itrs):
-    """Takes a list of iterators over view-formated results, and returns an
-    iterator over merged results, sorted by ip.
+def prepare_record(rec, datadb):
+    """Prepare a record before sending it to the view"""
+    for port in rec.get("ports", []):
+        if "screendata" in port:
+            port["screendata"] = db.view.to_binary(port["screendata"])
+        for script in port.get("scripts", []):
+            if "masscan" in script and "raw" in script["masscan"]:
+                script["masscan"]["raw"] = db.view.to_binary(script["masscan"]["raw"])
+    set_auto_tags(rec, update_openports=False)
+    set_openports_attribute(rec)
+    if datadb is not None:
+        rec["infos"] = {}
+        addr = rec["addr"]
+        for func in [
+            datadb.country_byip,
+            datadb.as_byip,
+            datadb.location_byip,
+        ]:
+            rec["infos"].update(func(addr) or {})
+    return rec
+
+
+def to_view_parallel(itrs):
+    """Takes a list of iterators over view-formated results, and
+    returns an iterator over a list of results to be merged (by
+    parallel workers), sorted by ip.
 
     """
 
     next_recs = []
-
-    def prepare_record(rec):
-        for port in rec.get("ports", []):
-            if "screendata" in port:
-                port["screendata"] = db.view.to_binary(port["screendata"])
-            for script in port.get("scripts", []):
-                if "masscan" in script and "raw" in script["masscan"]:
-                    script["masscan"]["raw"] = db.view.to_binary(
-                        script["masscan"]["raw"]
-                    )
-        return rec
 
     # We cannot use a `for itr in itrs` loop here because itrs is
     # modified in the loop.
@@ -909,7 +923,7 @@ def to_view(itrs):
         i = 0
         while i < len(itrs):
             while next_addrs[i] == cur_addr:
-                cur_recs.append(prepare_record(next_recs[i]))
+                cur_recs.append(next_recs[i])
                 if len(cur_recs) >= MAX_RECORDS_IN_MEMORY:
                     cur_recs = [
                         reduce(
@@ -935,6 +949,55 @@ def to_view(itrs):
             cur_addr = min(next_addrs, key=utils.ip2int)
     if cur_recs:
         yield cur_recs
+
+
+def to_view(itrs, datadb):
+    """Takes a list of iterators over view-formated results, and returns an
+    iterator over merged results, sorted by ip.
+
+    """
+
+    next_recs = []
+
+    # We cannot use a `for itr in itrs` loop here because itrs is
+    # modified in the loop.
+    i = 0
+    while i < len(itrs):
+        try:
+            next_recs.append(next(itrs[i]))
+        except StopIteration:
+            # We need to remove the corresponding iterator from itrs,
+            # which happens to be the n-th where n is the current
+            # length of next_recs.
+            del itrs[len(next_recs)]  # Do not increment i here
+        else:
+            i += 1
+    next_addrs = [rec["addr"] for rec in next_recs]
+    cur_rec = {}
+    cur_addr = min(next_addrs, key=utils.ip2int, default=None)
+    while next_recs:
+        # We cannot use a `for i in range(len(itrs))` loop because
+        # itrs is modified in the loop.
+        i = 0
+        while i < len(itrs):
+            while next_addrs[i] == cur_addr:
+                cur_rec = merge_host_docs(cur_rec, next_recs[i])
+                try:
+                    next_recs[i] = next(itrs[i])
+                except StopIteration:
+                    del next_addrs[i]
+                    del next_recs[i]
+                    del itrs[i]
+                    i -= 1  # Do not increment i here
+                    break
+                next_addrs[i] = next_recs[i]["addr"]
+            i += 1
+        if next_addrs and cur_addr not in next_addrs:
+            yield prepare_record(cur_rec, datadb)
+            cur_rec = {}
+            cur_addr = min(next_addrs, key=utils.ip2int)
+    if cur_rec:
+        yield prepare_record(cur_rec, datadb)
 
 
 if HAS_PLUGINS:
