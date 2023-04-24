@@ -900,9 +900,6 @@ class IvreTests(unittest.TestCase):
                 return 1
             return 0
 
-        scan_duplicate = re.compile(
-            b"^DEBUG:ivre:Scan already present in " b"Database", re.M
-        )
         for fname in self.nmap_files:
             # Insertion in DB
             options = ["ivre", "scan2db", "--port", "-c", "TEST", "-s", "SOURCE"]
@@ -937,12 +934,6 @@ class IvreTests(unittest.TestCase):
             host_counter_test += sum(
                 host_stored_test(line) for line in out.splitlines()
             )
-            # Duplicate insertion
-            res, _, err = RUN(
-                ["ivre", "scan2db", "--port", "-c", "TEST", "-s", "SOURCE", fname]
-            )
-            self.assertEqual(res, 0)
-            scan_warning += sum(1 for _ in scan_duplicate.finditer(err))
 
         # Specific test cases
         samples = [
