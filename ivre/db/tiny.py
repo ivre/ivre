@@ -2897,7 +2897,7 @@ class TinyDBPassive(TinyDB, DBPassive):
 
             def _extractor(flt, field):  # noqa: F811
                 for rec in self._get(
-                    flt, sort=sort, limit=limit, skip=skip, fields=fields
+                    flt, sort=sort, limit=limit, skip=skip, fields=[field]
                 ):
                     val = "%s/%s" % (
                         utils.int2ip(utils.ip2int(rec["addr"]) & mask),
