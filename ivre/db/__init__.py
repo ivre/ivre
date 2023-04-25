@@ -2103,7 +2103,7 @@ class DBNmap(DBActive):
         """
         assert doc["schema_version"] == 21
         doc["schema_version"] = 22
-        for key in ["scanid", "infos", "tags"]:
+        for key in ["scanid", "infos"]:
             try:
                 del doc[key]
             except KeyError:

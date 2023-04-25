@@ -4265,7 +4265,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         """
         assert doc["schema_version"] == 21
         update = {"$set": {"schema_version": 22}}
-        for key in ["scanid", "infos", "tags"]:
+        for key in ["scanid", "infos"]:
             if key in doc:
                 update.setdefault("$unset", {})[key] = ""
         return update
