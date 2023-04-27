@@ -3246,14 +3246,14 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         self.assertEqual(_parse_cli_top_out(out1), _parse_cli_top_out(out2))
 
-        addr = next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))["addr"]
+        addr = next(iter(ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)))["addr"]
         res, out1, err = RUN(["ivre", "ipinfo", addr], env=newenv)
         self.assertEqual(res, 0)
         self.assertFalse(err)
         res, out2, err = RUN(["ivre", "ipinfo", addr])
         self.assertEqual(res, 0)
         self.assertFalse(err)
-        # self.assertEqual(out1, out2)  # See GH#1195 https://github.com/ivre/ivre/issues/1195
+        self.assertEqual(out1, out2)
 
         for distinct in ["addr", "port"]:
             cmd = ["ivre", "ipinfo", "--distinct", distinct]
