@@ -46,7 +46,7 @@ from typing import (
 from urllib.parse import urlparse
 
 from ivre.active.cpe import add_cpe_values
-from ivre.config import DATA_PATH, VIEW_SYNACK_HONEYPOT_COUNT
+from ivre.config import DATA_PATH, VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.types import NmapServiceMatch, ParsedCertificate, Tag
@@ -374,6 +374,14 @@ def is_synack_honeypot(host: NmapHost) -> bool:
     )
 
 
+def has_toomany_hostnames(host: NmapHost) -> bool:
+    """Returns True iff the host has the "Too many hostnames" tag."""
+    return any(
+        tag["value"] == "CDN" and "Too many hostnames" in tag.get("info", [])
+        for tag in host.get("tags", [])
+    )
+
+
 TAG_CDN: Tag = {"value": "CDN", "type": "info"}
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
@@ -556,6 +564,12 @@ def gen_auto_tags(
                     info=[f"Hostname {name} suggests a Shodan scanner"],
                 ),
             )
+    if (
+        VIEW_MAX_HOSTNAMES_COUNT
+        and len(host.get("hostnames", [])) > VIEW_MAX_HOSTNAMES_COUNT
+    ):
+        del host["hostnames"]
+        yield cast(Tag, dict(TAG_CDN, info=["Too many hostnames"]))
     for port in host.get("ports", []):
         if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):
             cur_info = []
@@ -1375,14 +1389,18 @@ def merge_host_docs(
     rec["infos"] = {}
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
-    # We want to make sure of (type, name) unicity
-    hostnames = {
-        (h["type"], h["name"]): h.get("domains")
-        for h in (rec1.get("hostnames", []) + rec2.get("hostnames", []))
-    }
-    rec["hostnames"] = [
-        {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
-    ]
+    if not (has_toomany_hostnames(rec1) or has_toomany_hostnames(rec2)):
+        # We want to make sure of (type, name) unicity
+        hostnames = {
+            (h["type"], h["name"]): h.get("domains")
+            for h in chain(rec1.get("hostnames", []), rec2.get("hostnames", []))
+        }
+        if VIEW_MAX_HOSTNAMES_COUNT and len(hostnames) > VIEW_MAX_HOSTNAMES_COUNT:
+            add_tags(rec, [cast(Tag, dict(TAG_CDN, info=["Too many hostnames"]))])
+        elif hostnames:
+            rec["hostnames"] = [
+                {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
+            ]
     addresses: NmapAddress = {}
     for record in [rec1, rec2]:
         for atype, addrs in record.get("addresses", {}).items():
@@ -1396,10 +1414,6 @@ def merge_host_docs(
     if addresses:
         rec["addresses"] = addresses
     if sa_honeypot:
-        add_tags(
-            rec,
-            [{"value": "Honeypot", "type": "warning", "info": ["SYN+ACK honeypot"]}],
-        )
         for record in [rec1, rec2]:
             if not is_synack_honeypot(record):
                 record["ports"] = [
