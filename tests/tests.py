@@ -4850,6 +4850,8 @@ class IvreTests(unittest.TestCase):
         shutil.rmtree("output")
 
     def test_50_view(self):
+        processes = random.choice([[], ["--processes", "1"]])
+        print(f"Running db2view with {processes!r}")
         #
         # Web server tests
         #
@@ -4964,7 +4966,7 @@ class IvreTests(unittest.TestCase):
         print("Counting")
         view_count = 0
         # Count passive results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view"] + processes + ["passive"])[0], 0)
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -4976,7 +4978,7 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         # Count active results
-        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view"] + processes + ["nmap"])[0], 0)
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -4986,7 +4988,12 @@ class IvreTests(unittest.TestCase):
         self.check_value("view_count_active", view_count)
         # Count merged results
         self.assertEqual(
-            RUN(["ivre", "db2view", "--view-category", "PASSIVE", "passive"])[0], 0
+            RUN(
+                ["ivre", "db2view", "--view-category", "PASSIVE"]
+                + processes
+                + ["passive"]
+            )[0],
+            0,
         )
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
