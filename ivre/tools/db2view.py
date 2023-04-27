@@ -21,7 +21,7 @@
 
 
 import argparse
-from functools import partial, reduce
+from functools import reduce
 from multiprocessing import Pool, cpu_count
 from typing import Generator, List, Optional
 
@@ -38,25 +38,33 @@ from ivre.view import (
 )
 
 
-def merge_and_output(
-    dburl: Optional[str], no_merge: bool, records: List[Record]
-) -> None:
-    outdb = db.view if dburl is None else DBView.from_url(dburl)
-    if no_merge:
-        output = outdb.store_host
-    else:
-        output = outdb.store_or_merge_host
+def merge_and_output(records: List[Record]) -> None:
     result = reduce(
         lambda r1, r2: merge_host_docs(
             r1, r2, auto_tags=False, openports_attribute=False
         ),
         records,
     )
+    w_output(prepare_record(result, w_datadb))  # type: ignore
+
+
+def worker_initializer(dburl: Optional[str], no_merge: bool) -> None:
+    # pylint: disable=global-variable-undefined
+    global w_datadb, w_outdb, w_output
+    w_outdb = db.view if dburl is None else DBView.from_url(dburl)  # type: ignore
+    if no_merge:
+        w_output = w_outdb.store_host  # type: ignore
+    else:
+        w_output = w_outdb.store_or_merge_host  # type: ignore
     try:
-        datadb = outdb.globaldb.data
+        w_datadb = w_outdb.globaldb.data  # type: ignore
     except AttributeError:
-        datadb = None
-    output(prepare_record(result, datadb))
+        w_datadb = None  # type: ignore
+    w_outdb.start_store_hosts()  # type: ignore
+
+
+def worker_destroyer(_: None) -> None:
+    w_outdb.stop_store_hosts()  # type: ignore
 
 
 def main() -> None:
@@ -146,14 +154,17 @@ def main() -> None:
     outdb = db.view if args.to_db is None else DBView.from_url(args.to_db)
 
     # Output results
-    outdb.start_store_hosts()
 
     if args.processes > 1:
-        with Pool(max(args.processes - 1, 1)) as pool:
-            for _ in pool.imap(
-                partial(merge_and_output, args.to_db, args.no_merge),
-                to_view_parallel(_from),
-            ):
+        nprocs = max(args.processes - 1, 1)
+        with Pool(
+            nprocs,
+            initializer=worker_initializer,
+            initargs=(args.to_db, args.no_merge),
+        ) as pool:
+            for _ in pool.imap(merge_and_output, to_view_parallel(_from)):
+                pass
+            for _ in pool.imap(worker_destroyer, [None] * nprocs):
                 pass
     else:
         if args.test:
@@ -169,6 +180,7 @@ def main() -> None:
             datadb = outdb.globaldb.data
         except AttributeError:
             datadb = None
+        outdb.start_store_hosts()
         for record in to_view(_from, datadb):
             output(record)
-    outdb.stop_store_hosts()
+        outdb.stop_store_hosts()
