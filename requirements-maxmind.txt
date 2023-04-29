@@ -1,4 +1,4 @@
 pymongo>=3.7
-cryptography
+cryptography<40.0.0
 pyOpenSSL>=16.1.0
 bottle

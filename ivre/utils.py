@@ -807,15 +807,6 @@ def open_file(fname: str) -> FileOpener:
     return FileOpener(fname)
 
 
-def hash_file(fname: str, hashtype: str = "sha1") -> bytes:
-    """Compute a hash of data from a given file"""
-    with open_file(fname) as fdesc:
-        result = hashlib.new(hashtype)
-        for data in iter(lambda: fdesc.read(1048576), b""):
-            result.update(data)
-        return result.hexdigest().encode()
-
-
 def serialize(obj: Any) -> str:
     """Return a JSON-compatible representation for `obj`"""
     if isinstance(obj, REGEXP_T):

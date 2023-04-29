@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ from typing import Generator, Iterable, List
 import ivre.db
 import ivre.utils
 import ivre.xmlnmap
+from ivre.active.data import set_auto_tags, set_openports_attribute
 from ivre.types import Record
 from ivre.view import nmap_record_to_view
 
@@ -90,12 +91,6 @@ def main() -> None:
         "result.",
     )
     parser.add_argument(
-        "--force-info",
-        action="store_true",
-        help="Force information (AS, country, city, etc.)"
-        " renewal (only useful with JSON format)",
-    )
-    parser.add_argument(
         "-r",
         "--recursive",
         action="store_true",
@@ -132,9 +127,19 @@ def main() -> None:
     else:
 
         def callback(x: Record) -> None:
-            ivre.db.db.view.start_store_hosts()
-            ivre.db.db.view.store_or_merge_host(nmap_record_to_view(x))
-            ivre.db.db.view.stop_store_hosts()
+            result = nmap_record_to_view(x)
+            set_auto_tags(result, update_openports=False)
+            set_openports_attribute(result)
+            result["infos"] = {}
+            for func in [
+                ivre.db.db.data.country_byip,
+                ivre.db.db.data.as_byip,
+                ivre.db.db.data.location_byip,
+            ]:
+                result["infos"].update(func(result["addr"]) or {})
+            ivre.db.db.view.store_or_merge_host(result)
+
+        ivre.db.db.view.start_store_hosts()
 
     count = 0
     for scan in scans:
@@ -149,7 +154,6 @@ def main() -> None:
                 source=args.source,
                 needports=args.ports,
                 needopenports=args.open_ports,
-                force_info=args.force_info,
                 masscan_probes=args.masscan_probes,
                 callback=callback,
                 zgrab_port=args.zgrab_port,
@@ -158,5 +162,7 @@ def main() -> None:
         except Exception:
             ivre.utils.LOGGER.warning("Exception (file %r)", scan, exc_info=True)
             error[0] = True
+    if callback is not None:
+        ivre.db.db.view.stop_store_hosts()
     ivre.utils.LOGGER.info("%d results imported.", count)
     sys.exit(error[0])

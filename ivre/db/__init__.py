@@ -51,7 +51,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, flow, geoiputils, nmapout, passive, utils, xmlnmap
+from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     ALIASES_TABLE_ELEMS,
@@ -61,7 +61,6 @@ from ivre.active.data import (
     handle_http_headers,
     merge_host_docs,
     set_auto_tags,
-    set_openports_attribute,
 )
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.zgrabout import ZGRAB_PARSERS
@@ -100,14 +99,6 @@ class DB:
         self.argparser = ArgumentParser(add_help=False)
         self.argparser.add_argument(
             "--category", metavar="CAT", help="show only results from this category"
-        )
-        self.argparser.add_argument(
-            "--country", metavar="CODE", help="show only results from this country"
-        )
-        self.argparser.add_argument(
-            "--asnum",
-            metavar="NUM[,NUM[...]]",
-            help="show only results from this(those) AS(es)",
         )
         self.argparser.add_argument("--port", metavar="PORT")
         self.argparser.add_argument("--service", metavar="SVC[:PORT]")
@@ -150,15 +141,6 @@ class DB:
             flt = self.flt_empty
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(utils.str2list(args.category)))
-        if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
-        if args.asnum is not None:
-            if args.asnum[:1] in "!-":
-                flt = self.flt_and(
-                    flt, self.searchasnum(utils.str2list(args.asnum[1:]), neg=True)
-                )
-            else:
-                flt = self.flt_and(flt, self.searchasnum(utils.str2list(args.asnum)))
         if args.port is not None:
             port = args.port.replace("_", "/")
             if "/" in port:
@@ -958,16 +940,11 @@ class DBActive(DB):
                 18: (19, self.__migrate_schema_hosts_18_19),
                 19: (20, self.__migrate_schema_hosts_19_20),
                 20: (21, self.__migrate_schema_hosts_20_21),
+                21: (22, self.__migrate_schema_hosts_21_22),
             },
         }
         self.argparser.add_argument(
-            "--asname", metavar="NAME", help="show only results from this(those) AS(es)"
-        )
-        self.argparser.add_argument(
             "--source", metavar="SRC", help="show only results from this source"
-        )
-        self.argparser.add_argument(
-            "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
         )
         self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
@@ -1023,10 +1000,6 @@ class DBActive(DB):
         )
         self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument("--sshkey", metavar="FINGERPRINT")
-
-    @staticmethod
-    def is_scan_present(_):
-        return False
 
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
@@ -1520,7 +1493,7 @@ class DBActive(DB):
 
     @staticmethod
     def __migrate_schema_hosts_20_21(doc):
-        """Converts a record from version 20 to version 21. Version 20
+        """Converts a record from version 20 to version 21. Version 21
         introduces a structured output for data from ssl-jarm.
 
         """
@@ -1534,14 +1507,23 @@ class DBActive(DB):
         return doc
 
     @staticmethod
+    def __migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        removes the `scanid` field and the `infos` and `tags` fields
+        in the Nmap purpose (they are now only used in the View
+        purpose).
+
+        """
+        assert doc["schema_version"] == 21
+        try:
+            del doc["scanid"]
+        except KeyError:
+            pass
+        doc["schema_version"] = 22
+
+    @staticmethod
     def json2dbrec(host):
         return host
-
-    def store_scan_doc(self, scan):
-        pass
-
-    def update_scan_doc(self, scan_id, data):
-        pass
 
     def remove(self, host):
         raise NotImplementedError
@@ -1952,24 +1934,11 @@ class DBActive(DB):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
-        if not hasattr(args, "asname"):
+        if not hasattr(args, "source"):
             # This is not from DBActive, probably from DB
             return flt
-        if args.asname is not None:
-            flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
-        if args.tag is not None:
-            tag = {}
-            if ":" in args.tag:
-                value, info = args.tag.split(":", 1)
-                if value:
-                    tag["value"] = utils.str2regexp(value)
-                if info:
-                    tag["info"] = utils.str2regexp(info)
-            elif args.tag:
-                tag["value"] = utils.str2regexp(args.tag)
-            flt = self.flt_and(flt, self.searchtag(tag))
         if args.version is not None:
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
@@ -2105,10 +2074,6 @@ class DBActive(DB):
     def cmp_schema_version_host(_):
         return 0
 
-    @staticmethod
-    def cmp_schema_version_scan(_):
-        return 0
-
 
 class DBNmap(DBActive):
     backends = {
@@ -2122,10 +2087,27 @@ class DBNmap(DBActive):
 
     def __init__(self, output_mode="json", output=sys.stdout):
         super().__init__()
+        self._schema_migrations["hosts"][21] = (22, self.__migrate_schema_hosts_21_22)
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
         self.output = output
+
+    @staticmethod
+    def __migrate_schema_hosts_21_22(doc):
+        """Converts a record from version 21 to version 22. Version 22
+        removes the `scanid` field and the `infos` and `tags` fields
+        in the Nmap purpose (they are now only used in the View
+        purpose).
+
+        """
+        assert doc["schema_version"] == 21
+        doc["schema_version"] = 22
+        for key in ["scanid", "infos"]:
+            try:
+                del doc[key]
+            except KeyError:
+                pass
 
     def store_host(self, host):
         if self.output_function is not None:
@@ -2136,10 +2118,6 @@ class DBNmap(DBActive):
         store_scan_* method to parse (and store) the scan result.
 
         """
-        scanid = utils.hash_file(fname, hashtype="sha256")
-        if self.is_scan_present(scanid):
-            utils.LOGGER.debug("Scan already present in Database (%r).", fname)
-            return False
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
             if fchar == b"{":
@@ -2197,7 +2175,7 @@ class DBNmap(DBActive):
                 raise ValueError(  # pylint: disable=raise-missing-from
                     f"Unknown file type {fname}"
                 )
-        return store_scan_function(fname, filehash=scanid, **kargs)
+        return store_scan_function(fname, **kargs)
 
     def store_scan_xml(self, fname, callback=None, **kargs):
         """This method parses an XML scan result, displays a JSON
@@ -2236,13 +2214,10 @@ class DBNmap(DBActive):
     def store_scan_json_ivre(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2261,7 +2236,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2272,23 +2246,10 @@ class DBNmap(DBActive):
                     continue
                 if "_id" in host:
                     del host["_id"]
-                host["scanid"] = filehash
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
                 # Update schema if/as needed.
                 while host.get("schema_version") in self._schema_migrations["hosts"]:
                     oldvers = host.get("schema_version")
@@ -2301,11 +2262,6 @@ class DBNmap(DBActive):
                             host,
                         )
                         break
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2315,13 +2271,10 @@ class DBNmap(DBActive):
     def store_scan_json_zgrab(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         zgrab_port=None,
         **_,
@@ -2341,7 +2294,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         if zgrab_port is not None:
             zgrab_port = int(zgrab_port)
@@ -2350,7 +2302,6 @@ class DBNmap(DBActive):
                 rec = json.loads(line.decode())
                 host = {
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                 }
                 try:
@@ -2410,8 +2361,6 @@ class DBNmap(DBActive):
                             host.setdefault("ports", []).append(port)
                 if not host.get("ports"):
                     continue
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if "cpes" in host:
                     host["cpes"] = list(host["cpes"].values())
                     for cpe in host["cpes"]:
@@ -2427,23 +2376,6 @@ class DBNmap(DBActive):
                     )
                 ):
                     continue
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "zgrab"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2453,13 +2385,10 @@ class DBNmap(DBActive):
     def store_scan_json_zdns_ptr(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2478,7 +2407,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2506,7 +2434,6 @@ class DBNmap(DBActive):
                 timestamp = rec.pop("timestamp")[:19].replace("T", " ")
                 host = {
                     "addr": rec.pop("name"),
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     # [:19]: remove timezone info
                     "starttime": timestamp,
@@ -2518,23 +2445,6 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2544,13 +2454,10 @@ class DBNmap(DBActive):
     def store_scan_json_zdns_a(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2569,7 +2476,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2588,7 +2494,6 @@ class DBNmap(DBActive):
                         continue
                     host = {
                         "addr": ans["answer"],
-                        "scanid": filehash,
                         "schema_version": xmlnmap.SCHEMA_VERSION,
                         # [:19]: remove timezone info
                         "starttime": timestamp,
@@ -2606,23 +2511,6 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
-                    if (
-                        add_addr_infos
-                        and self.globaldb is not None
-                        and (force_info or "infos" not in host or not host["infos"])
-                    ):
-                        host["infos"] = {}
-                        for func in [
-                            self.globaldb.data.country_byip,
-                            self.globaldb.data.as_byip,
-                            self.globaldb.data.location_byip,
-                        ]:
-                            host["infos"].update(func(host["addr"]) or {})
-                    # We are about to insert data based on this file,
-                    # so we want to save the scan document
-                    if not scan_doc_saved:
-                        self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
-                        scan_doc_saved = True
                     self.store_host(host)
                     if callback is not None:
                         callback(host)
@@ -2632,13 +2520,10 @@ class DBNmap(DBActive):
     def store_scan_json_zdns_recursion(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         masscan_probes=None,
         **_,
@@ -2668,7 +2553,6 @@ class DBNmap(DBActive):
                 '"--masscan-probes ZDNS:<query>:<type>:<expected result>" '
                 '(example: "ZDNS:ivre.rocks:A:1.2.3.4")'
             )
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2714,7 +2598,6 @@ class DBNmap(DBActive):
                 host = {
                     "addr": addr,
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     # [:19]: remove timezone info
                     "starttime": timestamp,
@@ -2745,25 +2628,7 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                set_openports_attribute(host)
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2771,13 +2636,12 @@ class DBNmap(DBActive):
         return True
 
     @staticmethod
-    def _gen_records_json_dnsx(rec, name, filehash, timestamp):
+    def _gen_records_json_dnsx(rec, name, timestamp):
         # answers: ["a", "aaaa", "cname", "mx", "ns", "soa", "txt"]
         for ans_type in ["a", "aaaa"]:
             for addr in rec.get(ans_type, []):
                 yield {
                     "addr": addr,
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
                     "endtime": timestamp,
@@ -2793,7 +2657,6 @@ class DBNmap(DBActive):
             hostname = hostname.lower()
             yield {
                 "addr": name,
-                "scanid": filehash,
                 "schema_version": xmlnmap.SCHEMA_VERSION,
                 "starttime": timestamp,
                 "endtime": timestamp,
@@ -2809,13 +2672,10 @@ class DBNmap(DBActive):
     def store_scan_json_dnsx(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2834,7 +2694,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2858,29 +2717,12 @@ class DBNmap(DBActive):
                     timestamp = timestamp[:-6]
                 # skip nanosec
                 timestamp = timestamp[:26]
-                for host in self._gen_records_json_dnsx(rec, name, filehash, timestamp):
+                for host in self._gen_records_json_dnsx(rec, name, timestamp):
                     if categories:
                         host["categories"] = categories
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
-                    if (
-                        add_addr_infos
-                        and self.globaldb is not None
-                        and (force_info or "infos" not in host or not host["infos"])
-                    ):
-                        host["infos"] = {}
-                        for func in [
-                            self.globaldb.data.country_byip,
-                            self.globaldb.data.as_byip,
-                            self.globaldb.data.location_byip,
-                        ]:
-                            host["infos"].update(func(host["addr"]) or {})
-                    # We are about to insert data based on this file,
-                    # so we want to save the scan document
-                    if not scan_doc_saved:
-                        self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
-                        scan_doc_saved = True
                     try:
                         self.store_host(host)
                     except Exception:
@@ -2896,13 +2738,10 @@ class DBNmap(DBActive):
     def store_scan_json_nuclei(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -2921,7 +2760,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3020,7 +2858,6 @@ class DBNmap(DBActive):
                 host = {
                     "addr": addr,
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "ports": [port_doc],
                 }
@@ -3109,30 +2946,11 @@ class DBNmap(DBActive):
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
                         "T", " "
                     )
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "nuclei"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3142,13 +2960,10 @@ class DBNmap(DBActive):
     def store_scan_json_httpx(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3167,7 +2982,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3191,7 +3005,6 @@ class DBNmap(DBActive):
                 host = {
                     "addr": rec["host"],
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
                     "endtime": timestamp,
@@ -3232,30 +3045,11 @@ class DBNmap(DBActive):
                 # remaining fields (TODO): path body-sha256
                 # header-sha256 url content-type method content-length
                 # status-code response-time failed
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "httpx"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3265,13 +3059,10 @@ class DBNmap(DBActive):
     def store_scan_json_tlsx(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3290,7 +3081,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3311,7 +3101,6 @@ class DBNmap(DBActive):
                 timestamp = rec["timestamp"][:19].replace("T", " ")
                 host = {
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
                     "endtime": timestamp,
@@ -3386,30 +3175,11 @@ class DBNmap(DBActive):
                         }
                     )
                 # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "httpx"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3419,13 +3189,10 @@ class DBNmap(DBActive):
     def store_scan_json_shodan(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3444,7 +3211,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3465,7 +3231,6 @@ class DBNmap(DBActive):
                 host = {
                     "addr": rec["ip_str"],
                     "state": "up",
-                    "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
                     "endtime": timestamp,
@@ -3552,30 +3317,11 @@ class DBNmap(DBActive):
                 # os
                 # _shodan / opts.raw
                 # tags (["cloud"]) / cloud
-                set_auto_tags(host, update_openports=False)
-                set_openports_attribute(host)
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
-                if (
-                    add_addr_infos
-                    and self.globaldb is not None
-                    and (force_info or "infos" not in host or not host["infos"])
-                ):
-                    host["infos"] = {}
-                    for func in [
-                        self.globaldb.data.country_byip,
-                        self.globaldb.data.as_byip,
-                        self.globaldb.data.location_byip,
-                    ]:
-                        host["infos"].update(func(host["addr"]) or {})
-                # We are about to insert data based on this file,
-                # so we want to save the scan document
-                if not scan_doc_saved:
-                    self.store_scan_doc({"_id": filehash, "scanner": "shodan"})
-                    scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3585,13 +3331,10 @@ class DBNmap(DBActive):
     def store_scan_json_dismap(
         self,
         fname,
-        filehash=None,
         needports=False,
         needopenports=False,
         categories=None,
         source=None,
-        add_addr_infos=True,
-        force_info=False,
         callback=None,
         **_,
     ):
@@ -3610,7 +3353,6 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
-        scan_doc_saved = False
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             try:
@@ -3640,7 +3382,6 @@ class DBNmap(DBActive):
             host = {
                 "addr": rec["host"],
                 "state": "up",
-                "scanid": filehash,
                 "schema_version": xmlnmap.SCHEMA_VERSION,
                 "starttime": timestamp,
                 "endtime": timestamp,
@@ -3760,26 +3501,11 @@ class DBNmap(DBActive):
                     )
             # remaining fields / TODO:
             # banner.string note path uri
-            set_auto_tags(host, update_openports=False)
-            set_openports_attribute(host)
             if categories:
                 host["categories"] = categories
             if source is not None:
                 host["source"] = source
             host = self.json2dbrec(host)
-            if add_addr_infos and self.globaldb is not None:
-                host["infos"] = {}
-                for func in [
-                    self.globaldb.data.country_byip,
-                    self.globaldb.data.as_byip,
-                    self.globaldb.data.location_byip,
-                ]:
-                    host["infos"].update(func(host["addr"]) or {})
-            # We are about to insert data based on this file,
-            # so we want to save the scan document
-            if not scan_doc_saved:
-                self.store_scan_doc({"_id": filehash, "scanner": "dismap"})
-                scan_doc_saved = True
             self.store_host(host)
             if callback is not None:
                 callback(host)
@@ -3799,6 +3525,20 @@ class DBView(DBActive):
 
     def __init__(self):
         super().__init__()
+        self.argparser.add_argument(
+            "--tag", metavar="VALUE[:INFO]", help="show only results with this tag"
+        )
+        self.argparser.add_argument(
+            "--country", metavar="CODE", help="show only results from this country"
+        )
+        self.argparser.add_argument(
+            "--asname", metavar="NAME", help="show only results from this(those) AS(es)"
+        )
+        self.argparser.add_argument(
+            "--asnum",
+            metavar="NUM[,NUM[...]]",
+            help="show only results from this(those) AS(es)",
+        )
         if hasattr(self, "searchtext"):
             self.argparser.add_argument(
                 "--search", metavar="FREE TEXT", help="perform a full-text search"
@@ -3820,9 +3560,31 @@ class DBView(DBActive):
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
-        if not hasattr(args, "ssl_ja3_client"):
+        if not hasattr(args, "tag"):
             # This is not from DBView, probably from DB
             return flt
+        if args.tag is not None:
+            tag = {}
+            if ":" in args.tag:
+                value, info = args.tag.split(":", 1)
+                if value:
+                    tag["value"] = utils.str2regexp(value)
+                if info:
+                    tag["info"] = utils.str2regexp(info)
+            elif args.tag:
+                tag["value"] = utils.str2regexp(args.tag)
+            flt = self.flt_and(flt, self.searchtag(tag))
+        if args.asname is not None:
+            flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
+        if args.asnum is not None:
+            if args.asnum[:1] in "!-":
+                flt = self.flt_and(
+                    flt, self.searchasnum(utils.str2list(args.asnum[1:]), neg=True)
+                )
+            else:
+                flt = self.flt_and(flt, self.searchasnum(utils.str2list(args.asnum)))
+        if args.country is not None:
+            flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
         if hasattr(self, "searchtext") and args.search is not None:
             flt = self.flt_and(flt, self.searchtext(args.search))
         if args.ssl_ja3_client is not None:
@@ -4290,12 +4052,6 @@ class DBPassive(DB):
 
     def _search_field_exists(self, field):
         raise NotImplementedError
-
-    def searchcountry(self, code, neg=False):
-        return self.searchranges(geoiputils.get_ranges_by_country(code), neg=neg)
-
-    def searchasnum(self, asnum, neg=False):
-        return self.searchranges(geoiputils.get_ranges_by_asnum(asnum), neg=neg)
 
     @classmethod
     def searchranges(cls, ranges, neg=False):

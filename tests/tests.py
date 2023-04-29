@@ -900,9 +900,6 @@ class IvreTests(unittest.TestCase):
                 return 1
             return 0
 
-        scan_duplicate = re.compile(
-            b"^DEBUG:ivre:Scan already present in " b"Database", re.M
-        )
         for fname in self.nmap_files:
             # Insertion in DB
             options = ["ivre", "scan2db", "--port", "-c", "TEST", "-s", "SOURCE"]
@@ -937,12 +934,6 @@ class IvreTests(unittest.TestCase):
             host_counter_test += sum(
                 host_stored_test(line) for line in out.splitlines()
             )
-            # Duplicate insertion
-            res, _, err = RUN(
-                ["ivre", "scan2db", "--port", "-c", "TEST", "-s", "SOURCE", fname]
-            )
-            self.assertEqual(res, 0)
-            scan_warning += sum(1 for _ in scan_duplicate.finditer(err))
 
         # Specific test cases
         samples = [
@@ -1260,13 +1251,6 @@ class IvreTests(unittest.TestCase):
             "-countports:10-100",
         )
 
-        self.check_nmap_count_value(
-            "nmap_extended_eu_count",
-            ivre.db.db.nmap.searchcountry(["EU", "GB", "CH", "NO"]),
-            ["--country=EU,GB,CH,NO"],
-            "country:EU,GB,CH,NO",
-        )
-
         # Filters
         addr = next(
             iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty, fields=["addr"]))
@@ -1292,13 +1276,6 @@ class IvreTests(unittest.TestCase):
         )
         self.check_count_value_api(
             1, ivre.db.db.nmap.searchid(recid), database=ivre.db.db.nmap
-        )
-        self.assertIsNotNone(
-            ivre.db.db.nmap.getscan(
-                ivre.db.db.nmap.getscanids(
-                    next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))
-                )[0]
-            )
         )
 
         self.check_nmap_count_value(
@@ -1756,12 +1733,6 @@ class IvreTests(unittest.TestCase):
         self.check_nmap_top_value("nmap_top_jarm", "jarm")
         self.check_nmap_top_value("nmap_top_jarm_443", "jarm:443")
 
-        self.check_nmap_top_value("nmap_top_tag", "tag")
-        self.check_nmap_top_value("nmap_top_tag_value", "tag.value")
-        self.check_nmap_top_value("nmap_top_tag_info", "tag.info")
-        self.check_nmap_top_value("nmap_top_tag_type", "tag.type")
-        self.check_nmap_top_value("nmap_top_tag_cdn", "tag:CDN")
-
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
                 self.check_nmap_top_value(
@@ -1800,32 +1771,6 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_api("nmap_top_hop", "hop", database=ivre.db.db.nmap)
         self._check_top_value_api(
             "nmap_top_hop_10+", "hop>10", database=ivre.db.db.nmap
-        )
-
-        locations = list(ivre.db.db.nmap.getlocations(ivre.db.db.nmap.flt_empty))
-        self.assertTrue(all(len(elt) == 2 for elt in locations))
-        self.assertTrue(all(isinstance(elt["_id"], tuple) for elt in locations))
-        self.assertTrue(all(len(elt["_id"]) == 2 for elt in locations))
-        self.assertTrue(
-            all(all(isinstance(sub, float) for sub in elt["_id"]) for elt in locations)
-        )
-        self.assertTrue(all(isinstance(elt["count"], int) for elt in locations))
-        self.check_value("nmap_location_count", len(locations))
-
-        # Check that all coordinates for IPs in "FR" are in a
-        # rectangle given by 43 < lat < 51 and -5 < lon < 8 (for some
-        # reasons, overseas territories have they own country code,
-        # e.g., "RE").
-        self.assertTrue(
-            all(
-                43 < lat < 51 and -5 < lon < 8
-                for lat, lon in (
-                    elt["_id"]
-                    for elt in ivre.db.db.nmap.getlocations(
-                        ivre.db.db.nmap.searchcountry("FR")
-                    )
-                )
-            )
         )
 
         # moduli
@@ -1924,71 +1869,6 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("nmap_features_versions_noyieldall_ndata", len(data))
 
-        subflts = [
-            (country, ivre.db.db.nmap.searchcountry(country))
-            for country in ["FR", "DE"]
-        ]
-        columns, data = ivre.db.db.nmap.features(use_service=False, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("nmap_features_ports_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("nmap_features_ports_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.nmap.features(subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("nmap_features_services_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("nmap_features_services_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.nmap.features(use_product=True, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("nmap_features_products_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("nmap_features_products_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.nmap.features(use_version=True, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("nmap_features_versions_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("nmap_features_versions_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.nmap.features(
-            yieldall=False, use_version=True, subflts=subflts
-        )
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("nmap_features_versions_noyieldall_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("nmap_features_versions_noyieldall_FRDE_ndata", len(data))
-
-        # Tags
-        self.check_value(
-            "nmap_count_tags", ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag())
-        )
-        self.check_value(
-            "nmap_count_tags_honeypot",
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag("Honeypot")),
-        )
-        self.check_value(
-            "nmap_count_tags_honeypot",
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "Honeypot"})),
-        )
-        self.check_value(
-            "nmap_count_tags_tor",
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchtag({"value": "TOR"})),
-        )
-        self.check_value(
-            "nmap_count_tags_honeypot_mushmush_102",
-            ivre.db.db.nmap.count(
-                ivre.db.db.nmap.searchtag(
-                    {
-                        "value": "Honeypot",
-                        "info": "honeypot / MushMush Conpot on port tcp/102",
-                    }
-                )
-            ),
-        )
-
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             newenv = os.environ.copy()
@@ -2023,7 +1903,7 @@ class IvreTests(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
-        for topval in ["port:open", "service:80", "country", "portlist:open"]:
+        for topval in ["port:open", "service:80", "portlist:open"]:
             res, out1, err = RUN(["ivre", "scancli", "--top", topval], env=newenv)
             self.assertEqual(res, 0)
             self.assertFalse(err)
@@ -2816,36 +2696,6 @@ class IvreTests(unittest.TestCase):
         self.check_value("passive_distinct_ssh_moduli", distinct)
         self.check_value("passive_max_moduli_ssh_reuse", maxcount)
 
-        # ASNs / Countries / .searchranges()
-        for asnum in [15169, 15557, 3215, 2200, 123456789]:
-            if DATABASE == "tinydb" and asnum == 3215:
-                # With tinydb, the filter generates a huge expression
-                # which leads to the following error:
-                #
-                # RecursionError: maximum recursion depth exceeded
-                continue
-            res, out, err = RUN(["ivre", "ipinfo", "--count", "--asnum", str(asnum)])
-            self.assertEqual(ret, 0)
-            self.assertFalse(err)
-            self.check_value("passive_count_as%d" % asnum, int(out))
-        for cname in ["US", "FR", "DE", "KP", "XX"]:
-            if DATABASE in ["sqlite", "tinydb"] and cname in ["US", "FR", "DE"]:
-                # With sqlite, the filter generates a huge expression
-                # which leads to the following error:
-                #
-                # sqlite3.OperationalError: Expression tree is too
-                # large (maximum depth 10000)
-                #
-                # With tinydb, the filter generates a huge expression
-                # which leads to the following error:
-                #
-                # RecursionError: maximum recursion depth exceeded
-                continue
-            res, out, err = RUN(["ivre", "ipinfo", "--count", "--country", cname])
-            self.assertEqual(ret, 0)
-            self.assertFalse(err)
-            self.check_value("passive_count_country_%s" % cname, int(out))
-
         ret, out, _ = RUN(["ivre", "ipinfo", "--short"])
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
@@ -3164,53 +3014,6 @@ class IvreTests(unittest.TestCase):
         self.check_value("passive_features_versions_noyieldall_ncolumns", ncolumns)
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("passive_features_versions_noyieldall_ndata", len(data))
-
-        if DATABASE == "tinydb":
-            # BUG in tinydb backend: the country filters generate huge
-            # expressions that cause the error:
-            #
-            # RecursionError: maximum recursion depth exceeded
-            return
-
-        subflts = [
-            (country, ivre.db.db.passive.searchcountry(country))
-            for country in ["FR", "DE"]
-        ]
-        columns, data = ivre.db.db.passive.features(use_service=False, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("passive_features_ports_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("passive_features_ports_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.passive.features(subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("passive_features_services_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("passive_features_services_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.passive.features(use_product=True, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("passive_features_products_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("passive_features_products_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.passive.features(use_version=True, subflts=subflts)
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value("passive_features_versions_FRDE_ncolumns", ncolumns)
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("passive_features_versions_FRDE_ndata", len(data))
-        columns, data = ivre.db.db.passive.features(
-            yieldall=False, use_version=True, subflts=subflts
-        )
-        ncolumns = len(columns)
-        data = list(data)
-        self.check_value(
-            "passive_features_versions_noyieldall_FRDE_ncolumns",
-            ncolumns,
-        )
-        self.assertTrue(all(len(d) == ncolumns for d in data))
-        self.check_value("passive_features_versions_noyieldall_FRDE_ndata", len(data))
 
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
@@ -5047,6 +4850,8 @@ class IvreTests(unittest.TestCase):
         shutil.rmtree("output")
 
     def test_50_view(self):
+        processes = random.choice([[], ["--processes", "1"]])
+        print(f"Running db2view with {processes!r}")
         #
         # Web server tests
         #
@@ -5161,7 +4966,7 @@ class IvreTests(unittest.TestCase):
         print("Counting")
         view_count = 0
         # Count passive results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view"] + processes + ["passive"])[0], 0)
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -5173,7 +4978,7 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
         # Count active results
-        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view"] + processes + ["nmap"])[0], 0)
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -5183,7 +4988,12 @@ class IvreTests(unittest.TestCase):
         self.check_value("view_count_active", view_count)
         # Count merged results
         self.assertEqual(
-            RUN(["ivre", "db2view", "--view-category", "PASSIVE", "passive"])[0], 0
+            RUN(
+                ["ivre", "db2view", "--view-category", "PASSIVE"]
+                + processes
+                + ["passive"]
+            )[0],
+            0,
         )
         if DATABASE == "elastic":
             time.sleep(ELASTIC_INSERT_TEMPO)
@@ -5198,6 +5008,29 @@ class IvreTests(unittest.TestCase):
         ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
         self.assertFalse(err)
+
+        self.check_view_count_value(
+            "view_extended_eu_count",
+            ivre.db.db.view.searchcountry(["EU", "GB", "CH", "NO"]),
+            ["--country=EU,GB,CH,NO"],
+            "country:EU,GB,CH,NO",
+        )
+
+        # Check that all coordinates for IPs in "FR" are in a
+        # rectangle given by 43 < lat < 51 and -5 < lon < 8 (for some
+        # reasons, overseas territories have they own country code,
+        # e.g., "RE").
+        self.assertTrue(
+            all(
+                43 < lat < 51 and -5 < lon < 8
+                for lat, lon in (
+                    elt["_id"]
+                    for elt in ivre.db.db.view.getlocations(
+                        ivre.db.db.view.searchcountry("FR")
+                    )
+                )
+            )
+        )
 
         print("Outputs")
         # JSON

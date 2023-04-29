@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
-    LargeBinary,
     String,
     Text,
     event,
@@ -258,23 +257,6 @@ class Flow(Base):
 
 
 # Active
-class _Association_Scan_ScanFile:
-    scan = Column(Integer, primary_key=True)
-    scan_file = Column(LargeBinary(32), primary_key=True)
-
-
-class _ScanFile:
-    sha256 = Column(LargeBinary(32), primary_key=True)
-    args = Column(Text)
-    scaninfo = Column(SQLJSONB)
-    scanner = Column(String(16))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    elapsed = Column(Float)
-    version = Column(String(16))
-    xmloutputversion = Column(String(16))
-
-
 class _Association_Scan_Category:
     scan = Column(Integer, primary_key=True)
     category = Column(Integer, primary_key=True)
@@ -366,18 +348,6 @@ class _Scan:
 
 
 # Nmap
-class N_Association_Scan_ScanFile(Base, _Association_Scan_ScanFile):
-    __tablename__ = "n_association_scan_scanfile"
-    __table_args__ = (
-        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
-        ForeignKeyConstraint(["scan_file"], ["n_scan_file.sha256"], ondelete="CASCADE"),
-    )
-
-
-class N_ScanFile(Base, _ScanFile):
-    __tablename__ = "n_scan_file"
-
-
 class N_Association_Scan_Category(Base, _Association_Scan_Category):
     __tablename__ = "n_association_scan_category"
     __table_args__ = (

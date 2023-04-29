@@ -218,12 +218,7 @@ class TinyDB(DB):
                 fullfield = "%s.%s" % (base, field)
             else:
                 fullfield = field
-            if fullfield in cls.list_fields or (
-                # Hack: this field may or may not be a list (this
-                # needs to be changed in a near future)
-                fullfield == "scanid"
-                and isinstance(record[field], list)
-            ):
+            if fullfield in cls.list_fields:
                 for val in record[field]:
                     if countval is not None:
                         yield val, countval
@@ -527,10 +522,6 @@ class TinyDBActive(TinyDB, DBActive):
         # doc_id: convert it to a dict instance instead.
         host = deepcopy(dict(host))
         try:
-            host["scanid"] = [host["scanid"].decode()]
-        except KeyError:
-            pass
-        try:
             host["addr"] = self.ip2internal(host["addr"])
         except (KeyError, ValueError):
             pass
@@ -569,10 +560,6 @@ class TinyDBActive(TinyDB, DBActive):
         utils.LOGGER.debug("HOST STORED: %r in %r", _id, self.dbname)
         return _id
 
-    @staticmethod
-    def getscanids(host):
-        return host.get("scanid", [])
-
     @classmethod
     def searchdomain(cls, name, neg=False):
         q = Query()
@@ -610,163 +597,6 @@ class TinyDBActive(TinyDB, DBActive):
         (records may have zero, one or more categories).
         """
         return cls._searchstring_re_inarray(Query().categories, cat, neg=neg)
-
-    @classmethod
-    def searchtag(cls, tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            res = cls._search_field_exists("tags.value")
-            if neg:
-                return ~res
-            return res
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        tests = []
-        for key, value in tag.items():
-            if isinstance(value, list) and len(value) == 1:
-                value = value[0]
-            if isinstance(value, utils.REGEXP_T):
-                if neg:
-                    if key == "info":
-
-                        def test(val, value=value):
-                            return not any(
-                                value.search(info) for info in val.get("info", [])
-                            )
-
-                    else:
-
-                        def test(val, key=key, value=value):
-                            return not value.search(val.get(key, ""))
-
-                elif key == "info":
-
-                    def test(val, value=value):
-                        return any(value.search(info) for info in val.get("info", []))
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return value.search(val.get(key, ""))
-
-            elif isinstance(value, list):
-                if neg:
-                    if key == "info":
-
-                        def test(val, value=value):
-                            return not any(
-                                v_info in val.get("info", []) for v_info in value
-                            )
-
-                    else:
-
-                        def test(val, key=key, value=value):
-                            return val.get(key) not in value
-
-                elif key == "info":
-
-                    def test(val, value=value):
-                        return any(v_info in val.get("info", []) for v_info in value)
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return val.get(key) in value
-
-            elif neg:
-                if key == "info":
-
-                    def test(val, value=value):
-                        return value not in val.get("info", [])
-
-                else:
-
-                    def test(val, key=key, value=value):
-                        return value != val.get(key)
-
-            elif key == "info":
-
-                def test(val, value=value):
-                    return value in val.get("info", [])
-
-            else:
-
-                def test(val, key=key, value=value):
-                    return value == val.get(key)
-
-            tests.append(test)
-        if neg:
-            return cls.flt_or(
-                ~cls._search_field_exists("tags.value"),
-                Query().tags.test(
-                    lambda tags: all(any(test(tag) for test in tests) for tag in tags)
-                ),
-            )
-        return Query().tags.test(
-            lambda tags: any(all(test(tag) for test in tests) for tag in tags)
-        )
-
-    @staticmethod
-    def searchcountry(country, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        country, or a list of countries.
-
-        """
-        q = Query()
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            res = q.infos.country_code.one_of(country)
-            if neg:
-                return ~res
-            return res
-        if neg:
-            return q.infos.country_code != country
-        return q.infos.country_code == country
-
-    @classmethod
-    def searchcity(cls, city, neg=False):
-        """
-        Filters (if `neg` == True, filters out) one particular city.
-        """
-        return cls._searchstring_re(Query().infos.city, city, neg=neg)
-
-    @staticmethod
-    def searchhaslocation(neg=False):
-        res = Query().infos.coordinates.exists()
-        if neg:
-            return ~res
-        return res
-
-    @staticmethod
-    def searchasnum(asnum, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
-        """
-        q = Query()
-        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            res = q.infos.as_num.one_of([int(val) for val in asnum])
-            if neg:
-                return ~res
-            return res
-        asnum = int(asnum)
-        if neg:
-            return q.infos.as_num != asnum
-        return q.infos.as_num == asnum
-
-    @classmethod
-    def searchasname(cls, asname, neg=False):
-        """Filters (if `neg` == True, filters out) one or more
-        particular AS.
-
-        """
-        return cls._searchstring_re(Query().infos.as_num, asname, neg=neg)
 
     @classmethod
     def searchsource(cls, src, neg=False):
@@ -2509,7 +2339,7 @@ class TinyDBActive(TinyDB, DBActive):
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
-        elif field == "tag":
+        elif field == "tag" and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
 
             def _newflt(field):
@@ -2527,10 +2357,10 @@ class TinyDBActive(TinyDB, DBActive):
                         for info in tag.get("info", []):
                             yield (tag["value"], info)
 
-        elif field.startswith("tag."):
+        elif field.startswith("tag.") and hasattr(self, "searchtag"):
             flt = self.flt_and(flt, self.searchtag())
             field = f"tags.{field[4:]}"
-        elif field.startswith("tag:"):
+        elif field.startswith("tag:") and hasattr(self, "searchtag"):
             subfield = field[4:]
 
             def _newflt(field):
@@ -2661,87 +2491,13 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
     content_handler = Nmap2DB
     dbname = "nmap"
-    dbname_scans = "nmap_scans"
 
     def __init__(self, url):
         super().__init__(url)
         self.output_function = None
 
-    @property
-    def db_scans(self):
-        """The DB for scan files"""
-        try:
-            return self._db_scans
-        except AttributeError:
-            self._db_scans = TDB(
-                os.path.join(self.basepath, "%s.json" % self.dbname_scans)
-            )
-            return self._db_scans
-
-    def init(self):
-        super().init()
-        try:
-            self.db_scans.drop_tables()
-        except AttributeError:
-            # TinyDB < 4
-            self.db_scans.purge_tables()
-
-    def remove(self, rec):
-        """Removes the record from the active column. `rec` must be the record
-        as returned by `.get()` or the record id.
-
-        """
-        q = Query()
-        if isinstance(rec, dict):
-            scanids = rec.get("scanid", [])
-        else:
-            try:
-                scanids = self.get(q._id == rec)[0].get("scanid", [])
-            except IndexError:
-                scanids = []
-        super().remove(rec)
-        for scanid in scanids:
-            if not self.db.get(q.scanid.any([scanid])):
-                self.db_scans.remove(cond=Query()._id == scanid)
-
-    def remove_many(self, flt):
-        """Removes hosts from the active column, based on the filter `flt`.
-
-        If the hosts removed had `scanid` attributes, and if some of them
-        refer to scans that have no more host record after the deletion of the
-        hosts, then the scan records are also removed.
-
-        """
-        scanids = list(self.distinct("scanid", flt=flt))
-        super().remove_many(flt)
-        for scanid in scanids:
-            if not self.db.get(Query().scanid.any([scanid])):
-                self.db_scans.remove(cond=Query()._id == scanid)
-
     def store_or_merge_host(self, host):
         self.store_host(host)
-
-    def getscan(self, scanid):
-        try:
-            scanid = scanid.decode()
-        except AttributeError:
-            pass
-        return self.db_scans.get(Query()._id == scanid)
-
-    def is_scan_present(self, scanid):
-        return self.getscan(scanid) is not None
-
-    def store_scan_doc(self, scan):
-        scan = deepcopy(scan)
-        _id = scan["_id"] = scan["_id"].decode()
-        if self.db_scans.get(Query()._id == _id) is not None:
-            raise ValueError("Duplicate entry for id %r" % _id)
-        self.db_scans.insert(scan)
-        utils.LOGGER.debug("SCAN STORED: %r in %r", _id, self.dbname_scans)
-        return _id
-
-    def update_scan_doc(self, scan_id, data):
-        self.db_scans.update(deepcopy(data), cond=Query()._id == scan_id.decode())
 
 
 class TinyDBView(TinyDBActive, DBView):
@@ -2753,6 +2509,163 @@ class TinyDBView(TinyDBActive, DBView):
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
+
+    @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        """
+        if not tag:
+            res = cls._search_field_exists("tags.value")
+            if neg:
+                return ~res
+            return res
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        tests = []
+        for key, value in tag.items():
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            if isinstance(value, utils.REGEXP_T):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                value.search(info) for info in val.get("info", [])
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return not value.search(val.get(key, ""))
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(value.search(info) for info in val.get("info", []))
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value.search(val.get(key, ""))
+
+            elif isinstance(value, list):
+                if neg:
+                    if key == "info":
+
+                        def test(val, value=value):
+                            return not any(
+                                v_info in val.get("info", []) for v_info in value
+                            )
+
+                    else:
+
+                        def test(val, key=key, value=value):
+                            return val.get(key) not in value
+
+                elif key == "info":
+
+                    def test(val, value=value):
+                        return any(v_info in val.get("info", []) for v_info in value)
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return val.get(key) in value
+
+            elif neg:
+                if key == "info":
+
+                    def test(val, value=value):
+                        return value not in val.get("info", [])
+
+                else:
+
+                    def test(val, key=key, value=value):
+                        return value != val.get(key)
+
+            elif key == "info":
+
+                def test(val, value=value):
+                    return value in val.get("info", [])
+
+            else:
+
+                def test(val, key=key, value=value):
+                    return value == val.get(key)
+
+            tests.append(test)
+        if neg:
+            return cls.flt_or(
+                ~cls._search_field_exists("tags.value"),
+                Query().tags.test(
+                    lambda tags: all(any(test(tag) for test in tests) for tag in tags)
+                ),
+            )
+        return Query().tags.test(
+            lambda tags: any(all(test(tag) for test in tests) for tag in tags)
+        )
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        q = Query()
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            res = q.infos.country_code.one_of(country)
+            if neg:
+                return ~res
+            return res
+        if neg:
+            return q.infos.country_code != country
+        return q.infos.country_code == country
+
+    @classmethod
+    def searchcity(cls, city, neg=False):
+        """
+        Filters (if `neg` == True, filters out) one particular city.
+        """
+        return cls._searchstring_re(Query().infos.city, city, neg=neg)
+
+    @staticmethod
+    def searchhaslocation(neg=False):
+        res = Query().infos.coordinates.exists()
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        q = Query()
+        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
+            res = q.infos.as_num.one_of([int(val) for val in asnum])
+            if neg:
+                return ~res
+            return res
+        asnum = int(asnum)
+        if neg:
+            return q.infos.as_num != asnum
+        return q.infos.as_num == asnum
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        return cls._searchstring_re(Query().infos.as_num, asname, neg=neg)
 
 
 def op_update(count, firstseen, lastseen):
@@ -2984,7 +2897,7 @@ class TinyDBPassive(TinyDB, DBPassive):
 
             def _extractor(flt, field):  # noqa: F811
                 for rec in self._get(
-                    flt, sort=sort, limit=limit, skip=skip, fields=fields
+                    flt, sort=sort, limit=limit, skip=skip, fields=[field]
                 ):
                     val = "%s/%s" % (
                         utils.int2ip(utils.ip2int(rec["addr"]) & mask),

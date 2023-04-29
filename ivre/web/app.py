@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ from functools import wraps
 from bottle import Bottle, abort, request, response
 
 from ivre import VERSION, config, utils
+from ivre.active.data import set_auto_tags, set_openports_attribute
 from ivre.db import db
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
@@ -629,11 +630,10 @@ def get_nmap(subdb):
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
-        for fld in ["_id", "scanid"]:
-            try:
-                del rec[fld]
-            except KeyError:
-                pass
+        try:
+            del rec["_id"]
+        except KeyError:
+            pass
         if flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
         if not flt_params.datesasstrings:
@@ -741,11 +741,19 @@ def import_files(subdb, source, categories, files):
     if subdb == "view":
 
         def callback(x):
-            db.view.start_store_hosts()
-            res = db.view.store_or_merge_host(nmap_record_to_view(x))
-            db.view.stop_store_hosts()
-            return res
+            result = nmap_record_to_view(x)
+            set_auto_tags(result, update_openports=False)
+            set_openports_attribute(result)
+            result["infos"] = {}
+            for func in [
+                db.data.country_byip,
+                db.data.as_byip,
+                db.data.location_byip,
+            ]:
+                result["infos"].update(func(result["addr"]) or {})
+            db.view.store_or_merge_host(result)
 
+        db.view.start_store_hosts()
     else:
         callback = None
     for fileelt in files:
@@ -761,6 +769,8 @@ def import_files(subdb, source, categories, files):
                 utils.LOGGER.warning("Could not import %s", fdesc.name)
         except Exception:
             utils.LOGGER.warning("Could not import %s", fdesc.name, exc_info=True)
+    if callback is not None:
+        db.view.stop_store_hosts()
     return count
 
 

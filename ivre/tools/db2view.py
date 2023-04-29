@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,15 +21,54 @@
 
 
 import argparse
-from typing import Generator, List
+from functools import reduce
+from multiprocessing import Pool, cpu_count
+from typing import Generator, List, Optional
 
+from ivre.active.data import merge_host_docs
 from ivre.activecli import displayfunction_json
 from ivre.db import DB, DBView, db
 from ivre.types import Record
-from ivre.view import from_nmap, from_passive, to_view
+from ivre.view import (
+    nmap_to_view,
+    passive_to_view,
+    prepare_record,
+    to_view,
+    to_view_parallel,
+)
+
+
+def merge_and_output(records: List[Record]) -> None:
+    result = reduce(
+        lambda r1, r2: merge_host_docs(
+            r1, r2, auto_tags=False, openports_attribute=False
+        ),
+        records,
+    )
+    w_output(prepare_record(result, w_datadb))  # type: ignore
+
+
+def worker_initializer(dburl: Optional[str], no_merge: bool) -> None:
+    # pylint: disable=global-variable-undefined
+    global w_datadb, w_outdb, w_output
+    w_outdb = db.view if dburl is None else DBView.from_url(dburl)  # type: ignore
+    if no_merge:
+        w_output = w_outdb.store_host  # type: ignore
+    else:
+        w_output = w_outdb.store_or_merge_host  # type: ignore
+    try:
+        w_datadb = w_outdb.globaldb.data  # type: ignore
+    except AttributeError:
+        w_datadb = None  # type: ignore
+    w_outdb.start_store_hosts()  # type: ignore
+
+
+def worker_destroyer(_: None) -> None:
+    w_outdb.stop_store_hosts()  # type: ignore
 
 
 def main() -> None:
+    default_processes = max(2, cpu_count())
     parser = argparse.ArgumentParser(description=__doc__, parents=[DB().argparser])
     if db.nmap is None:
         fltnmap = None
@@ -69,6 +108,13 @@ def main() -> None:
         metavar="DB_URL",
         help="Store data to the provided URL instead of the default DB for view.",
     )
+    parser.add_argument(
+        "--processes",
+        metavar="COUNT",
+        type=int,
+        help=f"The number of processes to use to build the records. Default on this system is {default_processes}.",
+        default=default_processes,
+    )
 
     subparsers = parser.add_subparsers(
         dest="view_source",
@@ -89,38 +135,52 @@ def main() -> None:
         _from = []
         if db.nmap is not None:
             fltnmap = db.nmap.parse_args(args, flt=fltnmap)
-            _from.append(from_nmap(fltnmap, category=view_category))
+            _from.append(nmap_to_view(fltnmap, category=view_category))
         if db.passive is not None:
             fltpass = db.passive.parse_args(args, flt=fltpass)
-            _from.append(from_passive(fltpass, category=view_category))
+            _from.append(passive_to_view(fltpass, category=view_category))
     elif args.view_source == "nmap":
         if db.nmap is None:
             parser.error('Cannot use "nmap" (no Nmap database exists)')
         fltnmap = db.nmap.parse_args(args, fltnmap)
-        _from = [from_nmap(fltnmap, category=view_category)]
+        _from = [nmap_to_view(fltnmap, category=view_category)]
     elif args.view_source == "passive":
         if db.passive is None:
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
-        _from = [from_passive(fltpass, category=view_category)]
-    if args.to_db is not None:
-        outdb = DBView.from_url(args.to_db)
-    else:
-        outdb = db.view
+        _from = [passive_to_view(fltpass, category=view_category)]
     if args.test:
+        args.processes = 1
+    outdb = db.view if args.to_db is None else DBView.from_url(args.to_db)
 
-        def output(host: Record) -> None:
-            return displayfunction_json([host], outdb)
-
-    elif args.no_merge:
-        output = outdb.store_host
-    else:
-        output = outdb.store_or_merge_host
     # Output results
-    itr = to_view(_from)
-    if not itr:
-        return
-    outdb.start_store_hosts()
-    for elt in itr:
-        output(elt)
-    outdb.stop_store_hosts()
+
+    if args.processes > 1:
+        nprocs = max(args.processes - 1, 1)
+        with Pool(
+            nprocs,
+            initializer=worker_initializer,
+            initargs=(args.to_db, args.no_merge),
+        ) as pool:
+            for _ in pool.imap(merge_and_output, to_view_parallel(_from)):
+                pass
+            for _ in pool.imap(worker_destroyer, [None] * nprocs):
+                pass
+    else:
+        if args.test:
+
+            def output(host: Record) -> None:
+                return displayfunction_json([host], outdb)
+
+        elif args.no_merge:
+            output = outdb.store_host
+        else:
+            output = outdb.store_or_merge_host
+        try:
+            datadb = outdb.globaldb.data
+        except AttributeError:
+            datadb = None
+        outdb.start_store_hosts()
+        for record in to_view(_from, datadb):
+            output(record)
+        outdb.stop_store_hosts()

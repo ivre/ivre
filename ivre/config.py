@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -255,6 +255,9 @@ GEOIP_LANG = "en"
 # situations. None means that no host should be treated as a "syn-ack
 # honeypot".
 VIEW_SYNACK_HONEYPOT_COUNT = 200
+# Some hostnames (often at CDNs) have too many hostnames and it might
+# not be very useful to count them all
+VIEW_MAX_HOSTNAMES_COUNT = 200
 
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
