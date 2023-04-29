@@ -4255,6 +4255,36 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         ]
         self.output_function = None
 
+    def migrate_schema(self, version):
+        """Process to schema migrations in column hosts starting from
+        `version`.
+
+        """
+        super().migrate_schema(version)
+        if (version or 0) < 22:
+            # column "scans" has been dropped in 22
+            colname_scans = self.params.get("colname_scans", "scans")
+            # let's check this collection exists and if its name is
+            # not in use in another database
+            if (
+                colname_scans in self.db.list_collection_names()
+                and colname_scans not in self.columns
+                and not any(
+                    colname_scans in otherdb.columns
+                    for otherdb in [
+                        self.globaldb.agent,
+                        self.globaldb.flow,
+                        self.globaldb.passive,
+                        self.globaldb.view,
+                    ]
+                    if isinstance(otherdb, MongoDB)
+                )
+            ):
+                utils.LOGGER.info(
+                    "Dropping column %s as it is no longer used", colname_scans
+                )
+                self.db.drop_collection(colname_scans)
+
     @staticmethod
     def migrate_schema_hosts_21_22(doc):
         """Converts a record from version 21 to version 22. Version 22
