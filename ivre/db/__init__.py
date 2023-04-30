@@ -2074,6 +2074,66 @@ class DBActive(DB):
     def cmp_schema_version_host(_):
         return 0
 
+    def getdns(self, addr_or_name, subdomains=False):
+        result = (
+            {}
+        )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
+        if isinstance(addr_or_name, str) and utils.IPADDR.search(addr_or_name):
+            flt = self.flt_and(self.searchhost(addr_or_name), self.searchhostname())
+
+            def cond(name, hname):
+                del name, hname
+                return True
+
+        elif subdomains:
+            flt = self.searchdomain(addr_or_name)
+
+            if isinstance(addr_or_name, utils.REGEXP_T):
+
+                def cond(hname):
+                    return any(
+                        addr_or_name.search(domain) for domain in hname["domains"]
+                    )
+
+            else:
+
+                def cond(hname):
+                    return addr_or_name in hname["domains"]
+
+        else:
+            flt = self.searchhostname(name=addr_or_name)
+
+            if isinstance(addr_or_name, utils.REGEXP_T):
+
+                def cond(hname):
+                    return addr_or_name.search(hname["name"])
+
+            else:
+
+                def cond(hname):
+                    return addr_or_name == hname["name"]
+
+        for rec in self.get(flt):
+            for hname in rec.get("hostnames", []):
+                if hname["type"] not in {"A", "AAAA", "PTR"}:
+                    continue
+                if not cond(hname):
+                    continue
+                cur_res = result.setdefault(
+                    (hname["name"], rec["addr"]),
+                    {
+                        "types": set(),
+                        "sources": set(),
+                        "firstseen": rec["starttime"],
+                        "lastseen": rec["endtime"],
+                    },
+                )
+                cur_res["types"].add(hname["type"])
+                cur_res["sources"].add(rec.get("source"))
+                cur_res["firstseen"] = min(cur_res["firstseen"], rec["starttime"])
+                cur_res["lastseen"] = max(cur_res["lastseen"], rec["endtime"])
+        return result
+
 
 class DBNmap(DBActive):
     backends = {
@@ -4084,7 +4144,7 @@ class DBPassive(DB):
         return cls.searchdns(name=name, subdomains=True)
 
     @classmethod
-    def searchhostname(cls, name):
+    def searchhostname(cls, name=None):
         return cls.searchdns(name=name, subdomains=False)
 
     def get(self, spec, **kargs):
@@ -4152,6 +4212,33 @@ class DBPassive(DB):
         return cls.flt_and(
             flt, cls.searchval("value" if key == "md5" else f"infos.{key}", value)
         )
+
+    def getdns(self, addr_or_name, subdomains=False, reverse=False):
+        # TODO: other names than from DNS (service, certificates)?
+        if isinstance(addr_or_name, str) and utils.IPADDR.search(addr_or_name):
+            flt = self.flt_and(self.searchhost(addr_or_name), self.searchdns())
+        else:
+            flt = self.searchdns(
+                name=addr_or_name, subdomains=subdomains, reverse=reverse
+            )
+        result = (
+            {}
+        )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
+        for rec in self.get(flt):
+            cur_res = result.setdefault(
+                (rec["value"], rec.get("addr", rec.get("targetval"))),
+                {
+                    "types": set(),
+                    "sources": set(),
+                    "firstseen": rec["firstseen"],
+                    "lastseen": rec["lastseen"],
+                },
+            )
+            cur_res["types"].add(rec["source"].split("-", 1)[0])
+            cur_res["sources"].add(rec["sensor"])
+            cur_res["firstseen"] = min(cur_res["firstseen"], rec["firstseen"])
+            cur_res["lastseen"] = max(cur_res["lastseen"], rec["lastseen"])
+        return result
 
 
 class DBData(DB):

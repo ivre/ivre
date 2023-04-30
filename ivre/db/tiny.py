@@ -569,9 +569,12 @@ class TinyDBActive(TinyDB, DBActive):
         return res
 
     @classmethod
-    def searchhostname(cls, name, neg=False):
+    def searchhostname(cls, name=None, neg=False):
         q = Query()
-        res = q.hostnames.any(cls._searchstring_re(q.name, name))
+        if name is None:
+            res = q.hostnames.exists()
+        else:
+            res = q.hostnames.any(cls._searchstring_re(q.name, name))
         if neg:
             return ~res
         return res

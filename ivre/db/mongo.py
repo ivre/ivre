@@ -2381,14 +2381,19 @@ class MongoDBActive(MongoDB, DBActive):
             return {"hostnames.domains": {"$ne": name}}
         return {"hostnames.domains": name}
 
-    def searchhostname(self, name, neg=False):
+    @classmethod
+    def searchhostname(cls, name=None, neg=False):
         if neg:
+            if name is None:
+                return {"hostnames.domains": {"$exists": False}}
             if isinstance(name, utils.REGEXP_T):
                 return {"hostnames.name": {"$not": name}}
             return {"hostnames.name": {"$ne": name}}
-        return self.flt_and(
+        if name is None:
+            return {"hostnames.domains": {"$exists": True}}
+        return cls.flt_and(
             # This is indexed
-            self.searchdomain(name, neg=neg),
+            cls.searchdomain(name, neg=neg),
             # This is not
             {"hostnames.name": name},
         )
