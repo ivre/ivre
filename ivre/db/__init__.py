@@ -2074,44 +2074,97 @@ class DBActive(DB):
     def cmp_schema_version_host(_):
         return 0
 
-    def getdns(self, addr_or_name, subdomains=False):
+    def getdns(self, addr_or_name, subdomains=False, dnstype=None):
         result = (
             {}
         )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
-        if isinstance(addr_or_name, str) and utils.IPADDR.search(addr_or_name):
-            flt = self.flt_and(self.searchhost(addr_or_name), self.searchhostname())
+        if dnstype is not None:
+            dnstype = dnstype.upper()
+        # Only with Python >= 3.8
+        # if isinstance(addr_or_name, str) and (
+        #     (is_host := utils.IPADDR.search(addr_or_name))
+        #     or utils.NETADDR.search(addr_or_name)
+        # ):
+        if isinstance(addr_or_name, str) and (
+            utils.IPADDR.search(addr_or_name) or utils.NETADDR.search(addr_or_name)
+        ):
+            # if is_host:
+            if utils.IPADDR.search(addr_or_name):
+                flt = self.flt_and(self.searchhost(addr_or_name), self.searchhostname())
+            else:
+                flt = self.flt_and(self.searchnet(addr_or_name), self.searchhostname())
 
-            def cond(name, hname):
-                del name, hname
-                return True
+            if dnstype is None:
+
+                def cond(hname):
+                    del hname
+                    return True
+
+            else:
+
+                def cond(hname):
+                    return hname["type"].upper() == dnstype
 
         elif subdomains:
             flt = self.searchdomain(addr_or_name)
 
             if isinstance(addr_or_name, utils.REGEXP_T):
+                if dnstype is None:
 
-                def cond(hname):
-                    return any(
-                        addr_or_name.search(domain) for domain in hname["domains"]
-                    )
+                    def cond(hname):
+                        return any(
+                            addr_or_name.search(domain) for domain in hname["domains"]
+                        )
+
+                else:
+
+                    def cond(hname):
+                        return hname["type"].upper() == dnstype and any(
+                            addr_or_name.search(domain) for domain in hname["domains"]
+                        )
 
             else:
+                if dnstype is None:
 
-                def cond(hname):
-                    return addr_or_name in hname["domains"]
+                    def cond(hname):
+                        return addr_or_name in hname["domains"]
+
+                else:
+
+                    def cond(hname):
+                        return (
+                            hname["type"].upper() == dnstype
+                            and addr_or_name in hname["domains"]
+                        )
 
         else:
             flt = self.searchhostname(name=addr_or_name)
 
             if isinstance(addr_or_name, utils.REGEXP_T):
+                if dnstype is None:
+
+                    def cond(hname):
+                        return addr_or_name.search(hname["name"])
+
+                else:
+
+                    def cond(hname):
+                        return hname["type"].upper() == dnstype and addr_or_name.search(
+                            hname["name"]
+                        )
+
+            elif dnstype is None:
 
                 def cond(hname):
-                    return addr_or_name.search(hname["name"])
+                    return addr_or_name == hname["name"]
 
             else:
 
                 def cond(hname):
-                    return addr_or_name == hname["name"]
+                    return (
+                        hname["type"].upper() == dnstype
+                        and addr_or_name == hname["name"]
+                    )
 
         for rec in self.get(flt):
             for hname in rec.get("hostnames", []):
@@ -2129,7 +2182,11 @@ class DBActive(DB):
                     },
                 )
                 cur_res["types"].add(hname["type"])
-                cur_res["sources"].add(rec.get("source"))
+                source = rec.get("source")
+                if isinstance(source, list):
+                    cur_res["sources"].update(source)
+                else:
+                    cur_res["sources"].add(source)
                 cur_res["firstseen"] = min(cur_res["firstseen"], rec["starttime"])
                 cur_res["lastseen"] = max(cur_res["lastseen"], rec["endtime"])
         return result
@@ -4213,13 +4270,22 @@ class DBPassive(DB):
             flt, cls.searchval("value" if key == "md5" else f"infos.{key}", value)
         )
 
-    def getdns(self, addr_or_name, subdomains=False, reverse=False):
+    def getdns(self, addr_or_name, subdomains=False, reverse=False, dnstype=None):
         # TODO: other names than from DNS (service, certificates)?
         if isinstance(addr_or_name, str) and utils.IPADDR.search(addr_or_name):
-            flt = self.flt_and(self.searchhost(addr_or_name), self.searchdns())
+            flt = self.flt_and(
+                self.searchhost(addr_or_name), self.searchdns(dnstype=dnstype)
+            )
+        if isinstance(addr_or_name, str) and utils.NETADDR.search(addr_or_name):
+            flt = self.flt_and(
+                self.searchnet(addr_or_name), self.searchdns(dnstype=dnstype)
+            )
         else:
             flt = self.searchdns(
-                name=addr_or_name, subdomains=subdomains, reverse=reverse
+                name=addr_or_name,
+                subdomains=subdomains,
+                reverse=reverse,
+                dnstype=dnstype,
             )
         result = (
             {}
