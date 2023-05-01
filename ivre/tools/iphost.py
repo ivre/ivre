@@ -22,14 +22,14 @@
 
 import json
 from argparse import ArgumentParser
-from typing import Any, Callable, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from ivre.db import db
 from ivre.utils import serialize, str2regexp
 
 
 def merge_results(
-    result: dict[tuple[str, str], Any], new_result: dict[tuple[str, str], Any]
+    result: Dict[Tuple[str, str], Any], new_result: Dict[Tuple[str, str], Any]
 ) -> None:
     for key, value in new_result.items():
         cur_res = result.setdefault(
@@ -83,7 +83,7 @@ def main() -> None:
         help="Names or addresses to resolve",
     )
     args = parser.parse_args()
-    resolvers: list[Callable[[str], dict[tuple[str, str], Any]]] = []
+    resolvers: List[Callable[[str], Dict[Tuple[str, str], Any]]] = []
     if args.passive:
         args.passive_direct = True
         args.passive_reverse = True
@@ -107,7 +107,7 @@ def main() -> None:
 
     for addr_or_name in args.names_or_addresses:
         addr_or_name = str2regexp(addr_or_name)
-        result: dict[tuple[str, str], Any] = {}
+        result: Dict[Tuple[str, str], Any] = {}
         for resolver in resolvers:
             merge_results(result, resolver(addr_or_name))
         for (name, target), values in result.items():
