@@ -1774,7 +1774,9 @@ class SQLDBActive(SQLDB, DBActive):
         )
 
     @classmethod
-    def searchhostname(cls, name, neg=False):
+    def searchhostname(cls, name=None, neg=False):
+        if name is None:
+            return cls.base_filter(hostname=[(not neg, True)])
         return cls.base_filter(
             hostname=[
                 (

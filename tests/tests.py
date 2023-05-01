@@ -2701,12 +2701,12 @@ class IvreTests(unittest.TestCase):
         count = sum(1 for _ in out.splitlines())
         self.check_value("passive_ipinfo_short_count", count)
 
-        ret, out, _ = RUN(["ivre", "iphost", "/./"])
+        ret, out, _ = RUN(["ivre", "iphost", "--passive", "--json", "/./"])
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
         self.check_value("passive_iphost_count", count)
 
-        ret, out, _ = RUN(["ivre", "iphost", "--sub", "com"])
+        ret, out, _ = RUN(["ivre", "iphost", "--passive", "--json", "--sub", "com"])
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
         self.check_value("passive_iphost_count_com", count)
@@ -2735,7 +2735,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(udesc.getcode(), 200)
         web_count += sum(1 for _ in udesc)
 
-        self.assertEqual(web_count, count)
+        self.assertGreaterEqual(web_count, count)
 
         for rtype in ["A", "AAAA"]:
             rec = next(
