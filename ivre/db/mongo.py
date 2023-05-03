@@ -357,7 +357,7 @@ class MongoDB(DB):
                 self.db[self.columns[colnum]]
                 .find(
                     self.searchversion(version),
-                    no_cursor_timeout=True,
+                    no_cursor_timeout=not self.is_documentdb,
                 )
                 .batch_size(50000)
             ):
