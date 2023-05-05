@@ -4240,7 +4240,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                             ("tags.value", pymongo.ASCENDING),
                             ("tags.info", pymongo.ASCENDING),
                         ],
-                        {"sparse": True},
+                        {},
                     ),
                 ],
             )
@@ -4560,8 +4560,8 @@ class MongoDBPassive(MongoDB, DBPassive):
                         ],
                         {},
                     ),
-                    ([("infos.issuer", pymongo.ASCENDING)], {"sparse": True}),
-                    ([("infos.subject", pymongo.ASCENDING)], {"sparse": True}),
+                    ([("infos.issuer", pymongo.ASCENDING)], {}),
+                    ([("infos.subject", pymongo.ASCENDING)], {}),
                 ],
                 "ensure": [
                     (
