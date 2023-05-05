@@ -83,6 +83,12 @@ except ImportError:
     USE_PIL = False
 else:
     USE_PIL = True
+try:
+    from bson.regex import Regex as BsonRegex
+except ImportError:
+    USE_BSON = False
+else:
+    USE_BSON = True
 
 
 from ivre import VERSION, config
@@ -809,7 +815,8 @@ def open_file(fname: str) -> FileOpener:
 
 def serialize(obj: Any) -> str:
     """Return a JSON-compatible representation for `obj`"""
-    if isinstance(obj, REGEXP_T):
+    regexp_types = (REGEXP_T, BsonRegex) if USE_BSON else REGEXP_T
+    if isinstance(obj, regexp_types):  # type: ignore
         return "/%s/%s" % (
             obj.pattern,
             "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
