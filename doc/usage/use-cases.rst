@@ -150,6 +150,15 @@ The author's blog has some `IVRE-related blog posts
 
 Here is a list of other blog posts about or around IVRE:
 
+- External attack surface monitoring:
+
+   - `Building an Automated Perimeter Scanning System with Open Source
+     Tools - NMAP, IVRE and Netbox
+     <https://kaonbytes.com/p/perimeter-scanner/>`_
+
+   - `Re-discover your company network with Ivre
+     <https://blog.cybsec.xyz/re-discover-your-company-network-with-ivre/>`_
+
 - Scan the hosts that hit your honeypots, and exploit the results!
 
    - `Who's Attacking Me?
@@ -167,9 +176,6 @@ Here is a list of other blog posts about or around IVRE:
      <https://erpscan.io/press-center/blog/sap-services-detection-via-nmap-probes/>`_
 
    - `SAP Dispatcher Security <https://erpscan.io/press-center/blog/sap-dispatcher-security/>`_
-
-- `Re-discover your company network with Ivre
-  <https://blog.cybsec.xyz/re-discover-your-company-network-with-ivre/>`_
 
 - IVRE tests & reviews:
 
