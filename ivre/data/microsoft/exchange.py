@@ -226,5 +226,6 @@ EXCHANGE_BUILDS = {
     "15.2.922": "Exchange Server 2019 CU10",
     "15.2.986": "Exchange Server 2019 CU11",
     "15.2.1118": "Exchange Server 2019 CU12 (2022H1)",
+    "15.2.1258": "Exchange Server 2019 CU13 (2023H1)",
     # GENERATED_DATA_EXCHANGE_BUILD
 }
