@@ -881,7 +881,7 @@ def prepare_record(rec, datadb):
     set_auto_tags(rec, update_openports=False)
     set_openports_attribute(rec)
     if datadb is not None:
-        rec["infos"] = {}
+        rec.setdefault("infos", {})
         addr = rec["addr"]
         for func in [
             datadb.country_byip,
