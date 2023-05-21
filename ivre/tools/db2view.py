@@ -68,7 +68,7 @@ def worker_destroyer(_: None) -> None:
 
 
 def main() -> None:
-    default_processes = max(2, cpu_count())
+    default_processes = max(1, cpu_count())
     parser = argparse.ArgumentParser(description=__doc__, parents=[DB().argparser])
     if db.nmap is None:
         fltnmap = None
