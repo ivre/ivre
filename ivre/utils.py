@@ -62,6 +62,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -2519,7 +2520,10 @@ def generic_processor(
     )
 
 
-def _fix_range(start: str, stop: str, label: str) -> Tuple[int, int, str]:
+T = TypeVar("T")
+
+
+def _fix_range(start: str, stop: str, label: T) -> Tuple[int, int, T]:
     return (
         ip2int(start) if ":" in start else ip2int(f"::ffff:{start}"),
         ip2int(stop) if ":" in stop else ip2int(f"::ffff:{stop}"),
@@ -2528,12 +2532,12 @@ def _fix_range(start: str, stop: str, label: str) -> Tuple[int, int, str]:
 
 
 def make_range_tables(
-    ranges: Iterable[Tuple[str, str, str]]
-) -> List[Tuple[int, Optional[str]]]:
-    ranges_sorted: List[Tuple[int, int, str]] = sorted(
+    ranges: Iterable[Tuple[str, str, T]]
+) -> List[Tuple[int, Optional[T]]]:
+    ranges_sorted: List[Tuple[int, int, T]] = sorted(
         (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True
     )
-    result: List[Tuple[int, Optional[str]]] = []
+    result: List[Tuple[int, Optional[T]]] = []
     prev = 0
     while ranges_sorted:
         start, stop, label = ranges_sorted.pop()
