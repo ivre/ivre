@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 data files to add tags to scan results. For now, the following lists are used:
 
   - CDN providers, from <https://cdn.nuclei.sh/>
+
+  - (US) GovCloud IP ranges, from <https://github.com/daehee/govcloud>
 
   - Tor Exit nodes, from
     <https://check.torproject.org/torbulkexitlist>
@@ -46,6 +48,7 @@ import socket
 from typing import BinaryIO, Callable, Generator, List, Tuple, cast
 
 from ivre import config
+from ivre.data import govcloud
 from ivre.utils import (
     IPADDR,
     download_if_newer,
@@ -130,3 +133,4 @@ def main() -> None:
             f"{addr}\n"
             for addr in dns_get_names("scanner.scanning.service.ncsc.gov.uk")
         )
+    govcloud.fetch_and_build()

@@ -40,6 +40,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
     cast,
 )
@@ -383,6 +384,7 @@ def has_toomany_hostnames(host: NmapHost) -> bool:
 
 
 TAG_CDN: Tag = {"value": "CDN", "type": "info"}
+TAG_GOVCLOUD: Tag = {"value": "GovCloud", "type": "info"}
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
@@ -416,11 +418,12 @@ _TOR_HTTP_PRODUCTS = {
 
 _TOR_NODES: Optional[Set[str]] = None
 _CDN_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+_GOVCLOUD_TABLE: Optional[Tuple[List[int], List[Optional[List[str]]]]] = None
 _SCANNERS_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
 
 
 def _get_data() -> None:
-    global _TOR_NODES, _SCANNERS_TABLE, _CDN_TABLE
+    global _TOR_NODES, _SCANNERS_TABLE, _CDN_TABLE, _GOVCLOUD_TABLE
     assert DATA_PATH is not None
     if _TOR_NODES is None:
         try:
@@ -483,9 +486,22 @@ def _get_data() -> None:
                 "Cannot find file [cdn_nuclei.py]. Try running `ivre getwebdata`"
             )
             _CDN_TABLE = ([], [])
+    if _GOVCLOUD_TABLE is None:
+        try:
+            with open(os.path.join(DATA_PATH, "govcloud.py"), encoding="utf8") as fdesc:
+                # pylint: disable=eval-used
+                _GOVCLOUD_TABLE = eval(compile(fdesc.read(), "gov_cloud", "eval"))
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [govcloud.py]. Try running `ivre getwebdata`"
+            )
+            _GOVCLOUD_TABLE = ([], [])
 
 
-def _get_name(table: Tuple[List[int], List[Optional[str]]], addr: str) -> Optional[str]:
+T = TypeVar("T")
+
+
+def _get_name(table: Tuple[List[int], List[Optional[T]]], addr: str) -> Optional[T]:
     """Devs: please make sure _get_data() has been called before calling me!"""
     addr_i = ip2int(addr) if ":" in addr else ip2int(f"::ffff:{addr}")
     try:
@@ -515,6 +531,7 @@ def gen_auto_tags(
     assert _TOR_NODES is not None
     assert _SCANNERS_TABLE is not None
     assert _CDN_TABLE is not None
+    assert _GOVCLOUD_TABLE is not None
     addr = host.get("addr")
     if isinstance(addr, str):
         if addr in _TOR_NODES:
@@ -534,6 +551,15 @@ def gen_auto_tags(
                 dict(
                     TAG_CDN,
                     info=[f"{cdn_name} as listed at <https://cdn.nuclei.sh/>"],
+                ),
+            )
+        govcloud_data = _get_name(_GOVCLOUD_TABLE, addr)
+        if govcloud_data is not None:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_GOVCLOUD,
+                    info=govcloud_data,
                 ),
             )
         scanner_name = _get_name(_SCANNERS_TABLE, addr)
