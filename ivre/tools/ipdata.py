@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,10 +26,11 @@ AS number and country information.
 import json
 from argparse import ArgumentParser
 from sys import stdout
-from typing import Callable, List, Tuple, cast
+from typing import Any, Callable, Dict, List, Tuple, cast
 
 from ivre import geoiputils, utils
 from ivre.db import DBData, db
+from ivre.tags import add_tags, gen_addr_tags
 
 
 def main() -> None:
@@ -70,19 +71,20 @@ def main() -> None:
     for addr in args.ip:
         if addr.isdigit():
             addr = utils.int2ip(int(addr))
-        info = utils.get_addr_type(addr)
         if args.json:
             res = {"addr": addr}
-            if info:
-                res["address_type"] = info
-            for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
-                res.update(subinfo or {})
+            res.update(dbase.infos_byip(addr) or {})
             json.dump(res, stdout)
             print()
         else:
             print(addr)
-            if info:
-                print("    address_type %s" % info)
             for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
                 for key, value in (subinfo or {}).items():
                     print("    %s %s" % (key, value))
+            info: Dict[str, Any] = {}
+            add_tags(info, gen_addr_tags(addr))
+            for tag in info.get("tags", []):
+                if tag.get("info"):
+                    print(f"    {tag['value']}: {', '.join(tag['info'])}")
+                else:
+                    print(f"    {tag['value']}")

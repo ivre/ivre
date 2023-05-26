@@ -52,7 +52,7 @@ else:
 
 
 from ivre import config, flow, passive, utils, xmlnmap
-from ivre.active.data import ALIASES_TABLE_ELEMS, is_synack_honeypot, set_auto_tags
+from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import (
     DB,
     DBActive,
@@ -64,6 +64,7 @@ from ivre.db import (
     DBView,
     LockError,
 )
+from ivre.tags.active import is_synack_honeypot, set_auto_tags
 from ivre.types import Filter, IndexKey
 
 

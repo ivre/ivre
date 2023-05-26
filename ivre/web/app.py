@@ -36,8 +36,8 @@ from functools import wraps
 from bottle import Bottle, abort, request, response
 
 from ivre import VERSION, config, utils
-from ivre.active.data import set_auto_tags, set_openports_attribute
 from ivre.db import db
+from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
 
