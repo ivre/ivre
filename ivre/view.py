@@ -40,12 +40,11 @@ from ivre.active.data import (
     add_hostname,
     create_ssl_output,
     merge_host_docs,
-    set_auto_tags,
-    set_openports_attribute,
 )
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 from ivre.xmlnmap import add_service_hostname
 

@@ -28,7 +28,7 @@ from typing import Generator, Iterable, List
 import ivre.db
 import ivre.utils
 import ivre.xmlnmap
-from ivre.active.data import set_auto_tags, set_openports_attribute
+from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.types import Record
 from ivre.view import nmap_record_to_view
 

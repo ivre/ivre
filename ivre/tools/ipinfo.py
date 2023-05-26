@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -36,49 +36,41 @@ Displayer = Callable[[DBPassive, Filter, Sort, Optional[int], Optional[int]], No
 
 
 def disp_rec(rec: Record) -> None:
-    print("\t", end=" ")
-    if "port" in rec and rec["port"]:
-        print(rec["port"], end=" ")
+    line = []
+    if rec.get("port"):
+        line.append(str(rec["port"]))
     if "recontype" in rec:
         try:
-            print(rec["recontype"].value, end=" ")
+            line.append(rec["recontype"].value)
         except AttributeError:
-            print(rec["recontype"], end=" ")
+            line.append(rec["recontype"])
     if "source" in rec:
-        print(rec["source"], end=" ")
+        line.append(rec["source"])
     if "value" in rec:
         value = utils.printable(rec["value"])
         if isinstance(value, bytes):
             value = value.decode()
-        print(value, end=" ")
+        line.append(value)
     if "version" in rec:
-        print(rec["version"], end=" ")
+        line.append(rec["version"])
     if "signature" in rec:
-        print("[%s]" % rec["signature"], end=" ")
+        line.append(f"[{rec['signature']}]")
     if "distance" in rec:
-        print(
-            "at %s hop%s" % (rec["distance"], "s" if rec["distance"] > 1 else ""),
-            end=" ",
-        )
+        line.append(f"at {rec['distance']} hop{'s' if rec['distance'] > 1 else ''}")
     if "count" in rec:
-        print("(%d time%s)" % (rec["count"], "s" if rec["count"] > 1 else ""), end=" ")
+        line.append(f"({rec['count']} time{'s' if rec['count'] > 1 else ''})")
     if "firstseen" in rec and "lastseen" in rec:
-        print(
-            rec["firstseen"].replace(microsecond=0),
-            "-",
-            rec["lastseen"].replace(microsecond=0),
-            end=" ",
+        line.append(
+            f"{rec['firstseen'].replace(microsecond=0)} - {rec['lastseen'].replace(microsecond=0)}"
         )
     if "sensor" in rec:
-        print(rec["sensor"], end=" ")
-    print()
+        line.append(rec["sensor"])
+    print(f"\t{' '.join(line)}")
     if "infos" in rec:
-        for i in rec["infos"]:
-            print("\t\t", i + ":", end=" ")
-            if i == "domainvalue":
-                print(rec["infos"][i][0])
-            else:
-                print(rec["infos"][i])
+        for key, value in rec["infos"].items():
+            if key == "domain":
+                continue
+            print(f"\t\t{key}: {value}")
 
 
 def disp_recs_std(
@@ -96,33 +88,31 @@ def disp_recs_std(
             print(utils.force_int2ip(old_addr))
             ipinfo = db.data.infos_byip(old_addr)
             if ipinfo:
-                if "address_type" in ipinfo:
-                    print("\t", end=" ")
-                    print(ipinfo["address_type"], end=" ")
-                    print()
                 if "country_code" in ipinfo:
-                    print("\t", end=" ")
-                    print(ipinfo["country_code"], end=" ")
+                    ccode = ipinfo["country_code"]
                     if "country_name" in ipinfo:
                         cname = ipinfo["country_name"]
                     else:
                         try:
-                            cname = db.data.country_name_by_code(ipinfo["country_code"])
+                            cname = db.data.country_name_by_code(ccode)
                         except AttributeError:
                             cname = None
                     if cname:
-                        print("[%s]" % cname, end=" ")
-                    print()
+                        print(f"\t{ccode} [{cname}]")
+                    else:
+                        print(f"\t{ccode}")
                 if "as_num" in ipinfo:
-                    print("\t", end=" ")
-                    print("AS%d" % ipinfo["as_num"], end=" ")
                     if "as_name" in ipinfo:
-                        print("[%s]" % ipinfo["as_name"], end=" ")
-                    print()
+                        print(f"\tAS{ipinfo['as_num']} [{ipinfo['as_name']}]")
+                    else:
+                        print(f"\tAS{ipinfo['as_num']}")
                 elif "as_name" in ipinfo:
-                    print("\t", end=" ")
-                    print("AS????? [%s]" % ipinfo["as_name"], end=" ")
-                    print()
+                    print(f"\tAS????? [{ipinfo['as_name']}]")
+                for tag in ipinfo.get("tags", []):
+                    if tag.get("info"):
+                        print(f"\t{tag['value']}: {', '.join(tag['info'])}")
+                    else:
+                        print(f"\t{tag['value']}")
         disp_rec(rec)
 
 

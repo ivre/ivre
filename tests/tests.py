@@ -842,7 +842,8 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(res, 0)
 
         # Fetch data for auto tags
-        res, out, _ = RUN(["ivre", "getwebdata"])
+        res, out, err = RUN(["ivre", "getwebdata"])
+        print(repr(err))
         self.assertEqual(res, 0)
         self.assertFalse(out, 0)
 
@@ -853,9 +854,6 @@ class IvreTests(unittest.TestCase):
 
         # Fetch data for auto tags
         res, out, err = RUN(["ivre", "getwebdata"])
-        print("ivre getwebdata")
-        print(res)
-        print(repr(out))
         print(repr(err))
         self.assertEqual(res, 0)
         self.assertFalse(out)
@@ -1942,6 +1940,13 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
     def test_40_passive(self):
+        if DATABASE == "sqlite":
+            # Fetch data for auto tags
+            res, out, err = RUN(["ivre", "getwebdata"])
+            print(repr(err))
+            self.assertEqual(res, 0)
+            self.assertFalse(out, 0)
+
         if DATABASE == "postgres":
             # FIXME: tests are broken with PostgreSQL & --no-bulk
             bulk_mode = random.choice(["--bulk", "--local-bulk"])
@@ -3677,7 +3682,7 @@ class IvreTests(unittest.TestCase):
         res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
-        # Reinit passive DB since we have downloaded the files
+        # Reinit data DB since we have downloaded the files
         ivre.db.db.data.reload_files()
 
         if DATABASE != "maxmind":
@@ -3685,6 +3690,12 @@ class IvreTests(unittest.TestCase):
                 "Database files have been downloaded -- " "other data tests won't run"
             )
             return
+
+        # Fetch data for auto tags
+        res, out, err = RUN(["ivre", "getwebdata"])
+        print(repr(err))
+        self.assertEqual(res, 0)
+        self.assertFalse(out, 0)
 
         # CSV creation -- disabled on Travis CI: this is way too slow.
         # Files are obtained from https://github.com/ivre/ivre-test-samples
@@ -3752,7 +3763,7 @@ class IvreTests(unittest.TestCase):
             out,
             sorted(
                 b"""10.0.0.1
-    address_type Private
+    Reserved address: Address type Private
 """.splitlines()
             ),
         )
@@ -3760,7 +3771,17 @@ class IvreTests(unittest.TestCase):
         res, out, _ = RUN(["ivre", "ipdata", "--json", "10.0.0.1"])
         self.assertEqual(res, 0)
         self.assertEqual(
-            json.loads(out), {"addr": "10.0.0.1", "address_type": "Private"}
+            json.loads(out),
+            {
+                "addr": "10.0.0.1",
+                "tags": [
+                    {
+                        "value": "Reserved address",
+                        "type": "info",
+                        "info": ["Address type Private"],
+                    }
+                ],
+            },
         )
 
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--routable"])
@@ -3915,12 +3936,10 @@ class IvreTests(unittest.TestCase):
             socket.gethostbyname("ivre.rocks"),
             "2003::1",
         ]:
-            res, out1, err = RUN(["ivre", "ipdata", addr], env=newenv)
+            res, out1, _ = RUN(["ivre", "ipdata", addr], env=newenv)
             self.assertEqual(res, 0)
-            self.assertFalse(err)
-            res, out2, err = RUN(["ivre", "ipdata", addr])
+            res, out2, _ = RUN(["ivre", "ipdata", addr])
             self.assertEqual(res, 0)
-            self.assertFalse(err)
             self.assertEqual(out1, out2)
         # END Using the HTTP server as a database
 

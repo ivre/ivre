@@ -60,9 +60,10 @@ from ivre.active.data import (
     handle_http_content,
     handle_http_headers,
     merge_host_docs,
-    set_auto_tags,
 )
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
+from ivre.tags import add_tags, gen_addr_tags
+from ivre.tags.active import set_auto_tags
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -4316,11 +4317,9 @@ class DBData(DB):
 
     def infos_byip(self, addr):
         infos = {}
-        addr_type = utils.get_addr_type(addr)
-        if addr_type:
-            infos["address_type"] = addr_type
         for infos_byip in [self.as_byip, self.country_byip, self.location_byip]:
             infos.update(infos_byip(addr) or {})
+        add_tags(infos, gen_addr_tags(addr))
         if infos:
             return infos
         return None
