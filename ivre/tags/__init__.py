@@ -255,3 +255,11 @@ def gen_hostname_tags(hostname: str) -> Generator[Tag, None, None]:
                 info=[f"Hostname {hostname} suggests a Shodan scanner"],
             ),
         )
+    elif hostname.endswith(".binaryedge.ninja"):
+        yield cast(
+            Tag,
+            dict(
+                TAG_SCANNER,
+                info=[f"Hostname {hostname} suggests a BinaryEdge scanner"],
+            ),
+        )
