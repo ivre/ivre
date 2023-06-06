@@ -22,14 +22,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY nginx-default-site /etc/nginx/sites-available/default
 
-RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install git ca-certificates && \
-    git clone https://github.com/ivre/ivre && \
-    mkdir -p /usr/local/share/ivre/web && \
-    mv ivre/web/static /usr/local/share/ivre/web/ && \
-    rm -rf ivre/ && \
-    apt-get -qy --purge autoremove git ca-certificates && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY --from=ivre/base /usr/local/share/ivre/web/static /usr/local/share/ivre/web/static
 
 RUN mkdir -p /var/www/dokuwiki/ && \
     ln -sf /var/www/dokuwiki/data/lib /var/www/dokuwiki/
