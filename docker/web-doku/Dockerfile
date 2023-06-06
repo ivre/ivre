@@ -31,14 +31,13 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # IVRE-specific
+COPY --from=ivre/base /usr/local/share/ivre/dokuwiki/media/logo.png /var/www/dokuwiki/data/media/wiki/logo.png
+COPY --from=ivre/base /usr/local/share/ivre/patches/dokuwiki/backlinks.patch /tmp/backlinks.patch
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install curl ca-certificates patch && \
-    curl https://raw.githubusercontent.com/ivre/ivre/$(echo ${TAG} | sed 's/^latest$/master/')/web/dokuwiki/media/logo.png > \
-    /var/www/dokuwiki/data/media/wiki/logo.png && \
-    curl https://raw.githubusercontent.com/ivre/ivre/$(echo ${TAG} | sed 's/^latest$/master/')/patches/dokuwiki/backlinks.patch | \
-    patch var/www/dokuwiki/inc/Ui/Backlinks.php - && \
-    rm -f /backlinks.patch && \
-    apt-get -qy --purge autoremove curl ca-certificates patch && \
+    apt-get -qy --no-install-recommends install patch && \
+    (cd var/www/dokuwiki/ && patch -p0 < /tmp/backlinks.patch) && \
+    rm -f /tmp/backlinks.patch && \
+    apt-get -qy --purge autoremove patch && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Configure Dokuwiki
