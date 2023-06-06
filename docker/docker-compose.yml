@@ -17,7 +17,7 @@
 version: '3'
 services:
   ivredb:
-    image: ivre/db
+    image: mongo
     container_name: ivredb
     volumes:
       - ./var_lib_mongodb:/var/lib/mongodb
