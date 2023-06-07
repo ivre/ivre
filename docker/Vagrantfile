@@ -51,7 +51,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       docker.image = 'mongo'
       docker.name = 'ivredb'
     end
-    db.vm.synced_folder "var_lib_mongodb", "/var/lib/mongodb"
+    db.vm.synced_folder "var_lib_mongodb", "/data/db"
   end
 
   # The PHP Dokuwiki server
