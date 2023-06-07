@@ -20,7 +20,7 @@ services:
     image: mongo
     container_name: ivredb
     volumes:
-      - ./var_log_mongodb:/data/db
+      - ./var_lib_mongodb:/data/db
     restart: always
   ivreuwsgi:
     image: ivre/web-uwsgi
