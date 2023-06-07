@@ -48,7 +48,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # The DB server
   config.vm.define 'ivredb' do |db|
     db.vm.provider "docker" do |docker|
-      docker.image = 'ivre/db'
+      docker.image = 'mongo'
       docker.name = 'ivredb'
     end
     db.vm.synced_folder "var_lib_mongodb", "/var/lib/mongodb"
