@@ -219,7 +219,6 @@ setup(
         ("share/ivre/docker/agent", ["docker/agent/Dockerfile"]),
         ("share/ivre/docker/base", ["docker/base/Dockerfile"]),
         ("share/ivre/docker/client", ["docker/client/Dockerfile"]),
-        ("share/ivre/docker/db", ["docker/db/Dockerfile"]),
         (
             "share/ivre/docker/web",
             ["docker/web/Dockerfile", "docker/web/nginx-default-site"],

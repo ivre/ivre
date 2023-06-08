@@ -21,12 +21,12 @@
 #
 # Create the directories to store the logs and data:
 #
-# $ mkdir -m 1777 var_{lib,log}_mongodb ivre-share dokuwiki_data
+# $ mkdir -m 1777 var_lib_mongodb ivre-share dokuwiki_data
 #
 #
 # If you have SELinux enforced, run:
 #
-# $ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_mongodb ivre-share dokuwiki_data
+# $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb ivre-share dokuwiki_data
 #
 #
 # Then start the containers with:

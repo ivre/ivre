@@ -55,9 +55,9 @@ data):
 
 ::
 
-   $ mkdir -m 1777 var_{lib,log}_mongodb ivre-share dokuwiki_data
+   $ mkdir -m 1777 var_lib_mongodb ivre-share dokuwiki_data
      # For people using SELinux enforced, you need to run
-   $ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_mongodb ivre-share dokuwiki_data
+   $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb ivre-share dokuwiki_data
 
    $ cp [path to ivre source]/docker/Vagrantfile .
    $ vagrant up --no-parallel
@@ -79,7 +79,7 @@ that, from the ``docker/`` directory, run:
 
    $ docker pull debian:stable
    $ docker pull debian:buster
-   $ for img in base client agent db web web-doku web-uwsgi ; do
+   $ for img in base client agent web web-doku web-uwsgi ; do
    > docker build -t "ivre/$img" "$img"
    > done
 
