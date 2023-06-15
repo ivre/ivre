@@ -1441,6 +1441,10 @@ def _read_nmap_payloads() -> None:
                     cur_line.append(line)
         if cur_probe is not None:
             _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
+    except FileNotFoundError:
+        # This file has been removed from Nmap in 7.94 and is now
+        # obsolete.
+        pass
     except (AttributeError, AssertionError, TypeError, IOError):
         LOGGER.warning("Cannot read Nmap service fingerprint file.", exc_info=True)
     _NMAP_PAYLOADS_POPULATED = True
