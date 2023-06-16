@@ -1215,11 +1215,21 @@ def _read_nmap_probes() -> None:
         elif line.startswith(b"Probe "):
             _NMAP_CUR_PROBE = []
             _NMAP_CUR_FALLBACK = []
+            probe: Optional[bytes]
             proto, name, probe = line[6:].split(b" ", 2)
-            if not (len(probe) >= 3 and probe[:2] == b"q|" and probe[-1:] == b"|"):
+            if not (len(probe) >= 3 and probe[:2] == b"q|"):
                 LOGGER.warning("Invalid nmap probe %r", probe)
-            else:
-                probe = nmap_decode_data(probe[2:-1].decode(), arbitrary_escapes=True)
+                return
+            while not probe[-1:] == b"|":
+                try:
+                    probe = probe.rsplit(b" ", 1)[-2]
+                except IndexError:
+                    LOGGER.warning("Invalid nmap probe %r", probe)
+                    probe = None
+                    break
+            if probe is None:
+                return
+            probe = nmap_decode_data(probe[2:-1].decode(), arbitrary_escapes=True)
             assert _NMAP_CUR_PROBE is not None
             assert _NMAP_CUR_FALLBACK is not None
             _NMAP_PROBES.setdefault(proto.lower().decode(), {})[name.decode()] = {
