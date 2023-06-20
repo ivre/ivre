@@ -14,7 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM debian:stable
+ARG TAG=latest
+FROM ivre/base:${TAG} AS base
+
+FROM debian:12
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 RUN apt-get -q update && \
@@ -22,7 +25,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY nginx-default-site /etc/nginx/sites-available/default
 
-COPY --from=ivre/base /usr/local/share/ivre/web/static /usr/local/share/ivre/web/static
+COPY --from=base /usr/local/share/ivre/web/static /usr/local/share/ivre/web/static
 
 RUN mkdir -p /var/www/dokuwiki/ && \
     ln -sf /var/www/dokuwiki/data/lib /var/www/dokuwiki/

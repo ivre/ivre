@@ -77,8 +77,7 @@ that, from the ``docker/`` directory, run:
 
 ::
 
-   $ docker pull debian:stable
-   $ docker pull debian:buster
+   $ docker pull debian:12
    $ for img in base client agent web web-doku web-uwsgi ; do
    > docker build -t "ivre/$img" "$img"
    > done
@@ -102,7 +101,7 @@ run:
    $ tmp=`mktemp | sed 's#^/##'`; python setup.py --version | tr -d '\n' > "/$tmp"
    $ tar rf docker/base-local/ivre.tar --transform="s#$tmp#ivre/ivre/VERSION#" /$tmp
    $ rm "/$tmp"
-   $ docker pull debian:stable
+   $ docker pull debian:12
    $ docker build -t ivre/base docker/base-local
 
 Using pip
@@ -114,7 +113,7 @@ Another way to create the ``ivre/base`` image is to use
 
 ::
 
-   $ docker pull debian:stable
+   $ docker pull debian:12
    $ docker build -t ivre/base base-pip
 
 Initialization

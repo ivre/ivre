@@ -20,7 +20,7 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Tools
 ## non-free: s3270
-RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list
+RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list.d/debian.sources
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -q update && \
@@ -30,7 +30,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap using the official RPM package.
-ADD https://nmap.org/dist/nmap-7.92-1.x86_64.rpm ./nmap.rpm
+ADD https://nmap.org/dist/nmap-7.94-1.x86_64.rpm ./nmap.rpm
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install alien && \
     alien ./nmap.rpm && \
@@ -39,11 +39,11 @@ RUN apt-get -q update && \
     apt-get -qy --purge autoremove alien && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Zeek
+# Install Zeek - Debian Testing because Debian_12 does not exist for now
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install gnupg wget && \
-    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_11/ /' > /etc/apt/sources.list.d/zeek.list && \
-    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_11/Release.key | apt-key add - && \
+    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_Testing/ /' > /etc/apt/sources.list.d/zeek.list && \
+    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_Testing/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
     apt-get -qy --purge autoremove gnupg wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

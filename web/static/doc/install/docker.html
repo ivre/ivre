@@ -165,8 +165,7 @@ $ vagrant up --no-parallel
 <p>By default, the images will be downloaded from the Docker Hub. But you
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull debian:stable
-$ docker pull debian:buster
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull debian:12
 $ for img in base client agent web web-doku web-uwsgi ; do
 &gt; docker build -t &quot;ivre/$img&quot; &quot;$img&quot;
 &gt; done
@@ -185,7 +184,7 @@ run:</p>
 $ tmp=`mktemp | sed &#39;s#^/##&#39;`; python setup.py --version | tr -d &#39;\n&#39; &gt; &quot;/$tmp&quot;
 $ tar rf docker/base-local/ivre.tar --transform=&quot;s#$tmp#ivre/ivre/VERSION#&quot; /$tmp
 $ rm &quot;/$tmp&quot;
-$ docker pull debian:stable
+$ docker pull debian:12
 $ docker build -t ivre/base docker/base-local
 </pre></div>
 </div>
@@ -195,7 +194,7 @@ $ docker build -t ivre/base docker/base-local
 <p>Another way to create the <code class="docutils literal notranslate"><span class="pre">ivre/base</span></code> image is to use
 <a class="reference external" href="https://pypi.python.org/pypi/pip">pip</a>. From the
 <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull debian:stable
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull debian:12
 $ docker build -t ivre/base base-pip
 </pre></div>
 </div>
