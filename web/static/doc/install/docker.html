@@ -166,7 +166,6 @@ $ vagrant up --no-parallel
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull debian:stable
-$ docker pull debian:buster
 $ for img in base client agent web web-doku web-uwsgi ; do
 &gt; docker build -t &quot;ivre/$img&quot; &quot;$img&quot;
 &gt; done

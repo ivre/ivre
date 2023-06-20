@@ -14,8 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM debian:stable
 ARG TAG=latest
+FROM ivre/base:${TAG} AS base
+
+FROM debian:stable
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 RUN apt-get -q update && \
@@ -31,8 +33,8 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # IVRE-specific
-COPY --from=ivre/base /usr/local/share/ivre/dokuwiki/media/logo.png /var/www/dokuwiki/data/media/wiki/logo.png
-COPY --from=ivre/base /usr/local/share/ivre/patches/dokuwiki/backlinks.patch /tmp/backlinks.patch
+COPY --from=base /usr/local/share/ivre/dokuwiki/media/logo.png /var/www/dokuwiki/data/media/wiki/logo.png
+COPY --from=base /usr/local/share/ivre/patches/dokuwiki/backlinks.patch /tmp/backlinks.patch
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install patch && \
     (cd var/www/dokuwiki/ && patch -p0 < /tmp/backlinks.patch) && \
@@ -64,4 +66,4 @@ CMD [ -d "/var/www/dokuwiki/data/media/wiki" ] || (\
     ) && \
     mkdir -p /run/php && \
     chown -Rh www-data:www-data /var/www/dokuwiki/data && \
-    /usr/sbin/php-fpm7.4 -F
+    /usr/sbin/php-fpm -F

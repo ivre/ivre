@@ -17,7 +17,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 docker pull debian:stable
-docker pull debian:buster
 
 # Create ivre/VERSION if needed
 VERSION="$(python3 setup.py --version 2>/dev/null)"

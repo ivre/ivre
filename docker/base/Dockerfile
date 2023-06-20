@@ -19,22 +19,12 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# Dependencies
-RUN echo "deb http://deb.debian.org/debian stable-backports main" >> /etc/apt/sources.list
+# Install pip, get IVRE, uninstall pip
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3-pymongo python3-cryptography \
-        python3-setuptools python3-bottle python3-openssl ca-certificates && \
+    apt-get -qy --no-install-recommends install python3 python3-dev python3-pip python3-setuptools git && \
+    pip3 install --break-system-packages git+https://github.com/ivre/ivre && \
+    apt-get -qy autoremove python3-dev python3-pip python3-setuptools git && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# IVRE
-RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install git && \
-    git clone https://github.com/ivre/ivre && \
-    cd ivre/ && \
-    python3 setup.py build && python3 setup.py install && \
-    apt-get -qy --purge autoremove git && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    cd ../ && rm -rf ivre/
 
 # Fix version
 RUN sed -ri 's#$#-docker#' /usr/local/lib/python*/dist-packages/ivre/VERSION && \

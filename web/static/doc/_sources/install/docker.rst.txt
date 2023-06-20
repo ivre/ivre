@@ -78,7 +78,6 @@ that, from the ``docker/`` directory, run:
 ::
 
    $ docker pull debian:stable
-   $ docker pull debian:buster
    $ for img in base client agent web web-doku web-uwsgi ; do
    > docker build -t "ivre/$img" "$img"
    > done
