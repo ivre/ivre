@@ -94,16 +94,16 @@ def main() -> None:
     if db.passive is not None:
         if args.passive_direct:
             resolvers.append(
-                lambda value: db.passive.getdns(value, subdomains=args.sub),  # type: ignore
+                lambda value: db.passive.getdns(value, subdomains=args.sub),
             )
         if args.passive_reverse:
             resolvers.append(
-                lambda value: db.passive.getdns(  # type: ignore
+                lambda value: db.passive.getdns(
                     value, subdomains=args.sub, reverse=True
                 )
             )
     if db.nmap is not None and args.nmap:
-        resolvers.append(lambda value: db.nmap.getdns(value, subdomains=args.sub))  # type: ignore
+        resolvers.append(lambda value: db.nmap.getdns(value, subdomains=args.sub))
 
     for addr_or_name in args.names_or_addresses:
         addr_or_name = str2regexp(addr_or_name)
