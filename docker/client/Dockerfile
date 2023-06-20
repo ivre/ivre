@@ -30,7 +30,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap using the official RPM package.
-ADD https://nmap.org/dist/nmap-7.92-1.x86_64.rpm ./nmap.rpm
+ADD https://nmap.org/dist/nmap-7.94-1.x86_64.rpm ./nmap.rpm
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install alien && \
     alien ./nmap.rpm && \
