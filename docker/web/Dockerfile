@@ -17,7 +17,7 @@
 ARG TAG=latest
 FROM ivre/base:${TAG} AS base
 
-FROM debian:stable
+FROM debian:12
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 RUN apt-get -q update && \
