@@ -110,9 +110,23 @@ class MongoDBConnection:
             return self._client
         host = self.url.netloc
         if "@" in host:
-            self.auth, host = host.split("@", 1)
-        else:
-            self.auth = None
+            auth, host = host.split("@", 1)
+            if ":" in auth:
+                username, password = (unquote(val) for val in auth.split(":", 1))
+                self.params["username"] = username
+                self.params["password"] = password
+            else:
+                username = unquote(auth)
+                if HAS_KRBV and username == "GSSAPI":
+                    username = krbV.default_context().default_ccache().principal().name
+                    self.params["username"] = username
+                    self.params["authMechanism"] = "GSSAPI"
+                elif "@" in username:
+                    self.params["username"] = username
+                    self.params["authMechanism"] = "GSSAPI"
+                else:
+                    utils.LOGGER.warning("Weird authentication string %r", username)
+                    self.params["username"] = username
         self._client = pymongo.MongoClient(host=host or None, **self.params)
         return self._client
 
@@ -123,21 +137,7 @@ class MongoDBConnection:
         except AttributeError:
             pass
         self._db = self.client[self.url.path.lstrip("/") or "ivre"]
-        if not self.auth:
-            return self._db
-        if ":" in self.auth:
-            username, password = (unquote(val) for val in self.auth.split(":", 1))
-            self._db.authenticate(username, password)
-            return self._db
-        username = unquote(self.auth)
-        if HAS_KRBV:
-            if username == "GSSAPI":
-                username = krbV.default_context().default_ccache().principal().name
-                self._db.authenticate(username, mechanism="GSSAPI")
-                return self._db
-        if "@" in username:
-            self._db.authenticate(username, mechanism="GSSAPI")
-        raise TypeError("provide either 'password' or 'mechanism' with 'username'")
+        return self._db
 
 
 class MongoDB(DB):
