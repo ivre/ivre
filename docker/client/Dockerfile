@@ -15,6 +15,25 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 ARG TAG=latest
+FROM debian:12 AS builder
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Extract phantomjs binary
+ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 ./phantomjs-2.1.1-linux-x86_64.tar.bz2
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install bzip2 && \
+    tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs
+
+# Install Nmap using the official RPM package.
+ADD https://nmap.org/dist/nmap-7.94-1.x86_64.rpm ./nmap.rpm
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install alien && \
+    alien ./nmap.rpm && \
+    dpkg -i ./nmap*.deb
+
+
+ARG TAG=latest
 FROM ivre/base:${TAG}
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
@@ -30,22 +49,16 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap using the official RPM package.
-ADD https://nmap.org/dist/nmap-7.94-1.x86_64.rpm ./nmap.rpm
-RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install alien && \
-    alien ./nmap.rpm && \
-    dpkg -i ./nmap*.deb && \
-    rm -f ./nmap.rpm ./nmap*.deb && \
-    apt-get -qy --purge autoremove alien && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/bin/nmap /usr/bin/nmap
+COPY --from=builder /usr/share/nmap /usr/share/nmap
 
 # Install Zeek - Debian Testing because Debian_12 does not exist for now
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install gnupg wget && \
+    apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
     echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_Testing/ /' > /etc/apt/sources.list.d/zeek.list && \
     wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_Testing/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
-    apt-get -qy --purge autoremove gnupg wget && \
+    apt-get -qy --purge autoremove gnupg wget ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install p0f
@@ -54,10 +67,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
-ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 ./phantomjs-2.1.1-linux-x86_64.tar.bz2
-RUN tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs && \
-    mv phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/ && \
-    rm -rf phantomjs-2.1.1-linux-x86_64*
+COPY --from=builder /phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
 
 # Add our *-screenshot NSE scripts  # /usr/local/share/ivre/patches
 RUN cp /usr/local/share/ivre/patches/nmap/scripts/*.nse /usr/share/nmap/scripts && \

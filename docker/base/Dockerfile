@@ -21,9 +21,9 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Install pip, get IVRE, uninstall pip
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3 python3-dev python3-pip python3-setuptools git && \
+    apt-get -qy --no-install-recommends install python3 python3-pip git && \
     pip3 install --break-system-packages git+https://github.com/ivre/ivre && \
-    apt-get -qy autoremove python3-dev python3-pip python3-setuptools git && \
+    apt-get -qy --purge autoremove python3-pip git openssl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Fix version
