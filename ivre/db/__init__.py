@@ -2731,14 +2731,14 @@ class DBNmap(DBActive):
                     if (
                         set(
                             "%(name)s:%(type)s:%(answer)s" % ans
-                            for ans in data["answers"]
+                            for ans in data["answers"] if "name" in ans and "type" in ans and "answer" in ans
                         )
                         != answers
                     ):
                         script["output"] += "\nAnswer may be incorrect!\n%s" % (
                             "\n".join(
                                 "%(name)s    %(type)s    %(answer)s" % ans
-                                for ans in data["answers"]
+                                for ans in data["answers"] if "name" in ans and "type" in ans and "answer" in ans
                             )
                         )
                     port["scripts"] = [script]
