@@ -1867,7 +1867,7 @@ def parse_ssh_key(data: bytes) -> Dict[str, Any]:
                     try:
                         sys.set_int_max_str_digits(0)
                     except AttributeError:
-                        raise exc
+                        raise exc from exc
                     info[val] = str(info[val])
     elif keytype == "ssh-dss":
         info["bits"] = int(math.ceil(math.log(int(encode_hex(next(parsed)), 16), 2)))
@@ -2171,7 +2171,7 @@ if USE_PYOPENSSL:
                 try:
                     sys.set_int_max_str_digits(0)
                 except AttributeError:
-                    raise exc
+                    raise exc from exc
                 result["pubkey"]["modulus"] = str(numbers.n)
         pubkey = pubkey.to_cryptography_key().public_bytes(
             Encoding.DER,
