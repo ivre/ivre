@@ -38,7 +38,6 @@ import ipaddress
 import logging
 import math
 import os
-import OpenSSL
 import re
 import shutil
 import socket
@@ -1864,8 +1863,11 @@ def parse_ssh_key(data: bytes) -> Dict[str, Any]:
                 try:
                     # with large SSH keys, it could lead to an exception
                     info[val] = str(info[val])
-                except ValueError:
-                    sys.set_int_max_str_digits(int(math.log(info[val], 10) + 1))
+                except ValueError as exc:
+                    try:
+                        sys.set_int_max_str_digits(0)
+                    except AttributeError:
+                        raise exc
                     info[val] = str(info[val])
     elif keytype == "ssh-dss":
         info["bits"] = int(math.ceil(math.log(int(encode_hex(next(parsed)), 16), 2)))
@@ -2121,9 +2123,9 @@ if USE_PYOPENSSL:
         }
         try:
             data = osslc.load_certificate(osslc.FILETYPE_ASN1, cert)
-        except OpenSSL.crypto.Error:
-            LOGGER.warning("Cannot decode asn1 - not enough data")
-            return {}
+        except osslc.Error:
+            LOGGER.warning("Cannot load certificate", exc_info=True)
+            return result
         result["subject_text"], result["subject"] = _parse_subject(data.get_subject())
         result["issuer_text"], result["issuer"] = _parse_subject(data.get_issuer())
         for i in range(data.get_extension_count()):
@@ -2165,8 +2167,11 @@ if USE_PYOPENSSL:
             result["pubkey"]["exponent"] = numbers.e
             try:
                 result["pubkey"]["modulus"] = str(numbers.n)
-            except ValueError:
-                sys.set_int_max_str_digits(int(math.log(numbers.n, 10) + 1))
+            except ValueError as exc:
+                try:
+                    sys.set_int_max_str_digits(0)
+                except AttributeError:
+                    raise exc
                 result["pubkey"]["modulus"] = str(numbers.n)
         pubkey = pubkey.to_cryptography_key().public_bytes(
             Encoding.DER,
