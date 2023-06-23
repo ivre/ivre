@@ -38,11 +38,13 @@ import ipaddress
 import logging
 import math
 import os
+import OpenSSL
 import re
 import shutil
 import socket
 import struct
 import subprocess
+import sys
 import time
 from bisect import bisect_left
 from io import BytesIO
@@ -1859,7 +1861,12 @@ def parse_ssh_key(data: bytes) -> Dict[str, Any]:
             # convert integer to strings to prevent overflow errors
             # (e.g., "MongoDB can only handle up to 8-byte ints")
             for val in ["exponent", "modulus"]:
-                info[val] = str(info[val])
+                try:
+                    # with large SSH keys, it could lead to an exception
+                    info[val] = str(info[val])
+                except ValueError:
+                    sys.set_int_max_str_digits(int(math.log(info[val], 10) + 1))
+                    info[val] = str(info[val])
     elif keytype == "ssh-dss":
         info["bits"] = int(math.ceil(math.log(int(encode_hex(next(parsed)), 16), 2)))
     elif keytype == "ecdsa-sha2-nistp256":
@@ -2112,7 +2119,11 @@ if USE_PYOPENSSL:
             hashtype: hashlib.new(hashtype, cert).hexdigest()
             for hashtype in ["md5", "sha1", "sha256"]
         }
-        data = osslc.load_certificate(osslc.FILETYPE_ASN1, cert)
+        try:
+            data = osslc.load_certificate(osslc.FILETYPE_ASN1, cert)
+        except OpenSSL.crypto.Error:
+            LOGGER.warning("Cannot decode asn1 - not enough data")
+            return {}
         result["subject_text"], result["subject"] = _parse_subject(data.get_subject())
         result["issuer_text"], result["issuer"] = _parse_subject(data.get_issuer())
         for i in range(data.get_extension_count()):
@@ -2152,7 +2163,11 @@ if USE_PYOPENSSL:
             # RSA
             numbers = pubkey.to_cryptography_key().public_numbers()
             result["pubkey"]["exponent"] = numbers.e
-            result["pubkey"]["modulus"] = str(numbers.n)
+            try:
+                result["pubkey"]["modulus"] = str(numbers.n)
+            except ValueError:
+                sys.set_int_max_str_digits(int(math.log(numbers.n, 10) + 1))
+                result["pubkey"]["modulus"] = str(numbers.n)
         pubkey = pubkey.to_cryptography_key().public_bytes(
             Encoding.DER,
             PublicFormat.SubjectPublicKeyInfo,
