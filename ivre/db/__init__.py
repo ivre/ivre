@@ -2728,17 +2728,19 @@ class DBNmap(DBActive):
                         "id": "dns-recursion",
                         "output": "Recursion appears to be enabled",
                     }
+                    cur_answers = [
+                        ans
+                        for ans in data["answers"]
+                        if all(fld in ans for fld in ["answer", "name", "type"])
+                    ]
                     if (
-                        set(
-                            "%(name)s:%(type)s:%(answer)s" % ans
-                            for ans in data["answers"]
-                        )
+                        set("%(name)s:%(type)s:%(answer)s" % ans for ans in cur_answers)
                         != answers
                     ):
                         script["output"] += "\nAnswer may be incorrect!\n%s" % (
                             "\n".join(
                                 "%(name)s    %(type)s    %(answer)s" % ans
-                                for ans in data["answers"]
+                                for ans in cur_answers
                             )
                         )
                     port["scripts"] = [script]
