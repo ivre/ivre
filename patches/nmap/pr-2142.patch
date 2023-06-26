@@ -4,8 +4,8 @@ See <https://github.com/nmap/nmap/pull/2142>
 
 diff --git a/nmap-service-probes b/nmap-service-probes
 index c03c838ec9..cea7ef2ff7 100644
---- a/nmap-service-probes
-+++ b/nmap-service-probes
+--- nmap-service-probes
++++ nmap-service-probes
 @@ -6439,7 +6439,10 @@ match dslcpe m|^GET: command not found\n\r   acog,          AutobootConfigOption
  
  match econtagt m|^=\0\0\0$| p/Compuware ServerVantage EcoNTAgt/ cpe:/a:compuware:servervantage_agent/
