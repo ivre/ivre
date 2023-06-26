@@ -465,7 +465,11 @@ setup(
         ),
         (
             "share/ivre/patches/nmap",
-            ["patches/nmap/rtsp-url-brute.patch"],
+            [
+                "patches/nmap/pr-2142.patch",
+                "patches/nmap/pr-2229.patch",
+                "patches/nmap/rtsp-url-brute.patch",
+            ],
         ),
         (
             "share/ivre/patches/nmap/scripts",
