@@ -45,7 +45,7 @@ RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list.d/debian.sources
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install rsync screen ipython3 openssl \
         tesseract-ocr libfreetype6 libfontconfig1 fonts-dejavu imagemagick \
-        ffmpeg s3270 patch bash-completion bzip2 python3-pil nfdump && \
+        ffmpeg s3270 bash-completion bzip2 python3-pil nfdump && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap using the official RPM package.
@@ -70,10 +70,14 @@ RUN apt-get -q update && \
 COPY --from=builder /phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
 
 # Add our *-screenshot NSE scripts  # /usr/local/share/ivre/patches
-RUN cp /usr/local/share/ivre/patches/nmap/scripts/*.nse /usr/share/nmap/scripts && \
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install patch && \
+    cp /usr/local/share/ivre/patches/nmap/scripts/*.nse /usr/share/nmap/scripts && \
     cd /usr/share/nmap/ && \
     for p in /usr/local/share/ivre/patches/nmap/*.patch; do patch -p0 < $p; done && \
     patch /etc/p0f/p0f.fp /usr/local/share/ivre/patches/p0f/p0f.fp.patch && \
-    nmap --script-update
+    nmap --script-update && \
+    apt-get -qy --purge autoremove patch && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /var/lib/ivre
