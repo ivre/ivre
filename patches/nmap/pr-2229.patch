@@ -4,8 +4,8 @@ See <https://github.com/nmap/nmap/pull/2229>
 
 diff --git a/nselib/smbauth.lua b/nselib/smbauth.lua
 index 4b64db2195..3efdd2d49a 100644
---- a/nselib/smbauth.lua
-+++ b/nselib/smbauth.lua
+--- nselib/smbauth.lua
++++ nselib/smbauth.lua
 @@ -863,7 +863,7 @@ function get_host_info_from_security_blob(security_blob)
      ntlm_challenge[ "target_realm" ] = unicode.utf16to8( target_realm )
    end
