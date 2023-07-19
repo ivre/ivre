@@ -1,5 +1,5 @@
 elasticsearch
 elasticsearch-dsl
-cryptography<40.0.0
+cryptography
 pyOpenSSL>=16.1.0
 bottle

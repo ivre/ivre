@@ -2,7 +2,7 @@ bandit
 black
 bottle
 codespell
-cryptography<40.0.0
+cryptography
 docutils!=0.18
 elasticsearch
 elasticsearch-dsl
