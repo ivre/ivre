@@ -4399,7 +4399,7 @@ class IvreTests(unittest.TestCase):
         for mac, res in [
             (
                 "00:00:00:00:00:00",
-                ("00:00:00", "Officially Xerox, but 0:0:0:0:0:0 is more common"),
+                ("Xerox", "Xerox Corporation"),
             ),
             ("00:00:01:00:00:00", ("Xerox", "Xerox Corporation")),
             ("00:01:01:00:00:00", ("Private", None)),
