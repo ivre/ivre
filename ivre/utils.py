@@ -1530,6 +1530,8 @@ def _int2macmask(mask: int) -> int:
 def _read_wireshark_manuf_db() -> None:
     global _WIRESHARK_MANUF_DB_POPULATED
 
+    sep = re.compile("\t+")
+
     if config.WIRESHARK_SHARE_PATH is None:
         return
 
@@ -1542,10 +1544,10 @@ def _read_wireshark_manuf_db() -> None:
             return
         comment: Optional[str]
         try:
-            addr, manuf, comment = line.split("\t", 2)
+            addr, manuf, comment = sep.split(line, 2)
         except ValueError:
             try:
-                addr, manuf = line.split("\t", 1)
+                addr, manuf = sep.split(line, 1)
             except ValueError:
                 LOGGER.warning(
                     "Cannot parse a line from Wireshark manufacturer database [%r].",
