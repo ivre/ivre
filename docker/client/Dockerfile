@@ -42,10 +42,11 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list.d/debian.sources
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
+## nfdump argus-client: ivre flow2db
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install rsync screen ipython3 openssl \
         tesseract-ocr libfreetype6 libfontconfig1 fonts-dejavu imagemagick \
-        ffmpeg s3270 bash-completion bzip2 python3-pil nfdump && \
+        ffmpeg s3270 bash-completion bzip2 python3-pil nfdump argus-client && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap using the official RPM package.
