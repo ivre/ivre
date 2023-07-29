@@ -60,11 +60,11 @@ RUN apt-get -q update && \
 COPY --from=builder /usr/bin/nmap /usr/bin/nmap
 COPY --from=builder /usr/share/nmap /usr/share/nmap
 
-# Install Zeek - Debian Testing because Debian_12 does not exist for now
+# Install Zeek
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
-    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_Testing/ /' > /etc/apt/sources.list.d/zeek.list && \
-    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_Testing/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
+    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' > /etc/apt/sources.list.d/zeek.list && \
+    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
     apt-get -qy --purge autoremove gnupg wget ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
