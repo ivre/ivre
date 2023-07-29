@@ -68,19 +68,28 @@ license <https://en.wikipedia.org/wiki/MIT_License>`__.
 ike-scan Vendor ID database
 ---------------------------
 
-The file ``data/ike-vendor-ids`` come from the
+The file ``data/ike-vendor-ids`` comes from the
 `ike-scan <https://github.com/royhills/ike-scan>`__ project.
 
 It includes new fingerprints discovered during Internet-wide ISAKMP
-scans. Those fingerprints are of course `contributed to
-ike-scan <https://github.com/royhills/ike-scan/pull/18>`__, but have not
-been accepted by the project yet.
+scans. Those fingerprints have of course been `contributed to
+ike-scan <https://github.com/royhills/ike-scan/pull/18>`__.
 
 This file is licensed under `GPL v3
 license <https://www.gnu.org/licenses/gpl-3.0.en.html>`__.
 
 See also `Use of ike-vendor-ids in other (open-source)
 programs <https://github.com/royhills/ike-scan/issues/19>`__.
+
+manuf Vendor database
+---------------------
+
+The file ``data/manuf`` is built from the tool ``pkg/buildmanuf`` from
+the `wireshark <https://github.com/wireshark/wireshark>`__ project.
+
+Both files are licensed under `GPL v2 license
+<https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#SEC1>`__ or
+later.
 
 Natural Earth
 -------------

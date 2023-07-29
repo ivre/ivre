@@ -56,9 +56,8 @@ WEB_STATIC_PATH = None
 WEB_DOKU_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
 # specific: if no value is specified, tries /usr/local/share/nmap,
-# /opt/nmap/share/nmap, then /usr/share/nmap; same for wireshark.
+# /opt/nmap/share/nmap, then /usr/share/nmap.
 NMAP_SHARE_PATH = None
-WIRESHARK_SHARE_PATH = None
 # Begin commands
 TESSERACT_CMD = "tesseract"
 OPENSSL_CMD = "openssl"
@@ -379,7 +378,3 @@ if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:
 
 if NMAP_SHARE_PATH is None:
     NMAP_SHARE_PATH = guess_share("nmap")
-
-
-if WIRESHARK_SHARE_PATH is None:
-    WIRESHARK_SHARE_PATH = guess_share("wireshark")

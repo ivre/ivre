@@ -1507,9 +1507,9 @@ def find_ike_vendor_id(vendorid: bytes) -> Optional[bytes]:
     return None
 
 
-_WIRESHARK_MANUF_DB_LAST_ADDR: List[int] = []
-_WIRESHARK_MANUF_DB_VALUES: List[Optional[Tuple[str, Optional[str]]]] = []
-_WIRESHARK_MANUF_DB_POPULATED = False
+_MANUF_DB_LAST_ADDR: List[int] = []
+_MANUF_DB_VALUES: List[Optional[Tuple[str, Optional[str]]]] = []
+_MANUF_DB_POPULATED = False
 
 
 def _mac2int(value: str) -> int:
@@ -1528,11 +1528,11 @@ def _int2macmask(mask: int) -> int:
 
 
 def _read_wireshark_manuf_db() -> None:
-    global _WIRESHARK_MANUF_DB_POPULATED
+    global _MANUF_DB_POPULATED
 
     sep = re.compile("\t+")
 
-    if config.WIRESHARK_SHARE_PATH is None:
+    if config.DATA_PATH is None:
         return
 
     def parse_line(line: str) -> None:
@@ -1570,40 +1570,37 @@ def _read_wireshark_manuf_db() -> None:
                 line,
             )
             return
-        if (
-            _WIRESHARK_MANUF_DB_LAST_ADDR
-            and _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr_int - 1
-        ):
-            _WIRESHARK_MANUF_DB_LAST_ADDR.append(addr_int - 1)
-            _WIRESHARK_MANUF_DB_VALUES.append(None)
-        elif _WIRESHARK_MANUF_DB_VALUES and _WIRESHARK_MANUF_DB_VALUES[-1] == (
+        if _MANUF_DB_LAST_ADDR and _MANUF_DB_LAST_ADDR[-1] != addr_int - 1:
+            _MANUF_DB_LAST_ADDR.append(addr_int - 1)
+            _MANUF_DB_VALUES.append(None)
+        elif _MANUF_DB_VALUES and _MANUF_DB_VALUES[-1] == (
             manuf,
             comment,
         ):
-            _WIRESHARK_MANUF_DB_LAST_ADDR.pop()
-            _WIRESHARK_MANUF_DB_VALUES.pop()
-        _WIRESHARK_MANUF_DB_LAST_ADDR.append(
+            _MANUF_DB_LAST_ADDR.pop()
+            _MANUF_DB_VALUES.pop()
+        _MANUF_DB_LAST_ADDR.append(
             (addr_int & _int2macmask(mask)) + 2 ** (48 - mask) - 1
         )
-        _WIRESHARK_MANUF_DB_VALUES.append((manuf, comment))
+        _MANUF_DB_VALUES.append((manuf, comment))
 
     try:
         with open(
-            os.path.join(config.WIRESHARK_SHARE_PATH, "manuf"), "r", encoding="utf8"
+            os.path.join(config.DATA_PATH, "manuf"), "r", encoding="utf8"
         ) as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
     except (AttributeError, TypeError, IOError):
         LOGGER.warning("Cannot read Wireshark manufacturer database.", exc_info=True)
-    _WIRESHARK_MANUF_DB_POPULATED = True
+    _MANUF_DB_POPULATED = True
 
 
 def get_wireshark_manuf_db() -> (
     Tuple[List[int], List[Optional[Tuple[str, Optional[str]]]]]
 ):
-    if not _WIRESHARK_MANUF_DB_POPULATED:
+    if not _MANUF_DB_POPULATED:
         _read_wireshark_manuf_db()
-    return _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES
+    return _MANUF_DB_LAST_ADDR, _MANUF_DB_VALUES
 
 
 def mac2manuf(mac: str) -> Optional[Tuple[str, Optional[str]]]:
