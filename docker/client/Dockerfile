@@ -32,6 +32,13 @@ RUN apt-get -q update && \
     alien ./nmap.rpm && \
     dpkg -i ./nmap*.deb
 
+# Build scrying for RDP screenshots with Nmap
+ADD https://github.com/nccgroup/scrying/archive/refs/heads/main.tar.gz ./main.tar.gz
+RUN apt -qy --no-install-recommends install cargo ca-certificates pkg-config libssl-dev && \
+    tar zxf main.tar.gz && \
+    cd scrying-main && \
+    cargo build --release
+
 
 ARG TAG=latest
 FROM ivre/base:${TAG}
@@ -69,6 +76,9 @@ RUN apt-get -q update && \
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
 COPY --from=builder /phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
+
+# "Install" scrying for our rdp-screenshot NSE script
+COPY --from=builder /scrying-main/target/release/scrying /usr/local/bin/scrying
 
 # Add our *-screenshot NSE scripts  # /usr/local/share/ivre/patches
 RUN apt-get -q update && \
