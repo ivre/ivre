@@ -32,6 +32,13 @@ RUN apt-get -q update && \
     alien ./nmap.rpm && \
     dpkg -i ./nmap*.deb
 
+# Build scrying for RDP screenshots with Nmap
+ADD https://github.com/nccgroup/scrying/archive/refs/heads/main.tar.gz ./main.tar.gz
+RUN apt -qy --no-install-recommends install cargo ca-certificates pkg-config libssl-dev && \
+    tar zxf main.tar.gz && \
+    cd scrying-main && \
+    cargo build --release
+
 
 ARG TAG=latest
 FROM ivre/base:${TAG}
@@ -53,11 +60,11 @@ RUN apt-get -q update && \
 COPY --from=builder /usr/bin/nmap /usr/bin/nmap
 COPY --from=builder /usr/share/nmap /usr/share/nmap
 
-# Install Zeek - Debian Testing because Debian_12 does not exist for now
+# Install Zeek
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
-    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_Testing/ /' > /etc/apt/sources.list.d/zeek.list && \
-    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_Testing/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
+    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' > /etc/apt/sources.list.d/zeek.list && \
+    wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
     apt-get -qy --purge autoremove gnupg wget ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -69,6 +76,9 @@ RUN apt-get -q update && \
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
 COPY --from=builder /phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
+
+# "Install" scrying for our rdp-screenshot NSE script
+COPY --from=builder /scrying-main/target/release/scrying /usr/local/bin/scrying
 
 # Add our *-screenshot NSE scripts  # /usr/local/share/ivre/patches
 RUN apt-get -q update && \

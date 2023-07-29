@@ -40,7 +40,7 @@ categories = {"discovery", "safe", "screenshot"}
 -- @output
 -- PORT     STATE SERVICE
 -- 5900/tcp open  http
--- |_http-screenshot: Saved to screenshot-1.2.3.4-5900.jpg
+-- |_vnc-screenshot: Saved to screenshot-1.2.3.4-5900.jpg
 
 portrule = shortport.port_or_service(5900, "vnc")
 
