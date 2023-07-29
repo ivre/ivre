@@ -213,7 +213,7 @@ setup(
         ),
         ("share/ivre/honeyd", ["data/.empty"]),
         ("share/ivre/geoip", ["data/.empty"]),
-        ("share/ivre/data", ["data/ike-vendor-ids"]),
+        ("share/ivre/data", ["data/ike-vendor-ids", "data/manuf"]),
         ("share/ivre/data/honeyd", ["data/honeyd/sshd"]),
         ("share/ivre/docker", ["docker/Vagrantfile"]),
         ("share/ivre/docker/agent", ["docker/agent/Dockerfile"]),

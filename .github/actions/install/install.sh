@@ -23,10 +23,7 @@ mv ivre ivre_bak
 {
     cat .github/workflows/files/ivre.conf
     echo "NMAP_SHARE_PATH = '$(pwd)/usr/local/nmap/share/nmap'"
-    echo "WIRESHARK_SHARE_PATH = '$(pwd)/usr/local/wireshark/share/wireshark'"
 } >> ~/.ivre.conf
-mkdir -p usr/local/wireshark/share/wireshark
-wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
 wget -q -O - https://github.com/ivre/ivre-test-samples/archive/c7f4f992e4f55c14f396efb6043adb617aa4ffc8.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
 
 USE_PYOPENSSL="$((RANDOM % 2))"
