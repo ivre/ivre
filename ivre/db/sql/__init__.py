@@ -2860,7 +2860,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             if subfield.isdigit():
                 flt = self.flt_and(flt, self.searchdns())
 
-                def more_filter(base):
+                def more_filter(base):  # noqa: F811
                     return (
                         func.length(base.field)
                         - func.length(func.replace(base.field, ".", ""))
