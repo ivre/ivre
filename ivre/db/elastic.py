@@ -397,7 +397,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             field = {"field": "infos.as_num"}
         elif field == "as":
 
-            def outputproc(value):
+            def outputproc(value):  # noqa: F811
                 return tuple(
                     val if i else int(val) for i, val in enumerate(value.split(",", 1))
                 )

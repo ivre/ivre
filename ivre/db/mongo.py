@@ -3116,7 +3116,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
             }
 
-            def outputproc(x):
+            def outputproc(x):  # noqa: F811
                 return {"count": x["count"], "_id": tuple(x["_id"])}
 
         elif field == "city":
@@ -5039,7 +5039,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 "addr": ["$addr_0", "$addr_1"],
             }
 
-            def outputproc(x):
+            def outputproc(x):  # noqa: F811
                 return {
                     "count": x["count"],
                     "_id": (
