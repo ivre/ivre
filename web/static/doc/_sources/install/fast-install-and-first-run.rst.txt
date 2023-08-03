@@ -5,29 +5,26 @@ This file describes the steps to install IVRE, run the first scans and
 add the results to the database with all components (scanner, web
 server, database server) on the same (Debian or Ubuntu) machine.
 
-Please note that, depending on your distribution, the versions of some
-software packages might not be recent enough, particularly for MongoDB
-(version 3.6 minimum) and pymongo (version 3.7 minimum). If that's
-the case, you will have to install those programs on you own,
-referring to their documentation (see `MongoDB on Debian
-<http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/>`__
-or `MongoDB on Ubuntu
-<http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/>`__
-and `pymongo <https://pypi.python.org/pypi/pymongo/>`__), instead of
-getting them via ``apt``.
-
 You might also want to adapt it to your needs, architecture, etc.
 
 For another way to run IVRE easily (probably even more easily), see
 :ref:`install/docker:Docker`.
 
-Install
--------
+Install MongoDB
+---------------
+
+Follow the instructions from the MongoDB project, for example:
+
+* `MongoDB on Debian <http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/>`__
+* `MongoDB on Ubuntu <http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/>`__
+
+Install IVRE
+------------
 
 ::
 
-   $ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
-   >   python3-crypto python3-bottle python3-openssl apache2 \
+   $ sudo apt -y --no-install-recommends install python3-pymongo \
+   >   python3-cryptography python3-bottle python3-openssl apache2 \
    >   libapache2-mod-wsgi-py3 dokuwiki
    $ git clone https://github.com/ivre/ivre
    $ cd ivre

@@ -55,7 +55,8 @@
 <li class="toctree-l2"><a class="reference internal" href="installation.html">Installation guidelines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">Configuration</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Fast install &amp; first run</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#install">Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#install-mongodb">Install MongoDB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#install-ivre">Install IVRE</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#setup">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#database-init-data-download-importation">Database init, data download &amp; importation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#run-a-first-scan">Run a first scan</a></li>
@@ -109,21 +110,21 @@
 <p>This file describes the steps to install IVRE, run the first scans and
 add the results to the database with all components (scanner, web
 server, database server) on the same (Debian or Ubuntu) machine.</p>
-<p>Please note that, depending on your distribution, the versions of some
-software packages might not be recent enough, particularly for MongoDB
-(version 3.6 minimum) and pymongo (version 3.7 minimum). If that’s
-the case, you will have to install those programs on you own,
-referring to their documentation (see <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/">MongoDB on Debian</a>
-or <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/">MongoDB on Ubuntu</a>
-and <a class="reference external" href="https://pypi.python.org/pypi/pymongo/">pymongo</a>), instead of
-getting them via <code class="docutils literal notranslate"><span class="pre">apt</span></code>.</p>
 <p>You might also want to adapt it to your needs, architecture, etc.</p>
 <p>For another way to run IVRE easily (probably even more easily), see
 <a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a>.</p>
-<section id="install">
-<h2>Install<a class="headerlink" href="#install" title="Permalink to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
-&gt;   python3-crypto python3-bottle python3-openssl apache2 \
+<section id="install-mongodb">
+<h2>Install MongoDB<a class="headerlink" href="#install-mongodb" title="Permalink to this heading"></a></h2>
+<p>Follow the instructions from the MongoDB project, for example:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/">MongoDB on Debian</a></p></li>
+<li><p><a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/">MongoDB on Ubuntu</a></p></li>
+</ul>
+</section>
+<section id="install-ivre">
+<h2>Install IVRE<a class="headerlink" href="#install-ivre" title="Permalink to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install python3-pymongo \
+&gt;   python3-cryptography python3-bottle python3-openssl apache2 \
 &gt;   libapache2-mod-wsgi-py3 dokuwiki
 $ git clone https://github.com/ivre/ivre
 $ cd ivre
