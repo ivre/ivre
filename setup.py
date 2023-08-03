@@ -477,6 +477,7 @@ setup(
                 "patches/nmap/scripts/http-screenshot.nse",
                 "patches/nmap/scripts/mainframe-banner.nse",
                 "patches/nmap/scripts/mainframe-screenshot.nse",
+                "patches/nmap/scripts/rdp-screenshot.nse",
                 "patches/nmap/scripts/rtsp-screenshot.nse",
                 "patches/nmap/scripts/vnc-screenshot.nse",
                 "patches/nmap/scripts/x11-screenshot.nse",
