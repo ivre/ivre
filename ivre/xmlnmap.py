@@ -67,6 +67,7 @@ def screenshot_extract(script):
 SCREENSHOTS_SCRIPTS = {
     "http-screenshot": screenshot_extract,
     "mainframe-screenshot": screenshot_extract,
+    "rdp-screenshot": screenshot_extract,
     "rtsp-screenshot": screenshot_extract,
     "vnc-screenshot": screenshot_extract,
     "x11-screenshot": screenshot_extract,
