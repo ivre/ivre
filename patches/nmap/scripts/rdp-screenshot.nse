@@ -53,7 +53,7 @@ portrule = shortport.port_or_service(3389, "ms-wbt-server")
 action = function(host, port)
   local fname = ("%s-%d.png"):format(host.ip, port.number)
   local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 600
-  os.execute(sh_timeout(("scrying -t rdp://%s:%d/ --disable-report --output ."):format(
+  os.execute(sh_timeout(("scrying -t rdp://%s:%d/ --disable-report --output . > /dev/null"):format(
 		 host.ip, port.number), timeout))
   if os.rename(("rdp/%s"):format(fname), ("screenshot-%s"):format(fname)) then
     return ("Saved to %s"):format(("screenshot-%s"):format(fname))
