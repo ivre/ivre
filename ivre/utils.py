@@ -1096,6 +1096,10 @@ if USE_PIL:
 
         """
         img = PIL.Image.open(BytesIO(imgdata))
+        if img.mode == "RGBA":
+            new_img = PIL.Image.new("RGB", img.size, (255, 255, 255))
+            new_img.paste(img, mask=img.split()[3])
+            img = new_img
         bbox = _trim_image(img, tolerance)
         if bbox:
             newbbox = (
