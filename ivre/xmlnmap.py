@@ -1133,6 +1133,7 @@ IGNORE_SCRIPTS_IDS = set(
     [
         "http-screenshot",
         "mainframe-screenshot",
+        "rdp-screenshot",
         "rtsp-screenshot",
         "vnc-screenshot",
         "x11-screenshot",
