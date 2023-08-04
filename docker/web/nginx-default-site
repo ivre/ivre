@@ -32,6 +32,8 @@ server {
         include uwsgi_params;
         uwsgi_pass ivreuwsgi:3031;
         uwsgi_param REMOTE_USER $remote_user;
+        uwsgi_param HTTP_Cookie "";
+        uwsgi_param HTTP_User_Agent "";
     }
 
     location ~ ^/dokuwiki/.*\.php$ {
