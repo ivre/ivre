@@ -29,6 +29,7 @@ import re
 import struct
 import sys
 from textwrap import wrap
+from typing import List, Optional
 from xml.sax.handler import ContentHandler, EntityResolver
 
 from ivre import utils
@@ -42,7 +43,7 @@ from ivre.active.data import (
     handle_http_headers,
 )
 from ivre.analyzer import dicom, ike, ja3
-from ivre.config import MASSCAN_PROBES
+from ivre.config import MASSCAN_PROBES, MASSCAN_PROBES_REGEXP, MASSCAN_PROBES_VALUE
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
 
 SCHEMA_VERSION = 22
@@ -1296,6 +1297,53 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "rdp": "ms-wbt-server",
 }
 
+MASSCAN_CACHED_PROBES = {
+    "tcp": {"": ["NULL"]},
+}
+
+
+def _find_masscan_probe_from_data(
+    raw_probe: bytes, protocol: str, port: int
+) -> List[str]:
+    nmap_probe = utils.get_nmap_probes(protocol).get(raw_probe)
+    if nmap_probe is not None:
+        return [nmap_probe]
+    try:
+        return [MASSCAN_PROBES_VALUE[protocol][raw_probe]]
+    except KeyError:
+        pass
+    try:
+        exprs = MASSCAN_PROBES_REGEXP[protocol]
+    except KeyError:
+        pass
+    else:
+        for expr, found_probe in exprs:
+            if expr.search(raw_probe) is not None:
+                return [found_probe]
+    return []
+
+
+def find_masscan_probe(probe: Optional[str], protocol: str, port: int) -> List[str]:
+    if probe is not None:
+        # the code may look a bit messy, but that's because we keep in
+        # cache positive results (non-empty list), that we want to
+        # return but also negative results (empty list) when nothing
+        # was found and we want to continue and use
+        # config.MASSCAN_PROBES as when the probe is not provided
+        # (`probe is None`).
+        try:
+            found = MASSCAN_CACHED_PROBES[protocol][probe]
+        except KeyError:
+            raw_probe = utils.nmap_decode_data(probe)
+            found = _find_masscan_probe_from_data(raw_probe, protocol, port)
+            MASSCAN_CACHED_PROBES[probe] = found
+        if found:
+            return found
+    try:
+        return [MASSCAN_PROBES[protocol][port]]
+    except KeyError:
+        return []
+
 
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
 
@@ -1925,13 +1973,9 @@ class NmapHandler(ContentHandler):
                     self._curport["service_tunnel"] = "ssl"
                 self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
-                probe_port = MASSCAN_PROBES.get(self._curport["protocol"], {}).get(
-                    self._curport["port"]
+                probes = find_masscan_probe(
+                    attrs.get("probe"), self._curport["protocol"], self._curport["port"]
                 )
-                if probe_port:
-                    probes = [probe_port]
-                else:
-                    probes = []
                 probes.extend(self.masscan_probes)
                 probes.extend(
                     MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(

@@ -31,6 +31,7 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 
 
 import os
+import re
 import stat
 from typing import Dict, Generator, List, Optional
 
@@ -169,7 +170,17 @@ MASSCAN_PROBES = {
         50002: "DNSVersionBindReqTCP",
     },
 }
+
+MASSCAN_PROBES_VALUE = {"tcp": {b"": "NULL"}}
+
+MASSCAN_PROBES_REGEXP = {
+    "tcp": [
+        (re.compile(b"^GET / HTTP/"), "GetRequest"),
+        (re.compile(b"GET /version HTTP/"), "docker"),
+    ],
+}
 # End Masscan probes
+
 
 # Begin DNSBL
 # Domains used for DNS blacklists (RFC 5782)
