@@ -12,11 +12,11 @@
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -107,7 +107,7 @@
            <div itemprop="articleBody">
              
   <section id="agents">
-<h1>Agents<a class="headerlink" href="#agents" title="Permalink to this heading"></a></h1>
+<h1>Agents<a class="headerlink" href="#agents" title="Link to this heading"></a></h1>
 <p>IVRE agent may be run in an environment not totally controlled (e.g.,
 during a pentest, on a machine you have just owned and want to use to
 do some network recon without installing IVRE), since it has a reduced
@@ -116,7 +116,7 @@ number of dependencies.</p>
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> (plus <code class="docutils literal notranslate"><span class="pre">/bin/sh</span></code> and basic shell utils, including
 <code class="docutils literal notranslate"><span class="pre">grep</span></code>).</p>
 <section id="set-up">
-<h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this heading"></a></h2>
+<h2>Set-up<a class="headerlink" href="#set-up" title="Link to this heading"></a></h2>
 <p>On the “master”, install IVRE following the
 <a class="reference internal" href="installation.html#installation-guidelines"><span class="std std-ref">Installation guidelines</span></a>. Install also
 <code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or <code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach”
@@ -125,7 +125,7 @@ from the <code class="docutils literal notranslate"><span class="pre">agent</spa
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
 </section>
 <section id="run-the-worker-s">
-<h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Permalink to this heading"></a></h2>
+<h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Link to this heading"></a></h2>
 <p>The computer running IVRE (the “master”) needs to be able to access via
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> the data directory of the agents (to add targets and to
 retrieve results): this is not an issue if you are running the agent and
@@ -149,7 +149,7 @@ using other scan templates using <code class="docutils literal notranslate"><spa
 parent <code class="docutils literal notranslate"><span class="pre">agent</span></code> process.</p>
 </section>
 <section id="run-the-master">
-<h2>Run the master<a class="headerlink" href="#run-the-master" title="Permalink to this heading"></a></h2>
+<h2>Run the master<a class="headerlink" href="#run-the-master" title="Link to this heading"></a></h2>
 <p>You need to make sure the user running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> on the “master” can access (without password)
 to the agents data directories.</p>
@@ -163,7 +163,7 @@ results by yourself.</p>
 <p>On the other hand, the second one (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>) will use
 the DB to manage the agents, but is still experimental.</p>
 <section id="runscansagent-the-old-school-one">
-<h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Permalink to this heading"></a></h3>
+<h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Link to this heading"></a></h3>
 <p>You have to specify the agent(s) data directory. For example, run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagent --routable --limit 1000 \
 &gt;     agenthost1:/path/to/agent/dir      \
@@ -175,7 +175,7 @@ the DB to manage the agents, but is still experimental.</p>
 <code class="docutils literal notranslate"><span class="pre">agentsdata/output/</span></code></p>
 </section>
 <section id="runscansagentdb-the-modern-but-probably-broken-one">
-<h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Permalink to this heading"></a></h3>
+<h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Link to this heading"></a></h3>
 <p>Please note that it is important to run all the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>
 from the same host (the “master”, which does not need to be the same
 host than the database server), since it relies on local directories.</p>

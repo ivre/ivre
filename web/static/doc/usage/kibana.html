@@ -12,11 +12,11 @@
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -109,7 +109,7 @@
            <div itemprop="articleBody">
              
   <section id="ivre-with-kibana">
-<h1>IVRE with Kibana<a class="headerlink" href="#ivre-with-kibana" title="Permalink to this heading"></a></h1>
+<h1>IVRE with Kibana<a class="headerlink" href="#ivre-with-kibana" title="Link to this heading"></a></h1>
 <p>IVRE has an <em>experimental</em> backend for Elasticsearch for the <code class="docutils literal notranslate"><span class="pre">view</span></code>
 purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>). Only Elasticsearch
 7 supported and tested for now.</p>
@@ -117,7 +117,7 @@ purpose (see <a class="reference internal" href="../overview/principles.html#pur
 view into an Elasticsearch cluster. Other tools using Elasticsearch
 can then use IVRE’s data.</p>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <p>As stated in the installation page (see the
 <a class="reference internal" href="../install/installation.html#python"><span class="std std-ref">Python</span></a> section), you will need to install
 the <a class="reference external" href="https://github.com/elastic/elasticsearch-py">elasticsearch</a> and
@@ -125,9 +125,9 @@ the <a class="reference external" href="https://github.com/elastic/elasticsearch
 Python packages.</p>
 </section>
 <section id="view-creation">
-<h2>View creation<a class="headerlink" href="#view-creation" title="Permalink to this heading"></a></h2>
+<h2>View creation<a class="headerlink" href="#view-creation" title="Link to this heading"></a></h2>
 <section id="about-views">
-<h3>About views<a class="headerlink" href="#about-views" title="Permalink to this heading"></a></h3>
+<h3>About views<a class="headerlink" href="#about-views" title="Link to this heading"></a></h3>
 <p>Views are created from Nmap, Masscan or Zgrab2 scan results (stored in
 the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> purpose) and passive host intelligence collected by Zeek
 (stored in the <code class="docutils literal notranslate"><span class="pre">passive</span></code> purpose). That is a prerequisite of view
@@ -139,7 +139,7 @@ purposes using the command line: <code class="docutils literal notranslate"><spa
 <span class="pre">ipinfo</span> <span class="pre">--count</span></code>.</p>
 </section>
 <section id="configuration">
-<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h3>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 <p>We need to configure IVRE to use the Elasticsearch database for the
 <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose. Since we want to do that only to create the view, we
 are going to create a dedicated IVRE configuration file, for example
@@ -155,7 +155,7 @@ the <code class="docutils literal notranslate"><span class="pre">IVRE_CONF</span
 </div>
 </section>
 <section id="index-creation-data-insertion">
-<h3>Index creation &amp; Data insertion<a class="headerlink" href="#index-creation-data-insertion" title="Permalink to this heading"></a></h3>
+<h3>Index creation &amp; Data insertion<a class="headerlink" href="#index-creation-data-insertion" title="Link to this heading"></a></h3>
 <p>So now, we can create a view as we would do with any other
 backend. For example, if we want to create a view using all the
 records from the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">passive</span></code> purposes:</p>
@@ -168,7 +168,7 @@ and mapping, and the second will create the view itself.</p>
 </section>
 </section>
 <section id="using-kibana">
-<h2>Using Kibana<a class="headerlink" href="#using-kibana" title="Permalink to this heading"></a></h2>
+<h2>Using Kibana<a class="headerlink" href="#using-kibana" title="Link to this heading"></a></h2>
 <p>From Kibana, you will have to create an index pattern (this can only
 be done after the view creation). The default index name from view is
 <code class="docutils literal notranslate"><span class="pre">ivre-views</span></code>; you can use this value as index pattern (and remove
