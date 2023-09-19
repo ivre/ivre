@@ -48,6 +48,7 @@ class ElasticDB(DB):
         self.username = ""
         self.password = ""
         self.hosts = None
+        self.tls = url.scheme == "elastics"
         if "@" in url.netloc:
             username, hostname = url.netloc.split("@", 1)
             if ":" in username:
@@ -57,9 +58,9 @@ class ElasticDB(DB):
             else:
                 self.username = unquote(username)
             if hostname:
-                self.hosts = [hostname]
+                self.hosts = [f"http{'s' if self.tls else ''}://{hostname}"]
         elif url.netloc:
-            self.hosts = [url.netloc]
+            self.hosts = [f"http{'s' if self.tls else ''}://{url.netloc}"]
         index_prefix = url.path.lstrip("/")
         if index_prefix:
             self.index_prefix = index_prefix + "-"
