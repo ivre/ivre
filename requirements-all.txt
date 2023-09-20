@@ -4,7 +4,7 @@ bottle
 codespell
 cryptography
 docutils!=0.18
-elasticsearch
+elasticsearch<8
 elasticsearch-dsl
 flake8
 mypy
