@@ -42,9 +42,12 @@ def get_version(module: str) -> Optional[str]:
         return None
     for attr in ["__version__", "VERSION", "version"]:
         try:
-            return str(getattr(mod, attr))
+            data = getattr(mod, attr)
         except AttributeError:
-            pass
+            continue
+        if isinstance(data, tuple):
+            return ".".join(str(value) for value in data)
+        return str(data)
     return "[unknown version]"
 
 
@@ -95,6 +98,8 @@ def main() -> None:
         "pymongo",
         "sqlalchemy",
         "tinydb",
+        "elasticsearch",
+        "elasticsearch_dsl",
     ]:
         version = get_version(module)
         if version is None:
