@@ -171,7 +171,7 @@ setup(
         "MongoDB mongo+srv URIs": ["pymongo[srv]"],
         "TinyDB (experimental)": ["tinydb"],
         "PostgreSQL (experimental)": ["sqlalchemy", "psycopg2"],
-        "Elasticsearch (experimental)": ["elasticsearch", "elasticsearch-dsl"],
+        "Elasticsearch (experimental)": ["elasticsearch<8", "elasticsearch-dsl"],
         "GSSAPI authentication for MongoDB": ["python-krbV"],
         "GSSAPI authentication for HTTP": ["pycurl"],
         "Screenshots": ["PIL"],

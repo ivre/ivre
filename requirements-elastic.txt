@@ -1,4 +1,4 @@
-elasticsearch
+elasticsearch<8
 elasticsearch-dsl
 cryptography
 pyOpenSSL>=16.1.0
