@@ -12,11 +12,11 @@
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -111,11 +111,11 @@
            <div itemprop="articleBody">
              
   <section id="active-recon">
-<h1>Active recon<a class="headerlink" href="#active-recon" title="Permalink to this heading"></a></h1>
+<h1>Active recon<a class="headerlink" href="#active-recon" title="Link to this heading"></a></h1>
 <section id="scanning">
-<h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this heading"></a></h2>
+<h2>Scanning<a class="headerlink" href="#scanning" title="Link to this heading"></a></h2>
 <section id="with-nmap-masscan-or-zgrab2">
-<h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Permalink to this heading"></a></h3>
+<h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Link to this heading"></a></h3>
 <p>You can use network scanners directly:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="http://nmap.org/">Nmap</a></p></li>
@@ -138,7 +138,7 @@ the <code class="docutils literal notranslate"><span class="pre">ivre</span> <sp
 (<code class="docutils literal notranslate"><span class="pre">ivre.db.db.view.*</span></code>).</p>
 </section>
 <section id="with-ivre">
-<h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this heading"></a></h3>
+<h3>With IVRE<a class="headerlink" href="#with-ivre" title="Link to this heading"></a></h3>
 <p>Masscan does not provide results as complete as Nmap, when using the
 “interesting” options (for example, <code class="docutils literal notranslate"><span class="pre">-vv</span> <span class="pre">-A</span></code>) or scripts. That being
 said, Nmap (with such “interesting” options) cannot run efficiently
@@ -170,7 +170,7 @@ $ ivre db2view nmap
 </section>
 </section>
 <section id="enjoying-the-results">
-<h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this heading"></a></h2>
+<h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Link to this heading"></a></h2>
 <p>You have several options, depending on what you want to do:</p>
 <ul class="simple">
 <li><p>Command line interfaces: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code> tool.</p></li>
@@ -183,7 +183,7 @@ or update a view from the scan data, that can then be accessed by the
 <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>), which
 includes the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>
 <section id="cli">
-<h3>CLI<a class="headerlink" href="#cli" title="Permalink to this heading"></a></h3>
+<h3>CLI<a class="headerlink" href="#cli" title="Link to this heading"></a></h3>
 <p>To get all the hosts with the port 22 open:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scancli --port 22
 </pre></div>
@@ -191,7 +191,7 @@ includes the <a class="reference internal" href="web-ui.html#web-user-interface"
 <p>See the output of <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">scancli</span></code>.</p>
 </section>
 <section id="python-module">
-<h3>Python module<a class="headerlink" href="#python-module" title="Permalink to this heading"></a></h3>
+<h3>Python module<a class="headerlink" href="#python-module" title="Link to this heading"></a></h3>
 <p>To use the Python module, run for example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python
 &gt;&gt;&gt; from ivre.db import db

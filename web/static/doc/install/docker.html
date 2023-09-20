@@ -12,11 +12,11 @@
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -108,16 +108,16 @@
            <div itemprop="articleBody">
              
   <section id="docker">
-<h1>Docker<a class="headerlink" href="#docker" title="Permalink to this heading"></a></h1>
+<h1>Docker<a class="headerlink" href="#docker" title="Link to this heading"></a></h1>
 <section id="versions">
-<h2>Versions<a class="headerlink" href="#versions" title="Permalink to this heading"></a></h2>
+<h2>Versions<a class="headerlink" href="#versions" title="Link to this heading"></a></h2>
 <p>The images published on Docker hub are built from the current
 <code class="docutils literal notranslate"><span class="pre">master</span></code> repository branch (tag <code class="docutils literal notranslate"><span class="pre">latest</span></code>, will be used by default)
 and from the current release (tag <code class="docutils literal notranslate"><span class="pre">vX.Y.Z</span></code>, use
 <code class="docutils literal notranslate"><span class="pre">ivre/&lt;imagename&gt;:vX.Y.Z</span></code> to use it).</p>
 </section>
 <section id="using-docker-compose">
-<h2>Using docker compose<a class="headerlink" href="#using-docker-compose" title="Permalink to this heading"></a></h2>
+<h2>Using docker compose<a class="headerlink" href="#using-docker-compose" title="Link to this heading"></a></h2>
 <p>The easiest way, just run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker compose up
 </pre></div>
@@ -138,7 +138,7 @@ enter some commands described in the <a class="reference external" href="#initia
 below</a>.</p>
 </section>
 <section id="using-vagrant">
-<h2>Using Vagrant<a class="headerlink" href="#using-vagrant" title="Permalink to this heading"></a></h2>
+<h2>Using Vagrant<a class="headerlink" href="#using-vagrant" title="Link to this heading"></a></h2>
 <p>If you already manage your Docker containers using <a class="reference external" href="https://www.vagrantup.com/">Vagrant</a>, you can use it to run the containers.</p>
 <p>With the <code class="docutils literal notranslate"><span class="pre">Vagrantfile</span></code> as it is provided, the TCP port 80 of your host
 will be used, so you need either to make sure it is not already in use,
@@ -161,7 +161,7 @@ $ vagrant up --no-parallel
 <p>To access the <code class="docutils literal notranslate"><span class="pre">ivreclient</span></code> container, see the <a class="reference external" href="#using-docker-compose">Using Docker Compose</a> since it is similar.</p>
 </section>
 <section id="build-the-images">
-<h2>Build the images<a class="headerlink" href="#build-the-images" title="Permalink to this heading"></a></h2>
+<h2>Build the images<a class="headerlink" href="#build-the-images" title="Link to this heading"></a></h2>
 <p>By default, the images will be downloaded from the Docker Hub. But you
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
@@ -173,9 +173,9 @@ $ for img in base client agent web web-doku web-uwsgi ; do
 </div>
 <p>This might take a long time.</p>
 <section id="alternative-builds-for-the-base-image">
-<h3>Alternative builds for the base image<a class="headerlink" href="#alternative-builds-for-the-base-image" title="Permalink to this heading"></a></h3>
+<h3>Alternative builds for the base image<a class="headerlink" href="#alternative-builds-for-the-base-image" title="Link to this heading"></a></h3>
 <section id="local-archive">
-<h4>Local archive<a class="headerlink" href="#local-archive" title="Permalink to this heading"></a></h4>
+<h4>Local archive<a class="headerlink" href="#local-archive" title="Link to this heading"></a></h4>
 <p>It is also possible to build the <code class="docutils literal notranslate"><span class="pre">ivre/base</span></code> image without fetching
 the <em>tarball</em> from GitHub, by creating it locally and using the
 <code class="docutils literal notranslate"><span class="pre">base-local</span></code> directory instead of <code class="docutils literal notranslate"><span class="pre">base</span></code>. From the repository root,
@@ -190,7 +190,7 @@ $ docker build -t ivre/base docker/base-local
 </div>
 </section>
 <section id="using-pip">
-<h4>Using pip<a class="headerlink" href="#using-pip" title="Permalink to this heading"></a></h4>
+<h4>Using pip<a class="headerlink" href="#using-pip" title="Link to this heading"></a></h4>
 <p>Another way to create the <code class="docutils literal notranslate"><span class="pre">ivre/base</span></code> image is to use
 <a class="reference external" href="https://pypi.python.org/pypi/pip">pip</a>. From the
 <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
@@ -202,7 +202,7 @@ $ docker build -t ivre/base base-pip
 </section>
 </section>
 <section id="initialization">
-<h2>Initialization<a class="headerlink" href="#initialization" title="Permalink to this heading"></a></h2>
+<h2>Initialization<a class="headerlink" href="#initialization" title="Link to this heading"></a></h2>
 <p>Attach to the <code class="docutils literal notranslate"><span class="pre">ivreclient</span></code> container and run the initialization
 commands:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~$ docker attach ivreclient
