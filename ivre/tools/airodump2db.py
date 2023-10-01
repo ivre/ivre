@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ from ivre.types import Record
 
 
 def _handle_rec(
-    sensor: Optional[str],
     ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
     line: Dict[str, Any],
 ) -> Generator[Record, None, None]:
@@ -55,11 +54,12 @@ def rec_iter(
                     "lastseen": line["Last time seen"],
                     "count": 1,
                 }
+                if sensor is not None:
+                    baserec["sensor"] = sensor
                 if "Station MAC" in line:
                     if line["BSSID"] == "(not associated)":
                         continue
                     yield from _handle_rec(
-                        sensor,
                         ignore_rules,
                         dict(
                             baserec,
@@ -73,7 +73,6 @@ def rec_iter(
                         continue
                     for probed in line["Probed ESSIDs"].split(","):
                         yield from _handle_rec(
-                            sensor,
                             ignore_rules,
                             dict(
                                 baserec,
@@ -93,7 +92,6 @@ def rec_iter(
                     if not line.get(fld) or line[fld] == none_val:
                         continue
                     yield from _handle_rec(
-                        sensor,
                         ignore_rules,
                         dict(
                             baserec,
@@ -113,7 +111,6 @@ def rec_iter(
                     if line.get(fld):
                         privacy = "%s-%s" % (privacy, line[fld])
                 yield from _handle_rec(
-                    sensor,
                     ignore_rules,
                     dict(
                         baserec,
