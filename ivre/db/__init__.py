@@ -4836,7 +4836,7 @@ class DBFlow(DB):
         query = flow.Query()
         for flt_type in ["node", "edge"]:
             for flt in filters.get("%ss" % flt_type, []):
-                query.add_clause_from_filter(flt, mode=flt_type)
+                query.add_clause_from_filter(flt)
         return query
 
     @classmethod
