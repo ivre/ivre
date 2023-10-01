@@ -1446,7 +1446,7 @@ class SQLDBActive(SQLDB, DBActive):
         self.db.execute(update(self.tables.scan).where(cond).values(schema_version=19))
         return len(failed)
 
-    def count(self, flt, **_):
+    def count(self, flt):
         return self.db.execute(
             flt.query(select([func.count()])).select_from(flt.select_from)
         ).fetchone()[0]

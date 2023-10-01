@@ -301,7 +301,7 @@ class HttpDB(DB):
         for line in self.db.open(url):
             yield json.loads(line)
 
-    def count(self, spec, **kargs):
+    def count(self, spec):
         url = "%s/%s/count?f=%s" % (
             self.db.baseurl,
             self.route,
