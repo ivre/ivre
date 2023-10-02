@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -291,7 +291,7 @@ class Query:
             validate_field(attr)
         return clause
 
-    def add_clause_from_filter(self, flt: str, mode: str = "node") -> None:
+    def add_clause_from_filter(self, flt: str) -> None:
         """
         Returns an array representing "AND" clauses, each
         clauses being an array of "OR" clauses
