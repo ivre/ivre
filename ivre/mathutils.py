@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2023 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ def genprimes():
 def factors(n):
     """Yields the prime factors of the integer n."""
     for p in genprimes():
-        while n != 1 and n % p == 0:
+        while n != 1 and not n % p:
             yield p
             n //= p
         if n == 1:

@@ -268,7 +268,7 @@ def add_smb_ls_data(script):
     cur_vol = None
     for line in script["output"].splitlines():
         line = line.lstrip()
-        if state == 0:  # outside a volume
+        if not state:  # outside a volume
             if line.startswith("Directory of "):
                 if cur_vol is not None:
                     utils.LOGGER.warning(
@@ -299,7 +299,7 @@ def add_smb_ls_data(script):
                 state = 0  # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
-    if state != 0:
+    if not state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
@@ -319,7 +319,7 @@ def add_nfs_ls_data(script):
     cur_vol = None
     for line in script["output"].splitlines():
         line = line.lstrip()
-        if state == 0:  # outside a volume
+        if not state:  # outside a volume
             if line.startswith("NFS Export: "):
                 if cur_vol is not None:
                     utils.LOGGER.warning(
@@ -360,7 +360,7 @@ def add_nfs_ls_data(script):
         state = 0  # outside a volume
         result["volumes"].append(cur_vol)
         cur_vol = None
-    if state != 0:
+    if not state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
@@ -379,7 +379,7 @@ def add_afp_ls_data(script):
     state = 0  # volumes / listings
     cur_vol = None
     for line in script["output"].splitlines():
-        if state == 0:
+        if not state:
             if line.startswith("    PERMISSION"):
                 pass
             elif line.startswith("    "):
@@ -1332,7 +1332,7 @@ def masscan_parse_s7info(data):
                 length - 4,
             )
         datatype = curdata[1:2]
-        if state == 0:  # Connect Confirm
+        if not state:  # Connect Confirm
             if datatype == b"\xd0":  # OK
                 state += 1
                 continue

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ class MaxMindFileIter:
                 self.current.append(self.nextval)
                 self.nextval = 0
             next_node_no = self.base.read_record(node_no, flag)
-            if next_node_no == 0:
+            if not next_node_no:
                 raise Exception("Invalid file format")
             if next_node_no >= self.base.node_count:
                 pos = (
@@ -167,7 +167,7 @@ class MaxMindFile:
             val2 = self.read_value(pos + base_pos, size)
             pointer = (val1 << (8 * size)) + val2 + self.POINTER_BASE_VALUES[size]
             return pos + size, self.decode(pointer, base_pos)[1]
-        if type_ == 0:
+        if not type_:
             # extended type
             type_ = 7 + self.read_byte(pos + base_pos)
             pos += 1
@@ -239,14 +239,14 @@ class MaxMindFile:
         rec_byte_size = self.node_byte_size // 2
         pos = self.node_byte_size * node_no
         middle = self.read_byte(pos + rec_byte_size) if self.node_byte_size % 2 else 0
-        if flag == 0:  # left
-            val = self.read_value(pos, rec_byte_size)
-            val += ((middle & 0xF0) << 20) if middle else 0
-        else:  # right
+        if flag:  # right
             val = self.read_value(
                 pos + self.node_byte_size - rec_byte_size, rec_byte_size
             )
             val += ((middle & 0xF) << 24) if middle else 0
+        else:  # left
+            val = self.read_value(pos, rec_byte_size)
+            val += ((middle & 0xF0) << 20) if middle else 0
         return val
 
     def __repr__(self):
@@ -258,7 +258,7 @@ class MaxMindFile:
         for i in range(96 if self.ip_version == 4 else 0, 128):
             flag = (addr >> (127 - i)) & 1
             next_node_no = self.read_record(node_no, flag)
-            if next_node_no == 0:
+            if not next_node_no:
                 raise Exception("Invalid file format")
             if next_node_no >= self.node_count:
                 pos = next_node_no - self.node_count - self.DATA_SECTION_SEPARATOR_SIZE

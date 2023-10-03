@@ -235,7 +235,7 @@ def _ntlm_authenticate_info(request: bytes) -> Optional[Dict[str, Any]]:
     offset = min(
         off
         for off in (struct.unpack("I", request[i : i + 4])[0] for i in range(16, 49, 8))
-        if off != 0
+        if off
     )
     has_version = False
     # Flags are not present in an NTLM_AUTH message when the data block starts

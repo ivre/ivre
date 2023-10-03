@@ -344,6 +344,7 @@ class TinyDB(DB):
 
     @staticmethod
     def searchnonexistent():
+        # pylint: disable=use-implicit-booleaness-not-comparison-to-zero
         return Query()._id == 0
 
     @staticmethod

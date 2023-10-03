@@ -240,9 +240,9 @@ class HttpDB(DB):
                 for rec in data:
                     yield rec
                     limit -= 1
-                    if limit == 0:
+                    if not limit:
                         break
-                if limit == 0:
+                if not limit:
                     break
             skip += len(data)
 

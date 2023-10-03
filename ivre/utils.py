@@ -1023,7 +1023,7 @@ def screenwords(imgdata: bytes) -> Optional[List[str]]:
         result = []
         size = MAXVALLEN
         for line in proc.stdout:
-            if size == 0:
+            if not size:
                 break
             for word_match in _WORDS.finditer(line):
                 word_bytes = word_match.group()
@@ -1186,7 +1186,7 @@ def guess_srv_port(port1: int, port2: int, proto: str = "tcp") -> int:
     ports = _PORTS.get(proto, {})
     val1, val2 = ports.get(port1, 0), ports.get(port2, 0)
     cmpval = (val1 > val2) - (val1 < val2)
-    if cmpval == 0:
+    if not cmpval:
         return (port2 > port1) - (port2 < port1)
     return cmpval
 
@@ -1411,7 +1411,7 @@ def _read_nmap_payloads() -> None:
     def _parse_line(line: str) -> Generator[str, None, None]:
         status = 0
         for c in line:
-            if status == 0:
+            if not status:
                 if c in {"#", "\r", "\n"}:
                     return
                 yield c
@@ -1644,7 +1644,7 @@ def _nmap_decode_data(
     status = 0
     first_byte = -1
     for char in data:
-        if status == 0:
+        if not status:
             # not in an escape sequence
             if char == "\\":
                 status = 1
@@ -2198,7 +2198,7 @@ else:
                     continue
                 curkey.append(char)
                 status += 1
-            elif status == 0:
+            elif not status:
                 # reading key
                 if char == " ":
                     status += 1
