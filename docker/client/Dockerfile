@@ -62,11 +62,11 @@ COPY --from=builder /usr/share/nmap /usr/share/nmap
 
 # Install Zeek
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
+    apt-get -qy --no-install-recommends install gnupg wget && \
     echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_12/ /' > /etc/apt/sources.list.d/zeek.list && \
     wget -qO - https://download.opensuse.org/repositories/security:zeek/Debian_12/Release.key | gpg --dearmor > /etc/apt/trusted.gpg.d/security_zeek.gpg && \
     apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
-    apt-get -qy --purge autoremove gnupg wget ca-certificates && \
+    apt-get -qy --purge autoremove gnupg wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install p0f
