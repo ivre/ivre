@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -126,7 +126,7 @@ class IterTarget:
             # a - 1 is divisible by all prime factors of m
             mfactors = reduce(mul, set(mathutils.factors(self.lcg_m)))
             # a - 1 is a multiple of 4 if m is a multiple of 4.
-            if self.lcg_m % 4 == 0:
+            if not self.lcg_m % 4:
                 mfactors *= 2
             self.lcg_a = mfactors + 1
         else:
@@ -387,7 +387,7 @@ class IterTargetFile:
 
     def __readline__(self):
         line = self.fdesc.readline()
-        if line == "":
+        if not line:
             self.fdesc.close()
             self.target.close()
             raise StopIteration

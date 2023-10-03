@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -157,7 +157,7 @@ def _split_digest_auth(data):
     curdata = []
     state = 0  # state init
     for char in data:
-        if state == 0:
+        if not state:
             if char == ",":
                 values.append("".join(curdata).strip())
                 curdata = []

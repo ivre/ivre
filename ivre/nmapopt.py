@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -142,7 +142,7 @@ class Scan:
             options.append("-O")
         if self.traceroute:
             options.append("--traceroute")
-        if self.resolve == 0:
+        if not self.resolve:
             options.append("-n")
         elif self.resolve == 2:
             options.append("-R")

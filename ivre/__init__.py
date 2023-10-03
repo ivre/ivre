@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ def _get_version_from_git() -> str:
         cwd=os.path.join(_DIR, os.path.pardir),
     ) as proc:
         out, err = proc.communicate()
-        if proc.returncode != 0:
+        if proc.returncode:
             raise subprocess.CalledProcessError(proc.returncode, err)
     repo = out.decode().strip()
     if repo != os.path.realpath(os.path.join(_DIR, os.path.pardir)):
@@ -52,7 +52,7 @@ def _get_version_from_git() -> str:
         cwd=os.path.join(_DIR, os.path.pardir),
     ) as proc:
         out, err = proc.communicate()
-        if proc.returncode != 0:
+        if proc.returncode:
             raise subprocess.CalledProcessError(proc.returncode, err)
     tag = out.decode().strip()
     match = re.match("^v?(.+?)-(\\d+)-g[a-f0-9]+$", tag)

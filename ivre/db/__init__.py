@@ -803,7 +803,7 @@ class DB:
         field, least = (arg[1:], True) if arg[:1] in "!-~" else (arg, False)
         if lmt is None:
             lmt = 10
-        elif lmt == 0:
+        elif not lmt:
             lmt = None
         for entry in self.topvalues(field, flt=flt, topnbr=lmt, least=least):
             if isinstance(entry["_id"], (list, tuple)):

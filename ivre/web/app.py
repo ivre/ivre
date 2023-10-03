@@ -668,7 +668,7 @@ def get_nmap(subdb):
             yield "%s\n" % json.dumps(rec, default=utils.serialize)
         else:
             yield "%s\t%s" % (
-                "" if i == 0 else ",\n",
+                ",\n" if i else "",
                 json.dumps(rec, default=utils.serialize),
             )
         check = subdb.cmp_schema_version_host(rec)
@@ -1053,7 +1053,7 @@ def get_passive():
             yield "%s\n" % json.dumps(rec, default=utils.serialize)
         else:
             yield "%s\t%s" % (
-                "" if i == 0 else ",\n",
+                ",\n" if i else "",
                 json.dumps(rec, default=utils.serialize),
             )
         if flt_params.limit and i + 1 >= flt_params.limit:

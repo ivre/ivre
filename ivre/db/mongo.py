@@ -376,7 +376,7 @@ class MongoDB(DB):
                         exc_info=True,
                     )
                     failed += 1
-                if (i + 1) % 100000 == 0:
+                if not (i + 1) % 100000:
                     utils.LOGGER.info("  %d records migrated", i + 1)
             utils.LOGGER.info(
                 "  ... Done.",
@@ -3015,7 +3015,7 @@ class MongoDBActive(MongoDB, DBActive):
         ]
         flt = {field: value for field, value in fields if value is not None}
         nflt = len(flt)
-        if nflt == 0:
+        if not nflt:
             return {"cpes": {"$exists": True}}
         if nflt == 1:
             field, value = flt.popitem()
@@ -4249,7 +4249,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
             else value
             for key, value in idxs.items()
         }
-        if i == 0
+        if not i
         else idxs
         for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
     ]
@@ -4332,7 +4332,7 @@ class MongoDBView(MongoDBActive, DBView):
             ),
             ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
         ]
-        if i == 0
+        if not i
         else idxs
         for i, idxs in enumerate(MongoDBActive.indexes)
     ]
@@ -4349,7 +4349,7 @@ class MongoDBView(MongoDBActive, DBView):
             else value
             for key, value in idxs.items()
         }
-        if i == 0
+        if not i
         else idxs
         for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
     ]
@@ -6109,7 +6109,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     reverse_project_fields[cur_field] = field_name
                 new_field_name = "$%s" % field_name
                 # _id group
-                if i == 0:
+                if not i:
                     elt[field_name] = new_field_name
                 # collect group
                 else:
@@ -6382,9 +6382,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     )
                 clause["operator"] = operators[clause["operator"]]
                 clause["neg"] = not clause["neg"]
-                clause["attr"] = value_attr if value_attr != "" else array_attr
+                clause["attr"] = value_attr if value_attr else array_attr
                 res = cls._flt_from_clause_any(clause)
-                if value_attr != "":
+                if value_attr:
                     # Array values are dictionaries
                     return {
                         "$nor": [
@@ -6675,7 +6675,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         new_duration = new_precision
         current_duration = current_precision
         if current_duration is not None:
-            if base % current_duration != 0:
+            if base % current_duration:
                 raise ValueError(
                     "Base %d must be a multiple of current "
                     "precision." % config.FLOW_TIME_BASE
@@ -6686,7 +6686,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 raise ValueError(
                     "New precision value must be greater than current one."
                 )
-            if new_duration % current_duration != 0:
+            if new_duration % current_duration:
                 raise ValueError(
                     "New precision must be a multiple of current precision."
                 )
@@ -6711,8 +6711,8 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                         current_duration is None
                         and (
                             new_duration <= timeslot["duration"]
-                            or new_duration % timeslot["duration"] != 0
-                            or base % timeslot["duration"] != 0
+                            or new_duration % timeslot["duration"]
+                            or base % timeslot["duration"]
                         )
                     )
                     or (before is not None and timeslot["start"] >= before)

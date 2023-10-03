@@ -99,7 +99,7 @@ class NetFlow(CmdParser):
                 int(x) for x in fields.pop("port2").split(".")
             ]
             # ICMP 0 is an answer to ICMP 8
-            if fields["type"] == 0:
+            if not fields["type"]:
                 fields["type"] = 8
                 srv_idx = 1
             else:

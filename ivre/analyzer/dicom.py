@@ -33,7 +33,7 @@ def _gen_items(data: bytes) -> Generator[Tuple[int, bytes], None, None]:
             )
             return
         itype, pad, ilen = struct.unpack(">BBH", data[:4])
-        if pad != 0:
+        if pad:
             utils.LOGGER.debug(
                 "Non zero padding: maybe a broken DICOM item [%r]",
                 data,
@@ -102,7 +102,7 @@ def parse_message(data: bytes) -> NmapPort:
         )
         return res
     rtype, pad, rlen = struct.unpack(">BBI", data[:6])
-    if pad != 0:
+    if pad:
         utils.LOGGER.debug(
             "Non zero padding: probably not a DICOM message [%r]",
             data,

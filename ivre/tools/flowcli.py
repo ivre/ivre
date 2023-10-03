@@ -286,6 +286,7 @@ def main() -> None:
         for field in args.fields:
             ivre.flow.validate_field(field)
 
+    # pylint: disable=use-implicit-booleaness-not-comparison-to-zero
     if args.precision == 0:
         # Get precisions list
         out.writelines("%d\n" % precision for precision in db.flow.list_precisions())
