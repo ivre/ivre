@@ -32,7 +32,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Install Python
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3 && \
+    apt-get -qy --no-install-recommends install python3 ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/etc/bash_completion.d/ivre /usr/local/etc/bash_completion.d/ivre
