@@ -44,6 +44,7 @@ from ivre.active.data import (
 from ivre.analyzer import dicom, ike, ja3
 from ivre.config import MASSCAN_PROBES
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD
+from ivre.tags import add_tags
 
 SCHEMA_VERSION = 22
 
@@ -1510,6 +1511,9 @@ class NmapHandler(ContentHandler):
     def __init__(
         self,
         fname,
+        categories=None,
+        source=None,
+        tags=None,
         needports=False,
         needopenports=False,
         masscan_probes=None,
@@ -1530,6 +1534,15 @@ class NmapHandler(ContentHandler):
         self._fname = fname
         self.scanner = "nmap"
         self.masscan_probes = masscan_probes or []
+        if categories is None:
+            self.categories = []
+        else:
+            self.categories = categories
+        if tags is None:
+            self.tags = []
+        else:
+            self.tags = tags
+        self.source = source
         utils.LOGGER.debug("READING %r", fname)
 
     @staticmethod
@@ -1556,6 +1569,12 @@ class NmapHandler(ContentHandler):
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
+        if self.categories:
+            self._curhost["categories"] = self.categories[:]
+        if self.tags:
+            add_tags(self._curhost, self.tags)
+        if self.source:
+            self._curhost["source"] = self.source
 
     def startElement(self, name, attrs):
         if name == "nmaprun":
@@ -2649,6 +2668,7 @@ class Nmap2Txt(NmapHandler):
         return utils.decode_b64(data)
 
     def _addhost(self):
+        super()._addhost()
         self._db.append(self._curhost)
 
 
@@ -2660,25 +2680,12 @@ class Nmap2DB(NmapHandler):
         self,
         fname,
         db,
-        categories=None,
-        source=None,
         callback=None,
         **kargs,
     ):
         self._db = db
-        if categories is None:
-            self.categories = []
-        else:
-            self.categories = categories
-        self.source = source
         self.callback = callback
-        NmapHandler.__init__(
-            self,
-            fname,
-            categories=categories,
-            source=source,
-            **kargs,
-        )
+        super().__init__(fname, **kargs)
 
     def _to_binary(self, data):
         return self._db.nmap.to_binary(data)
@@ -2687,10 +2694,7 @@ class Nmap2DB(NmapHandler):
         return self._db.nmap.from_binary(data)
 
     def _addhost(self):
-        if self.categories:
-            self._curhost["categories"] = self.categories[:]
-        if self.source:
-            self._curhost["source"] = self.source
+        super()._addhost()
         self._db.nmap.store_or_merge_host(self._curhost)
         if self.callback is not None:
             self.callback(self._curhost)

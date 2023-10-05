@@ -64,6 +64,12 @@ def main() -> None:
         "-t", "--test", action="store_true", help="Test mode (JSON output)."
     )
     parser.add_argument(
+        "--tags",
+        metavar="TAG:LEVEL:INFO[,TAG:LEVEL:INFO]",
+        help="Add tags to the results; e.g. "
+        '--tags=CDN:info:"My CDN",Honeypot:warning:"My Masscanned Honeypot"',
+    )
+    parser.add_argument(
         "--test-normal", action="store_true", help='Test mode ("normal" Nmap output).'
     )
     parser.add_argument(
@@ -107,6 +113,21 @@ def main() -> None:
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(",") if args.categories else []
+    tags = [
+        {
+            "value": value,
+            "type": type_,
+            "info": [info],
+        }
+        if info
+        else {
+            "value": value,
+            "type": type_,
+        }
+        for value, type_, info in (
+            tag.split(":", 3) for tag in (args.tags.split(",") if args.tags else [])
+        )
+    ]
     if args.test:
         args.update_view = False
         args.no_update_view = True
@@ -152,6 +173,7 @@ def main() -> None:
                 scan,
                 categories=categories,
                 source=args.source,
+                tags=tags,
                 needports=args.ports,
                 needopenports=args.open_ports,
                 masscan_probes=args.masscan_probes,
