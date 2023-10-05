@@ -4536,15 +4536,51 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(negotiate["NetBIOS_Domain_Name"], "DOMAINTEST")
         self.assertEqual(negotiate["Workstation"], "NAMETEST")
 
-        res, _, err = RUN(["ivre", "localscan"])
+        res, out, err = RUN(["ivre", "localscan"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(out)
+        res, out, _ = RUN(
+            [
+                "ivre",
+                "scan2db",
+                "--test",
+                "--tags=LocalScan:info:ivre localscan,LocalScan:info:insert from XML",
+                fdesc.name,
+            ]
+        )
+        self.assertEqual(res, 0)
+        for line in out.splitlines():
+            data = json.loads(line)
+            self.assertTrue(isinstance(data, dict))
+            tags = [t for t in data["tags"] if t.get("value") == "LocalScan"]
+            self.assertEqual(len(tags), 1)
+            self.assertEqual(len(tags[0]["info"]), 2)
 
         res, out, err = RUN(["ivre", "localscan", "--json"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(out)
         for line in out.splitlines():
             self.assertTrue(isinstance(json.loads(line), dict))
+        res, out, _ = RUN(
+            [
+                "ivre",
+                "scan2db",
+                "--test",
+                "--tags=LocalScan:info:ivre localscan,LocalScan:info:insert from JSON",
+                fdesc.name,
+            ]
+        )
+        self.assertEqual(res, 0)
+        for line in out.splitlines():
+            data = json.loads(line)
+            self.assertTrue(isinstance(data, dict))
+            tags = [t for t in data["tags"] if t.get("value") == "LocalScan"]
+            self.assertEqual(len(tags), 1)
+            self.assertEqual(len(tags[0]["info"]), 2)
 
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             fdesc.write(

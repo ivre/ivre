@@ -2336,6 +2336,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -2354,6 +2355,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2366,6 +2369,8 @@ class DBNmap(DBActive):
                     del host["_id"]
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 # Update schema if/as needed.
@@ -2393,6 +2398,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         zgrab_port=None,
         **_,
@@ -2412,6 +2418,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         if zgrab_port is not None:
             zgrab_port = int(zgrab_port)
@@ -2450,6 +2458,8 @@ class DBNmap(DBActive):
                     pass
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 for key, value in rec.pop("data", {}).items():
@@ -2507,6 +2517,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -2525,6 +2536,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2560,6 +2573,8 @@ class DBNmap(DBActive):
                 }
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -2575,6 +2590,7 @@ class DBNmap(DBActive):
         needports=False,
         needopenports=False,
         categories=None,
+        tags=None,
         source=None,
         callback=None,
         **_,
@@ -2594,6 +2610,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2626,6 +2644,8 @@ class DBNmap(DBActive):
                     }
                     if categories:
                         host["categories"] = categories
+                    if tags:
+                        add_tags(host, tags)
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
@@ -2642,6 +2662,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         masscan_probes=None,
         **_,
@@ -2661,6 +2682,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         answers = set()
         for probe in masscan_probes or []:
             if probe.startswith("ZDNS:"):
@@ -2746,6 +2769,8 @@ class DBNmap(DBActive):
                     port["scripts"] = [script]
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -2796,6 +2821,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -2814,6 +2840,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -2840,6 +2868,8 @@ class DBNmap(DBActive):
                 for host in self._gen_records_json_dnsx(rec, name, timestamp):
                     if categories:
                         host["categories"] = categories
+                    if tags:
+                        add_tags(host, tags)
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
@@ -2862,6 +2892,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -2880,6 +2911,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3068,6 +3101,8 @@ class DBNmap(DBActive):
                     )
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -3084,6 +3119,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -3102,6 +3138,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3167,6 +3205,8 @@ class DBNmap(DBActive):
                 # status-code response-time failed
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -3183,6 +3223,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -3201,6 +3242,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3297,6 +3340,8 @@ class DBNmap(DBActive):
                 # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -3313,6 +3358,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -3331,6 +3377,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3439,6 +3487,8 @@ class DBNmap(DBActive):
                 # tags (["cloud"]) / cloud
                 if categories:
                     host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
@@ -3455,6 +3505,7 @@ class DBNmap(DBActive):
         needopenports=False,
         categories=None,
         source=None,
+        tags=None,
         callback=None,
         **_,
     ):
@@ -3473,6 +3524,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        if tags is None:
+            tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             try:
@@ -3623,6 +3676,8 @@ class DBNmap(DBActive):
             # banner.string note path uri
             if categories:
                 host["categories"] = categories
+            if tags:
+                add_tags(host, tags)
             if source is not None:
                 host["source"] = source
             host = self.json2dbrec(host)
