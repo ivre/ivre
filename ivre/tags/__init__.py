@@ -263,3 +263,11 @@ def gen_hostname_tags(hostname: str) -> Generator[Tag, None, None]:
                 info=[f"Hostname {hostname} suggests a BinaryEdge scanner"],
             ),
         )
+    elif hostname.endswith(".probe.onyphe.net"):
+        yield cast(
+            Tag,
+            dict(
+                TAG_SCANNER,
+                info=[f"Hostname {hostname} suggests an Onyphe scanner"],
+            ),
+        )
