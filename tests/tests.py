@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -4905,7 +4905,10 @@ class IvreTests(unittest.TestCase):
         shutil.rmtree("output")
 
     def test_50_view(self):
-        processes = random.choice([[], ["--processes", "1"]])
+        if DATABASE == "tinydb":
+            processes = ["--processes", "1"]
+        else:
+            processes = random.choice([[], ["--processes", "1"]])
         print(f"Running db2view with {processes!r}")
         #
         # Web server tests
