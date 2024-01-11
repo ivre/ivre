@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ import argparse
 import atexit
 import fcntl
 import functools
-import multiprocessing
 import os
 import re
 import resource
@@ -37,6 +36,7 @@ import subprocess
 import sys
 import termios
 import time
+from multiprocessing import Pool
 from typing import Any, BinaryIO, Dict, List, Optional, Set, Tuple, Type
 
 import ivre.agent
@@ -416,7 +416,7 @@ def main() -> None:
             args.nmap_max_stack_size,
         )
     if args.output == "XMLFork":
-        with multiprocessing.Pool(processes=args.processes) as pool:
+        with Pool(processes=args.processes) as pool:
             call_nmap_single = functools.partial(
                 _call_nmap_single,
                 targets.infos["categories"][0],

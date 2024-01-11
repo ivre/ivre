@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -35,6 +35,11 @@ from ivre.db.sql import SQLDB, SQLDBPassive
 
 
 class SqliteDB(SQLDB):
+
+    """A DB using SQLite backend"""
+
+    parallel_insert = False
+
     def __init__(self, url):
         super().__init__(url)
         # url.geturl() removes two necessary '/' from url
