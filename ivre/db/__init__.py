@@ -2281,6 +2281,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_zdns_recursion
                 elif "resolver" in firstres:
                     store_scan_function = self.store_scan_json_dnsx
+                elif "host" in firstres:
+                    store_scan_function = self.store_scan_json_dismap
                 else:
                     raise ValueError(  # pylint: disable=raise-missing-from
                         f"Unknown file type {fname}"
@@ -3529,164 +3531,180 @@ class DBNmap(DBActive):
             tags = []
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
-            try:
-                data = json.load(fdesc)
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                utils.LOGGER.error("Cannot read file %r", fname, exc_info=True)
+            fchar = fdesc.read(1)
+        with utils.open_file(fname) as fdesc:
+            if fchar == b"[":
+                try:
+                    data = json.load(fdesc)
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.error("Cannot read file %r", fname, exc_info=True)
+                    return False
+            elif fchar == b"{":
+                data = (json.loads(line) for line in fdesc)
+            else:
+                utils.LOGGER.error(
+                    "Cannot read file %r, invalid start byte %r", fname, fchar
+                )
                 return False
-        timestamp = str(datetime.fromtimestamp(os.stat(fname).st_mtime))
-        tags = re.compile("\\[[^]]*\\]")
-        http_split = re.compile(b"\r?\n\r?\n")
-        http_hdr_split = re.compile(b"\r?\n")
-        for rec in data:
-            port = {
-                "protocol": rec["type"],
-                "port": rec["port"],
-                "state_state": rec["status"],
-                "state_reason": "response",
-            }
-            if port["protocol"] == "tls":
-                port["protocol"] = "tcp"
-                port["service_tunnel"] = "ssl"
-            if rec.get("protocol"):
-                port["service_name"] = rec["protocol"]
-                if port["service_name"] == "https":
-                    port["service_name"] = "http"
+            timestamp = str(datetime.fromtimestamp(os.stat(fname).st_mtime))
+            res_tags = re.compile("\\[[^]]*\\]")
+            http_split = re.compile(b"\r?\n\r?\n")
+            http_hdr_split = re.compile(b"\r?\n")
+            for rec in data:
+                port = {
+                    "protocol": rec["type"],
+                    "port": rec["port"],
+                    "state_state": rec["status"],
+                    "state_reason": "response",
+                }
+                if port["protocol"] == "tls":
+                    port["protocol"] = "tcp"
                     port["service_tunnel"] = "ssl"
-            host = {
-                "addr": rec["host"],
-                "state": "up",
-                "schema_version": xmlnmap.SCHEMA_VERSION,
-                "starttime": timestamp,
-                "endtime": timestamp,
-                "ports": [port],
-            }
-            if rec.get("identify.bool"):
-                tags_val = [m.group() for m in tags.finditer(rec["identify.string"])]
-                if tags_val and tags_val[0].isdigit():
-                    structured = {"status": tags_val.pop(0)}
-                else:
-                    structured = {}
-                structured["tags"] = tags_val
-                port.setdefault("scripts", []).append(
-                    {
-                        "id": "dismap-identify",
-                        "output": rec.get("identify.string", ""),
-                        "dismap-identify": structured,
-                    }
-                )
-            if rec.get("banner.byte"):
-                raw_output = utils.decode_hex(rec["banner.byte"])
-                if port["protocol"] == "tcp" and rec.get("protocol") == "http":
-                    probe = "GetRequest"
-                else:
-                    probe = "NULL"
-                nmap_info = utils.match_nmap_svc_fp(
-                    output=raw_output,
-                    proto=port["protocol"],
-                    probe=probe,
-                )
-                if nmap_info:
-                    try:
-                        del nmap_info["soft"]
-                    except KeyError:
-                        pass
-                    add_cpe_values(
-                        host,
-                        f"ports.port:{rec['port']}",
-                        nmap_info.pop("cpe", []),
-                    )
-                    host["cpes"] = list(host["cpes"].values())
-                    for cpe in host["cpes"]:
-                        cpe["origins"] = sorted(cpe["origins"])
-                    if not host["cpes"]:
-                        del host["cpes"]
-                    port.update(nmap_info)
-                    xmlnmap.add_service_hostname(
-                        nmap_info,
-                        host.setdefault("hostnames", []),
-                    )
-                if probe == "GetRequest":
-                    try:
-                        hdrs, body = http_split.split(raw_output, 1)
-                    except ValueError:
-                        hdrs = raw_output
-                        body = None
-                    # TODO http-headers / http-content
-                    hdrs_split = http_hdr_split.split(hdrs)
-                    if hdrs_split:
-                        hdr_output_list = [
-                            utils.nmap_encode_data(line) for line in hdrs_split
-                        ]
-                        # FIXME: method should be reported
-                        hdr_output_list.extend(["", "(Request type: GET)"])
-                        structured = [
-                            {
-                                "name": "_status",
-                                "value": utils.nmap_encode_data(hdrs_split[0].strip()),
-                            }
-                        ]
-                        structured.extend(
-                            {
-                                "name": utils.nmap_encode_data(hdrname).lower(),
-                                "value": utils.nmap_encode_data(hdrval),
-                            }
-                            for hdrname, hdrval in (
-                                m.groups()
-                                for m in (
-                                    utils.RAW_HTTP_HEADER.search(part.strip())
-                                    for part in hdrs_split
-                                )
-                                if m
-                            )
-                        )
-                        port.setdefault("scripts", []).append(
-                            {
-                                "id": "http-headers",
-                                "output": "\n".join(hdr_output_list),
-                                "http-headers": structured,
-                                "masscan": {"raw": utils.encode_b64(hdrs).decode()},
-                            }
-                        )
-                        # FIXME: path should be reported
-                        handle_http_headers(host, port, structured, path="/")
-                    if body:
-                        port.setdefault("scripts", []).append(
-                            {
-                                "id": "http-content",
-                                "output": utils.nmap_encode_data(body),
-                            }
-                        )
-                        handle_http_content(host, port, body)
-                else:
-                    banner = "".join(
-                        chr(d) if 32 <= d <= 126 or d in {9, 10, 13} else "\\x%02x" % d
-                        for d in raw_output
-                    )
+                if rec.get("protocol"):
+                    port["service_name"] = rec["protocol"]
+                    if port["service_name"] == "https":
+                        port["service_name"] = "http"
+                        port["service_tunnel"] = "ssl"
+                host = {
+                    "addr": rec["host"],
+                    "state": "up",
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [port],
+                }
+                if rec.get("identify.bool"):
+                    tags_val = [
+                        m.group() for m in res_tags.finditer(rec["identify.string"])
+                    ]
+                    if tags_val and tags_val[0].isdigit():
+                        structured = {"status": tags_val.pop(0)}
+                    else:
+                        structured = {}
+                    structured["tags"] = tags_val
                     port.setdefault("scripts", []).append(
                         {
-                            "id": "banner",
-                            "output": banner,
-                            "masscan": {
-                                "raw": utils.encode_b64(raw_output).decode(),
-                                "encoded": banner,
-                            },
+                            "id": "dismap-identify",
+                            "output": rec.get("identify.string", ""),
+                            "dismap-identify": structured,
                         }
                     )
-            # remaining fields / TODO:
-            # banner.string note path uri
-            if categories:
-                host["categories"] = categories
-            if tags:
-                add_tags(host, tags)
-            if source is not None:
-                host["source"] = source
-            host = self.json2dbrec(host)
-            self.store_host(host)
-            if callback is not None:
-                callback(host)
-        self.stop_store_hosts()
-        return True
+                if rec.get("banner.byte"):
+                    raw_output = utils.decode_hex(rec["banner.byte"])
+                    if port["protocol"] == "tcp" and rec.get("protocol") == "http":
+                        probe = "GetRequest"
+                    else:
+                        probe = "NULL"
+                    nmap_info = utils.match_nmap_svc_fp(
+                        output=raw_output,
+                        proto=port["protocol"],
+                        probe=probe,
+                    )
+                    if nmap_info:
+                        try:
+                            del nmap_info["soft"]
+                        except KeyError:
+                            pass
+                        add_cpe_values(
+                            host,
+                            f"ports.port:{rec['port']}",
+                            nmap_info.pop("cpe", []),
+                        )
+                        host["cpes"] = list(host["cpes"].values())
+                        for cpe in host["cpes"]:
+                            cpe["origins"] = sorted(cpe["origins"])
+                        if not host["cpes"]:
+                            del host["cpes"]
+                        port.update(nmap_info)
+                        xmlnmap.add_service_hostname(
+                            nmap_info,
+                            host.setdefault("hostnames", []),
+                        )
+                    if probe == "GetRequest":
+                        try:
+                            hdrs, body = http_split.split(raw_output, 1)
+                        except ValueError:
+                            hdrs = raw_output
+                            body = None
+                        # TODO http-headers / http-content
+                        hdrs_split = http_hdr_split.split(hdrs)
+                        if hdrs_split:
+                            hdr_output_list = [
+                                utils.nmap_encode_data(line) for line in hdrs_split
+                            ]
+                            # FIXME: method should be reported
+                            hdr_output_list.extend(["", "(Request type: GET)"])
+                            structured = [
+                                {
+                                    "name": "_status",
+                                    "value": utils.nmap_encode_data(
+                                        hdrs_split[0].strip()
+                                    ),
+                                }
+                            ]
+                            structured.extend(
+                                {
+                                    "name": utils.nmap_encode_data(hdrname).lower(),
+                                    "value": utils.nmap_encode_data(hdrval),
+                                }
+                                for hdrname, hdrval in (
+                                    m.groups()
+                                    for m in (
+                                        utils.RAW_HTTP_HEADER.search(part.strip())
+                                        for part in hdrs_split
+                                    )
+                                    if m
+                                )
+                            )
+                            port.setdefault("scripts", []).append(
+                                {
+                                    "id": "http-headers",
+                                    "output": "\n".join(hdr_output_list),
+                                    "http-headers": structured,
+                                    "masscan": {"raw": utils.encode_b64(hdrs).decode()},
+                                }
+                            )
+                            # FIXME: path should be reported
+                            handle_http_headers(host, port, structured, path="/")
+                        if body:
+                            port.setdefault("scripts", []).append(
+                                {
+                                    "id": "http-content",
+                                    "output": utils.nmap_encode_data(body),
+                                }
+                            )
+                            handle_http_content(host, port, body)
+                    else:
+                        banner = "".join(
+                            chr(d)
+                            if 32 <= d <= 126 or d in {9, 10, 13}
+                            else "\\x%02x" % d
+                            for d in raw_output
+                        )
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "banner",
+                                "output": banner,
+                                "masscan": {
+                                    "raw": utils.encode_b64(raw_output).decode(),
+                                    "encoded": banner,
+                                },
+                            }
+                        )
+                # remaining fields / TODO:
+                # banner.string note path uri
+                if categories:
+                    host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+            self.stop_store_hosts()
+            return True
 
 
 class DBView(DBActive):
