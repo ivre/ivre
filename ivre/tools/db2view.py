@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -149,9 +149,9 @@ def main() -> None:
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
         _from = [passive_to_view(fltpass, category=view_category)]
-    if args.test:
-        args.processes = 1
     outdb = db.view if args.to_db is None else DBView.from_url(args.to_db)
+    if args.test or not outdb.parallel_insert:
+        args.processes = 1
 
     # Output results
 
