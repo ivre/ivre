@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -234,8 +234,7 @@ class HttpDB(DB):
             if not data:
                 break
             if limit is None:
-                for rec in data:
-                    yield rec
+                yield from data
             else:
                 for rec in data:
                     yield rec

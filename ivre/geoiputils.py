@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -386,10 +386,9 @@ class IPRanges:
 
     def iter_nets(self) -> Generator[str, None, None]:
         for start, length in sorted(self.ranges.values()):
-            for net in utils.range2nets(
+            yield from utils.range2nets(
                 (utils.int2ip(start), utils.int2ip(start + length - 1))
-            ):
-                yield net
+            )
 
     def iter_addrs(self) -> Generator[str, None, None]:
         for start, length in sorted(self.ranges.values()):

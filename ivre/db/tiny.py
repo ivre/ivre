@@ -248,15 +248,13 @@ class TinyDB(DB):
             base = cur
         if base in cls.list_fields:
             for subrec in record:
-                for val in cls._generate_field_values(
+                yield from cls._generate_field_values(
                     subrec, field, base=base, countfield=countfield, countval=countval
-                ):
-                    yield val
+                )
         else:
-            for val in cls._generate_field_values(
+            yield from cls._generate_field_values(
                 record, field, base=base, countfield=countfield, countval=countval
-            ):
-                yield val
+            )
 
     @classmethod
     def _search_field_exists(cls, field, base="", baseq=None):
@@ -1164,8 +1162,7 @@ class TinyDBActive(TinyDB, DBActive):
             for rec in self._get(
                 flt, sort=sort, limit=limit, skip=skip, fields=[field]
             ):
-                for val in self._generate_field_values(rec, field):
-                    yield val
+                yield from self._generate_field_values(rec, field)
 
         def _newflt(field):
             return self._search_field_exists(field)
@@ -2879,10 +2876,9 @@ class TinyDBPassive(TinyDB, DBPassive):
 
         def _extractor(flt, field):
             for rec in self._get(flt, sort=sort, limit=limit, skip=skip, fields=fields):
-                for val in self._generate_field_values(
+                yield from self._generate_field_values(
                     rec, field, countfield=countfield
-                ):
-                    yield val
+                )
 
         def _newflt(field):
             return self._search_field_exists(field)
