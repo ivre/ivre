@@ -65,7 +65,7 @@ jobs:
     - run: flake8 --ignore=E402,E501,F401 ./doc/conf.py
     - run: flake8 --ignore=E501,W503 ./setup.py ./bin/ivre
     - run: flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py
-    - run: flake8 --ignore=E203,E501,W503 ./ivre_bak/
+    - run: flake8 --ignore=E203,E501,E704,W503 ./ivre_bak/
     - run: flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi
 
     - run: rstcheck -r ./doc/
