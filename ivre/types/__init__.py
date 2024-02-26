@@ -132,27 +132,20 @@ if HAS_TYPED_DICT:
             sort: Optional[Any] = None,
             limit: Optional[int] = None,
             skip: Optional[int] = None,
-        ) -> Iterable:
-            ...
+        ) -> Iterable: ...
 
         @classmethod
-        def flt_and(cls, *args: Filter) -> Filter:
-            ...
+        def flt_and(cls, *args: Filter) -> Filter: ...
 
-        def from_binary(self, data: Any) -> bytes:
-            ...
+        def from_binary(self, data: Any) -> bytes: ...
 
-        def get(self, spec: Filter, **kargs: Any) -> Generator[Record, None, None]:
-            ...
+        def get(self, spec: Filter, **kargs: Any) -> Generator[Record, None, None]: ...
 
-        def _get(self, spec: Filter, **kargs: Any) -> DBCursor:
-            ...
+        def _get(self, spec: Filter, **kargs: Any) -> DBCursor: ...
 
-        def explain(self, cur: DBCursor, **kargs: Any) -> str:
-            ...
+        def explain(self, cur: DBCursor, **kargs: Any) -> str: ...
 
-        def remove_many(self, spec: Filter) -> None:
-            ...
+        def remove_many(self, spec: Filter) -> None: ...
 
         def searchcert(
             self,
@@ -167,12 +160,10 @@ if HAS_TYPED_DICT:
             pksha1: Optional[str] = None,
             pksha256: Optional[str] = None,
             cacert: bool = False,
-        ) -> Filter:
-            ...
+        ) -> Filter: ...
 
         @staticmethod
-        def serialize(obj: Any) -> str:
-            ...
+        def serialize(obj: Any) -> str: ...
 
     class DBAgent(DB, Protocol):
         pass
@@ -191,8 +182,7 @@ if HAS_TYPED_DICT:
             keytype: Optional[str] = None,
             bits: Optional[int] = None,
             output: Optional[str] = None,
-        ) -> Filter:
-            ...
+        ) -> Filter: ...
 
     class DBNmap(DBActive, Protocol):
         pass
@@ -204,8 +194,7 @@ if HAS_TYPED_DICT:
             key: Optional[str] = None,
             keytype: Optional[str] = None,
             bits: Optional[int] = None,
-        ) -> Filter:
-            ...
+        ) -> Filter: ...
 
     class DBView(DBActive, Protocol):
         pass
@@ -221,8 +210,7 @@ if HAS_TYPED_DICT:
         urls: Dict[str, str]
         view: DBView
 
-        def get_class(self, purpose: str) -> DB:
-            ...
+        def get_class(self, purpose: str) -> DB: ...
 
     class Target(Iterable[int], Protocol):
         targetscount: int

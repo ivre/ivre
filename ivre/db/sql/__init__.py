@@ -1709,14 +1709,18 @@ class SQLDBActive(SQLDB, DBActive):
     def _searchobjectid(cls, oid, neg=False):
         if len(oid) == 1:
             return cls.base_filter(
-                main=(cls.tables.scan.id != oid[0])
-                if neg
-                else (cls.tables.scan.id == oid[0])
+                main=(
+                    (cls.tables.scan.id != oid[0])
+                    if neg
+                    else (cls.tables.scan.id == oid[0])
+                )
             )
         return cls.base_filter(
-            main=(cls.tables.scan.id.notin_(oid[0]))
-            if neg
-            else (cls.tables.scan.id.in_(oid[0]))
+            main=(
+                (cls.tables.scan.id.notin_(oid[0]))
+                if neg
+                else (cls.tables.scan.id.in_(oid[0]))
+            )
         )
 
     @classmethod
@@ -1807,9 +1811,11 @@ class SQLDBActive(SQLDB, DBActive):
                 port=[
                     (
                         True,
-                        (cls.tables.port.port >= 0)
-                        if neg
-                        else (cls.tables.port.port == -1),
+                        (
+                            (cls.tables.port.port >= 0)
+                            if neg
+                            else (cls.tables.port.port == -1)
+                        ),
                     ),
                 ]
             )
@@ -3045,14 +3051,18 @@ class SQLDBPassive(SQLDB, DBPassive):
     def _searchobjectid(cls, oid, neg=False):
         if len(oid) == 1:
             return PassiveFilter(
-                main=(cls.tables.passive.id != oid[0])
-                if neg
-                else (cls.tables.passive.id == oid[0])
+                main=(
+                    (cls.tables.passive.id != oid[0])
+                    if neg
+                    else (cls.tables.passive.id == oid[0])
+                )
             )
         return PassiveFilter(
-            main=(cls.tables.passive.id.notin_(oid[0]))
-            if neg
-            else (cls.tables.passive.id.in_(oid[0]))
+            main=(
+                (cls.tables.passive.id.notin_(oid[0]))
+                if neg
+                else (cls.tables.passive.id.in_(oid[0]))
+            )
         )
 
     @classmethod
@@ -3079,9 +3089,11 @@ class SQLDBPassive(SQLDB, DBPassive):
         """
         addr = cls.ip2internal(addr)
         return PassiveFilter(
-            main=(cls.tables.passive.addr != addr)
-            if neg
-            else (cls.tables.passive.addr == addr),
+            main=(
+                (cls.tables.passive.addr != addr)
+                if neg
+                else (cls.tables.passive.addr == addr)
+            ),
         )
 
     @classmethod
@@ -3175,9 +3187,11 @@ class SQLDBPassive(SQLDB, DBPassive):
                 )
                 if subdomains
                 else cls._searchstring_re(
-                    cls.tables.passive.targetval
-                    if reverse
-                    else cls.tables.passive.value,
+                    (
+                        cls.tables.passive.targetval
+                        if reverse
+                        else cls.tables.passive.value
+                    ),
                     name,
                 )
             )
@@ -3414,9 +3428,11 @@ class SQLDBPassive(SQLDB, DBPassive):
         if state != "open":
             raise ValueError("Only open ports can be found in passive")
         return PassiveFilter(
-            main=(cls.tables.passive.port != port)
-            if neg
-            else (cls.tables.passive.port == port)
+            main=(
+                (cls.tables.passive.port != port)
+                if neg
+                else (cls.tables.passive.port == port)
+            )
         )
 
     @classmethod

@@ -799,13 +799,19 @@ class IvreTests(unittest.TestCase):
                     f"{dbname}_count_hassh%s%s"
                     % (
                         "_server" if server else "" if server is None else "_client",
-                        ""
-                        if value_or_hash is None
-                        else "_regexp"
-                        if isinstance(value_or_hash, ivre.utils.REGEXP_T)
-                        else "_fullstring"
-                        if value_or_hash.startswith("diffie-hellman-")
-                        else f"_{value_or_hash}",
+                        (
+                            ""
+                            if value_or_hash is None
+                            else (
+                                "_regexp"
+                                if isinstance(value_or_hash, ivre.utils.REGEXP_T)
+                                else (
+                                    "_fullstring"
+                                    if value_or_hash.startswith("diffie-hellman-")
+                                    else f"_{value_or_hash}"
+                                )
+                            )
+                        ),
                     ),
                     count,
                 )

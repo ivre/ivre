@@ -708,9 +708,11 @@ def flt_from_query(dbase, query, base_flt=None):
             for proto, ports in protos.items():
                 flt = dbase.flt_and(
                     flt,
-                    dbase.searchport(ports[0], protocol=proto, state=param)
-                    if len(ports) == 1
-                    else dbase.searchports(ports, protocol=proto, state=param),
+                    (
+                        dbase.searchport(ports[0], protocol=proto, state=param)
+                        if len(ports) == 1
+                        else dbase.searchports(ports, protocol=proto, state=param)
+                    ),
                 )
         elif not neg and param == "otheropenport":
             flt = dbase.flt_and(

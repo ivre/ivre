@@ -66,7 +66,6 @@ except TypeError:
 
 
 class TinyDB(DB):
-
     """A DB using TinyDB backend"""
 
     parallel_insert = False
@@ -490,7 +489,6 @@ class TinyDB(DB):
 
 
 class TinyDBActive(TinyDB, DBActive):
-
     """An Active-specific DB using TinyDB backend
 
     This will be used by TinyDBNmap & TinyDBView
@@ -2491,7 +2489,6 @@ class TinyDBActive(TinyDB, DBActive):
 
 
 class TinyDBNmap(TinyDBActive, DBNmap):
-
     """An Nmap-specific DB using TinyDB backend"""
 
     content_handler = Nmap2DB
@@ -2506,7 +2503,6 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
 
 class TinyDBView(TinyDBActive, DBView):
-
     """A View-specific DB using TinyDB backend"""
 
     dbname = "view"
@@ -2706,7 +2702,6 @@ def op_update_replacecount(count, firstseen, lastseen):
 
 
 class TinyDBPassive(TinyDB, DBPassive):
-
     """A Passive-specific DB using TinyDB backend"""
 
     dbname = "passive"
@@ -3459,7 +3454,6 @@ class TinyDBPassive(TinyDB, DBPassive):
 
 
 class TinyDBAgent(TinyDB, DBAgent):
-
     """An Nmap-specific DB using TinyDB backend"""
 
     dbname = "agents"
@@ -3720,7 +3714,6 @@ def combine_ops(*ops):
 
 
 class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
-
     """A Flow-specific DB using TinyDB backend"""
 
     dbname = "flows"
@@ -4469,9 +4462,11 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                         return None
 
                 collected = tuple(
-                    tuple(set(self._generate_field_values(rec, field)))
-                    if field in self.list_fields
-                    else _get_one(self._generate_field_values(rec, field))
+                    (
+                        tuple(set(self._generate_field_values(rec, field)))
+                        if field in self.list_fields
+                        else _get_one(self._generate_field_values(rec, field))
+                    )
                     for field in collect_fields
                 )
                 for val in cartesian_prod(

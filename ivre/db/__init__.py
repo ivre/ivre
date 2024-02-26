@@ -1483,10 +1483,10 @@ class DBActive(DB):
             for script in port.get("scripts", []):
                 if script["id"] == "http-default-accounts":
                     if "http-default-accounts" in script:
-                        script[
-                            "http-default-accounts"
-                        ] = xmlnmap.change_http_default_accounts(
-                            script["http-default-accounts"]
+                        script["http-default-accounts"] = (
+                            xmlnmap.change_http_default_accounts(
+                                script["http-default-accounts"]
+                            )
                         )
                 elif script["id"].endswith("-nuclei") and script["id"] in script:
                     script["nuclei"] = script.pop(script["id"])
@@ -3212,9 +3212,7 @@ class DBNmap(DBActive):
                         structured = [
                             {
                                 "name": "_status",
-                                "value": utils.nmap_encode_data(
-                                    hdrs_split[0].strip()
-                                ),
+                                "value": utils.nmap_encode_data(hdrs_split[0].strip()),
                             }
                         ]
                         structured.extend(
@@ -3555,9 +3553,11 @@ class DBNmap(DBActive):
                             host.setdefault("hostnames", []),
                         )
                         banner = "".join(
-                            chr(d)
-                            if 32 <= d <= 126 or d in {9, 10, 13}
-                            else "\\x%02x" % d
+                            (
+                                chr(d)
+                                if 32 <= d <= 126 or d in {9, 10, 13}
+                                else "\\x%02x" % d
+                            )
                             for d in raw_output
                         )
                         port.setdefault("scripts", []).append(
@@ -3762,9 +3762,11 @@ class DBNmap(DBActive):
                             handle_http_content(host, port, body)
                     else:
                         banner = "".join(
-                            chr(d)
-                            if 32 <= d <= 126 or d in {9, 10, 13}
-                            else "\\x%02x" % d
+                            (
+                                chr(d)
+                                if 32 <= d <= 126 or d in {9, 10, 13}
+                                else "\\x%02x" % d
+                            )
                             for d in raw_output
                         )
                         port.setdefault("scripts", []).append(
