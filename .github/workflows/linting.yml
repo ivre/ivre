@@ -46,7 +46,7 @@ jobs:
 
     - run: mv ivre ivre_bak
 
-    - run: black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/ ./pkg/stubs/
+    - run: black -t py37 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/ ./pkg/stubs/
 
     - run: bandit --severity-level high -r ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/ ./pkg/stubs/
 

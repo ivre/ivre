@@ -18,7 +18,7 @@
 
 # pip install -U -r requirements-linting.txt
 
-black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
+black -t py37 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
 
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,E704,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
 
