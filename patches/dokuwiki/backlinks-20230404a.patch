@@ -1,0 +1,19 @@
+--- inc/Ui/Backlinks.php.orig	2022-08-01 12:59:41.027353178 +0200
++++ inc/Ui/Backlinks.php	2022-08-01 13:13:32.514029298 +0200
+@@ -35,7 +35,15 @@ class Backlinks extends Ui
+                 print '</div></li>';
+             }
+             print '</ul>';
+-        } else {
++        }
++        if (filter_var($ID, FILTER_VALIDATE_IP)) {
++            print '<ul class="idx">';
++            print '<li><div class="li">';
++            print '<a target="_top" href="/#'.$ID.'">IVRE record(s)</a>';
++            print '</div></li>';
++            print '</ul>';
++        }
++        else if(empty($data)) {
+             print '<div class="level1"><p>'. $lang['nothingfound'] .'</p></div>';
+         }
+     }
