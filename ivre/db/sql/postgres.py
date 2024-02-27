@@ -394,9 +394,11 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             field = self._topstructure(
                 self.tables.port,
                 [self.tables.port.protocol, self.tables.port.port],
-                (self.tables.port.state == info)
-                if info in ["open", "filtered", "closed", "open|filtered"]
-                else (self.tables.port.service_name == info),
+                (
+                    (self.tables.port.state == info)
+                    if info in ["open", "filtered", "closed", "open|filtered"]
+                    else (self.tables.port.service_name == info)
+                ),
             )
         elif field.startswith("countports:"):
             info = field[11:]
@@ -988,9 +990,11 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             field = self._topstructure(
                 self.tables.hop,
                 [self.tables.hop.ipaddr],
-                (self.tables.hop.ttl > ttl)
-                if field[3] == ">"
-                else (self.tables.hop.ttl == ttl),
+                (
+                    (self.tables.hop.ttl > ttl)
+                    if field[3] == ">"
+                    else (self.tables.hop.ttl == ttl)
+                ),
             )
         elif field == "file" or (field.startswith("file") and field[4] in ".:"):
             if field.startswith("file:"):

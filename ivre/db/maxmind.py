@@ -34,7 +34,6 @@ from ivre.db import DBData
 
 
 class MaxMindFileIter:
-
     """Iterator for MaxMindFile"""
 
     def __init__(self, base):
@@ -93,7 +92,6 @@ class MaxMindFileIter:
 
 
 class EmptyMaxMindFile:
-
     """Stub to replace MaxMind databases parsers. Used when a file is
     missing to emit a warning message and return empty results.
 
@@ -108,7 +106,6 @@ class EmptyMaxMindFile:
 
 
 class MaxMindFile:
-
     """Parser for MaxMind databases.
 
     Code copied and adapted from

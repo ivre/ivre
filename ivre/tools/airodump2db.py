@@ -98,9 +98,9 @@ def rec_iter(
                             source="WLAN_AP_%s" % fld.upper().replace(" ", "_"),
                             # count=line["# beacons"],
                             **{
-                                "addr"
-                                if fld == "LAN IP"
-                                else "targetval": str(line[fld])
+                                "addr" if fld == "LAN IP" else "targetval": str(
+                                    line[fld]
+                                )
                             },
                         ),
                     )

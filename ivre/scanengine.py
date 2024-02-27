@@ -32,7 +32,6 @@ from ivre import utils
 
 
 class Agent:
-
     """An Agent instance is a (possibly remote) scanner."""
 
     def __init__(
@@ -206,7 +205,6 @@ class Agent:
 
 
 class Campaign:
-
     """A Campaign instance is basically the association of a targets
     container (an instance of `target.Target`) with a list of agents
     to run the scans.

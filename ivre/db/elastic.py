@@ -1521,9 +1521,9 @@ return result;
                         Q(
                             "match",
                             **{
-                                "ports.scripts.id": "ssl-cacert"
-                                if cacert
-                                else "ssl-cert"
+                                "ports.scripts.id": (
+                                    "ssl-cacert" if cacert else "ssl-cert"
+                                )
                             },
                         ),
                         Q(

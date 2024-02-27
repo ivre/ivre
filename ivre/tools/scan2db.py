@@ -114,16 +114,18 @@ def main() -> None:
     database = ivre.db.db.nmap
     categories = args.categories.split(",") if args.categories else []
     tags = [
-        {
-            "value": value,
-            "type": type_,
-            "info": [info],
-        }
-        if info
-        else {
-            "value": value,
-            "type": type_,
-        }
+        (
+            {
+                "value": value,
+                "type": type_,
+                "info": [info],
+            }
+            if info
+            else {
+                "value": value,
+                "type": type_,
+            }
+        )
         for value, type_, info in (
             tag.split(":", 3) for tag in (args.tags.split(",") if args.tags else [])
         )

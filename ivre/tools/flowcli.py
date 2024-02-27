@@ -379,12 +379,14 @@ def main() -> None:
                     sep,
                     rec["count"],
                     sep,
-                    coma.join(
-                        str("(" + coma2.join(str(val) for val in collected) + ")")
-                        for collected in rec["collected"]
-                    )
-                    if rec["collected"]
-                    else "",
+                    (
+                        coma.join(
+                            str("(" + coma2.join(str(val) for val in collected) + ")")
+                            for collected in rec["collected"]
+                        )
+                        if rec["collected"]
+                        else ""
+                    ),
                 )
             )
 

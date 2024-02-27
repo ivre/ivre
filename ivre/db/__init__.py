@@ -1483,10 +1483,10 @@ class DBActive(DB):
             for script in port.get("scripts", []):
                 if script["id"] == "http-default-accounts":
                     if "http-default-accounts" in script:
-                        script[
-                            "http-default-accounts"
-                        ] = xmlnmap.change_http_default_accounts(
-                            script["http-default-accounts"]
+                        script["http-default-accounts"] = (
+                            xmlnmap.change_http_default_accounts(
+                                script["http-default-accounts"]
+                            )
                         )
                 elif script["id"].endswith("-nuclei") and script["id"] in script:
                     script["nuclei"] = script.pop(script["id"])
@@ -3143,6 +3143,7 @@ class DBNmap(DBActive):
             categories = []
         if tags is None:
             tags = []
+        http_hdr_split = re.compile(b"\r?\n")
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
@@ -3191,6 +3192,90 @@ class DBNmap(DBActive):
                     )
                 if "technologies" in rec:
                     script["technologies"] = rec["technologies"]
+                if "raw_header" in rec:
+                    hdrs = rec["raw_header"].encode()
+                    hdrs_split = http_hdr_split.split(hdrs)
+                    if hdrs_split:
+                        hdr_output_list = [
+                            utils.nmap_encode_data(line) for line in hdrs_split
+                        ]
+                        # default values - TODO: handle specific path
+                        # with code from zgrabout
+                        method = "GET"
+                        path = "/"
+                        if "request" in rec:
+                            try:
+                                method, path, _ = rec["request"].split(None, 2)
+                            except ValueError:
+                                pass
+                        hdr_output_list.extend(["", f"(Request type: {method})"])
+                        structured = [
+                            {
+                                "name": "_status",
+                                "value": utils.nmap_encode_data(hdrs_split[0].strip()),
+                            }
+                        ]
+                        structured.extend(
+                            {
+                                "name": utils.nmap_encode_data(hdrname).lower(),
+                                "value": utils.nmap_encode_data(hdrval),
+                            }
+                            for hdrname, hdrval in (
+                                m.groups()
+                                for m in (
+                                    utils.RAW_HTTP_HEADER.search(part.strip())
+                                    for part in hdrs_split
+                                )
+                                if m
+                            )
+                        )
+                        port.setdefault("scripts", []).append(
+                            {
+                                "id": "http-headers",
+                                "output": "\n".join(hdr_output_list),
+                                "http-headers": structured,
+                                "masscan": {"raw": utils.encode_b64(hdrs).decode()},
+                            }
+                        )
+                        handle_http_headers(host, port, structured, path=path)
+                        raw_output = hdrs
+                        if "body" in rec:
+                            # usually, the whole answer should be that
+                            raw_output += b"\r\n\r\n" + rec["body"].encode()
+                        nmap_info = utils.match_nmap_svc_fp(
+                            output=raw_output,
+                            proto=port["protocol"],
+                            probe="GetRequest",
+                        )
+                        if nmap_info:
+                            try:
+                                del nmap_info["soft"]
+                            except KeyError:
+                                pass
+                            add_cpe_values(
+                                host,
+                                f"ports.port:{rec['port']}",
+                                nmap_info.pop("cpe", []),
+                            )
+                            host["cpes"] = list(host["cpes"].values())
+                            for cpe in host["cpes"]:
+                                cpe["origins"] = sorted(cpe["origins"])
+                            if not host["cpes"]:
+                                del host["cpes"]
+                            port.update(nmap_info)
+                            xmlnmap.add_service_hostname(
+                                nmap_info,
+                                host.setdefault("hostnames", []),
+                            )
+                if "body" in rec:
+                    body = rec["body"].encode()
+                    port.setdefault("scripts", []).append(
+                        {
+                            "id": "http-content",
+                            "output": utils.nmap_encode_data(body),
+                        }
+                    )
+                    handle_http_content(host, port, body)
                 if script:
                     output = []
                     if "technologies" in script:
@@ -3468,9 +3553,11 @@ class DBNmap(DBActive):
                             host.setdefault("hostnames", []),
                         )
                         banner = "".join(
-                            chr(d)
-                            if 32 <= d <= 126 or d in {9, 10, 13}
-                            else "\\x%02x" % d
+                            (
+                                chr(d)
+                                if 32 <= d <= 126 or d in {9, 10, 13}
+                                else "\\x%02x" % d
+                            )
                             for d in raw_output
                         )
                         port.setdefault("scripts", []).append(
@@ -3626,7 +3713,6 @@ class DBNmap(DBActive):
                         except ValueError:
                             hdrs = raw_output
                             body = None
-                        # TODO http-headers / http-content
                         hdrs_split = http_hdr_split.split(hdrs)
                         if hdrs_split:
                             hdr_output_list = [
@@ -3676,9 +3762,11 @@ class DBNmap(DBActive):
                             handle_http_content(host, port, body)
                     else:
                         banner = "".join(
-                            chr(d)
-                            if 32 <= d <= 126 or d in {9, 10, 13}
-                            else "\\x%02x" % d
+                            (
+                                chr(d)
+                                if 32 <= d <= 126 or d in {9, 10, 13}
+                                else "\\x%02x" % d
+                            )
                             for d in raw_output
                         )
                         port.setdefault("scripts", []).append(

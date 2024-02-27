@@ -1914,10 +1914,10 @@ class MongoDBActive(MongoDB, DBActive):
                 if script["id"] == "http-default-accounts":
                     if "http-default-accounts" in script:
                         ports_updated = True
-                        script[
-                            "http-default-accounts"
-                        ] = xmlnmap.change_http_default_accounts(
-                            script["http-default-accounts"]
+                        script["http-default-accounts"] = (
+                            xmlnmap.change_http_default_accounts(
+                                script["http-default-accounts"]
+                            )
                         )
                 elif script["id"].endswith("-nuclei") and script["id"] in script:
                     ports_updated = True
@@ -2877,9 +2877,9 @@ class MongoDBActive(MongoDB, DBActive):
     def searchvuln(vulnid=None, state=None):
         if state is None:
             return {
-                "ports.scripts.vulns.id": {"$exists": True}
-                if vulnid is None
-                else vulnid
+                "ports.scripts.vulns.id": (
+                    {"$exists": True} if vulnid is None else vulnid
+                )
             }
         if vulnid is None:
             return {"ports.scripts.vulns.state": state}
@@ -4222,35 +4222,39 @@ class MongoDBNmap(MongoDBActive, DBNmap):
     schema_migrations_indexes: List[
         Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
     ] = [
-        {
-            key: dict(
-                value,
-                drop=value.get("drop", [])
-                + [
-                    ([("infos.as_num", pymongo.ASCENDING)], {}),
-                    (
-                        [
-                            ("infos.country_code", pymongo.ASCENDING),
-                            ("infos.city", pymongo.ASCENDING),
+        (
+            {
+                key: (
+                    dict(
+                        value,
+                        drop=value.get("drop", [])
+                        + [
+                            ([("infos.as_num", pymongo.ASCENDING)], {}),
+                            (
+                                [
+                                    ("infos.country_code", pymongo.ASCENDING),
+                                    ("infos.city", pymongo.ASCENDING),
+                                ],
+                                {},
+                            ),
+                            ([("infos.loc", pymongo.GEOSPHERE)], {}),
+                            (
+                                [
+                                    ("tags.value", pymongo.ASCENDING),
+                                    ("tags.info", pymongo.ASCENDING),
+                                ],
+                                {},
+                            ),
                         ],
-                        {},
-                    ),
-                    ([("infos.loc", pymongo.GEOSPHERE)], {}),
-                    (
-                        [
-                            ("tags.value", pymongo.ASCENDING),
-                            ("tags.info", pymongo.ASCENDING),
-                        ],
-                        {},
-                    ),
-                ],
-            )
-            if key == 22
-            else value
-            for key, value in idxs.items()
-        }
-        if not i
-        else idxs
+                    )
+                    if key == 22
+                    else value
+                )
+                for key, value in idxs.items()
+            }
+            if not i
+            else idxs
+        )
         for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
     ]
 
@@ -4312,45 +4316,56 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 class MongoDBView(MongoDBActive, DBView):
     indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
-        idxs
-        + [
-            ([("infos.as_num", pymongo.ASCENDING)], {}),
-            (
-                [
-                    ("infos.country_code", pymongo.ASCENDING),
-                    ("infos.city", pymongo.ASCENDING),
-                ],
-                {},
-            ),
-            ([("infos.loc", pymongo.GEOSPHERE)], {}),
-            (
-                [
-                    ("tags.value", pymongo.ASCENDING),
-                    ("tags.info", pymongo.ASCENDING),
-                ],
-                {"sparse": True},
-            ),
-            ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
-        ]
-        if not i
-        else idxs
+        (
+            idxs
+            + [
+                ([("infos.as_num", pymongo.ASCENDING)], {}),
+                (
+                    [
+                        ("infos.country_code", pymongo.ASCENDING),
+                        ("infos.city", pymongo.ASCENDING),
+                    ],
+                    {},
+                ),
+                ([("infos.loc", pymongo.GEOSPHERE)], {}),
+                (
+                    [
+                        ("tags.value", pymongo.ASCENDING),
+                        ("tags.info", pymongo.ASCENDING),
+                    ],
+                    {"sparse": True},
+                ),
+                ([(fld, "text") for fld in DBActive.text_fields], {"name": "text"}),
+            ]
+            if not i
+            else idxs
+        )
         for i, idxs in enumerate(MongoDBActive.indexes)
     ]
     schema_migrations_indexes: List[
         Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
     ] = [
-        {
-            key: dict(
-                value,
-                ensure=value["ensure"]
-                + [([(fld, "text") for fld in DBActive.text_fields], {"name": "text"})],
-            )
-            if key == 20
-            else value
-            for key, value in idxs.items()
-        }
-        if not i
-        else idxs
+        (
+            {
+                key: (
+                    dict(
+                        value,
+                        ensure=value["ensure"]
+                        + [
+                            (
+                                [(fld, "text") for fld in DBActive.text_fields],
+                                {"name": "text"},
+                            )
+                        ],
+                    )
+                    if key == 20
+                    else value
+                )
+                for key, value in idxs.items()
+            }
+            if not i
+            else idxs
+        )
         for i, idxs in enumerate(MongoDBActive.schema_migrations_indexes)
     ]
 
@@ -5488,9 +5503,9 @@ class MongoDBPassive(MongoDB, DBPassive):
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
         return {
-            "firstseen"
-            if new
-            else "lastseen": {"$lt" if neg else "$gte": datetime.datetime.now() - delta}
+            "firstseen" if new else "lastseen": {
+                "$lt" if neg else "$gte": datetime.datetime.now() - delta
+            }
         }
 
     @staticmethod

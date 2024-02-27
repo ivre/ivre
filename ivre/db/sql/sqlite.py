@@ -35,7 +35,6 @@ from ivre.db.sql import SQLDB, SQLDBPassive
 
 
 class SqliteDB(SQLDB):
-
     """A DB using SQLite backend"""
 
     parallel_insert = False

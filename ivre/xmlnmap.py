@@ -1491,7 +1491,6 @@ def add_service_hostname(service_info, hostnames):
 
 
 class NoExtResolver(EntityResolver):
-
     """A simple EntityResolver that will prevent any external
     resolution.
 
@@ -1502,7 +1501,6 @@ class NoExtResolver(EntityResolver):
 
 
 class NmapHandler(ContentHandler):
-
     """The handler for Nmap's XML documents. An abstract class for
     database specific implementations.
 
@@ -1700,9 +1698,11 @@ class NmapHandler(ContentHandler):
                     self._curport["service_name"] = (
                         "netbios-ssn"
                         if self._curport.get("port") == 139
-                        else "microsoft-ds"
-                        if self._curport.get("port") == 445
-                        else "smb"
+                        else (
+                            "microsoft-ds"
+                            if self._curport.get("port") == 445
+                            else "smb"
+                        )
                     )
                     raw_output = MASSCAN_ENCODING.sub(
                         _masscan_decode_raw, banner.encode()
@@ -2650,7 +2650,6 @@ class NmapHandler(ContentHandler):
 
 
 class Nmap2Txt(NmapHandler):
-
     """Simple "test" handler, outputs resulting JSON as text."""
 
     def __init__(self, fname, _, **kargs):
@@ -2673,7 +2672,6 @@ class Nmap2Txt(NmapHandler):
 
 
 class Nmap2DB(NmapHandler):
-
     """Specific handler for MongoDB backend."""
 
     def __init__(

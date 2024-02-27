@@ -66,7 +66,6 @@ except TypeError:
 
 
 class TinyDB(DB):
-
     """A DB using TinyDB backend"""
 
     parallel_insert = False
@@ -249,15 +248,13 @@ class TinyDB(DB):
             base = cur
         if base in cls.list_fields:
             for subrec in record:
-                for val in cls._generate_field_values(
+                yield from cls._generate_field_values(
                     subrec, field, base=base, countfield=countfield, countval=countval
-                ):
-                    yield val
+                )
         else:
-            for val in cls._generate_field_values(
+            yield from cls._generate_field_values(
                 record, field, base=base, countfield=countfield, countval=countval
-            ):
-                yield val
+            )
 
     @classmethod
     def _search_field_exists(cls, field, base="", baseq=None):
@@ -490,7 +487,6 @@ class TinyDB(DB):
 
 
 class TinyDBActive(TinyDB, DBActive):
-
     """An Active-specific DB using TinyDB backend
 
     This will be used by TinyDBNmap & TinyDBView
@@ -1166,8 +1162,7 @@ class TinyDBActive(TinyDB, DBActive):
             for rec in self._get(
                 flt, sort=sort, limit=limit, skip=skip, fields=[field]
             ):
-                for val in self._generate_field_values(rec, field):
-                    yield val
+                yield from self._generate_field_values(rec, field)
 
         def _newflt(field):
             return self._search_field_exists(field)
@@ -2491,7 +2486,6 @@ class TinyDBActive(TinyDB, DBActive):
 
 
 class TinyDBNmap(TinyDBActive, DBNmap):
-
     """An Nmap-specific DB using TinyDB backend"""
 
     content_handler = Nmap2DB
@@ -2506,7 +2500,6 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
 
 class TinyDBView(TinyDBActive, DBView):
-
     """A View-specific DB using TinyDB backend"""
 
     dbname = "view"
@@ -2706,7 +2699,6 @@ def op_update_replacecount(count, firstseen, lastseen):
 
 
 class TinyDBPassive(TinyDB, DBPassive):
-
     """A Passive-specific DB using TinyDB backend"""
 
     dbname = "passive"
@@ -2884,10 +2876,9 @@ class TinyDBPassive(TinyDB, DBPassive):
 
         def _extractor(flt, field):
             for rec in self._get(flt, sort=sort, limit=limit, skip=skip, fields=fields):
-                for val in self._generate_field_values(
+                yield from self._generate_field_values(
                     rec, field, countfield=countfield
-                ):
-                    yield val
+                )
 
         def _newflt(field):
             return self._search_field_exists(field)
@@ -3459,7 +3450,6 @@ class TinyDBPassive(TinyDB, DBPassive):
 
 
 class TinyDBAgent(TinyDB, DBAgent):
-
     """An Nmap-specific DB using TinyDB backend"""
 
     dbname = "agents"
@@ -3720,7 +3710,6 @@ def combine_ops(*ops):
 
 
 class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
-
     """A Flow-specific DB using TinyDB backend"""
 
     dbname = "flows"
@@ -4469,9 +4458,11 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                         return None
 
                 collected = tuple(
-                    tuple(set(self._generate_field_values(rec, field)))
-                    if field in self.list_fields
-                    else _get_one(self._generate_field_values(rec, field))
+                    (
+                        tuple(set(self._generate_field_values(rec, field)))
+                        if field in self.list_fields
+                        else _get_one(self._generate_field_values(rec, field))
+                    )
                     for field in collect_fields
                 )
                 for val in cartesian_prod(

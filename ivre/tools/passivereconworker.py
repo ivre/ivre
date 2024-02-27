@@ -170,9 +170,11 @@ def main() -> None:
         SENSORS.update(
             dict(
                 [
-                    args.sensor.split(":", 1)
-                    if ":" in args.sensor
-                    else [args.sensor, args.sensor]
+                    (
+                        args.sensor.split(":", 1)
+                        if ":" in args.sensor
+                        else [args.sensor, args.sensor]
+                    )
                 ]
             )
         )

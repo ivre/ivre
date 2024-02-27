@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1077,7 +1077,9 @@ def handle_http_content(
     path: str = "/",
 ) -> None:
     title_m = _EXPR_TITLE.search(data)
-    if title_m is not None:
+    if title_m is not None and not any(
+        s["id"] == "http-title" for s in port.get("scripts", [])
+    ):
         title = nmap_encode_data(title_m.groups()[0])
         port.setdefault("scripts", []).append(
             {
