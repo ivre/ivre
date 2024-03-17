@@ -4065,6 +4065,12 @@ class DBPassive(DB):
         self.argparser_insert.add_argument(
             "-t", "--test", action="store_true", help="Test mode (JSON output)."
         )
+        self.argparser_insert.add_argument(
+            "-r",
+            "--recursive",
+            action="store_true",
+            help="Import all files from given directories.",
+        )
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)

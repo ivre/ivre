@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,13 +24,23 @@ import functools
 import signal
 import sys
 from argparse import ArgumentParser
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    BinaryIO,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from ivre.db import DBPassive, db
 from ivre.parser.zeek import ZeekFile
 from ivre.passive import getinfos, handle_rec
 from ivre.types import Record
-from ivre.utils import force_ip2int
+from ivre.utils import force_ip2int, recursive_filelisting
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -92,7 +102,14 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
-    for fdesc in args.files or [sys.stdin.buffer]:
+    files: Iterable[Union[BinaryIO, str]]
+    if not args.files:
+        files = [sys.stdin.buffer]
+    elif args.recursive:
+        files = recursive_filelisting(args.files)
+    else:
+        files = args.files
+    for fdesc in files:
         function(
             rec_iter(ZeekFile(fdesc), args.sensor, ignore_rules), getinfos=getinfos
         )

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -813,6 +813,29 @@ class FileOpener(BinaryIO):
 
 def open_file(fname: str) -> FileOpener:
     return FileOpener(fname)
+
+
+def recursive_filelisting(
+    base_directories: Iterable[str], error: Optional[List[bool]] = None
+) -> Generator[str, None, None]:
+    """Iterator on filenames in base_directories. Ugly hack: error is a
+    one-element list that will be set to True if one of the directories in
+    base_directories does not exist.
+
+    """
+
+    for base_directory in base_directories:
+        if not os.path.exists(base_directory):
+            LOGGER.warning("directory %r does not exist", base_directory)
+            if error:
+                error[0] = True
+            continue
+        if not os.path.isdir(base_directory):
+            yield base_directory
+            continue
+        for root, _, files in os.walk(base_directory):
+            for leaffile in files:
+                yield os.path.join(root, leaffile)
 
 
 def serialize(obj: Any) -> str:
