@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@
 import os
 import sys
 from argparse import ArgumentParser
-from typing import Generator, Iterable, List
 
 import ivre.db
 import ivre.utils
@@ -31,28 +30,6 @@ import ivre.xmlnmap
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.types import Record
 from ivre.view import nmap_record_to_view
-
-
-def recursive_filelisting(
-    base_directories: Iterable[str], error: List[bool]
-) -> Generator[str, None, None]:
-    """Iterator on filenames in base_directories. Ugly hack: error is a
-    one-element list that will be set to True if one of the directories in
-    base_directories does not exist.
-
-    """
-
-    for base_directory in base_directories:
-        if not os.path.exists(base_directory):
-            ivre.utils.LOGGER.warning("directory %r does not exist", base_directory)
-            error[0] = True
-            continue
-        if not os.path.isdir(base_directory):
-            yield base_directory
-            continue
-        for root, _, files in os.walk(base_directory):
-            for leaffile in files:
-                yield os.path.join(root, leaffile)
 
 
 def main() -> None:
@@ -142,7 +119,7 @@ def main() -> None:
     # recursive_filelisting can modify its value
     error = [False]
     if args.recursive:
-        scans = recursive_filelisting(args.scan, error)
+        scans = ivre.utils.recursive_filelisting(args.scan, error=error)
     else:
         scans = args.scan
     if not args.update_view or args.no_update_view:

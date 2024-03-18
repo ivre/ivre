@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,17 +23,18 @@
 from argparse import ArgumentParser
 from functools import partial
 from sys import stdin
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import BinaryIO, Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 from ivre.db import DBPassive, db
 from ivre.parser.weblog import WeblogFile
 from ivre.passive import getinfos, handle_rec
 from ivre.tools.passiverecon2db import _get_ignore_rules
 from ivre.types import Record
+from ivre.utils import recursive_filelisting
 
 
 def rec_iter(
-    filenames: List[str],
+    filenames: Iterable[Union[BinaryIO, str]],
     sensor: Optional[str],
     ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
 ) -> Generator[Tuple[Optional[int], Record], None, None]:
@@ -90,8 +91,15 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
+    files: Iterable[Union[BinaryIO, str]]
+    if not args.files:
+        files = [stdin.buffer]
+    elif args.recursive:
+        files = recursive_filelisting(args.files)
+    else:
+        files = args.files
     function(
-        rec_iter(args.files or [stdin.buffer], args.sensor, ignore_rules),
+        rec_iter(files, args.sensor, ignore_rules),
         getinfos=getinfos,
     )
 

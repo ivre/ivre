@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 """Support for Airodump csv files"""
 
 import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any, BinaryIO, Callable, Dict, Optional, Union
 
 from ivre.parser import Parser
 
@@ -52,7 +52,7 @@ class Airodump(Parser):
         None: lambda val: val.strip(),
     }
 
-    def __init__(self, fname: str) -> None:
+    def __init__(self, fname: Union[str, BinaryIO]) -> None:
         super().__init__(fname)
         self.nextline_headers = False
 
