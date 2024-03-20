@@ -51,6 +51,7 @@ POSTGRES_BATCH_SIZE = 10000
 # end of this file).
 DATA_PATH = None
 GEOIP_PATH = None
+RIR_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
 WEB_STATIC_PATH = None
 WEB_DOKU_PATH = None
@@ -354,6 +355,10 @@ def guess_share(soft: str) -> Optional[str]:
 
 if GEOIP_PATH is None:
     GEOIP_PATH = guess_prefix("geoip")
+
+
+if RIR_PATH is None:
+    RIR_PATH = guess_prefix("rir_data")
 
 
 if DB_DATA is None and GEOIP_PATH is not None:

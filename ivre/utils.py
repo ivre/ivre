@@ -955,7 +955,7 @@ CLI_ARGPARSER.add_argument(
 CLI_ARGPARSER.add_argument(
     "--sort",
     metavar="FIELD / ~FIELD",
-    nargs="+",
+    nargs="*",
     help="Sort results according to FIELD; use ~FIELD to reverse sort order.",
 )
 CLI_ARGPARSER.add_argument("--limit", type=int, help="Output at most LIMIT results.")
