@@ -89,7 +89,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     database = ivre.db.db.nmap
-    categories = args.categories.split(",") if args.categories else []
+    categories = sorted(set(args.categories.split(","))) if args.categories else []
     tags = [
         (
             {

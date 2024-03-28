@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -823,11 +823,14 @@ def nmap_record_to_view(rec, category=None):
     if "source" in rec:
         if not rec["source"]:
             rec["source"] = []
-        elif not isinstance(rec["source"], list):
+        elif isinstance(rec["source"], list):
+            rec["source"] = sorted(set(rec["source"]))
+        else:
             rec["source"] = [rec["source"]]
-    rec.setdefault("categories", [])
+    categories = set(rec.get("categories", []))
     if category is not None:
-        rec["categories"].append(category)
+        categories.add(category)
+    rec["categories"] = sorted(categories)
     for port in rec.get("ports", []):
         if "screendata" in port:
             port["screendata"] = db.nmap.from_binary(port["screendata"])

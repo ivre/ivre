@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -737,7 +737,7 @@ def parse_form():
 
 def import_files(subdb, source, categories, files):
     count = 0
-    categories = list(categories)
+    categories = sorted(categories)
     if subdb == "view":
 
         def callback(x):

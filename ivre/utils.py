@@ -610,7 +610,7 @@ def diff(doc1: Dict[str, Any], doc2: Dict[str, Any]) -> Dict[str, Any]:
         if key in ["categories"]:
             set1 = set(doc1[key])
             set2 = set(doc2[key])
-            res[key] = list(set1.symmetric_difference(set2))
+            res[key] = sorted(set1.symmetric_difference(set2))
             if not res[key]:
                 del res[key]
             continue
