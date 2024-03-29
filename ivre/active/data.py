@@ -756,14 +756,16 @@ def merge_host_docs(
     rec["state_reason"] = rec2.get("state_reason", rec1.get("state_reason"))
     if rec["state_reason"] is None:
         del rec["state_reason"]
-    rec["categories"] = list(
+    rec["categories"] = sorted(
         set(rec1.get("categories", [])).union(rec2.get("categories", []))
     )
     for field in ["addr", "os"]:
         rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
         if not rec[field]:
             del rec[field]
-    rec["source"] = list(set(rec1.get("source", [])).union(set(rec2.get("source", []))))
+    rec["source"] = sorted(
+        set(rec1.get("source", [])).union(set(rec2.get("source", [])))
+    )
     rec["traces"] = rec2.get("traces", [])
     for trace in rec1.get("traces", []):
         # Skip this result (from rec1) if a more recent traceroute

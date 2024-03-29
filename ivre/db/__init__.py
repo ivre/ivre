@@ -2358,6 +2358,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -2421,6 +2423,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -2539,6 +2543,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -2613,6 +2619,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -2685,6 +2693,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         answers = set()
@@ -2843,6 +2853,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -2914,6 +2926,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -3141,6 +3155,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         http_hdr_split = re.compile(b"\r?\n")
@@ -3330,6 +3346,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -3465,6 +3483,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()
@@ -3614,6 +3634,8 @@ class DBNmap(DBActive):
         """
         if categories is None:
             categories = []
+        else:
+            categories = sorted(set(categories))
         if tags is None:
             tags = []
         self.start_store_hosts()

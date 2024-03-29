@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ class Target:
         if categories is None:
             self.categories = [self.name]
         else:
-            self.categories = categories
+            self.categories = sorted(set(categories))
         self.infos = {"categories": self.categories}
 
     def __len__(self):
@@ -342,6 +342,8 @@ class TargetFile(Target):
         self.name = "FILE-%s" % filename
         if categories is None:
             categories = [self.name]
+        else:
+            categories = sorted(set(categories))
         self.infos = {"categories": categories}
         with open(filename, encoding="utf8") as fdesc:
             self.targetscount = sum(
