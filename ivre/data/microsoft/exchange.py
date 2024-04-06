@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -227,5 +227,6 @@ EXCHANGE_BUILDS = {
     "15.2.986": "Exchange Server 2019 CU11",
     "15.2.1118": "Exchange Server 2019 CU12 (2022H1)",
     "15.2.1258": "Exchange Server 2019 CU13 (2023H1)",
+    "15.2.1544": "Exchange Server 2019 CU14 (2024H1)",
     # GENERATED_DATA_EXCHANGE_BUILD
 }
