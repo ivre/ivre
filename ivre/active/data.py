@@ -573,6 +573,38 @@ def merge_dns_domains_scripts(
     return curscript
 
 
+def merge_dns_domains_mx_scripts(
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
+    domains_prios = {
+        (res["domain"], res["priority"]): (
+            res["parents"] if "parents" in res else list(get_domains(res["domain"]))
+        )
+        for scr in [script, curscript]
+        for res in scr.get(script_id, [])
+        if "domain" in res and "priority" in res
+    }
+    domains_order = sorted(
+        domains_prios, key=lambda dom_prio: (key_sort_dom(dom_prio[0]), dom_prio[1])
+    )
+    if len(domains_order) == 1:
+        output = f"Server is Mail eXchanger for {domains_order[0][0]} (priority {domains_order[0][1]})"
+    else:
+        output = "Server is Mail eXchanger for:\n%s" % "\n".join(
+            f"  {dom} (priority {prio})" for dom, prio in domains_order
+        )
+    curscript["output"] = output
+    curscript[script_id] = [
+        {
+            "domain": dom_prio[0],
+            "parents": domains_prios[dom_prio],
+            "priority": dom_prio[1],
+        }
+        for dom_prio in domains_order
+    ]
+    return curscript
+
+
 def merge_dns_tls_rpt_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
@@ -686,6 +718,7 @@ def _merge_scripts(
 _SCRIPT_MERGE = {
     "dns-check-consistency": merge_dns_check_consistency_scripts,
     "dns-domains": merge_dns_domains_scripts,
+    "dns-domains-mx": merge_dns_domains_mx_scripts,
     "dns-tls-rpt": merge_dns_tls_rpt_scripts,
     "dns-zone-transfer": merge_axfr_scripts,
     "http-app": merge_http_app_scripts,
