@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ from typing import Any, Iterable, Optional
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
-from ivre.analyzer.dns import AXFRChecker, DNSSRVChecker, TLSRPTChecker
+from ivre.analyzer.dns import AXFRChecker, DNSMXChecker, DNSSRVChecker, TLSRPTChecker
 from ivre.types import Record
 from ivre.utils import LOGGER, serialize
 
@@ -76,7 +76,7 @@ def main() -> None:
     results = [
         rec
         for domain in args.domains
-        for test in [AXFRChecker, DNSSRVChecker, TLSRPTChecker]
+        for test in [AXFRChecker, DNSSRVChecker, DNSMXChecker, TLSRPTChecker]
         for rec in test(domain).test(v4=not args.ipv6, v6=not args.ipv4)
     ]
     end = datetime.now()

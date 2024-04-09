@@ -4454,6 +4454,7 @@ class IvreTests(unittest.TestCase):
                             {
                                 "dns-check-consistency",  # may happen
                                 "dns-domains",
+                                "dns-domains-mx",
                                 "dns-tls-rpt",
                                 "dns-zone-transfer",
                             },

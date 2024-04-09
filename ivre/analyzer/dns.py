@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,10 +25,11 @@ import subprocess
 from ast import literal_eval
 from collections import namedtuple
 from datetime import datetime
+from itertools import chain
 from typing import Dict, FrozenSet, Generator, List, Optional, Sequence, Set, Tuple
 
 from ivre.types.active import NmapHost
-from ivre.utils import LOGGER, get_domains
+from ivre.utils import LOGGER, get_domains, key_sort_dom
 from ivre.xmlnmap import SCHEMA_VERSION
 
 nsrecord = namedtuple("nsrecord", ["name", "ttl", "rclass", "rtype", "data"])
@@ -364,6 +365,73 @@ class DNSSRVChecker(SameValueChecker):
                     }
                 ],
             }
+
+
+class DNSMXChecker(SameValueChecker):
+    rtype = "MX"
+
+    def __init__(self, domain: str) -> None:
+        super().__init__(domain)
+        self.name = domain
+        self._name2addr: Dict[str, List[str]] = {}
+
+    def name2addr(self, name: str, v4: bool = True, v6: bool = True) -> List[str]:
+        try:
+            return self._name2addr[name]
+        except KeyError:
+            pass
+        resolvers = []
+        if v4:
+            resolvers.append(_dns_query(name, rtype="A"))
+        if v6:
+            resolvers.append(_dns_query(name, rtype="AAAA"))
+        result = self._name2addr[name] = sorted(
+            chain(*resolvers),
+            key=key_sort_dom,
+        )
+        return result
+
+    def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
+        yield from super().test(v4=v4, v6=v6)
+        results = frozenset(
+            result for _, _, subresults in self.results for result in subresults
+        )
+        for result in results:
+            priority, srvname = result.split(None, 1)
+            srvname = srvname.rstrip(".")
+            for addr in self.name2addr(srvname, v4=v4, v6=v6):
+                yield {
+                    "addr": addr,
+                    "hostnames": [
+                        {
+                            "name": srvname,
+                            "type": "user",
+                            "domains": list(get_domains(srvname)),
+                        }
+                    ],
+                    "schema_version": SCHEMA_VERSION,
+                    "starttime": self.start,
+                    "endtime": self.stop,
+                    "ports": [
+                        {
+                            "port": 25,
+                            "protocol": "tcp",
+                            "scripts": [
+                                {
+                                    "id": "dns-domains-mx",
+                                    "output": f"Server is Mail eXchanger for {self.domain} (priority {priority})",
+                                    "dns-domains-mx": [
+                                        {
+                                            "domain": self.domain,
+                                            "parents": list(get_domains(self.domain)),
+                                            "priority": priority,
+                                        }
+                                    ],
+                                },
+                            ],
+                        }
+                    ],
+                }
 
 
 class TLSRPTChecker(SameValueChecker):
