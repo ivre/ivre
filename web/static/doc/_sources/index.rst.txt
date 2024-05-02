@@ -39,7 +39,14 @@ captures. It accepts results from several tools:
 
         - `Nuclei <https://github.com/projectdiscovery/nuclei/>`_
         - `Httpx <https://github.com/projectdiscovery/httpx/>`_
+        - `Tlsx <https://github.com/projectdiscovery/tlsx/>`_
         - `Dnsx <https://github.com/projectdiscovery/dnsx/>`_
+
+    - Tools shipped with the IVRE project:
+
+        - ``ivre auditdom`` (DNS audit)
+        - ``ivre localscan`` (fake Nmap scan result produced from
+          local commands (``ip`` and ``ss``)
 
 - Passive recon (from network traffic and/or captures):
 
