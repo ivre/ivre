@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -949,7 +949,8 @@ return result;
             if subkey is not None:
                 if subkey != subfield:
                     base = {
-                        "filter": filter_value,
+                        # filter_value exists when subkey is not None
+                        "filter": filter_value,  # pylint: disable=possibly-used-before-assignment
                         "aggs": {"patterns": base},
                     }
                 else:
@@ -1058,12 +1059,14 @@ return result;
             }
             if value1 is not None:
                 base = {
-                    "filter": filter_value1,
+                    # filter_value1 exists when value1 is not None
+                    "filter": filter_value1,  # pylint: disable=used-before-assignment
                     "aggs": {"patterns": base},
                 }
             if value2 is not None:
                 base = {
-                    "filter": filter_value2,
+                    # filter_value2 exists when value2 is not None
+                    "filter": filter_value2,  # pylint: disable=used-before-assignment
                     "aggs": {"patterns": base},
                 }
             flt = self.flt_and(

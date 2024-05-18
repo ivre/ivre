@@ -554,6 +554,8 @@ class TinyDBActive(TinyDB, DBActive):
                 host[fld] = utils.all2datetime(host[fld]).timestamp()
         if "_id" not in host:
             _id = host["_id"] = str(uuid1())
+        else:
+            _id = host["_id"]
         self.db.insert(host)
         utils.LOGGER.debug("HOST STORED: %r in %r", _id, self.dbname)
         return _id

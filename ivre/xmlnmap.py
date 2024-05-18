@@ -155,6 +155,7 @@ def add_mongodb_databases_data(script):
     """
 
     out = {}
+    cur_dict = {}  # not needed, just to make pylint happy
     # Global modes, see MODES[1]
     cur_key = None
     MODES = {

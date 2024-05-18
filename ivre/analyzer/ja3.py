@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ def banner2ja3c(banner: bytes) -> Optional[str]:
     if not HAS_SCAPY:
         utils.LOGGER.warning("Scapy not found: cannot parse TLS banners")
         return None
-    data = TLS(banner)  # type: ignore
+    data = TLS(banner)  # type: ignore  # pylint: disable=possibly-used-before-assignment
     try:
         if data.type != 22:  # handshake
             return None
