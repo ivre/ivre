@@ -11,6 +11,7 @@ mypy
 psycopg2
 pylint
 pymongo>=3.7
+pymongo[srv]>=3.7
 pyOpenSSL>=16.1.0
 rstcheck[sphinx]
 Sphinx
