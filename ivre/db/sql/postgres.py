@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -815,6 +815,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     [column("ssl_ja3_client").op("->>")(subfield)],
                     and_(
                         self.tables.script.name == "ssl-ja3-client",
+                        # when value is not None, subkey is defined
+                        # pylint: disable=possibly-used-before-assignment
                         self._searchstring_re(
                             column("ssl_ja3_client").op("->>")(subkey),
                             value,
@@ -1949,7 +1951,6 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             )
             self.db.execute(delete(tmp))
             if config.DEBUG_DB:
-                # pylint: disable=used-before-assignment,undefined-variable
                 stop_time = time.time()
                 time_spent = stop_time - start_time
                 total_upserted += count_upserted
