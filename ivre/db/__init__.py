@@ -275,6 +275,8 @@ class DB:
             db_type = "http"
         elif db_type == "mongodb+srv":
             db_type = "mongodb"
+        elif db_type == "elastics":
+            db_type = "elastic"
         try:
             modulename, classname = cls.backends[db_type]
         except (KeyError, TypeError):

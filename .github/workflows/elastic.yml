@@ -26,7 +26,7 @@ jobs:
       matrix:
         python-version: ['3.7', '3.12']
         mongodb-version: ['5.0']
-        elastic-version: ['7.10.2']
+        elastic-version: ['7.17.22', '8.0.1', '8.14.1']
 
     steps:
 
@@ -49,6 +49,7 @@ jobs:
       uses: elastic/elastic-github-actions/elasticsearch@master
       with:
         stack-version: ${{ matrix.elastic-version }}
+        security-enabled: false
 
     - run: pip install -r requirements-mongo.txt
 
