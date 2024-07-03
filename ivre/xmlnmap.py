@@ -1302,11 +1302,6 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
 
 
-def _masscan_decode_print(match):
-    char = utils.decode_hex(match.groups()[0])
-    return char if (32 <= ord(char) <= 126 or char in b"\t\r\n") else match.group()
-
-
 def _masscan_decode_raw(match):
     return utils.decode_hex(match.groups()[0])
 
@@ -1925,9 +1920,7 @@ class NmapHandler(ContentHandler):
                 )
                 script = {
                     "id": scriptid,
-                    "output": MASSCAN_ENCODING.sub(
-                        _masscan_decode_print, banner.encode()
-                    ).decode(),
+                    "output": repr(raw_output)[2:-1],
                     "masscan": {
                         "raw": self._to_binary(raw_output),
                         "encoded": banner,
