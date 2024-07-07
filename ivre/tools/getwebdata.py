@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,7 +20,8 @@
 """Fetches IP addresses lists from public websites and creates
 data files to add tags to scan results. For now, the following lists are used:
 
-  - CDN providers, from <https://cdn.nuclei.sh/>
+  - CDN & Cloud providers, from
+    <https://raw.githubusercontent.com/projectdiscovery/cdncheck/main/sources_data.json>
 
   - (US) GovCloud IP ranges, from <https://github.com/daehee/govcloud>
 
@@ -45,12 +46,13 @@ import json
 import os
 import re
 import socket
-from typing import BinaryIO, Callable, Generator, List, Tuple, cast
+from typing import BinaryIO, Callable, Generator, List, Tuple
 
 from ivre import config
 from ivre.data import govcloud
 from ivre.utils import (
     IPADDR,
+    NETADDR,
     download_if_newer,
     generic_ipaddr_extractor,
     generic_processor,
@@ -61,11 +63,11 @@ from ivre.utils import (
 
 def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
     table = make_range_tables(
-        [
-            net2range(net) + (cast(str, name),)
-            for name, nets in json.load(infd).items()
-            for net in nets
-        ]
+        net2range(net) + ((ntype, name),)
+        for ntype, name_nets in json.load(infd).items()
+        for name, nets in name_nets.items()
+        for net in nets
+        if NETADDR.search(net)  # TODO: handle domain names
     )
     outfd.write(b"[\n    (\n")
     outfd.writelines(f"        {elt[0]!r},\n".encode() for elt in table)
@@ -95,7 +97,7 @@ def dns_get_names(name: str) -> List[str]:
 assert config.DATA_PATH is not None
 URLS: List[Tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
     (
-        "https://cdn.nuclei.sh/",
+        "https://raw.githubusercontent.com/projectdiscovery/cdncheck/main/sources_data.json",
         os.path.join(config.DATA_PATH, "cdn_nuclei.py"),
         cdnjson2table,
     ),
