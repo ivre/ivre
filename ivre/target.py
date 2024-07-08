@@ -445,7 +445,11 @@ class TargetNmapPreScan(TargetZMapPreScan):
 
     @classmethod
     def _getaddr(cls, line):
-        addr = cls.match_addr.match(line)
+        try:
+            line_s = line.decode()
+        except UnicodeDecodeError:
+            return None
+        addr = cls.match_addr.match(line_s)
         if addr is not None:
             try:
                 return utils.ip2int(addr.groups()[0])
