@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
 
 
 _TOR_NODES: Optional[Set[str]] = None
-_CDN_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+_CDN_TABLE: Optional[Tuple[List[int], List[Optional[Tuple[str, str]]]]] = None
 _GOVCLOUD_TABLE: Optional[Tuple[List[int], List[Optional[List[str]]]]] = None
 _SCANNERS_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
 
@@ -204,13 +204,15 @@ def gen_addr_tags(addr: str) -> Generator[Tag, None, None]:
                     ],
                 ),
             )
-        cdn_name = _get_name(_CDN_TABLE, addr)
-        if cdn_name is not None:
+        cdn_type_name = _get_name(_CDN_TABLE, addr)
+        if cdn_type_name is not None:
+            cdn_type, cdn_name = cdn_type_name
             yield cast(
                 Tag,
                 dict(
                     TAG_CDN,
-                    info=[f"{cdn_name} as listed at <https://cdn.nuclei.sh/>"],
+                    value=cdn_type.upper(),
+                    info=[f"{cdn_name} as listed by cdncheck (projectdiscovery)"],
                 ),
             )
         govcloud_data = _get_name(_GOVCLOUD_TABLE, addr)
