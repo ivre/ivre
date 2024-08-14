@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -376,6 +376,13 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 )
             else:
                 spec["source"] = f"ja3-{clientvalue}"
+    # SSL_CLIENT JA4
+    elif spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja4":
+        info = spec.setdefault("infos", {})
+        try:
+            info["ja4_a"], info["ja4_b"], info["ja4_c"] = spec["value"].split("_", 2)
+        except ValueError:
+            utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
