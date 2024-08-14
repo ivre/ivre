@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -397,6 +397,12 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
                          $recon_type=SSL_CLIENT,
                          $source="ja3",
                          $value=c$ssl$ivreja3c]);
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=SSL_CLIENT,
+                         $source="ja4",
+                         $value=c$ssl$ivreja4c]);
     }
 }
 
