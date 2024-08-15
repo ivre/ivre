@@ -293,7 +293,7 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         "%s_%s_%s",
         join_string_vec(ja4_a, ""),
         sha256_hash(join_string_vec(ciphers_sorted, ","))[:12],
-        sha256_hash(join_string_vec(ext_sorted, ",") + "_" + join_string_vec(c$ivreja3c$signatures, ","))[:12],
+        sha256_hash(join_string_vec(ext_sorted, ",") + "_" + join_string_vec(c$ivreja3c$signatures, ","))[:12]
     );
 }
 
