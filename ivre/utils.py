@@ -73,7 +73,7 @@ from urllib.request import build_opener
 
 try:
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-    from OpenSSL import crypto as osslc  # type: ignore
+    from OpenSSL import crypto as osslc
 except ImportError:
     USE_PYOPENSSL = False
 else:

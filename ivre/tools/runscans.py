@@ -252,7 +252,7 @@ def call_nmap(
 
 
 def _call_nmap_single(
-    maincategory: str, options: List[str], accept_target_status: List[int], target: int
+    maincategory: str, options: List[str], accept_target_status: Set[int], target: int
 ) -> None:
     target_str = ivre.utils.int2ip(target)
     outfile = "scans/%s/%%s/%s.xml" % (maincategory, target_str.replace(".", "/"))
