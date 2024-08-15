@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -396,23 +396,29 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
                          $host=c$id$orig_h,
                          $recon_type=SSL_CLIENT,
                          $source="ja3",
-                         $value=c$ssl$ivreja3c]);
+                         $value=c$ssl$ivreja3c_raw]);
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=SSL_CLIENT,
+                         $source="ja4",
+                         $value=c$ssl$ivreja4c_raw]);
     }
 }
 
 event ssl_server_hello(c: connection, version: count, record_version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) {
     if (c$ssl?$ivreja3s) {
-        local ja3c = "UNKNOWN";
-        if (c$ssl?$ivreja3c) {
-            ja3c = c$ssl$ivreja3c;
+        local ja3c_raw = "UNKNOWN";
+        if (c$ssl?$ivreja3c_raw) {
+            ja3c_raw = c$ssl$ivreja3c_raw;
         }
         Log::write(LOG, [$ts=c$start_time,
                          $uid=c$uid,
                          $host=c$id$resp_h,
                          $srvport=c$id$resp_p,
                          $recon_type=SSL_SERVER,
-                         $source=fmt("ja3-%s", ja3c),
-                         $value=c$ssl$ivreja3s]);
+                         $source=fmt("ja3-%s", ja3c_raw),
+                         $value=c$ssl$ivreja3s_raw]);
     }
 }
 
@@ -569,7 +575,7 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
     if (seq == 1 && "ftp-data" !in c$service && "gridftp-data" !in c$service &&
         "irc-dcc-data" !in c$service) {
         if (is_orig) {
-	    if (c$resp$size == 0 && c$history == TCP_BANNER_HISTORY) {
+            if (c$resp$size == 0 && c$history == TCP_BANNER_HISTORY) {
                 if (c$id$resp_h in HONEYPOTS) {
                     Log::write(LOG, [$ts=c$start_time,
                                      $uid=c$uid,
@@ -587,10 +593,10 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
                                      $value=contents]);
                 }
             }
-	}
+        }
         else if (c$orig$size == 0 && c$history == TCP_BANNER_HISTORY &&
                  ! (TCP_SERVER_BANNER_IGNORE in contents) &&
-		 ! (c$id$resp_h in HONEYPOTS))
+                 ! (c$id$resp_h in HONEYPOTS))
             Log::write(LOG, [$ts=c$start_time,
                              $uid=c$uid,
                              $host=c$id$resp_h,

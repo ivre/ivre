@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -376,6 +376,31 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 )
             else:
                 spec["source"] = f"ja3-{clientvalue}"
+    # SSL_CLIENT JA4
+    elif spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja4":
+        info = spec.setdefault("infos", {})
+        value = spec["value"]
+        try:
+            # value contains raw values (from Zeek script for example)
+            info["ja4_a"], info["ja4_b_raw"], info["ja4_c1_raw"], info["ja4_c2_raw"] = (
+                value.split("_", 3)
+            )
+        except ValueError:
+            try:
+                # value is standard JA4 format (from an external tool for example)
+                info["ja4_a"], info["ja4_b"], info["ja4_c"] = value.split("_", 2)
+            except ValueError:
+                utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
+        else:
+            # value contains raw values (from Zeek script for example)
+            info["ja4_b"] = hashlib.new(
+                "sha256", data=info["ja4_b_raw"].encode()
+            ).hexdigest()[:12]
+            info["ja4_c"] = hashlib.new(
+                "sha256",
+                data=f"{info['ja4_c1_raw']}_{info['ja4_c2_raw']}".encode(),
+            ).hexdigest()[:12]
+            spec["value"] = f"{info['ja4_a']}_{info['ja4_b']}_{info['ja4_c']}"
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
