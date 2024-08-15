@@ -430,6 +430,8 @@ def _extract_passive_SSL_CLIENT(rec):
         return _extract_passive_SSL_cert(rec, cacert=True, server=False)
     if source == "ja3":
         return _extract_passive_SSL_CLIENT_ja3(rec)
+    if source == "ja4":
+        return _extract_passive_SSL_CLIENT_ja4(rec)
     return {}
 
 
@@ -550,6 +552,35 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
     port = {"port": -1, "scripts": [script]}
     if rec["value"] in scanners.JA3_CLIENT_VALUES:
         scanner, probe = scanners.JA3_CLIENT_VALUES[rec["value"]]
+        structured_output = {"scanners": [{"name": scanner}]}
+        if probe is not None:
+            structured_output["scanners"][0]["probes"] = [
+                {"proto": "tls", "name": probe}
+            ]
+        structured_output["probes"] = [{"proto": "tls", "value": rec["value"]}]
+        port["scripts"].append(
+            {
+                "id": "scanner",
+                "output": "Scanner:\n - %s [%s/tls]" % (scanner, rec["value"]),
+                "scanner": structured_output,
+            }
+        )
+    return {"ports": [port]}
+
+
+def _extract_passive_SSL_CLIENT_ja4(rec):
+    """Handle SSL client ja4 extraction."""
+    script = {"id": "ssl-ja4-client"}
+    script["output"] = rec["value"]
+    info = {"ja4": rec["value"]}
+    if "infos" in rec:
+        for k in ["ja4_a", "ja4_b", "ja4_c"]:
+            if k in rec["infos"]:
+                info[k] = rec["infos"][k]
+    script["ssl-ja4-client"] = [info]
+    port = {"port": -1, "scripts": [script]}
+    if rec["value"] in scanners.JA4_CLIENT_VALUES:
+        scanner, probe = scanners.JA4_CLIENT_VALUES[rec["value"]]
         structured_output = {"scanners": [{"name": scanner}]}
         if probe is not None:
             structured_output["scanners"][0]["probes"] = [

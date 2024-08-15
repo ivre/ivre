@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -34,6 +34,21 @@ JA3_CLIENT_VALUES = {
     "8951236eca85955755e4946572ef32bb": ("Censys", "DTLS"),
     "cba7f34191ef2379c1325641f6c6c4f4": ("Zgrab2", "http"),
     "db8d4ad49cb378fa370b43a61a9b06b6": ("Zgrab2", "jarm"),
+    "28fc222c950bd853f70cf1533d9ab85a": ("Nmap", None),
+    "30d619ff10a6eed923df39b14a5c9b42": ("Nmap", None),
+    "3bdfb64d53404bacd8a47056c6a756be": ("Nmap", None),
+    "6dc99de941a8f76cad308d9089e793d7": ("Nmap", None),
+    "c2d84b6228974503e522c608b587ee5a": ("Nmap", None),
+}
+
+
+JA4_CLIENT_VALUES = {
+    "ts2i090000_8b04906f0bb9_d2e2adf7177b": ("Nmap", None),
+    "t12i050200_7f27215065b1_cf3149f585c4": ("Nmap", None),
+    "t12i0502h9_7f27215065b1_8bd91ca53c17": ("Nmap", None),
+    "t12i080400_29ed02898241_7ec14cb91cd4": ("Nmap", None),
+    "t13d721000_db6627bd025f_7452fd1b1717": ("Nmap", None),
+    "t13i721000_db6627bd025f_7452fd1b1717": ("Nmap", None),
 }
 
 

@@ -273,6 +273,18 @@ def merge_ja3_scripts(
     return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
 
 
+def merge_ja4_scripts(
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
+    def ja3_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+        return cast(bool, a["ja4"] == b["ja4"])
+
+    def ja3_output(ja4: Dict[str, Any], script_id: str) -> str:
+        return cast(str, ja4["ja4"])
+
+    return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
+
+
 def merge_http_app_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
@@ -731,6 +743,7 @@ _SCRIPT_MERGE = {
     "ssl-cert": merge_ssl_cert_scripts,
     "ssl-ja3-client": merge_ja3_scripts,
     "ssl-ja3-server": merge_ja3_scripts,
+    "ssl-ja4-client": merge_ja4_scripts,
 }
 
 
