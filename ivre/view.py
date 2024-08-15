@@ -572,11 +572,7 @@ def _extract_passive_SSL_CLIENT_ja4(rec):
     """Handle SSL client ja4 extraction."""
     script = {"id": "ssl-ja4-client"}
     script["output"] = rec["value"]
-    info = {"ja4": rec["value"]}
-    if "infos" in rec:
-        for k in ["ja4_a", "ja4_b", "ja4_c"]:
-            if k in rec["infos"]:
-                info[k] = rec["infos"][k]
+    info = dict(rec.get("infos", {}), ja4=rec["value"])
     script["ssl-ja4-client"] = [info]
     port = {"port": -1, "scripts": [script]}
     if rec["value"] in scanners.JA4_CLIENT_VALUES:

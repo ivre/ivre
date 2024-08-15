@@ -57,8 +57,11 @@ redef record connection += {
 
 redef record SSL::Info += {
     ivreja3c: string &optional &log;
+    ivreja3c_raw: string &optional;
     ivreja3s: string &optional &log;
+    ivreja3s_raw: string &optional;
     ivreja4c: string &optional &log;
+    ivreja4c_raw: string &optional;
 };
 
 
@@ -113,13 +116,13 @@ event ssl_extension(c: connection, is_orig: bool, code: count, val: string) {
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
         }
-        c$ivreja3c$extensions[|c$ivreja3c$extensions|] = cat(code);
+        c$ivreja3c$extensions += cat(code);
     }
     else {
         if (! c?$ivreja3s) {
             c$ivreja3s = IvreJA3SStore();
         }
-        c$ivreja3s$extensions[|c$ivreja3s$extensions|] = cat(code);
+        c$ivreja3s$extensions += cat(code);
     }
 }
 
@@ -128,7 +131,7 @@ event ssl_extension_server_name(c: connection, is_orig: bool, names: string_vec)
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
         }
-        if(!is_valid_ip(names[0])) {
+        if (!is_valid_ip(names[0])) {
             c$ivreja3c$sni = "d";
         }
     }
@@ -140,9 +143,9 @@ event ssl_extension_application_layer_protocol_negotiation(c: connection, is_ori
             c$ivreja3c = IvreJA3CStore();
         }
         # Only use the first instance of the extension
-        if(c$ivreja3c$alpn == "00") {
+        if (c$ivreja3c$alpn == "00") {
             c$ivreja3c$alpn = protocols[0][0] + protocols[0][-1];
-            if(!is_ascii(c$ivreja3c$alpn)) {
+            if (!is_ascii(c$ivreja3c$alpn)) {
                 c$ivreja3c$alpn = "99";
             }
         }
@@ -157,7 +160,7 @@ event ssl_extension_signature_algorithm(c: connection, is_orig: bool, signature_
         for (i in signature_algorithms) {
             local val = signature_algorithms[i];
             local value = val$HashAlgorithm * 256 + val$SignatureAlgorithm;
-            if(value !in grease) {
+            if (value !in grease) {
                 c$ivreja3c$signatures += fmt("%04x", value);
             }
         }
@@ -183,7 +186,7 @@ event ssl_extension_ec_point_formats(c: connection, is_orig: bool, point_formats
             if (point_format in grease) {
                 next;
             }
-            c$ivreja3c$ec_point_fmt[|c$ivreja3c$ec_point_fmt|] = cat(point_format);
+            c$ivreja3c$ec_point_fmt += cat(point_format);
         }
     }
 }
@@ -199,7 +202,7 @@ event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_
             if (curve in grease) {
                 next;
             }
-            c$ivreja3c$e_curves[|c$ivreja3c$e_curves|] = cat(curve);
+            c$ivreja3c$e_curves += cat(curve);
         }
     }
 }
@@ -216,16 +219,17 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         if (cipher in grease) {
             next;
         }
-        ciphers_string[|ciphers_string|] = cat(cipher);
+        ciphers_string += cat(cipher);
     }
 
-    c$ssl$ivreja3c = fmt(
+    c$ssl$ivreja3c_raw = fmt(
         "%d,%s,%s,%s,%s",
         version, join_string_vec(ciphers_string, "-"),
         join_string_vec(c$ivreja3c$extensions, "-"),
         join_string_vec(c$ivreja3c$e_curves, "-"),
         join_string_vec(c$ivreja3c$ec_point_fmt, "-")
     );
+    c$ssl$ivreja3c = md5_hash(c$ssl$ivreja3c_raw);
 
     local ja4_a: vector of string = vector();
     # the first byte is the protocol:
@@ -233,62 +237,69 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
     # - "q" for QUIC
     # - "?" otherwise (*not standard*)
     local proto: transport_proto = get_port_transport_proto(c$id$resp_p);
-    if(proto == tcp){
-        ja4_a[|ja4_a|] = "t";
+    if (proto == tcp){
+        ja4_a += "t";
     }
-    else if(proto == udp) {
-        if("QUIC" in c$service) {
-            ja4_a[|ja4_a|] = "q";
+    else if (proto == udp) {
+        if ("QUIC" in c$service) {
+            ja4_a += "q";
         }
         else {
             # other UDP: unknown
-            ja4_a[|ja4_a|] = "?";
+            ja4_a += "?";
         }
     }
     else {
         # other protocol: unknown
-        ja4_a[|ja4_a|] = "?";
+        ja4_a += "?";
     }
     local real_version: count = c$ivreja3c$version == 0 ? version : c$ivreja3c$version;
-    if(real_version in ja4_tls_versions) {
-        ja4_a[|ja4_a|] = ja4_tls_versions[real_version];
+    if (real_version in ja4_tls_versions) {
+        ja4_a += ja4_tls_versions[real_version];
     }
     else {
-        ja4_a[|ja4_a|] = "??";
+        ja4_a += "??";
     }
     # SNI, collected in ssl_extension_server_name()
-    ja4_a[|ja4_a|] = c$ivreja3c$sni;
+    ja4_a += c$ivreja3c$sni;
     # ciphers count (use ciphers_string to remove grease)
-    if(|ciphers_string| >= 100) {
-        ja4_a[|ja4_a|] = "99";
+    if (|ciphers_string| >= 100) {
+        ja4_a += "99";
     }
     else {
-        ja4_a[|ja4_a|] = fmt("%02d", |ciphers_string|);
+        ja4_a += fmt("%02d", |ciphers_string|);
     }
     # extensions count
-    if(|c$ivreja3c$extensions| >= 100) {
-        ja4_a[|ja4_a|] = "99";
+    if (|c$ivreja3c$extensions| >= 100) {
+        ja4_a += "99";
     }
     else {
-        ja4_a[|ja4_a|] = fmt("%02d", |c$ivreja3c$extensions|);
+        ja4_a += fmt("%02d", |c$ivreja3c$extensions|);
     }
     # ALPN, collected in ssl_extension_application_layer_protocol_negotiation()
-    ja4_a[|ja4_a|] = c$ivreja3c$alpn;
+    ja4_a += c$ivreja3c$alpn;
 
     local ciphers_sorted: vector of string = vector();
-    for(i in ciphers_string) {
+    for (i in ciphers_string) {
         ciphers_sorted += fmt("%04x", to_count(ciphers_string[i]));
     }
     sort(ciphers_sorted, strcmp);
 
     local ext_sorted: vector of string = vector();
-    for(i in c$ivreja3c$extensions) {
-        if(c$ivreja3c$extensions[i] !in ja4_ignore_ext) {
+    for (i in c$ivreja3c$extensions) {
+        if (c$ivreja3c$extensions[i] !in ja4_ignore_ext) {
             ext_sorted += fmt("%04x", to_count(c$ivreja3c$extensions[i]));
         }
     }
     sort(ext_sorted, strcmp);
 
+    c$ssl$ivreja4c_raw = fmt(
+        "%s_%s_%s_%s",
+        join_string_vec(ja4_a, ""),
+        join_string_vec(ciphers_sorted, ","),
+        join_string_vec(ext_sorted, ","),
+	join_string_vec(c$ivreja3c$signatures, ",")
+    );
     c$ssl$ivreja4c = fmt(
         "%s_%s_%s",
         join_string_vec(ja4_a, ""),
@@ -303,8 +314,9 @@ event ssl_server_hello(c: connection, version: count, record_version: count, pos
         c$ivreja3s = IvreJA3SStore();
     }
 
-    c$ssl$ivreja3s = fmt(
+    c$ssl$ivreja3s_raw = fmt(
         "%d,%d,%s", version, cipher,
         join_string_vec(c$ivreja3s$extensions, "-")
     );
+    c$ssl$ivreja3s = md5_hash(c$ssl$ivreja3s_raw);
 }

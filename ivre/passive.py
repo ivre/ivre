@@ -380,9 +380,20 @@ def _prepare_rec(spec, ignorenets, neverignore):
     elif spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja4":
         info = spec.setdefault("infos", {})
         try:
-            info["ja4_a"], info["ja4_b"], info["ja4_c"] = spec["value"].split("_", 2)
+            info["ja4_a"], info["ja4_b_raw"], info["ja4_c1_raw"], info["ja4_c2_raw"] = (
+                spec["value"].split("_", 3)
+            )
         except ValueError:
             utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
+        else:
+            info["ja4_b"] = hashlib.new(
+                "sha256", data=info["ja4_b_raw"].encode()
+            ).hexdigest()[:12]
+            info["ja4_c"] = hashlib.new(
+                "sha256",
+                data=f"{info['ja4_c1_raw']}_{info['ja4_c2_raw']}".encode(),
+            ).hexdigest()[:12]
+            spec["value"] = f"{info['ja4_a']}_{info['ja4_b']}_{info['ja4_c']}"
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
