@@ -656,7 +656,6 @@ class TinyDBActive(TinyDB, DBActive):
                 raise ValueError("searchports: cannot set both neg and any_")
             return cls.flt_or(*res)
         if neg:
-            # pylint: disable=invalid-unary-operand-type
             return ~cls.flt_or(*res)
         return cls.flt_and(*res)
 
@@ -813,7 +812,6 @@ class TinyDBActive(TinyDB, DBActive):
         else:
             res = q.ports.any(q.scripts.exists())
         if neg:
-            # pylint: disable=invalid-unary-operand-type
             return ~res
         return res
 
@@ -4147,7 +4145,6 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                     array_mode=clause["array_mode"],
                 )
         if clause["neg"]:
-            # pylint: disable=invalid-unary-operand-type
             return ~res
         return res
 

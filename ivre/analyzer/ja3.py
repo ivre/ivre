@@ -103,7 +103,7 @@ def banner2ja34c(
         version = msg.version
         signatures = []
         for ext in msg.ext or []:
-            if ext.type == 0:  # sni
+            if not ext.type:  # sni
                 if ext.servernames and not utils.is_valid_ip(ext.servernames[0].name):
                     sni = "d"
             elif ext.type == 10:  # supported_groups / elliptic_curves
