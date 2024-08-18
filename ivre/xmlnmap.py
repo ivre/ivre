@@ -2013,10 +2013,14 @@ class NmapHandler(ContentHandler):
                         self._curhost.setdefault("hostnames", []),
                     )
                     if match.get("service_name") == "reverse-ssl":
-                        # Attempt to compute the JA3c value
-                        script = ja3.banner2script(raw_output)
-                        if script:
-                            self._curport.setdefault("scripts", []).append(script)
+                        # Attempt to compute the JA3c & JA4c values
+                        scripts = ja3.banner2scripts(
+                            raw_output,
+                            self._curport.get("protocol"),
+                            self._curport.get("service_name"),
+                        )
+                        if scripts:
+                            self._curport.setdefault("scripts", []).extend(scripts)
                 return
             for attr in attrs.keys():
                 self._curport["service_%s" % attr] = attrs[attr]

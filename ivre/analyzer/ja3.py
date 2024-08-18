@@ -19,7 +19,7 @@
 
 
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ivre import utils
 
@@ -46,8 +46,22 @@ GREASE = {
     0xFAFA,
 }
 
+JA4_VERSIONS = {
+    0x0002: "s2",
+    0x0300: "s3",
+    0x0301: "10",
+    0x0302: "11",
+    0x0303: "12",
+    0x0304: "13",
+    0xFEFF: "d1",
+    0xFEFD: "d2",
+    0xFEFC: "d3",
+}
 
-def banner2ja3c(banner: bytes) -> Optional[str]:
+
+def banner2ja34c(
+    banner: bytes, protocol: str
+) -> Optional[Tuple[str, str, str, str, str]]:
     # "lazy" import for scapy, as this import is slow.
     # TLS is assigned by the import statement, but pylint seems to miss it.
     global HAS_SCAPY, TLS
@@ -69,7 +83,7 @@ def banner2ja3c(banner: bytes) -> Optional[str]:
             return None
     except AttributeError:
         return None
-    output = []
+    output_ja3 = []
     for msg in data.msg:
         try:
             if msg.msgtype != 1:  # TLSClientHello
@@ -77,34 +91,100 @@ def banner2ja3c(banner: bytes) -> Optional[str]:
         except AttributeError:
             utils.LOGGER.warning("Cannot parse TLS message [%r]", msg)
             continue
-        output.append(str(msg.version))
-        output.append("-".join(str(c) for c in msg.ciphers or [] if c not in GREASE))
-        output.append(
-            "-".join(str(e.type) for e in msg.ext or [] if e.type not in GREASE)
-        )
-        ecsg: List[str] = []
-        ecpf: List[str] = []
+        output_ja3.append(str(msg.version))
+        ciphers = [c for c in msg.ciphers if c not in GREASE]
+        output_ja3.append("-".join(str(c) for c in ciphers))
+        exts = [e.type for e in msg.ext or [] if e.type not in GREASE]
+        output_ja3.append("-".join(str(e) for e in exts))
+        ecsg: List[int] = []
+        ecpf: List[int] = []
+        sni = "i"
+        alpn = "00"
+        version = msg.version
+        signatures = []
         for ext in msg.ext or []:
-            if ext.type == 10:  # supported_groups / elliptic_curves
-                ecsg.extend(str(g) for g in ext.groups if g not in GREASE)
+            if ext.type == 0:  # sni
+                if ext.servernames and not utils.is_valid_ip(ext.servernames[0].name):
+                    sni = "d"
+            elif ext.type == 10:  # supported_groups / elliptic_curves
+                ecsg.extend(g for g in ext.groups if g not in GREASE)
             elif ext.type == 11:  # ec_point_formats
-                ecpf.extend(str(p) for p in ext.ecpl if p not in GREASE)
-        output.append("-".join(ecsg))
-        output.append("-".join(ecpf))
+                ecpf.extend(p for p in ext.ecpl if p not in GREASE)
+            elif ext.type == 13:  # signatures
+                if ext.sig_algs:
+                    signatures = [s for s in ext.sig_algs if s not in GREASE]
+            elif ext.type == 16:  # ALPN
+                if ext.protocols:
+                    alpn = ext.protocols[0] + ext.protocols[-1]
+                    if not alpn.isascii():
+                        alpn = "99"
+            elif ext.type == 43:  # supported_versions
+                if ext.versions:
+                    version = ext.versions[0]
+        output_ja3.append("-".join(str(v) for v in ecsg))
+        output_ja3.append("-".join(str(v) for v in ecpf))
+        output_ja4_a = f"{protocol}{JA4_VERSIONS.get(version, '??')}{sni}{min(len(ciphers), 99)}{min(len(exts), 99)}{alpn}"
+        output_ja4_b = ",".join("%04x" % c for c in sorted(ciphers))
+        output_ja4_c1 = ",".join("%04x" % c for c in sorted(exts) if c not in {0, 16})
+        output_ja4_c2 = ",".join("%04x" % c for c in signatures)
         break
-    if not output:
+    if not output_ja3:
         return None
-    return ",".join(output)
+    return (
+        ",".join(output_ja3),
+        output_ja4_a,
+        output_ja4_b,
+        output_ja4_c1,
+        output_ja4_c2,
+    )
 
 
-def banner2script(banner: bytes) -> Optional[Dict[str, Any]]:
-    ja3c = banner2ja3c(banner)
-    if not ja3c:
+def banner2scripts(
+    banner: bytes,
+    protocol: Optional[str] = None,
+    service: Optional[str] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    try:
+        output_ja3, output_ja4_a, output_ja4_b, output_ja4_c1, output_ja4_c2 = (
+            banner2ja34c(
+                banner,
+                (
+                    "t"
+                    if protocol == "tcp"
+                    else "q" if protocol == "udp" and service == "quic" else "?"
+                ),
+            )
+        )
+    except TypeError:
         return None
-    structured = {"raw": ja3c}
-    script: Dict[str, Any] = {"id": "ssl-ja3-client"}
+    structured_ja3 = {"raw": output_ja3}
     for hashtype in ["md5", "sha1", "sha256"]:
-        structured[hashtype] = hashlib.new(hashtype, ja3c.encode()).hexdigest()
-    script["output"] = structured["md5"]
-    script["ssl-ja3-client"] = [structured]
-    return script
+        structured_ja3[hashtype] = hashlib.new(
+            hashtype, output_ja3.encode()
+        ).hexdigest()
+    script_ja3 = {
+        "id": "ssl-ja3-client",
+        "output": structured_ja3["md5"],
+        "ssl-ja3-client": [structured_ja3],
+    }
+    ja4_b = hashlib.new("sha256", data=output_ja4_b.encode()).hexdigest()[:12]
+    ja4_c = hashlib.new(
+        "sha256", data=f"{output_ja4_c1}_{output_ja4_c2}".encode()
+    ).hexdigest()[:12]
+    ja4 = f"{output_ja4_a}_{ja4_b}_{ja4_c}"
+    script_ja4 = {
+        "id": "ssl-ja4-client",
+        "output": ja4,
+        "ssl-ja4-client": [
+            {
+                "ja4": ja4,
+                "ja4_a": output_ja4_a,
+                "ja4_b": ja4_b,
+                "ja4_b_raw": output_ja4_b,
+                "ja4_c": ja4_c,
+                "ja4_c1_raw": output_ja4_c1,
+                "ja4_c2_raw": output_ja4_c2,
+            }
+        ],
+    }
+    return [script_ja3, script_ja4]
