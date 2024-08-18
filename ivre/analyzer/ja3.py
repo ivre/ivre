@@ -144,19 +144,17 @@ def banner2scripts(
     protocol: Optional[str] = None,
     service: Optional[str] = None,
 ) -> Optional[List[Dict[str, Any]]]:
-    try:
-        output_ja3, output_ja4_a, output_ja4_b, output_ja4_c1, output_ja4_c2 = (
-            banner2ja34c(
-                banner,
-                (
-                    "t"
-                    if protocol == "tcp"
-                    else "q" if protocol == "udp" and service == "quic" else "?"
-                ),
-            )
-        )
-    except TypeError:
+    result = banner2ja34c(
+        banner,
+        (
+            "t"
+            if protocol == "tcp"
+            else "q" if protocol == "udp" and service == "quic" else "?"
+        ),
+    )
+    if result is None:
         return None
+    output_ja3, output_ja4_a, output_ja4_b, output_ja4_c1, output_ja4_c2 = result
     structured_ja3 = {"raw": output_ja3}
     for hashtype in ["md5", "sha1", "sha256"]:
         structured_ja3[hashtype] = hashlib.new(
