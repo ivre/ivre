@@ -166,9 +166,11 @@ def banner2scripts(
         "ssl-ja3-client": [structured_ja3],
     }
     ja4_b = hashlib.new("sha256", data=output_ja4_b.encode()).hexdigest()[:12]
-    ja4_c = hashlib.new(
-        "sha256", data=f"{output_ja4_c1}_{output_ja4_c2}".encode()
-    ).hexdigest()[:12]
+    if output_ja4_c2:
+        output_ja4_c = f"{output_ja4_c1}_{output_ja4_c2}"
+    else:
+        output_ja4_c = output_ja4_c1
+    ja4_c = hashlib.new("sha256", data=output_ja4_c.encode()).hexdigest()[:12]
     ja4 = f"{output_ja4_a}_{ja4_b}_{ja4_c}"
     script_ja4 = {
         "id": "ssl-ja4-client",
