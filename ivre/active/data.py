@@ -276,13 +276,13 @@ def merge_ja3_scripts(
 def merge_ja4_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
-    def ja3_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    def ja4_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return cast(bool, a["ja4"] == b["ja4"])
 
-    def ja3_output(ja4: Dict[str, Any], script_id: str) -> str:
+    def ja4_output(ja4: Dict[str, Any], script_id: str) -> str:
         return cast(str, ja4["ja4"])
 
-    return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
+    return _merge_scripts(curscript, script, script_id, ja4_equals, ja4_output)
 
 
 def merge_http_app_scripts(

@@ -45,6 +45,7 @@ JA3_CLIENT_VALUES = {
     "d174b8473ee6a9f2e6d01c6c13264da2": ("Scapy", None),
     "4f9cd475f4830f32f722223f3122caf4": ("Scapy", None),
     "7f0532201a648dc6583aa37956b32284": ("Scapy", None),
+    "aec0c2453b922f02c12a7c8310d62071": ("Tlsx", None),
 }
 
 
@@ -61,6 +62,7 @@ JA4_CLIENT_VALUES = {
     "t11i130000_12ca15e9fa31_d2e2adf7177b": ("Scapy", None),
     "t12i130100_12ca15e9fa31_9ffaceab5a69": ("Scapy", None),
     "t13i010400_0f2cb44170f4_eb946c6df3cc": ("Scapy", None),
+    "t12d000600_e3b0c44298fc_e51b7354d87f": ("Tlsx", None),
 }
 
 
