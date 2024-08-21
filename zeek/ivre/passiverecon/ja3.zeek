@@ -172,7 +172,13 @@ event ssl_extension_supported_versions(c: connection, is_orig: bool, versions: i
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
         }
-        c$ivreja3c$version = versions[0];
+        for (i in versions) {
+            local value = versions[i];
+            if (value !in grease) {
+                c$ivreja3c$version = value;
+                break;
+            }
+        }
     }
 }
 
