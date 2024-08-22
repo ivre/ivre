@@ -241,7 +241,11 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         ja4_a += "t";
     }
     else if (proto == udp) {
+@if(Version::number >= 60100)
+        if (c?$quic || "QUIC" in c$service) {
+@else
         if ("QUIC" in c$service) {
+@endif
             ja4_a += "q";
         }
         else {
