@@ -288,12 +288,15 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
     }
     # ALPN, collected in ssl_extension_application_layer_protocol_negotiation()
     ja4_a += c$ivreja3c$alpn;
+    local ja4_a_s = join_string_vec(ja4_a, "");
 
     local ciphers_sorted: vector of string = vector();
     for (i in ciphers_string) {
         ciphers_sorted += fmt("%04x", to_count(ciphers_string[i]));
     }
     sort(ciphers_sorted, strcmp);
+
+    local ja4_b_s = join_string_vec(ciphers_sorted, ",");
 
     local ext_sorted: vector of string = vector();
     for (i in c$ivreja3c$extensions) {
@@ -303,19 +306,15 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
     }
     sort(ext_sorted, strcmp);
 
-    c$ssl$ivreja4c_raw = fmt(
-        "%s_%s_%s_%s",
-        join_string_vec(ja4_a, ""),
-        join_string_vec(ciphers_sorted, ","),
-        join_string_vec(ext_sorted, ","),
-	join_string_vec(c$ivreja3c$signatures, ",")
-    );
-    c$ssl$ivreja4c = fmt(
-        "%s_%s_%s",
-        join_string_vec(ja4_a, ""),
-        sha256_hash(join_string_vec(ciphers_sorted, ","))[:12],
-        sha256_hash(join_string_vec(ext_sorted, ",") + "_" + join_string_vec(c$ivreja3c$signatures, ","))[:12]
-    );
+    local ja4_c: vector of string = vector();
+    ja4_c += join_string_vec(ext_sorted, ",");
+    if (|c$ivreja3c$signatures| > 0) {
+        ja4_c += join_string_vec(c$ivreja3c$signatures, ",");
+    }
+    local ja4_c_s = join_string_vec(ja4_c, "_");
+
+    c$ssl$ivreja4c_raw = fmt("%s_%s_%s", ja4_a_s, ja4_b_s, ja4_c_s);
+    c$ssl$ivreja4c = fmt("%s_%s_%s", ja4_a_s, sha256_hash(ja4_b_s)[:12], sha256_hash(ja4_c_s)[:12]);
 }
 
 event ssl_server_hello(c: connection, version: count, record_version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) &priority=1
