@@ -226,11 +226,13 @@ Filters
 - ``x11open`` look for open X11 servers.
 - ``x11srv`` look for X11 servers.
 - ``xp445`` look for Windows XP machines with TCP/445 port open.
-- ``[!]ssl-ja3-client[:JA3]`` look for hosts with a JA3 client or with
-  the given JA3 client.
+- ``[!]ssl-ja3-client[:JA3]`` look for hosts with a JA3 client
+  fingerprint or with the given JA3 client fingerprint.
 - ``[!]ssl-ja3-server[:[JA3S][:JA3C]]`` look for hosts with a JA3
-  server, with the given JA3 server (optionally corresponding to the
-  given JA3 client).
+  server fingerprint, with the given JA3 server fingerprint
+  (optionally corresponding to the given JA3 client fingerprint).
+- ``[!]ssl-ja4-client[:JA4]`` look for hosts with a JA4 client
+  fingerprint or with the given JA4 client fingerprint.
 - ``[!]ssl-jarm[:JARM]`` look for hosts with a (specific, when
   specified) JARM fingerprint.
 - ``hassh[:HASSH]`` look for hosts with a (specific, when specified)

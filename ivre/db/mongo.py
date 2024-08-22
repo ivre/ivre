@@ -970,6 +970,18 @@ class MongoDBActive(MongoDB, DBActive):
                 {"sparse": True},
             ),
             (
+                [("ports.scripts.ssl-ja4-client.ja4", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [
+                    ("ports.scripts.ssl-ja4-client.ja4_a", pymongo.ASCENDING),
+                    ("ports.scripts.ssl-ja4-client.ja4_b", pymongo.ASCENDING),
+                    ("ports.scripts.ssl-ja4-client.ja4_c", pymongo.ASCENDING),
+                ],
+                {"sparse": True},
+            ),
+            (
                 [("ports.scripts.ssl-jarm", pymongo.ASCENDING)],
                 {"sparse": True},
             ),
@@ -3082,7 +3094,8 @@ class MongoDBActive(MongoDB, DBActive):
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
-          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type]
+          - ja4-client[:filter][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
           - tag.{value,type,info} / tag[:value]
         """
@@ -3720,6 +3733,26 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {"count": x["count"], "_id": tuple(x["_id"])}
 
+        elif field == "ja4-client" or (
+            field.startswith("ja4-client") and field[10] in ":."
+        ):
+            if ":" in field:
+                field, value = field.split(":", 1)
+                specialflt = [
+                    {
+                        "$match": {
+                            "ports.scripts.ssl-ja4-client.ja4": value,
+                        }
+                    },
+                ]
+            else:
+                value = None
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "ja4"
+            flt = self.flt_and(flt, self.searchja4client(value=value))
+            field = "ports.scripts.ssl-ja4-client.%s" % subfield
         elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
             if "." in field:
                 field, subfield = field.split(".", 1)
@@ -5456,6 +5489,70 @@ class MongoDBPassive(MongoDB, DBPassive):
             source=re.compile("^ja3-"),
             **{"infos.client.%s" % key: client_value_or_hash},
         )
+
+    @classmethod
+    def searchja4client(
+        cls,
+        value=None,
+        raw=None,
+        ja4_a=None,
+        ja4_b=None,
+        ja4_c=None,
+        ja4_b_raw=None,
+        ja4_c_raw=None,
+        ja4_c1_raw=None,
+        ja4_c2_raw=None,
+        neg=False,
+    ):
+        flt = {"recontype": "SSL_CLIENT", "source": "ja4"}
+        if value is not None:
+            flt["value"] = value
+            # also, use ja4_* fields that are indexed
+            if isinstance(value, str):
+                try:
+                    if value[10] != "_":
+                        raise ValueError()
+                    flt["infos.ja4_a"] = value[:10]
+                    flt["infos.ja4_b"], flt["infos.ja4_c"] = value[11:].split("_", 1)
+                except (KeyError, ValueError):
+                    utils.LOGGER.warning("Invalid JA4 value %r", value, exc_info=True)
+        if raw is not None:
+            try:
+                if raw[10] != "_":
+                    raise ValueError()
+                flt["infos.ja4_a"] = raw[:10]
+                # using _ja4_c_raw to prevent conflict with parameter
+                flt["infos.ja4_b_raw"], _ja4_c_raw = value[11:].split("_", 1)
+                if "_" in _ja4_c_raw:
+                    flt["infos.ja4_c1_raw"], flt["infos.ja4_c2_raw"] = _ja4_c_raw.split(
+                        "_", 1
+                    )
+                else:
+                    flt["infos.ja4_c1_raw"] = _ja4_c_raw
+                    flt["infos.ja4_c2_raw"] = ""
+            except (KeyError, ValueError):
+                utils.LOGGER.warning("Invalid JA4 raw value %r", raw, exc_info=True)
+        if ja4_a is not None:
+            flt["infos.ja4_a"] = ja4_a
+        if ja4_b is not None:
+            flt["infos.ja4_b"] = ja4_b
+        if ja4_c is not None:
+            flt["infos.ja4_c"] = ja4_c
+        if ja4_b_raw is not None:
+            flt["infos.ja4_b_raw"] = ja4_b_raw
+        if ja4_c_raw is not None:
+            if "_" in ja4_c_raw:
+                flt["infos.ja4_c1_raw"], flt["infos.ja4_c2_raw"] = ja4_c_raw.split(
+                    "_", 1
+                )
+            else:
+                flt["infos.ja4_c1_raw"] = ja4_c_raw
+                flt["infos.ja4_c2_raw"] = ""
+        if ja4_c1_raw is not None:
+            flt["infos.ja4_c1_raw"] = ja4_c1_raw
+        if ja4_c2_raw is not None:
+            flt["infos.ja4_c2_raw"] = ja4_c2_raw
+        return flt
 
     @staticmethod
     def searchsshkey(fingerprint=None, key=None, keytype=None, bits=None):

@@ -929,6 +929,7 @@ class DBActive(DB):
         "ports.scripts.ssl-cert",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
+        "ports.scripts.ssl-ja4-client",
         "ports.scripts.vulns",
         "ports.scripts.vulns.check_results",
         "ports.scripts.vulns.description",
@@ -3914,6 +3915,20 @@ class DBView(DBActive):
             const=False,
             default=None,
         )
+        self.argparser.add_argument(
+            "--ssl-ja4-client",
+            metavar="JA4-CLIENT",
+            nargs="?",
+            const=False,
+            default=None,
+        )
+        self.argparser.add_argument(
+            "--ssl-ja4-client-raw",
+            metavar="JA4-CLIENT_RAW",
+            nargs="?",
+            const=False,
+            default=None,
+        )
 
     def parse_args(self, args, flt=None):
         flt = super().parse_args(args, flt=flt)
@@ -3975,6 +3990,22 @@ class DBView(DBActive):
                             client_value_or_hash=split[1],
                         ),
                     )
+        if args.ssl_ja4_client is not None:
+            cli = args.ssl_ja4_client
+            flt = self.flt_and(
+                flt,
+                self.searchja4client(
+                    value=(None if cli is False else utils.str2regexp(cli))
+                ),
+            )
+        if args.ssl_ja4_client_raw is not None:
+            cli = args.ssl_ja4_client_raw
+            flt = self.flt_and(
+                flt,
+                self.searchja4clientraw(
+                    raw=(None if cli is False else utils.str2regexp(cli))
+                ),
+            )
         return flt
 
     @staticmethod
@@ -4027,6 +4058,67 @@ class DBView(DBActive):
             values=values,
             neg=neg,
         )
+
+    @classmethod
+    def searchja4client(
+        cls,
+        value=None,
+        raw=None,
+        ja4_a=None,
+        ja4_b=None,
+        ja4_c=None,
+        ja4_b_raw=None,
+        ja4_c_raw=None,
+        ja4_c1_raw=None,
+        ja4_c2_raw=None,
+        neg=False,
+    ):
+        values = {}
+        if value is not None:
+            values["ja4"] = value
+            # also, use ja4_* fields that are indexed
+            try:
+                if value[10] != "_":
+                    raise ValueError()
+                values["ja4_a"] = value[:10]
+                values["ja4_b"], values["ja4_c"] = value[11:].split("_", 1)
+            except (KeyError, ValueError):
+                utils.LOGGER.warning("Invalid JA4 value %r", value, exc_info=True)
+        if raw is not None:
+            try:
+                if raw[10] != "_":
+                    raise ValueError()
+                values["ja4_a"] = raw[:10]
+                # using _ja4_c_raw to prevent conflict with parameter
+                values["ja4_b_raw"], _ja4_c_raw = value[11:].split("_", 1)
+                if "_" in _ja4_c_raw:
+                    values["ja4_c1_raw"], values["ja4_c2_raw"] = _ja4_c_raw.split(
+                        "_", 1
+                    )
+                else:
+                    values["ja4_c1_raw"] = _ja4_c_raw
+                    values["ja4_c2_raw"] = ""
+            except (KeyError, ValueError):
+                utils.LOGGER.warning("Invalid JA4 raw value %r", raw, exc_info=True)
+        if ja4_a is not None:
+            values["ja4_a"] = ja4_a
+        if ja4_b is not None:
+            values["ja4_b"] = ja4_b
+        if ja4_c is not None:
+            values["ja4_c"] = ja4_c
+        if ja4_b_raw is not None:
+            values["ja4_b_raw"] = ja4_b_raw
+        if ja4_c_raw is not None:
+            if "_" in ja4_c_raw:
+                values["ja4_c1_raw"], values["ja4_c2_raw"] = ja4_c_raw.split("_", 1)
+            else:
+                values["ja4_c1_raw"] = ja4_c_raw
+                values["ja4_c2_raw"] = ""
+        if ja4_c1_raw is not None:
+            values["ja4_c1_raw"] = ja4_c1_raw
+        if ja4_c2_raw is not None:
+            values["ja4_c2_raw"] = ja4_c2_raw
+        return cls.searchscript(name="ssl-ja4-client", values=values, neg=neg)
 
 
 class _RecInfo:
@@ -4115,6 +4207,20 @@ class DBPassive(DB):
         self.argparser.add_argument(
             "--ssl-ja3-client",
             metavar="JA3-CLIENT",
+            nargs="?",
+            const=False,
+            default=None,
+        )
+        self.argparser.add_argument(
+            "--ssl-ja4-client",
+            metavar="JA4-CLIENT",
+            nargs="?",
+            const=False,
+            default=None,
+        )
+        self.argparser.add_argument(
+            "--ssl-ja4-client-raw",
+            metavar="JA4-CLIENT-RAW",
             nargs="?",
             const=False,
             default=None,
@@ -4224,6 +4330,22 @@ class DBPassive(DB):
                         ),
                     )
 
+        if args.ssl_ja4_client is not None:
+            cli = args.ssl_ja4_client
+            flt = self.flt_and(
+                flt,
+                self.searchja4client(
+                    value=(None if cli is False else utils.str2regexp(cli))
+                ),
+            )
+        if args.ssl_ja4_client_raw is not None:
+            cli = args.ssl_ja4_client_raw
+            flt = self.flt_and(
+                flt,
+                self.searchja4client(
+                    raw=(None if cli is False else utils.str2regexp(cli))
+                ),
+            )
         return flt
 
     def output_function(self, doc):
