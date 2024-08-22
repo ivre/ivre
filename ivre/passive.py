@@ -44,6 +44,25 @@ DNSBL_START = re.compile(
 )
 MD5 = re.compile("^[0-9a-f]{32}$", re.I)
 
+_JA4_A = "[tq?][0-9?]{2}[id][0-9]{4}.{2}"  # could be looser; '?' are non-standard
+_JA4_HASH = "[0-9a-f]{12}"
+_JA4_LIST = "(?:[0-9a-f]{4}(?:,[0-9a-f]{4})*)?"
+JA4 = re.compile(f"^(?P<ja4_a>{_JA4_A})_(?P<ja4_b>{_JA4_HASH})_(?P<ja4_c>{_JA4_HASH})$")
+JA4_RAW = re.compile(
+    f"^(?P<ja4_a>{_JA4_A})_(?P<ja4_b_raw>{_JA4_LIST})_(?P<ja4_c1_raw>{_JA4_LIST})(?:_(?P<ja4_c2_raw>{_JA4_LIST}))?$",
+    re.I,
+)
+
+TESTS = [
+    "t13d1516h2_8daaf6152771_e5627efa2ab1",
+    "q13d0310h3_55b375c5d22e_cd85d2d88918",
+    "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01_0403,0804,0401,0503,0805,0501,0806,0601",
+    "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01_",
+    "t13d1516h2_002f,0035,009c,009d,1301,1302,1303,c013,c014,c02b,c02c,c02f,c030,cca8,cca9_0005,000a,000b,000d,0012,0015,0017,001b,0023,002b,002d,0033,4469,ff01",
+    "q13d0310h3_1301,1302,1303_000a,000d,001b,002b,002d,0033,0039,4469_0403,0804,0401,0503,0805,0501,0806,0601,0201",
+    "q13d0310h3_1301,1302,1303_000a,000d,001b,002b,002d,0033,0039,4469_",
+    "q13d0310h3_1301,1302,1303_000a,000d,001b,002b,002d,0033,0039,4469",
+]
 
 # Zeek specific
 
@@ -380,27 +399,29 @@ def _prepare_rec(spec, ignorenets, neverignore):
     elif spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja4":
         info = spec.setdefault("infos", {})
         value = spec["value"]
-        try:
-            # value contains raw values (from Zeek script for example)
-            info["ja4_a"], info["ja4_b_raw"], info["ja4_c1_raw"], info["ja4_c2_raw"] = (
-                value.split("_", 3)
-            )
-        except ValueError:
-            try:
-                # value is standard JA4 format (from an external tool for example)
-                info["ja4_a"], info["ja4_b"], info["ja4_c"] = value.split("_", 2)
-            except ValueError:
-                utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
-        else:
-            # value contains raw values (from Zeek script for example)
+        # Python >= 3.8: use :=
+        ja4_raw_match = JA4_RAW.search(value)
+        if ja4_raw_match is not None:
+            info.update(ja4_raw_match.groupdict())
+            if info["ja4_c2_raw"] is None:
+                info["ja4_c2_raw"] = ""
             info["ja4_b"] = hashlib.new(
                 "sha256", data=info["ja4_b_raw"].encode()
             ).hexdigest()[:12]
-            info["ja4_c"] = hashlib.new(
-                "sha256",
-                data=f"{info['ja4_c1_raw']}_{info['ja4_c2_raw']}".encode(),
-            ).hexdigest()[:12]
+            if info["ja4_c2_raw"]:
+                ja4_c_raw = f"{info['ja4_c1_raw']}_{info['ja4_c2_raw']}"
+            else:
+                ja4_c_raw = info["ja4_c1_raw"]
+            info["ja4_c"] = hashlib.new("sha256", data=ja4_c_raw.encode()).hexdigest()[
+                :12
+            ]
             spec["value"] = f"{info['ja4_a']}_{info['ja4_b']}_{info['ja4_c']}"
+        else:
+            ja4_match = JA4.search(value)
+            if ja4_match is not None:
+                pass
+            else:
+                utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
     # SSH_{CLIENT,SERVER}_HASSH
     elif spec["recontype"] in ["SSH_CLIENT_HASSH", "SSH_SERVER_HASSH"]:
         value = spec["value"]
