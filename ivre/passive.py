@@ -419,7 +419,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
         else:
             ja4_match = JA4.search(value)
             if ja4_match is not None:
-                pass
+                info.update(ja4_match.groupdict())
             else:
                 utils.LOGGER.warning("Incorrect value for JA4 in record %r", spec)
     # SSH_{CLIENT,SERVER}_HASSH
