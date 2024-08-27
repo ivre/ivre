@@ -22,6 +22,8 @@ backends.
 
 """
 
+import base64
+import binascii
 import json
 import os
 import pickle
@@ -3165,6 +3167,7 @@ class DBNmap(DBActive):
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
+                base64_encoded = False
                 try:
                     rec = json.loads(line.decode())
                 except (UnicodeDecodeError, json.JSONDecodeError):
@@ -3212,6 +3215,13 @@ class DBNmap(DBActive):
                     script["technologies"] = rec["technologies"]
                 if "raw_header" in rec:
                     hdrs = rec["raw_header"].encode()
+                    try:
+                        # -irrb => base64
+                        hdrs = base64.decodebytes(hdrs)
+                    except binascii.Error:
+                        pass
+                    else:
+                        base64_encoded = True
                     hdrs_split = http_hdr_split.split(hdrs)
                     if hdrs_split:
                         hdr_output_list = [
@@ -3222,6 +3232,9 @@ class DBNmap(DBActive):
                         method = "GET"
                         path = "/"
                         if "request" in rec:
+                            request = rec["request"]
+                            if base64_encoded:
+                                request = base64.decodebytes(request.encode()).decode()
                             try:
                                 method, path, _ = rec["request"].split(None, 2)
                             except ValueError:
@@ -3258,8 +3271,11 @@ class DBNmap(DBActive):
                         handle_http_headers(host, port, structured, path=path)
                         raw_output = hdrs
                         if "body" in rec:
+                            raw_body = rec["body"].encode()
+                            if base64_encoded:
+                                raw_body = base64.decodebytes(raw_body)
                             # usually, the whole answer should be that
-                            raw_output += b"\r\n\r\n" + rec["body"].encode()
+                            raw_output += b"\r\n\r\n" + raw_body
                         nmap_info = utils.match_nmap_svc_fp(
                             output=raw_output,
                             proto=port["protocol"],
@@ -3285,8 +3301,15 @@ class DBNmap(DBActive):
                                 nmap_info,
                                 host.setdefault("hostnames", []),
                             )
-                if "body" in rec:
-                    body = rec["body"].encode()
+                if "body" in rec or "headless_body" in rec:
+                    try:
+                        body = rec["body"].encode()
+                        if base64_encoded:
+                            body = base64.decodebytes(body)
+                    except KeyError:
+                        body = rec[
+                            "headless_body"
+                        ].encode()  # this one won't be base64 encoded
                     port.setdefault("scripts", []).append(
                         {
                             "id": "http-content",
@@ -3294,6 +3317,22 @@ class DBNmap(DBActive):
                         }
                     )
                     handle_http_content(host, port, body)
+                if "screenshot_bytes" in rec:
+                    data = base64.decodebytes(rec["screenshot_bytes"].encode())
+                    trim_result = utils.trim_image(data)
+                    if trim_result:
+                        # When trim_result is False, the image no
+                        # longer exists after trim
+                        if trim_result is not True:
+                            # Image has been trimmed
+                            data = trim_result
+                        port["screenshot"] = "field"
+                        port["screendata"] = base64.encodebytes(data).decode()
+                        screenwords = utils.screenwords(data)
+                        if screenwords is not None:
+                            port["screenwords"] = screenwords
+                    else:
+                        port["screenshot"] = "empty"
                 if script:
                     output = []
                     if "technologies" in script:
