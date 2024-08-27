@@ -3317,6 +3317,22 @@ class DBNmap(DBActive):
                         }
                     )
                     handle_http_content(host, port, body)
+                if "screenshot_bytes" in rec:
+                    data = base64.decodebytes(rec["screenshot_bytes"].encode())
+                    trim_result = utils.trim_image(data)
+                    if trim_result:
+                        # When trim_result is False, the image no
+                        # longer exists after trim
+                        if trim_result is not True:
+                            # Image has been trimmed
+                            data = trim_result
+                        port["screenshot"] = "field"
+                        port["screendata"] = base64.encodebytes(data).decode()
+                        screenwords = utils.screenwords(data)
+                        if screenwords is not None:
+                            port["screenwords"] = screenwords
+                    else:
+                        port["screenshot"] = "empty"
                 if script:
                     output = []
                     if "technologies" in script:
