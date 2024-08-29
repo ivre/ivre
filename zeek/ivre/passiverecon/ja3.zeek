@@ -41,7 +41,7 @@ type IvreJA3CStore: record {
     e_curves:     vector of string &default=vector() &log;
     ec_point_fmt: vector of string &default=vector() &log;
     sni:          string &default="i" &log;
-    alpn:         string &default="00" &log;
+    alpn:         string &default="--" &log;
     version:      count &default=0 &log;
     signatures:   vector of string &default=vector() &log;
 };
@@ -138,16 +138,19 @@ event ssl_extension_server_name(c: connection, is_orig: bool, names: string_vec)
 }
 
 event ssl_extension_application_layer_protocol_negotiation(c: connection, is_orig: bool, protocols: string_vec) {
-    if (is_orig && |protocols| > 0) {
+    if (is_orig && |protocols| > 0 && |protocols[0]| > 0) {
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
         }
         # Only use the first instance of the extension
-        if (c$ivreja3c$alpn == "00") {
-            c$ivreja3c$alpn = protocols[0][0] + protocols[0][-1];
-            if (!is_ascii(c$ivreja3c$alpn)) {
-                c$ivreja3c$alpn = "99";
+        if (c$ivreja3c$alpn == "--") {
+            local alpn = protocols[0][0] + protocols[0][-1];
+            # is_alnum() does not exist before Zeek 4.0.0
+            if (/^[0-9a-fA-F]{2}$/ !in alpn) {
+                alpn = string_to_ascii_hex(alpn);
+                alpn = alpn[0] + alpn[-1];
             }
+            c$ivreja3c$alpn = alpn;
         }
     }
 }
@@ -287,7 +290,7 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         ja4_a += fmt("%02d", |c$ivreja3c$extensions|);
     }
     # ALPN, collected in ssl_extension_application_layer_protocol_negotiation()
-    ja4_a += c$ivreja3c$alpn;
+    ja4_a += (c$ivreja3c$alpn == "--") ? "00" : c$ivreja3c$alpn;
     local ja4_a_s = join_string_vec(ja4_a, "");
 
     local ciphers_sorted: vector of string = vector();
