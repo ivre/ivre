@@ -99,7 +99,7 @@ def banner2ja34c(
         ecsg: List[int] = []
         ecpf: List[int] = []
         sni = "i"
-        alpn = "00"
+        alpn = "--"
         version = msg.version
         signatures = []
         for ext in msg.ext or []:
@@ -114,16 +114,19 @@ def banner2ja34c(
                 if ext.sig_algs:
                     signatures = [s for s in ext.sig_algs if s not in GREASE]
             elif ext.type == 16:  # ALPN
-                if ext.protocols:
-                    alpn = ext.protocols[0] + ext.protocols[-1]
-                    if not alpn.isascii():
-                        alpn = "99"
+                if ext.protocols and ext.protocols[0].protocol:
+                    alpn_b = ext.protocols.protocol[0] + ext.protocols.protocol[-1]
+                    if alpn.isalnum():
+                        alpn = alpn_b.decode()
+                    else:
+                        alpn = alpn_b.hex()
+                        alpn = alpn[0] + alpn[-1]
             elif ext.type == 43:  # supported_versions
                 if ext.versions:
                     version = ext.versions[0]
         output_ja3.append("-".join(str(v) for v in ecsg))
         output_ja3.append("-".join(str(v) for v in ecpf))
-        output_ja4_a = f"{protocol}{JA4_VERSIONS.get(version, '??')}{sni}{min(len(ciphers), 99)}{min(len(exts), 99)}{alpn}"
+        output_ja4_a = f"{protocol}{JA4_VERSIONS.get(version, '??')}{sni}{min(len(ciphers), 99)}{min(len(exts), 99)}{'00' if alpn == '--' else alpn}"
         output_ja4_b = ",".join("%04x" % c for c in sorted(ciphers))
         output_ja4_c1 = ",".join("%04x" % c for c in sorted(exts) if c not in {0, 16})
         output_ja4_c2 = ",".join("%04x" % c for c in signatures)
