@@ -42,19 +42,19 @@ from select import select
 from urllib.parse import quote
 from urllib.request import HTTPError, Request, urlopen
 
-import ivre
-import ivre.analyzer
-import ivre.config
-import ivre.db
-import ivre.flow
-import ivre.mathutils
-import ivre.parser.iptables
-import ivre.parser.zeek
-import ivre.passive
-import ivre.target
-import ivre.utils
-import ivre.web.utils
-import ivre.xmlnmap
+import src.ivre as ivre
+import src.ivre.analyzer
+import src.ivre.config
+import src.ivre.db
+import src.ivre.flow
+import src.ivre.mathutils
+import src.ivre.parser.iptables
+import src.ivre.parser.zeek
+import src.ivre.passive
+import src.ivre.target
+import src.ivre.utils
+import src.ivre.web.utils
+import src.ivre.xmlnmap
 
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
