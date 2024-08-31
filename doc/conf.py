@@ -25,7 +25,7 @@ author = "Pierre LALET"
 html_logo = "../web/static/logo.png"
 master_doc = "index"
 
-from ivre import __version__ as version
+from src.ivre import __version__ as version
 
 # pylint: enable=no-name-in-module,wrong-import-position,redefined-builtin
 

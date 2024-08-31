@@ -27,13 +27,7 @@ import os
 
 # pylint: disable=deprecated-module
 from distutils.command.install_data import install_data
-from distutils.command.install_lib import install_lib
 from distutils.core import setup
-from distutils.dist import DistributionMetadata
-from tempfile import TemporaryFile
-
-VERSION = __import__("ivre").VERSION
-
 
 class smart_install_data(install_data):
     """Replacement for distutils.command.install_data to handle
@@ -58,147 +52,8 @@ class smart_install_data(install_data):
         return super().run()
 
 
-class smart_install_lib(install_lib):
-    """Replacement for distutils.command.install_lib to handle
-    version file.
-
-    """
-
-    def run(self):
-        super().run()
-        fullfname = os.path.join(self.install_dir, "ivre", "__init__.py")
-        tmpfname = "%s.tmp" % fullfname
-        stat = os.stat(fullfname)
-        os.rename(fullfname, tmpfname)
-        with open(fullfname, "w", encoding="utf8") as newf:
-            with open(tmpfname, encoding="utf8") as oldf:
-                for line in oldf:
-                    if line.startswith("import "):
-                        newf.write(f"__version__ = VERSION = {VERSION!r}\n")
-                        break
-                    newf.write(line)
-        os.chown(fullfname, stat.st_uid, stat.st_gid)
-        os.chmod(fullfname, stat.st_mode)
-        os.unlink(tmpfname)
-
-
-with open(
-    os.path.join(os.path.abspath(os.path.dirname("__file__")), "README.md"),
-    encoding="utf8",
-) as fdesc:
-    long_description = fdesc.read()
-long_description_content_type = "text/markdown"
-
-
-# Monkey patching (distutils does not handle Description-Content-Type
-# from long_description_content_type parameter in setup()).
-_write_pkg_file_orig = DistributionMetadata.write_pkg_file
-
-
-def _write_pkg_file(self, file):
-    with TemporaryFile(mode="w+") as tmpfd:
-        _write_pkg_file_orig(self, tmpfd)
-        tmpfd.seek(0)
-        for line in tmpfd:
-            if line.startswith("Metadata-Version: "):
-                file.write("Metadata-Version: 2.1\n")
-            elif line.startswith("Description: "):
-                file.write(
-                    "Description-Content-Type: %s; charset=UTF-8\n"
-                    % long_description_content_type
-                )
-                file.write(line)
-            else:
-                file.write(line)
-
-
-DistributionMetadata.write_pkg_file = _write_pkg_file
-
-
 setup(
-    name="ivre",
-    version=VERSION,
-    author="Pierre LALET",
-    author_email="pierre@droids-corp.org",
-    url="https://ivre.rocks/",
-    download_url="https://github.com/ivre/ivre/tarball/master",
-    license="GPLv3+",
-    description="Network recon framework",
-    long_description=long_description,
-    long_description_content_type=long_description_content_type,
-    keywords=[
-        "network",
-        "network recon",
-        "network cartography",
-        "nmap",
-        "masscan",
-        "zmap",
-        "zgrab",
-        "zdns",
-        "bro",
-        "zeek",
-    ],
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Environment :: Console",
-        "Environment :: Web Environment",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Information Technology",
-        "Intended Audience :: Science/Research",
-        "Intended Audience :: System Administrators",
-        "Intended Audience :: Telecommunications Industry",
-        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Topic :: Scientific/Engineering :: Information Analysis",
-        "Topic :: Security",
-        "Topic :: System :: Networking",
-        "Topic :: System :: Networking :: Monitoring",
-        "Topic :: System :: Software Distribution",
-    ],
-    python_requires=">=3.7, <4",
-    install_requires=[
-        "cryptography",
-        "pymongo>=3.7",
-        "pyOpenSSL>=16.1.0",
-        "bottle",
-    ],
-    extras_require={
-        "MongoDB mongo+srv URIs": ["pymongo[srv]"],
-        "TinyDB (experimental)": ["tinydb"],
-        "PostgreSQL (experimental)": ["sqlalchemy", "psycopg2"],
-        "Elasticsearch (experimental)": ["elasticsearch", "elasticsearch-dsl"],
-        "GSSAPI authentication for MongoDB": ["python-krbV"],
-        "GSSAPI authentication for HTTP": ["pycurl"],
-        "Screenshots": ["PIL"],
-        "MediaWiki integration": ["MySQL-python"],
-        "3D traceroute graphs": ["dbus-python"],
-        "Plots": ["matplotlib"],
-        "JA3 fingerprints from reverse-ssl services": ["scapy"],
-    },
-    packages=[
-        "ivre",
-        "ivre/active",
-        "ivre/analyzer",
-        "ivre/data",
-        "ivre/data/abuse_ch",
-        "ivre/data/microsoft",
-        "ivre/db",
-        "ivre/db/sql",
-        "ivre/parser",
-        "ivre/tags",
-        "ivre/tools",
-        "ivre/types",
-        "ivre/web",
-    ],
-    scripts=["bin/ivre"],
     data_files=[
-        ("", ["README.md"]),  # needed for the package description
         ("share/ivre/zeek", ["zeek/passiverecon2db-ignore.example"]),
         ("share/ivre/zeek/ivre", ["zeek/ivre/__load__.zeek"]),
         ("share/ivre/zeek/ivre/arp", ["zeek/ivre/arp/__load__.zeek"]),
@@ -541,8 +396,5 @@ setup(
         ),
         ("etc/bash_completion.d", ["bash_completion/ivre"]),
     ],
-    package_data={
-        "ivre": ["VERSION"],
-    },
-    cmdclass={"install_data": smart_install_data, "install_lib": smart_install_lib},
+    cmdclass={"install_data": smart_install_data},
 )

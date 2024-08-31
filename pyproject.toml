@@ -1,0 +1,85 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [ "setuptools>=61" ]
+
+[project]
+name = "ivre"
+version = "0.9.20"
+description = "Network recon framework"
+readme = "README.md"
+url = "https://ivre.rocks/"
+keywords = [
+  "bro",
+  "masscan",
+  "network",
+  "network cartography",
+  "network recon",
+  "nmap",
+  "zdns",
+  "zeek",
+  "zgrab",
+  "zmap",
+]
+license = "GPLv3+"
+authors = [
+  { name = "Pierre LALET", email = "pierre@droids-corp.org" },
+]
+requires-python = ">=3.7"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
+  "Intended Audience :: Telecommunications Industry",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Security",
+  "Topic :: System :: Networking",
+  "Topic :: System :: Networking :: Monitoring",
+  "Topic :: System :: Software Distribution",
+]
+dependencies = [
+  "bottle",
+  "cryptography",
+  "pymongo>=3.7",
+  "pyopenssl>=16.1",
+]
+
+[project.optional-dependencies]
+mongodb = [
+  "pymongo[srv]"
+]
+tinydb = [
+  "tinydb"
+]
+postgresql = [
+"sqlalchemy", "psycopg2"
+]
+elasticsearch = ["elasticsearch", "elasticsearch-dsl"]
+mongodb-gssapi = ["python-krbV"]
+http-gssapi = ["pycurl"]
+screenshots = ["PIL"]
+mediawiki-integration = ["MySQL-python"]
+traceroute-graphs = ["dbus-python"]
+plots = ["matplotlib"]
+fingerprints = ["scapy"]
+
+[project.scripts]
+ivre = "bin/ivre:main_cli"
+
+[tool.rstcheck]
+ignore_directives = [
+    "autobottle",
+    "graphviz",
+]
+ignore_messages = "(Link is formatted in Markdown style\\.$)"

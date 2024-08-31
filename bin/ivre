@@ -35,8 +35,8 @@ warnings.filterwarnings(
 
 
 # pylint: disable=wrong-import-position,cyclic-import
-from ivre import tools, utils  # noqa: E402
-from ivre.tools.version import main as version  # noqa: E402
+from src.ivre import tools, utils  # noqa: E402
+from src.ivre.tools.version import main as version  # noqa: E402
 
 # pylint: enable=wrong-import-position,cyclic-import
 
