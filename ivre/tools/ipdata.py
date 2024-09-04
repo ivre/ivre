@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,8 +24,8 @@ AS number and country information.
 
 
 import json
+import sys
 from argparse import ArgumentParser
-from sys import stdout
 from typing import Any, Callable, Dict, List, Tuple, cast
 
 from ivre import geoiputils, utils
@@ -74,13 +74,17 @@ def main() -> None:
         if args.json:
             res = {"addr": addr}
             res.update(dbase.infos_byip(addr) or {})
-            json.dump(res, stdout)
+            json.dump(res, sys.stdout)
             print()
         else:
             print(addr)
-            for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
-                for key, value in (subinfo or {}).items():
-                    print("    %s %s" % (key, value))
+            try:
+                for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
+                    for key, value in (subinfo or {}).items():
+                        print("    %s %s" % (key, value))
+            except utils.InvalidIPAddress as exc:
+                utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
+                sys.exit(1)
             info: Dict[str, Any] = {}
             add_tags(info, gen_addr_tags(addr))
             for tag in info.get("tags", []):

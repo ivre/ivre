@@ -204,6 +204,12 @@ NMAP_FINGERPRINT_IVRE_KEY = {
 logging.basicConfig()
 
 
+class InvalidIPAddress(ValueError):
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
 def is_valid_ip(ipstr: AnyStr) -> bool:
     """Return True iff `ipstr` is a valid IP address."""
     if isinstance(ipstr, bytes):
@@ -237,13 +243,17 @@ def ip2int(ipstr: AnyStr) -> int:
     try:
         return cast(int, struct.unpack("!I", socket.inet_aton(data))[0])
     except socket.error:
-        val1: int
-        val2: int
+        pass
+    val1: int
+    val2: int
+    try:
         val1, val2 = struct.unpack(
             "!QQ",
             socket.inet_pton(socket.AF_INET6, data),
         )
-        return (val1 << 64) + val2
+    except socket.error as exc:
+        raise InvalidIPAddress(data) from exc
+    return (val1 << 64) + val2
 
 
 def force_ip2int(ipstr: Union[AnyStr, int]) -> int:
@@ -306,7 +316,7 @@ def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
         try:
             data = ipval.decode()
         except UnicodeDecodeError as exc:
-            raise ValueError(f"Invalid IP address {ipval!r}") from exc
+            raise InvalidIPAddress(ipval) from exc
     else:
         data = ipval
     try:
@@ -318,7 +328,7 @@ def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
     try:
         return socket.inet_pton(socket.AF_INET6, data)
     except socket.error as exc:
-        raise ValueError(f"Invalid IP address {ipval!r}") from exc
+        raise InvalidIPAddress(data) from exc
 
 
 def bin2ip(ipval: Union[AnyStr, int]) -> str:
@@ -336,7 +346,7 @@ def bin2ip(ipval: Union[AnyStr, int]) -> str:
             socket.inet_pton(socket.AF_INET6, ipval)
             return ipval
         except socket.error as exc:
-            raise ValueError(f"Invalid IP address {ipval!r}") from exc
+            raise InvalidIPAddress(ipval) from exc
     if isinstance(ipval, int):
         return int2ip(ipval)
     if ipval[:12] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff":

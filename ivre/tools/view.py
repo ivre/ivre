@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ from ivre.activecli import (
 from ivre.db import DBView, db
 from ivre.nmapout import displayhosts
 from ivre.types import DBCursor
-from ivre.utils import CLI_ARGPARSER, LOGGER
+from ivre.utils import CLI_ARGPARSER, LOGGER, InvalidIPAddress
 
 
 def main() -> None:
@@ -136,7 +136,11 @@ def main() -> None:
         dbase.globaldb = db
     else:
         dbase = db.view
-    flt = dbase.parse_args(args)
+    try:
+        flt = dbase.parse_args(args)
+    except InvalidIPAddress as exc:
+        LOGGER.error("Invalid IP address [%r]!", exc.value)
+        sys.exit(1)
 
     if args.init:
         if os.isatty(sys.stdin.fileno()):
