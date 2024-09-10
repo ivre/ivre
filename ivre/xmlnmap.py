@@ -34,13 +34,13 @@ from xml.sax.handler import ContentHandler, EntityResolver
 from ivre import utils
 from ivre.active.cpe import cpe2dict
 from ivre.active.data import (
-    ALIASES_TABLE_ELEMS,
     add_cert_hostnames,
     add_hostname,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
 )
+from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.analyzer import dicom, ike, ja3
 from ivre.config import MASSCAN_PROBES
 from ivre.data.microsoft.windows import WINDOWS_VERSION_TO_BUILD

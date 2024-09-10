@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@ def main():
             "%s commands:\n" % ("matching" if possible_commands else "available")
         )
         for availcmd in sorted(
-            possible_commands if possible_commands else tools.__all__
+            possible_commands if possible_commands else tools.guess_command("")
         ):
             output.write("  %s\n" % availcmd)
         output.write("\n")

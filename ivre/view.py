@@ -25,14 +25,6 @@ from datetime import datetime
 from functools import reduce
 from textwrap import wrap
 
-try:
-    from importlib.metadata import entry_points
-except ImportError:
-    HAS_PLUGINS = False
-else:
-    HAS_PLUGINS = True
-
-
 from ivre import utils
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
@@ -44,21 +36,12 @@ from ivre.active.data import (
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+from ivre.plugins import HAS_PLUGINS, load_plugins
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 from ivre.xmlnmap import add_service_hostname
 
 MAX_RECORDS_IN_MEMORY = 16384
-
-
-def load_plugins():
-    try:
-        my_entry_points = entry_points(group="ivre.plugins.view")
-    except TypeError:
-        my_entry_points = entry_points().get("ivre.plugins.view", [])
-    for entry_point in my_entry_points:
-        if entry_point.name.startswith("_install_"):
-            entry_point.load()(globals())
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -1030,4 +1013,4 @@ def to_view(itrs, datadb):
 
 
 if HAS_PLUGINS:
-    load_plugins()
+    load_plugins("ivre.plugins.view", globals())

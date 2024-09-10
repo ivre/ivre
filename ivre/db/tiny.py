@@ -45,7 +45,7 @@ from tinydb.database import Document
 from tinydb.operations import add, increment
 
 from ivre import config, flow, utils
-from ivre.active.data import ALIASES_TABLE_ELEMS
+from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import (
     DB,
     DBActive,

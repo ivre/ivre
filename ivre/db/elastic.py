@@ -31,7 +31,7 @@ from elasticsearch_dsl import Q
 from elasticsearch_dsl.query import Query
 
 from ivre import utils
-from ivre.active.data import ALIASES_TABLE_ELEMS
+from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBView
 
 PAGESIZE = 250
