@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -113,5 +113,8 @@ def main() -> None:
     args = parse_args()
     print(__doc__)
     application = default_app()
-    application.mount("/cgi/", webapp.application)
+    try:  # workaround broken app mount with Bottle 0.13
+        application._mount_wsgi("/cgi/", webapp.application)  # type: ignore
+    except AttributeError:
+        application.mount("/cgi/", webapp.application)
     run(host=args.bind_address, port=args.port, debug=DEBUG)

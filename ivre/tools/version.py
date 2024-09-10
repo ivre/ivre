@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -51,11 +51,11 @@ def get_version(module: str) -> Optional[str]:
     return "[unknown version]"
 
 
-def list_plugins() -> Optional[Dict[str, List[Tuple[str, Optional[str]]]]]:
+def list_plugins() -> Dict[str, List[Tuple[str, Optional[str]]]]:
     if not HAS_PLUGINS:
-        return None
+        return {}
     modules: Dict[str, Set[str]] = {}
-    for category in ["view"]:
+    for category in ["active.data", "tools", "view"]:
         group = f"ivre.plugins.{category}"
         try:
             my_entry_points = entry_points(group=group)
@@ -72,7 +72,7 @@ def list_plugins() -> Optional[Dict[str, List[Tuple[str, Optional[str]]]]]:
 def main() -> None:
     """Display IVRE's version"""
     print("IVRE - Network recon framework")
-    print("Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>")
+    print("Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>")
     print("Version %s" % VERSION)
     print()
     print("Python %s" % sys.version)

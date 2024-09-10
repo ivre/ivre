@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ from typing import (
 from xml.sax import saxutils
 
 from ivre import graphroute, utils
-from ivre.active.data import ALIASES_TABLE_ELEMS
+from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.config import HONEYD_IVRE_SCRIPTS_PATH
 from ivre.db import db
 from ivre.types import DB, Filter, Record

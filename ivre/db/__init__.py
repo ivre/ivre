@@ -56,13 +56,13 @@ except ImportError:
 from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
-    ALIASES_TABLE_ELEMS,
     add_cert_hostnames,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
     merge_host_docs,
 )
+from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.tags import add_tags, gen_addr_tags
 from ivre.tags.active import set_auto_tags

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,8 +19,10 @@
 
 """This sub-module contains functions to implement ivre commands."""
 
+from itertools import chain
+from typing import Callable, Dict, List, Optional, cast
 
-from typing import Callable, List, Optional, cast
+from ivre.plugins import HAS_PLUGINS, load_plugins
 
 __all__ = [
     "airodump2db",
@@ -67,6 +69,9 @@ ALIASES = {
 }
 
 
+PLUGINS: Dict[str, Callable[[], None]] = {}
+
+
 def get_command(name: str) -> Optional[Callable[[], None]]:
     if name in __all__:
         return cast(
@@ -79,15 +84,23 @@ def get_command(name: str) -> Optional[Callable[[], None]]:
             Callable[[], None],
             getattr(__import__("%s.%s" % (__name__, name)).tools, name).main,
         )
+    if name in PLUGINS:
+        return PLUGINS[name]
     return None
 
 
 def guess_command(name: str) -> List[str]:
     if name in __all__:
         return [name]
-    possible = sorted(set(cmd for cmd in __all__ if cmd.startswith(name)))
-    if possible:
-        return possible
     if name in ALIASES:
         return [name]
+    if name in PLUGINS:
+        return [name]
+    possible = sorted({cmd for cmd in chain(__all__, PLUGINS) if cmd.startswith(name)})
+    if possible:
+        return possible
     return sorted(set(cmd for cmd in ALIASES if cmd.startswith(name)))
+
+
+if HAS_PLUGINS:
+    load_plugins("ivre.plugins.tools", globals())
