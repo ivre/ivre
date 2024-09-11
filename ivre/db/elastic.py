@@ -33,6 +33,7 @@ from elasticsearch_dsl.query import Query
 from ivre import utils
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBView
+from ivre.plugins import load_plugins
 
 PAGESIZE = 250
 
@@ -1716,3 +1717,6 @@ class ElasticDBView(ElasticDBActive, DBView):
             if "after_key" not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
+
+
+load_plugins("ivre.plugins.db.elastic", globals())

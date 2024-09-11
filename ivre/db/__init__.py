@@ -64,6 +64,7 @@ from ivre.active.data import (
 )
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
+from ivre.plugins import load_plugins
 from ivre.tags import add_tags, gen_addr_tags
 from ivre.tags.active import set_auto_tags
 from ivre.zgrabout import ZGRAB_PARSERS
@@ -5540,6 +5541,11 @@ class MetaDB:
         if dbase is not None:
             dbase.globaldb = self
         return dbase
+
+
+# runs before the `db` global creation so that plugins have a chance
+# to add backends
+load_plugins("ivre.plugins.db", globals())
 
 
 db = MetaDB(

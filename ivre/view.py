@@ -36,7 +36,7 @@ from ivre.active.data import (
 from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
-from ivre.plugins import HAS_PLUGINS, load_plugins
+from ivre.plugins import load_plugins
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 from ivre.xmlnmap import add_service_hostname
@@ -1012,5 +1012,4 @@ def to_view(itrs, datadb):
         yield prepare_record(cur_rec, datadb)
 
 
-if HAS_PLUGINS:
-    load_plugins("ivre.plugins.view", globals())
+load_plugins("ivre.plugins.view", globals())

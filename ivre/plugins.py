@@ -20,9 +20,10 @@
 """Tools to handle IVRE plugins."""
 
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
+    from importlib import import_module
     from importlib.metadata import entry_points
 except ImportError:
     HAS_PLUGINS = False
@@ -30,7 +31,19 @@ else:
     HAS_PLUGINS = True
 
 
+CATEGORIES = [
+    "active.data",
+    "db",
+    "db.elastic",
+    "db.mongo",
+    "tools",
+    "view",
+]
+
+
 def load_plugins(group: str, scope: Dict[str, Any]) -> None:
+    if not HAS_PLUGINS:
+        return
     try:
         my_entry_points = entry_points(group=group)
     except TypeError:
@@ -38,3 +51,37 @@ def load_plugins(group: str, scope: Dict[str, Any]) -> None:
     for entry_point in my_entry_points:
         if entry_point.name.startswith("_install_"):
             entry_point.load()(scope)
+
+
+def get_version(module: str) -> Optional[str]:
+    try:
+        mod = import_module(module)
+    except ImportError:
+        return None
+    for attr in ["__version__", "VERSION", "version"]:
+        try:
+            data = getattr(mod, attr)
+        except AttributeError:
+            continue
+        if isinstance(data, tuple):
+            return ".".join(str(value) for value in data)
+        return str(data)
+    return "[unknown version]"
+
+
+def list_plugins() -> Dict[str, List[Tuple[str, Optional[str]]]]:
+    if not HAS_PLUGINS:
+        return {}
+    modules: Dict[str, Set[str]] = {}
+    for category in CATEGORIES:
+        group = f"ivre.plugins.{category}"
+        try:
+            my_entry_points = entry_points(group=group)
+        except TypeError:
+            my_entry_points = entry_points().get(group, [])  # type: ignore
+        for entry_point in my_entry_points:
+            modules.setdefault(category, set()).add(entry_point.module)
+    return {
+        category: sorted((module, get_version(module)) for module in sorted(modules))
+        for category, modules in modules.items()
+    }
