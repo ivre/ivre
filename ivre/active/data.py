@@ -35,7 +35,7 @@ from ivre.active.cpe import add_cpe_values
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.config import VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
-from ivre.plugins import HAS_PLUGINS, load_plugins
+from ivre.plugins import load_plugins
 from ivre.tags import TAG_CDN, TAG_HONEYPOT, add_tags
 from ivre.tags.active import (
     has_toomany_hostnames,
@@ -1161,5 +1161,4 @@ def handle_http_headers(
             merge_http_app_scripts(cur_script, script, "http-app")
 
 
-if HAS_PLUGINS:
-    load_plugins("ivre.plugins.active.data", globals())
+load_plugins("ivre.plugins.active.data", globals())

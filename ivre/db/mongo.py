@@ -64,6 +64,7 @@ from ivre.db import (
     DBView,
     LockError,
 )
+from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
 from ivre.types import Filter, IndexKey
 
@@ -6889,3 +6890,6 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
 
         self.bulk_commit(bulk)
         utils.LOGGER.debug("%d flows switched.", counter)
+
+
+load_plugins("ivre.plugins.db.mongo", globals())

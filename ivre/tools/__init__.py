@@ -22,7 +22,7 @@
 from itertools import chain
 from typing import Callable, Dict, List, Optional, cast
 
-from ivre.plugins import HAS_PLUGINS, load_plugins
+from ivre.plugins import load_plugins
 
 __all__ = [
     "airodump2db",
@@ -102,5 +102,4 @@ def guess_command(name: str) -> List[str]:
     return sorted(set(cmd for cmd in ALIASES if cmd.startswith(name)))
 
 
-if HAS_PLUGINS:
-    load_plugins("ivre.plugins.tools", globals())
+load_plugins("ivre.plugins.tools", globals())
