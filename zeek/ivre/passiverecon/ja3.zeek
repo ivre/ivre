@@ -138,19 +138,24 @@ event ssl_extension_server_name(c: connection, is_orig: bool, names: string_vec)
 }
 
 event ssl_extension_application_layer_protocol_negotiation(c: connection, is_orig: bool, protocols: string_vec) {
-    if (is_orig && |protocols| > 0 && |protocols[0]| > 0) {
+    if (is_orig) {
         if (! c?$ivreja3c) {
             c$ivreja3c = IvreJA3CStore();
         }
         # Only use the first instance of the extension
         if (c$ivreja3c$alpn == "--") {
-            local alpn = protocols[0][0] + protocols[0][-1];
-            # is_alnum() does not exist before Zeek 4.0.0
-            if (/^[0-9a-fA-F]{2}$/ !in alpn) {
-                alpn = string_to_ascii_hex(alpn);
-                alpn = alpn[0] + alpn[-1];
+            if (|protocols| > 0 && |protocols[0]| > 0) {
+                local alpn = protocols[0][0] + protocols[0][-1];
+                # is_alnum() does not exist before Zeek 4.0.0
+                if (/^[0-9a-fA-F]{2}$/ !in alpn) {
+                    alpn = string_to_ascii_hex(alpn);
+                    alpn = alpn[0] + alpn[-1];
+                }
+                c$ivreja3c$alpn = alpn;
             }
-            c$ivreja3c$alpn = alpn;
+            else {
+                c$ivreja3c$alpn = "00";
+            }
         }
     }
 }

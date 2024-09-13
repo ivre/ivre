@@ -113,7 +113,7 @@ def banner2ja34c(
             elif ext.type == 13:  # signatures
                 if ext.sig_algs:
                     signatures = [s for s in ext.sig_algs if s not in GREASE]
-            elif ext.type == 16:  # ALPN
+            elif ext.type == 16 and alpn == "--":  # ALPN
                 if ext.protocols and ext.protocols[0].protocol:
                     alpn_b = ext.protocols.protocol[0] + ext.protocols.protocol[-1]
                     if alpn.isalnum():
@@ -121,6 +121,8 @@ def banner2ja34c(
                     else:
                         alpn = alpn_b.hex()
                         alpn = alpn[0] + alpn[-1]
+                else:
+                    alpn = "00"
             elif ext.type == 43:  # supported_versions
                 if ext.versions:
                     version = ext.versions[0]
