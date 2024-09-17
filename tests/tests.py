@@ -3703,10 +3703,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertFalse(out, 0)
 
-        # CSV creation -- disabled on Travis CI: this is way too slow.
-        # Files are obtained from https://github.com/ivre/ivre-test-samples
-        # instead, and "touched" here to make sure they are newer than the
-        # .mmdb files. Only the Country file is created.
+        # CSV creation -- disabled on GitHub actions: this is way too
+        # slow.  Files are obtained from
+        # https://github.com/ivre/ivre-test-samples instead, and
+        # "touched" here to make sure they are newer than the .mmdb
+        # files. Only the Country file is created.
         for sub in ["ASN", "City", "RegisteredCountry"]:
             fname = os.path.join(
                 ivre.config.GEOIP_PATH, "GeoLite2-%s.dump-IPv4.csv" % sub
@@ -3956,6 +3957,16 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(res, 0)
             self.assertEqual(out1, out2)
         # END Using the HTTP server as a database
+
+    # This test have to be done first.
+    def test_15_rir(self):
+        """rirlookup functions"""
+
+        # Download
+        res = RUN(["ivre", "rirlookup", "--download", "--insert"])[0]
+        self.assertEqual(res, 0)
+
+        res, out, err = RUN(["ivre", "rirlookup", "--search", "XXXXXX"])
 
     def test_utils(self):
         """Functions that have not yet been tested"""
