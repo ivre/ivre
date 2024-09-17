@@ -27,16 +27,16 @@ from typing import Any, Dict
 from ivre.parser import Parser
 from ivre.utils import LOGGER
 
-LINE_RE = re.compile(
-    r'^(?P<addr>[^ ]*) (?P<identity>[^ ]*) (?P<username>[^ ]*) \[(?P<datetime>[^]]*)\] "(?P<request>[^"]*)" (?P<status>[^ ]*) (?P<size>[^ ]*) "(?P<referer>[^"]*)" "(?P<useragent>[^"]*)"(?: "(?P<x_forwarded_for>[^"]*)")?\r?$'
-)
-
 
 class WeblogFile(Parser):
     """Http server log generator"""
 
+    line_re = re.compile(
+        r'^(?P<addr>[^ ]*) (?P<identity>[^ ]*) (?P<username>[^ ]*) \[(?P<datetime>[^]]*)\] "(?P<request>[^"]*)" (?P<status>[^ ]*) (?P<size>[^ ]*) "(?P<referer>[^"]*)" "(?P<useragent>[^"]*)"(?: "(?P<x_forwarded_for>[^"]*)")?\r?$'
+    )
+
     def parse_line(self, line: bytes) -> Dict[str, Any]:
-        m = LINE_RE.match(line.decode())
+        m = self.line_re.match(line.decode())
         if not m:
             LOGGER.warning("Cannot parse line [%r]", line)
             return {}
@@ -49,8 +49,16 @@ class WeblogFile(Parser):
             LOGGER.warning("Cannot parse timestamp from line [%r]", line)
             return {}
         # data of event
-        return {
+        result = {
             "host": m.group("addr"),
             "ts": timestamp,
-            "useragent": m.group("useragent"),
         }
+        # Python >= 3.8: if (useragent := m.group("useragent")) != "-":
+        useragent = m.group("useragent")
+        if useragent != "-":
+            result["user-agent"] = useragent
+        # Python >= 3.8: if xff := m.group("x_forwarded_for"):
+        xff = m.group("x_forwarded_for")
+        if xff and xff != "-":
+            result["x-forwarded-for"] = xff
+        return result
