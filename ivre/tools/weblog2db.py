@@ -45,31 +45,32 @@ def rec_iter(
             for line in fdesc:
                 if not line:
                     continue
-                if line.get("useragent") and line["useragent"] != "-":
-                    yield from handle_rec(
-                        # sensor
-                        sensor,
-                        # ignorenets,
-                        ignorenets,
-                        # neverignore,
-                        neverignore,
-                        # timestamp
-                        timestamp=line["ts"],
-                        # uid
-                        uid=None,
-                        # host
-                        host=line["host"],
-                        # srvport
-                        srvport=None,
-                        # recon_type
-                        recon_type="HTTP_CLIENT_HEADER",
-                        # source
-                        source="USER-AGENT",
-                        # value
-                        value=line["useragent"],
-                        # targetval
-                        targetval=None,
-                    )
+                for field in ["user-agent", "x-forwarded-for"]:
+                    if line.get(field):
+                        yield from handle_rec(
+                            # sensor
+                            sensor,
+                            # ignorenets,
+                            ignorenets,
+                            # neverignore,
+                            neverignore,
+                            # timestamp
+                            timestamp=line["ts"],
+                            # uid
+                            uid=None,
+                            # host
+                            host=line["host"],
+                            # srvport
+                            srvport=None,
+                            # recon_type
+                            recon_type="HTTP_CLIENT_HEADER",
+                            # source
+                            source=field.upper(),
+                            # value
+                            value=line[field],
+                            # targetval
+                            targetval=None,
+                        )
 
 
 def main() -> None:
