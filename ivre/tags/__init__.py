@@ -25,6 +25,7 @@ import os
 from bisect import bisect_left
 from typing import (
     Any,
+    Callable,
     Dict,
     Generator,
     Iterable,
@@ -37,6 +38,7 @@ from typing import (
 )
 
 from ivre.config import DATA_PATH
+from ivre.plugins import load_plugins
 from ivre.types import Tag
 from ivre.utils import LOGGER, get_addr_type, ip2int, make_range_tables, net2range
 
@@ -57,6 +59,10 @@ _TOR_NODES: Optional[Set[str]] = None
 _CDN_TABLE: Optional[Tuple[List[int], List[Optional[Tuple[str, str]]]]] = None
 _GOVCLOUD_TABLE: Optional[Tuple[List[int], List[Optional[List[str]]]]] = None
 _SCANNERS_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+
+
+TAGS_GENERATOR_PLUGINS_ADDR: List[Callable[[str], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_HOSTNAME: List[Callable[[str], Generator[Tag, None, None]]] = []
 
 
 def _get_data() -> None:
@@ -193,6 +199,8 @@ def gen_addr_tags(addr: str) -> Generator[Tag, None, None]:
     assert _SCANNERS_TABLE is not None
     assert _CDN_TABLE is not None
     assert _GOVCLOUD_TABLE is not None
+    for plugin in TAGS_GENERATOR_PLUGINS_ADDR:
+        yield from plugin(addr)
     if isinstance(addr, str):
         if addr in _TOR_NODES:
             yield cast(
@@ -249,6 +257,8 @@ def gen_hostname_tags(hostname: str) -> Generator[Tag, None, None]:
     on a hostname.
 
     """
+    for plugin in TAGS_GENERATOR_PLUGINS_HOSTNAME:
+        yield from plugin(hostname)
     if hostname.endswith(".shodan.io") and "census" in hostname:
         yield cast(
             Tag,
@@ -273,3 +283,6 @@ def gen_hostname_tags(hostname: str) -> Generator[Tag, None, None]:
                 info=[f"Hostname {hostname} suggests an Onyphe scanner"],
             ),
         )
+
+
+load_plugins("ivre.plugins.tags", globals())

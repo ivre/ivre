@@ -36,6 +36,8 @@ CATEGORIES = [
     "db",
     "db.elastic",
     "db.mongo",
+    "tags",
+    "tags.active",
     "tools",
     "view",
 ]

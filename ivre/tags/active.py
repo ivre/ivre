@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,10 +27,11 @@ For the sake of code "simplicity", this sub-module also handles the
 
 import re
 from collections import Counter
-from typing import Generator, cast
+from typing import Callable, Generator, List, cast
 
 from ivre.config import VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
+from ivre.plugins import load_plugins
 from ivre.tags import (
     TAG_CDN,
     TAG_DEFAULT_PASSWORD,
@@ -46,7 +47,7 @@ from ivre.tags import (
     gen_hostname_tags,
 )
 from ivre.types import Tag
-from ivre.types.active import NmapHost, NmapPort
+from ivre.types.active import NmapHost, NmapPort, NmapScript
 from ivre.utils import TORCERT_SUBJECT
 
 _SERVICE_FIELDS = [
@@ -73,6 +74,13 @@ BIG_IP_ERROR_BANNER = re.compile("^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ")
 SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
+TAGS_GENERATOR_PLUGINS_SCRIPT: List[
+    Callable[[NmapPort, NmapScript], Generator[Tag, None, None]]
+] = []
+TAGS_GENERATOR_PLUGINS_PORT: List[Callable[[NmapPort], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_HOST: List[Callable[[NmapHost], Generator[Tag, None, None]]] = []
+
+
 def is_synack_honeypot(host: NmapHost) -> bool:
     """Returns True iff the host has the "Honeypot" tag with "SYN+ACK
     honeypot" info.
@@ -92,6 +100,210 @@ def has_toomany_hostnames(host: NmapHost) -> bool:
     )
 
 
+def gen_script_tags(port: NmapPort, script: NmapScript) -> Generator[Tag, None, None]:
+    """This function generates the automatically-generated tags based
+    on an Nmap script result.
+
+    """
+    for plugin in TAGS_GENERATOR_PLUGINS_SCRIPT:
+        yield from plugin(port, script)
+    if script["id"] == "ssl-cert":
+        for cert in script.get("ssl-cert", []):
+            if cert.get("sha1") in SSLBL_CERTIFICATES:
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_MALWARE,
+                        info=[
+                            f"{SSLBL_CERTIFICATES[cert['sha1']]} certificate on port {port['protocol']}/{port['port']} (SSL Blacklist by abuse.ch)"
+                        ],
+                    ),
+                )
+            elif (
+                TORCERT_SUBJECT.search(cert.get("subject_text", ""))
+                and TORCERT_SUBJECT.search(cert.get("issuer_text", ""))
+                and cert.get("subject_text") != cert.get("issuer_text")
+            ):
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_TOR,
+                        info=[
+                            f"TOR certificate on port {port['protocol']}/{port['port']}"
+                        ],
+                    ),
+                )
+    elif script["id"] == "ssl-ja3-client":
+        for ja3fp in script.get("ssl-ja3-client", []):
+            if ja3fp.get("md5") in SSLBL_JA3:
+                yield cast(
+                    Tag,
+                    dict(
+                        TAG_MALWARE,
+                        info=[
+                            f"{SSLBL_JA3[ja3fp['md5']]} JA3 client fingerprint (SSL Blacklist by abuse.ch)"
+                        ],
+                    ),
+                )
+    elif script["id"] == "http-title":
+        tag = {
+            "This is a Tor Exit Router": dict(
+                TAG_TOR,
+                info=[
+                    f"TOR exit node notice on port {port['protocol']}/{port['port']}"
+                ],
+            ),
+            "This is a SOCKS Proxy, Not An HTTP Proxy": dict(
+                TAG_TOR,
+                info=[
+                    f"TOR SOCKS Proxy notice on port {port['protocol']}/{port['port']}"
+                ],
+            ),
+            "This is an HTTP CONNECT tunnel, not a full HTTP Proxy": dict(
+                TAG_TOR,
+                info=[
+                    f"TOR HTTP CONNECT tunnel notice on port {port['protocol']}/{port['port']}"
+                ],
+            ),
+        }.get(script["output"])
+        if tag is not None:
+            yield cast(Tag, tag)
+    elif script["id"] == "scanner":
+        if port["port"] != -1:
+            return
+        scanners = sorted(
+            set(
+                scanner["name"]
+                for scanner in script.get("scanner", {}).get("scanners", [])
+            )
+        )
+        if scanners:
+            yield cast(Tag, dict(TAG_SCANNER, info=scanners))
+        else:
+            yield TAG_SCANNER
+    elif script["id"] == "http-default-accounts":
+        for app in script.get("http-default-accounts", []):
+            if not app.get("credentials"):
+                continue
+            creds = [
+                f"{cred['username']} / {cred['password']}"
+                for cred in app["credentials"]
+            ]
+            yield cast(
+                Tag,
+                dict(
+                    TAG_DEFAULT_PASSWORD,
+                    info=[f"{app['name']}: {', '.join(creds)}"],
+                ),
+            )
+    elif "vulns" in script:
+        for vuln in script["vulns"]:
+            state = vuln.get("state", "")
+            if state.startswith("VULNERABLE"):
+                if "id" in vuln:
+                    yield cast(Tag, dict(TAG_VULN, info=[vuln["id"]]))
+                else:
+                    yield TAG_VULN
+            elif state.startswith("LIKELY VULNERABLE"):
+                if "id" in vuln:
+                    yield cast(Tag, dict(TAG_VULN_LIKELY, info=[vuln["id"]]))
+                else:
+                    yield TAG_VULN_LIKELY
+            elif state.startswith("UNKNOWN"):
+                if "id" in vuln:
+                    yield cast(Tag, dict(TAG_VULN_CANNOT_TEST, info=[vuln["id"]]))
+                else:
+                    yield TAG_VULN_CANNOT_TEST
+    elif "nuclei" in script:
+        for template in script["nuclei"]:
+            template_id = template.get("template", "")
+            template_name = template.get("name", "")
+            info = (
+                template_id
+                if template_id == template_name
+                else f"{template_id} / {template_name}"
+            )
+            if template_id.startswith("CVE-"):
+                yield cast(Tag, dict(TAG_VULN, info=[info]))
+            elif template_name.startswith("CVE-"):
+                yield cast(Tag, dict(TAG_VULN, info=[info]))
+            elif any(
+                template_id.endswith(f"-{suffix}")
+                for suffix in [
+                    "default-login",
+                    "weak-login",
+                    "weak-password",
+                    "default-admin",
+                ]
+            ) or template_id in {
+                "google-earth-dlogin",
+                "oracle-business-intelligence-login",
+                "trilithic-viewpoint-default",
+            }:
+                yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
+            elif template_name.endswith("Default Password"):
+                yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
+
+
+def gen_port_tags(port: NmapPort) -> Generator[Tag, None, None]:
+    """This function generates the automatically-generated tags based
+    on an Nmap port result.
+
+    """
+    for plugin in TAGS_GENERATOR_PLUGINS_PORT:
+        yield from plugin(port)
+    # Values for keys in _SERVICE_FIELDS are strings when they exist. We know .lower() will work.
+    if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):  # type: ignore
+        cur_info = []
+        for fld in _SERVICE_FIELDS:
+            if fld in port:
+                # _SERVICE_FIELDS only contains valid keys for an NmapPort object
+                cur_info.append(port[fld])  # type: ignore
+        yield cast(
+            Tag,
+            dict(
+                TAG_HONEYPOT,
+                info=[
+                    f"{' / '.join(cur_info)} on port {port['protocol']}/{port['port']}"
+                ],
+            ),
+        )
+    if port.get("service_name") in _TOR_SERVICES:
+        yield cast(
+            Tag,
+            dict(
+                TAG_TOR,
+                info=[
+                    f"Service {port['service_name']} found on port {port['protocol']}/{port['port']}"
+                ],
+            ),
+        )
+    elif port.get("service_name") == "ssl":
+        if port.get("service_product") == "Tor over SSL":
+            yield cast(
+                Tag,
+                dict(
+                    TAG_TOR,
+                    info=[
+                        f"ssl / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
+    elif port.get("service_name") == "http":
+        if port.get("service_product") in _TOR_HTTP_PRODUCTS:
+            yield cast(
+                Tag,
+                dict(
+                    TAG_TOR,
+                    info=[
+                        f"http / {port['service_product']} found on port {port['protocol']}/{port['port']}"
+                    ],
+                ),
+            )
+    for script in port.get("scripts", []):
+        yield from gen_script_tags(port, script)
+
+
 def gen_auto_tags(
     host: NmapHost, update_openports: bool = True
 ) -> Generator[Tag, None, None]:
@@ -109,6 +321,8 @@ def gen_auto_tags(
     "openports" field is updated unless `update_openports` is False.
 
     """
+    for plugin in TAGS_GENERATOR_PLUGINS_HOST:
+        yield from plugin(host)
     addr = host.get("addr")
     if addr is not None:
         yield from gen_addr_tags(addr)
@@ -121,191 +335,7 @@ def gen_auto_tags(
         del host["hostnames"]
         yield cast(Tag, dict(TAG_CDN, info=["Too many hostnames"]))
     for port in host.get("ports", []):
-        if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):
-            cur_info = []
-            for fld in _SERVICE_FIELDS:
-                if fld in port:
-                    cur_info.append(port[fld])
-            yield cast(
-                Tag,
-                dict(
-                    TAG_HONEYPOT,
-                    info=[
-                        f"{' / '.join(cur_info)} on port {port['protocol']}/{port['port']}"
-                    ],
-                ),
-            )
-        if port.get("service_name") in _TOR_SERVICES:
-            yield cast(
-                Tag,
-                dict(
-                    TAG_TOR,
-                    info=[
-                        f"Service {port['service_name']} found on port {port['protocol']}/{port['port']}"
-                    ],
-                ),
-            )
-        elif port.get("service_name") == "ssl":
-            if port.get("service_product") == "Tor over SSL":
-                yield cast(
-                    Tag,
-                    dict(
-                        TAG_TOR,
-                        info=[
-                            f"ssl / {port['service_product']} found on port {port['protocol']}/{port['port']}"
-                        ],
-                    ),
-                )
-        elif port.get("service_name") == "http":
-            if port.get("service_product") in _TOR_HTTP_PRODUCTS:
-                yield cast(
-                    Tag,
-                    dict(
-                        TAG_TOR,
-                        info=[
-                            f"http / {port['service_product']} found on port {port['protocol']}/{port['port']}"
-                        ],
-                    ),
-                )
-        for script in port.get("scripts", []):
-            if script["id"] == "ssl-cert":
-                for cert in script.get("ssl-cert", []):
-                    if cert.get("sha1") in SSLBL_CERTIFICATES:
-                        yield cast(
-                            Tag,
-                            dict(
-                                TAG_MALWARE,
-                                info=[
-                                    f"{SSLBL_CERTIFICATES[cert['sha1']]} certificate on port {port['protocol']}/{port['port']} (SSL Blacklist by abuse.ch)"
-                                ],
-                            ),
-                        )
-                    elif (
-                        TORCERT_SUBJECT.search(cert.get("subject_text", ""))
-                        and TORCERT_SUBJECT.search(cert.get("issuer_text", ""))
-                        and cert.get("subject_text") != cert.get("issuer_text")
-                    ):
-                        yield cast(
-                            Tag,
-                            dict(
-                                TAG_TOR,
-                                info=[
-                                    f"TOR certificate on port {port['protocol']}/{port['port']}"
-                                ],
-                            ),
-                        )
-            elif script["id"] == "ssl-ja3-client":
-                for ja3fp in script.get("ssl-ja3-client", []):
-                    if ja3fp.get("md5") in SSLBL_JA3:
-                        yield cast(
-                            Tag,
-                            dict(
-                                TAG_MALWARE,
-                                info=[
-                                    f"{SSLBL_JA3[ja3fp['md5']]} JA3 client fingerprint (SSL Blacklist by abuse.ch)"
-                                ],
-                            ),
-                        )
-            elif script["id"] == "http-title":
-                tag = {
-                    "This is a Tor Exit Router": dict(
-                        TAG_TOR,
-                        info=[
-                            f"TOR exit node notice on port {port['protocol']}/{port['port']}"
-                        ],
-                    ),
-                    "This is a SOCKS Proxy, Not An HTTP Proxy": dict(
-                        TAG_TOR,
-                        info=[
-                            f"TOR SOCKS Proxy notice on port {port['protocol']}/{port['port']}"
-                        ],
-                    ),
-                    "This is an HTTP CONNECT tunnel, not a full HTTP Proxy": dict(
-                        TAG_TOR,
-                        info=[
-                            f"TOR HTTP CONNECT tunnel notice on port {port['protocol']}/{port['port']}"
-                        ],
-                    ),
-                }.get(script["output"])
-                if tag is not None:
-                    yield cast(Tag, tag)
-            elif script["id"] == "scanner":
-                if port["port"] != -1:
-                    continue
-                scanners = sorted(
-                    set(
-                        scanner["name"]
-                        for scanner in script.get("scanner", {}).get("scanners", [])
-                    )
-                )
-                if scanners:
-                    yield cast(Tag, dict(TAG_SCANNER, info=scanners))
-                else:
-                    yield TAG_SCANNER
-            elif script["id"] == "http-default-accounts":
-                for app in script.get("http-default-accounts", []):
-                    if not app.get("credentials"):
-                        continue
-                    creds = [
-                        f"{cred['username']} / {cred['password']}"
-                        for cred in app["credentials"]
-                    ]
-                    yield cast(
-                        Tag,
-                        dict(
-                            TAG_DEFAULT_PASSWORD,
-                            info=[f"{app['name']}: {', '.join(creds)}"],
-                        ),
-                    )
-            elif "vulns" in script:
-                for vuln in script["vulns"]:
-                    state = vuln.get("state", "")
-                    if state.startswith("VULNERABLE"):
-                        if "id" in vuln:
-                            yield cast(Tag, dict(TAG_VULN, info=[vuln["id"]]))
-                        else:
-                            yield TAG_VULN
-                    elif state.startswith("LIKELY VULNERABLE"):
-                        if "id" in vuln:
-                            yield cast(Tag, dict(TAG_VULN_LIKELY, info=[vuln["id"]]))
-                        else:
-                            yield TAG_VULN_LIKELY
-                    elif state.startswith("UNKNOWN"):
-                        if "id" in vuln:
-                            yield cast(
-                                Tag, dict(TAG_VULN_CANNOT_TEST, info=[vuln["id"]])
-                            )
-                        else:
-                            yield TAG_VULN_CANNOT_TEST
-            elif "nuclei" in script:
-                for template in script["nuclei"]:
-                    template_id = template.get("template", "")
-                    template_name = template.get("name", "")
-                    info = (
-                        template_id
-                        if template_id == template_name
-                        else f"{template_id} / {template_name}"
-                    )
-                    if template_id.startswith("CVE-"):
-                        yield cast(Tag, dict(TAG_VULN, info=[info]))
-                    elif template_name.startswith("CVE-"):
-                        yield cast(Tag, dict(TAG_VULN, info=[info]))
-                    elif any(
-                        template_id.endswith(f"-{suffix}")
-                        for suffix in [
-                            "default-login",
-                            "weak-login",
-                            "weak-password",
-                            "default-admin",
-                        ]
-                    ) or template_id in {
-                        "google-earth-dlogin",
-                        "oracle-business-intelligence-login",
-                        "trilithic-viewpoint-default",
-                    }:
-                        yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
-                    elif template_name.endswith("Default Password"):
-                        yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
+        yield from gen_port_tags(port)
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = sum(
         1 for port in host.get("ports", []) if port.get("state_state") == "open"
@@ -455,3 +485,6 @@ def set_openports_attribute(host: NmapHost) -> None:
             openports["count"] += 1
             cur["count"] += 1
             cur["ports"].append(port["port"])
+
+
+load_plugins("ivre.plugins.tags.active", globals())
