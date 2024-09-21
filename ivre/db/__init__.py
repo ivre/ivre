@@ -103,6 +103,19 @@ class DB:
     def __init__(self):
         self.argparser = ArgumentParser(add_help=False)
         self.argparser.add_argument(
+            "--id",
+            metavar="ID",
+            help="show only results with this(those) ID(s)",
+            nargs="+",
+        )
+        self.argparser.add_argument(
+            "--no-id",
+            metavar="ID",
+            help="show only results WITHOUT this(those) ID(s)",
+            nargs="+",
+        )
+        self.argparser.add_argument("--version", metavar="VERSION", type=int)
+        self.argparser.add_argument(
             "--category", metavar="CAT", help="show only results from this category"
         )
         self.argparser.add_argument("--port", metavar="PORT")
@@ -121,6 +134,8 @@ class DB:
         self.argparser.add_argument(
             "--hassh", metavar="VALUE_OR_HASH", nargs="?", const=False, default=None
         )
+        self.argparser.add_argument("--hostname", metavar="NAME / ~NAME")
+        self.argparser.add_argument("--domain", metavar="NAME / ~NAME")
         self.argparser.add_argument(
             "--hassh-server",
             metavar="VALUE_OR_HASH",
@@ -135,6 +150,7 @@ class DB:
             const=False,
             default=None,
         )
+        self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument(
             "ips",
             nargs="*",
@@ -144,6 +160,12 @@ class DB:
     def parse_args(self, args, flt=None):
         if flt is None:
             flt = self.flt_empty
+        if args.id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.id))
+        if args.no_id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
+        if args.version is not None:
+            flt = self.flt_and(flt, self.searchversion(args.version))
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(utils.str2list(args.category)))
         if args.port is not None:
@@ -212,6 +234,14 @@ class DB:
             flt = self.flt_and(flt, self.searchipv6())
         if args.mac is not None:
             flt = self.flt_and(flt, self.searchmac(args.mac))
+        if args.hostname is not None:
+            flt = self.flt_and(
+                flt, self.searchhostname(utils.str2regexp(args.hostname))
+            )
+        if args.domain is not None:
+            flt = self.flt_and(
+                flt, self.searchdomain(utils.str2regexp(args.domain))
+            )
         if args.hassh is not None:
             flt = self.flt_and(
                 flt,
@@ -245,6 +275,8 @@ class DB:
                     server=False,
                 ),
             )
+        if args.torcert:
+            flt = self.flt_and(flt, self.searchtorcert())
         if args.ips:
 
             def _updtflt_(oflt, nflt):
@@ -953,23 +985,10 @@ class DBActive(DB):
         self.argparser.add_argument(
             "--source", metavar="SRC", help="show only results from this source"
         )
-        self.argparser.add_argument("--version", metavar="VERSION", type=int)
         self.argparser.add_argument("--timeago", metavar="SECONDS", type=int)
         self.argparser.add_argument("--no-timeago", metavar="SECONDS", type=int)
-        self.argparser.add_argument(
-            "--id",
-            metavar="ID",
-            help="show only results with this(those) ID(s)",
-            nargs="+",
-        )
-        self.argparser.add_argument(
-            "--no-id",
-            metavar="ID",
-            help="show only results WITHOUT this(those) ID(s)",
-            nargs="+",
-        )
-        self.argparser.add_argument("--hostname", metavar="NAME / ~NAME")
-        self.argparser.add_argument("--domain", metavar="NAME / ~NAME")
+        self.argparser.add_argument("--no-hostname", metavar="NAME / ~NAME")
+        self.argparser.add_argument("--no-domain", metavar="NAME / ~NAME")
         self.argparser.add_argument("--hop", metavar="IP")
         self.argparser.add_argument("--not-port", metavar="PORT")
         self.argparser.add_argument("--openport", action="store_true")
@@ -1005,7 +1024,6 @@ class DBActive(DB):
         self.argparser.add_argument(
             "--vuln-boa", "--vuln-intersil", action="store_true"
         )
-        self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument("--sshkey", metavar="FINGERPRINT")
 
     def start_store_hosts(self):
@@ -1946,35 +1964,18 @@ class DBActive(DB):
             return flt
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
-        if args.version is not None:
-            flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
         if args.no_timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.no_timeago, neg=True))
-        if args.id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.id))
-        if args.no_id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
-        if args.hostname is not None:
-            if args.hostname[:1] in "!~":
-                flt = self.flt_and(
-                    flt,
-                    self.searchhostname(utils.str2regexp(args.hostname[1:]), neg=True),
-                )
-            else:
-                flt = self.flt_and(
-                    flt, self.searchhostname(utils.str2regexp(args.hostname))
-                )
-        if args.domain is not None:
-            if args.domain[:1] in "!~":
-                flt = self.flt_and(
-                    flt, self.searchdomain(utils.str2regexp(args.domain[1:]), neg=True)
-                )
-            else:
-                flt = self.flt_and(
-                    flt, self.searchdomain(utils.str2regexp(args.domain))
-                )
+        if args.no_hostname is not None:
+            flt = self.flt_and(
+                flt, self.searchhostname(utils.str2regexp(args.hostname), neg=True)
+            )
+        if args.no_domain is not None:
+            flt = self.flt_and(
+                flt, self.searchdomain(utils.str2regexp(args.domain), neg=True)
+            )
         if args.hop is not None:
             flt = self.flt_and(flt, self.searchhop(args.hop))
         if args.not_port is not None:
@@ -2069,8 +2070,6 @@ class DBActive(DB):
             flt = self.flt_and(flt, self.searchowa())
         if args.vuln_boa:
             flt = self.flt_and(flt, self.searchvulnintersil())
-        if args.torcert:
-            flt = self.flt_and(flt, self.searchtorcert())
         if args.sshkey is not None:
             flt = self.flt_and(
                 flt, self.searchsshkey(fingerprint=utils.str2regexp(args.sshkey))
