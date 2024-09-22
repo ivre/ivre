@@ -27,8 +27,7 @@ from typing import BinaryIO, Dict, Generator, Iterable, List, Optional, Tuple, U
 
 from ivre.db import DBPassive, db
 from ivre.parser.p0f import P0fFile
-from ivre.passive import getinfos, handle_rec
-from ivre.tools.passiverecon2db import _get_ignore_rules
+from ivre.passive import get_ignore_rules, getinfos, handle_rec
 from ivre.types import Record
 from ivre.utils import LOGGER, recursive_filelisting
 
@@ -101,7 +100,7 @@ def main() -> None:
     parser = ArgumentParser(description=__doc__, parents=[db.passive.argparser_insert])
     parser.add_argument("files", nargs="*", metavar="FILE", help="p0f log files")
     args = parser.parse_args()
-    ignore_rules = _get_ignore_rules(args.ignore_spec)
+    ignore_rules = get_ignore_rules(args.ignore_spec)
     if args.test:
         function = DBPassive().insert_or_update_local_bulk
     elif (not (args.no_bulk or args.local_bulk)) or args.bulk:

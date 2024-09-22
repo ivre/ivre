@@ -38,33 +38,12 @@ from typing import (
 
 from ivre.db import DBPassive, db
 from ivre.parser.zeek import ZeekFile
-from ivre.passive import getinfos, handle_rec
+from ivre.passive import get_ignore_rules, getinfos, handle_rec
 from ivre.types import Record
-from ivre.utils import force_ip2int, recursive_filelisting
+from ivre.utils import recursive_filelisting
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
-
-
-def _get_ignore_rules(
-    ignore_spec: Optional[str],
-) -> Dict[str, Dict[str, List[Tuple[int, int]]]]:
-    """Executes the ignore_spec file and returns the ignore_rules
-    dictionary.
-
-    """
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]] = {}
-    if ignore_spec is not None:
-        with open(ignore_spec, "rb") as fdesc:
-            # pylint: disable=exec-used
-            exec(compile(fdesc.read(), ignore_spec, "exec"), ignore_rules)
-    subdict = ignore_rules.get("IGNORENETS")
-    if subdict:
-        for subkey, values in subdict.items():
-            subdict[subkey] = [
-                (force_ip2int(val[0]), force_ip2int(val[1])) for val in values
-            ]
-    return ignore_rules
 
 
 def rec_iter(
@@ -90,7 +69,7 @@ def main() -> None:
         "files", nargs="*", metavar="FILE", help="passive_recon log files"
     )
     args = parser.parse_args()
-    ignore_rules = _get_ignore_rules(args.ignore_spec)
+    ignore_rules = get_ignore_rules(args.ignore_spec)
     if args.test:
         function = DBPassive().insert_or_update_local_bulk
     elif (not (args.no_bulk or args.local_bulk)) or args.bulk:
