@@ -150,6 +150,7 @@ class DB:
             const=False,
             default=None,
         )
+        self.argparser.add_argument("--cert", metavar="FINGERPRINT")
         self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument(
             "ips",
@@ -239,9 +240,7 @@ class DB:
                 flt, self.searchhostname(utils.str2regexp(args.hostname))
             )
         if args.domain is not None:
-            flt = self.flt_and(
-                flt, self.searchdomain(utils.str2regexp(args.domain))
-            )
+            flt = self.flt_and(flt, self.searchdomain(utils.str2regexp(args.domain)))
         if args.hassh is not None:
             flt = self.flt_and(
                 flt,
@@ -275,6 +274,19 @@ class DB:
                     server=False,
                 ),
             )
+        if args.cert:
+            fingerprint = args.cert.lower().replace(":", "").replace(" ", "")
+            if not utils.HEX.search(fingerprint):
+                raise ValueError("Expected hash value, got %r" % args.cert)
+            try:
+                key = {
+                    32: "md5",
+                    40: "sha1",
+                    64: "sha256",
+                }[len(fingerprint)]
+            except KeyError as exc:
+                raise ValueError("Expected hash value, got %r" % args.cert) from exc
+            flt = self.flt_and(flt, self.searchcert(**{key: fingerprint}))
         if args.torcert:
             flt = self.flt_and(flt, self.searchtorcert())
         if args.ips:
@@ -4077,10 +4089,8 @@ class DBPassive(DB):
         super().__init__()
         self.output = output
         self.argparser.add_argument("--sensor")
-        self.argparser.add_argument("--torcert", action="store_true")
         self.argparser.add_argument("--dns")
         self.argparser.add_argument("--dnssub")
-        self.argparser.add_argument("--cert")
         self.argparser.add_argument("--basicauth", action="store_true")
         self.argparser.add_argument("--auth", action="store_true")
         self.argparser.add_argument("--java", action="store_true")
@@ -4142,8 +4152,6 @@ class DBPassive(DB):
             return flt
         if args.sensor is not None:
             flt = self.flt_and(flt, self.searchsensor(utils.str2list(args.sensor)))
-        if args.torcert:
-            flt = self.flt_and(flt, self.searchtorcert())
         if args.basicauth:
             flt = self.flt_and(flt, self.searchbasicauth())
         if args.auth:
@@ -4161,11 +4169,6 @@ class DBPassive(DB):
         if args.dnssub is not None:
             flt = self.flt_and(
                 flt, self.searchdns(utils.str2regexp(args.dnssub), subdomains=True)
-            )
-        if args.cert is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchcert(subject=utils.str2regexp(args.cert)),
             )
         if args.timeago is not None:
             flt = self.flt_and(
