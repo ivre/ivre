@@ -26,6 +26,7 @@ import binascii
 import hashlib
 import re
 import struct
+from typing import Dict, List, Optional, Tuple
 
 from ivre import config, utils
 from ivre.analyzer import ntlm
@@ -807,3 +808,25 @@ def getinfos(spec):
     if function is None:
         return {}
     return function(spec)
+
+
+def get_ignore_rules(
+    ignore_spec: Optional[str],
+) -> Dict[str, Dict[str, List[Tuple[int, int]]]]:
+    """Executes the ignore_spec file and returns the ignore_rules
+    dictionary.
+
+    """
+    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]] = {}
+    if ignore_spec is not None:
+        with open(ignore_spec, "rb") as fdesc:
+            # pylint: disable=exec-used
+            exec(compile(fdesc.read(), ignore_spec, "exec"), ignore_rules)
+    subdict = ignore_rules.get("IGNORENETS")
+    if subdict:
+        for subkey, values in subdict.items():
+            subdict[subkey] = [
+                (utils.force_ip2int(val[0]), utils.force_ip2int(val[1]))
+                for val in values
+            ]
+    return ignore_rules
