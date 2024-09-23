@@ -75,9 +75,11 @@ SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
 TAGS_GENERATOR_PLUGINS_SCRIPT: List[
-    Callable[[NmapPort, NmapScript], Generator[Tag, None, None]]
+    Callable[[NmapHost, NmapPort, NmapScript], Generator[Tag, None, None]]
 ] = []
-TAGS_GENERATOR_PLUGINS_PORT: List[Callable[[NmapPort], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_PORT: List[
+    Callable[[NmapHost, NmapPort], Generator[Tag, None, None]]
+] = []
 TAGS_GENERATOR_PLUGINS_HOST: List[Callable[[NmapHost], Generator[Tag, None, None]]] = []
 
 
@@ -100,13 +102,15 @@ def has_toomany_hostnames(host: NmapHost) -> bool:
     )
 
 
-def gen_script_tags(port: NmapPort, script: NmapScript) -> Generator[Tag, None, None]:
+def gen_script_tags(
+    host: NmapHost, port: NmapPort, script: NmapScript
+) -> Generator[Tag, None, None]:
     """This function generates the automatically-generated tags based
     on an Nmap script result.
 
     """
     for plugin in TAGS_GENERATOR_PLUGINS_SCRIPT:
-        yield from plugin(port, script)
+        yield from plugin(host, port, script)
     if script["id"] == "ssl-cert":
         for cert in script.get("ssl-cert", []):
             if cert.get("sha1") in SSLBL_CERTIFICATES:
@@ -245,13 +249,13 @@ def gen_script_tags(port: NmapPort, script: NmapScript) -> Generator[Tag, None, 
                 yield cast(Tag, dict(TAG_DEFAULT_PASSWORD, info=[info]))
 
 
-def gen_port_tags(port: NmapPort) -> Generator[Tag, None, None]:
+def gen_port_tags(host: NmapHost, port: NmapPort) -> Generator[Tag, None, None]:
     """This function generates the automatically-generated tags based
     on an Nmap port result.
 
     """
     for plugin in TAGS_GENERATOR_PLUGINS_PORT:
-        yield from plugin(port)
+        yield from plugin(host, port)
     # Values for keys in _SERVICE_FIELDS are strings when they exist. We know .lower() will work.
     if any("honeypot" in port.get(field, "").lower() for field in _SERVICE_FIELDS):  # type: ignore
         cur_info = []
@@ -301,7 +305,7 @@ def gen_port_tags(port: NmapPort) -> Generator[Tag, None, None]:
                 ),
             )
     for script in port.get("scripts", []):
-        yield from gen_script_tags(port, script)
+        yield from gen_script_tags(host, port, script)
 
 
 def gen_auto_tags(
@@ -335,7 +339,7 @@ def gen_auto_tags(
         del host["hostnames"]
         yield cast(Tag, dict(TAG_CDN, info=["Too many hostnames"]))
     for port in host.get("ports", []):
-        yield from gen_port_tags(port)
+        yield from gen_port_tags(host, port)
     # Now the "Honeypot" / "SYN+ACK honeypot" tag:
     n_ports = sum(
         1 for port in host.get("ports", []) if port.get("state_state") == "open"
