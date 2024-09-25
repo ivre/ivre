@@ -240,6 +240,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         "ports.scripts.ssl-cert",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
+        "ports.scripts.ssl-ja4-client",
         "tags",
     ]
     mappings = [
@@ -348,8 +349,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             query["after"] = result["aggregations"]["values"]["after_key"]
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None, least=False):
-        """
-        This method uses an aggregation to produce top values for a given
+        """This method uses an aggregation to produce top values for a given
         field or pseudo-field. Pseudo-fields are:
           - category[:regexp] / asnum / country / net[:mask]
           - port
@@ -373,9 +373,11 @@ class ElasticDBActive(ElasticDB, DBActive):
           - hop
           - scanner.name / scanner.port:tcp / scanner.port:udp
           - domains / domains[:level] / domains[:domain] / domains[:domain[:level]]
-          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type], jarm
+          - ja3-client[:filter][.type], ja3-server[:filter][:client][.type]
+          - ja4-client[:filter][.type], jarm
           - hassh.type, hassh-client.type, hassh-server.type
           - tag.{value,type,info} / tag[:value]
+
         """
         baseterms = {"size": topnbr}
         if least:
@@ -1086,6 +1088,45 @@ return result;
                         "aggs": {
                             "patterns": {
                                 "nested": {"path": "ports.scripts.ssl-ja3-server"},
+                                "aggs": {"patterns": base},
+                            }
+                        },
+                    }
+                },
+            }
+        elif field == "ja4-client" or (
+            field.startswith("ja4-client") and field[10] in ":."
+        ):
+            if ":" in field:
+                field, value = field.split(":", 1)
+                if isinstance(value, utils.REGEXP_T):
+                    include_value = self._get_pattern(value)
+                else:
+                    include_value = re.escape(value)
+            else:
+                value = None
+                include_value = None
+            if "." in field:
+                field, subfield = field.split(".", 1)
+            else:
+                subfield = "ja4"
+            base = {
+                "terms": dict(
+                    baseterms,
+                    field="ports.scripts.ssl-ja4-client.%s" % subfield,
+                ),
+            }
+            if include_value is not None:
+                base["terms"]["include"] = include_value
+            flt = self.flt_and(flt, self.searchja4client(value=value))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.ssl-ja4-client"},
                                 "aggs": {"patterns": base},
                             }
                         },
