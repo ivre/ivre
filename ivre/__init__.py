@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ def _get_version_from_git() -> str:
     if repo != os.path.realpath(os.path.join(_DIR, os.path.pardir)):
         raise ValueError("Git repository is not IVRE")
     with subprocess.Popen(
-        [b"git", b"describe", b"--always"],
+        [b"git", b"describe", b"--tags", b"--always"],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         cwd=os.path.join(_DIR, os.path.pardir),
