@@ -5257,7 +5257,10 @@ class IvreTests(unittest.TestCase):
 
         # Tags
         self.check_value(
-            "view_count_tags", ivre.db.db.view.count(ivre.db.db.view.searchtag())
+            "view_count_tags",
+            ivre.db.db.view.count(ivre.db.db.view.searchtag()),
+            # This value changes a bit, depending on current data files => assertAlmostEqual
+            check=self.assertAlmostEqual,
         )
         self.check_value(
             "view_count_tags_honeypot",
