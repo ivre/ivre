@@ -27,8 +27,22 @@ jobs:
         python-version: ['3.7', '3.12']
         postgresql-version: ['12', '13']
 
-    steps:
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgresql-version }}
+        env:
+          POSTGRES_DB: ivre
+          POSTGRES_PASSWORD: ivre
+          POSTGRES_USER: ivre
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
+    steps:
     - name: Git checkout
       uses: actions/checkout@v2
       with:
@@ -38,14 +52,6 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Start PostgreSQL
-      uses: harmon758/postgresql-action@v1
-      with:
-        postgresql version: ${{ matrix.postgresql-version }}
-        postgresql db: ivre
-        postgresql user: ivre
-        postgresql password: ivre
 
     - run: pip install -r requirements-postgres.txt
 
