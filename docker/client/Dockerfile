@@ -69,6 +69,8 @@ RUN apt-get -q update && \
     apt-get -qy --purge autoremove gnupg wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+ENV PATH=/opt/zeek/bin:$PATH
+
 # Install p0f
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install p0f && \
