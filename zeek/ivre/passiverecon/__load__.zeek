@@ -17,6 +17,9 @@
 @load base/frameworks/notice
 @load base/misc/version
 @load base/protocols/http
+@if(Version::number >= 60100)
+@load base/protocols/quic
+@endif
 @load base/protocols/ssh
 @load base/protocols/ssl
 @load base/protocols/dns
