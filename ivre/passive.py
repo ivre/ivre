@@ -400,9 +400,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
     elif spec["recontype"] == "SSL_CLIENT" and spec["source"] == "ja4":
         info = spec.setdefault("infos", {})
         value = spec["value"]
-        # Python >= 3.8: use :=
-        ja4_raw_match = JA4_RAW.search(value)
-        if ja4_raw_match is not None:
+        if (ja4_raw_match := JA4_RAW.search(value)) is not None:
             info.update(ja4_raw_match.groupdict())
             if info["ja4_c2_raw"] is None:
                 info["ja4_c2_raw"] = ""

@@ -41,8 +41,7 @@ def get_azure_url() -> str:
         "https://www.microsoft.com/en-us/download/confirmation.aspx?id=57063"
     ) as udesc:
         for line in udesc:
-            match = AZURE_URL.search(line)
-            if match is None:
+            if (match := AZURE_URL.search(line)) is None:
                 continue
             return match.group(1).decode()
     raise ValueError("URL for Azure US Government Cloud not found")

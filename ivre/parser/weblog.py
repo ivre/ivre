@@ -53,11 +53,8 @@ class WeblogFile(Parser):
             "host": m.group("addr"),
             "ts": timestamp,
         }
-        # Python >= 3.8: if (useragent := m.group("useragent")) != "-":
-        useragent = m.group("useragent")
-        if useragent != "-":
+        if (useragent := m.group("useragent")) != "-":
             result["user-agent"] = useragent
-        # Python >= 3.8: if xff := m.group("x_forwarded_for"):
         xff = m.group("x_forwarded_for")
         if xff and xff != "-":
             result["x-forwarded-for"] = xff

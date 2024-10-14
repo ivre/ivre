@@ -893,8 +893,7 @@ def create_http_ls(data: bytes, volname: str = "???") -> Optional[NmapScript]:
     results.
 
     """
-    match = _EXPR_INDEX_OF.search(data)
-    if match is None:
+    if (match := _EXPR_INDEX_OF.search(data)) is None:
         return None
     files = []
     for pattern in _EXPR_FILES:
@@ -1026,8 +1025,7 @@ def handle_http_content(
     data: bytes,
     path: str = "/",
 ) -> None:
-    title_m = _EXPR_TITLE.search(data)
-    if title_m is not None and not any(
+    if (title_m := _EXPR_TITLE.search(data)) is not None and not any(
         s["id"] == "http-title" for s in port.get("scripts", [])
     ):
         title = nmap_encode_data(title_m.groups()[0])

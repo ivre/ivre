@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.11', '3.12']
 
     steps:
 
@@ -39,10 +39,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - run: pip install -r requirements-tinydb.txt
-
-    # this should be a dependency of tinydb
-    - run: pip install typing_extensions
-      if: ${{ matrix.python-version <= 3.7 }}
 
     - name: Install IVRE
       uses: ./.github/actions/install

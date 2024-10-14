@@ -2099,16 +2099,11 @@ class DBActive(DB):
         )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
         if dnstype is not None:
             dnstype = dnstype.upper()
-        # Only with Python >= 3.8
-        # if isinstance(addr_or_name, str) and (
-        #     (is_host := utils.IPADDR.search(addr_or_name))
-        #     or utils.NETADDR.search(addr_or_name)
-        # ):
         if isinstance(addr_or_name, str) and (
-            utils.IPADDR.search(addr_or_name) or utils.NETADDR.search(addr_or_name)
+            (is_host := utils.IPADDR.search(addr_or_name))
+            or utils.NETADDR.search(addr_or_name)
         ):
-            # if is_host:
-            if utils.IPADDR.search(addr_or_name):
+            if is_host:
                 flt = self.flt_and(self.searchhost(addr_or_name), self.searchhostname())
             else:
                 flt = self.flt_and(self.searchnet(addr_or_name), self.searchhostname())

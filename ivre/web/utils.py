@@ -812,9 +812,8 @@ def flt_from_query(dbase, query, base_flt=None):
             # ignore this parameter
             pass
         elif value is None:
-            if PORT.search(param) is not None:
-                # Python >= 3.8: if (match := PORT.search(param)) is not None
-                proto, port = PORT.search(param).groups()
+            if (match := PORT.search(param)) is not None:
+                proto, port = match.groups()
                 flt = dbase.flt_and(
                     flt, dbase.searchport(int(port), protocol=proto or "tcp", neg=neg)
                 )
