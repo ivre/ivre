@@ -851,7 +851,7 @@ def recursive_filelisting(
 def serialize(obj: Any) -> str:
     """Return a JSON-compatible representation for `obj`"""
     regexp_types = (REGEXP_T, BsonRegex) if USE_BSON else REGEXP_T
-    if isinstance(obj, regexp_types):  # type: ignore
+    if isinstance(obj, regexp_types):
         return "/%s/%s" % (
             obj.pattern,
             "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
@@ -2529,7 +2529,7 @@ def download_if_newer(
 
     """
     if processor is None:
-        processor = shutil.copyfileobj  # type: ignore[assignment]
+        processor = shutil.copyfileobj
     assert processor is not None
     opener = build_opener()
     opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
