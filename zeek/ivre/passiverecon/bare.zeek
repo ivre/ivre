@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2024 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,9 @@ event zeek_init() {
     Log::disable_stream(DNS::LOG);
     Log::disable_stream(FTP::LOG);
     Log::disable_stream(HTTP::LOG);
+@if(Version::number >= 60100)
+    Log::disable_stream(QUIC::LOG);
+@endif
     Log::disable_stream(SSH::LOG);
     Log::disable_stream(SSL::LOG);
     Log::disable_stream(Conn::LOG);
