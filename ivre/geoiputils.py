@@ -43,9 +43,10 @@ from ivre import VERSION, config, utils
 def bgp_raw_to_csv(fname: str, outname: str) -> None:
     cur = None
     assert config.GEOIP_PATH is not None
-    with open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc, open(
-        os.path.join(config.GEOIP_PATH, outname), "w", encoding="utf8"
-    ) as out:
+    with (
+        open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc,
+        open(os.path.join(config.GEOIP_PATH, outname), "w", encoding="utf8") as out,
+    ):
         for line in fdesc:
             start, stop = (
                 utils.ip2int(elt)
@@ -84,10 +85,15 @@ def unzip_all(
         for filedesc in zdesc.infolist():
             if cond and not cond(filedesc):
                 continue
-            with zdesc.open(filedesc) as rdesc, open(
-                os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.filename)),
-                "wb",
-            ) as wdesc:
+            with (
+                zdesc.open(filedesc) as rdesc,
+                open(
+                    os.path.join(
+                        config.GEOIP_PATH, os.path.basename(filedesc.filename)
+                    ),
+                    "wb",
+                ) as wdesc,
+            ):
                 copyfileobj(rdesc, wdesc)
 
 
@@ -95,9 +101,10 @@ def gunzip(fname: str) -> None:
     if not fname.endswith(".gz"):
         raise Exception('filename should end with ".gz"')
     assert config.GEOIP_PATH is not None
-    with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp, open(
-        os.path.join(config.GEOIP_PATH, fname[:-3]), "wb"
-    ) as outp:
+    with (
+        utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp,
+        open(os.path.join(config.GEOIP_PATH, fname[:-3]), "wb") as outp,
+    ):
         copyfileobj(inp, outp)
 
 
