@@ -57,6 +57,7 @@ from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_cert_hostnames,
+    add_hostname,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
@@ -2986,6 +2987,37 @@ class DBNmap(DBActive):
                     except ValueError:
                         utils.LOGGER.warning("Invalid URL [%r]", url)
                         continue
+                elif rec.get("type") == "dns":
+                    if rec.get("template-id") != "ptr-fingerprint":
+                        # only supported template for now
+                        continue
+                    if not (hostnames := rec.get("extracted-results")):
+                        continue
+                    addr = utils.ptr2addr(rec["host"])
+                    host = {
+                        "addr": addr,
+                        "schema_version": xmlnmap.SCHEMA_VERSION,
+                        "hostnames": [],
+                    }
+                    for hostname in hostnames:
+                        add_hostname(hostname, "PTR", host["hostnames"])
+                    # DNS reocrds are very specific, so we handle them
+                    # differently and continue to the next record
+                    if "timestamp" in rec:
+                        host["starttime"] = host["endtime"] = rec["timestamp"][
+                            :19
+                        ].replace("T", " ")
+                    if categories:
+                        host["categories"] = categories
+                    if tags:
+                        add_tags(host, tags)
+                    if source is not None:
+                        host["source"] = source
+                    host = self.json2dbrec(host)
+                    self.store_host(host)
+                    if callback is not None:
+                        callback(host)
+                    continue
                 else:
                     utils.LOGGER.warning(
                         "Data type %r from nuclei not (yet) supported",
