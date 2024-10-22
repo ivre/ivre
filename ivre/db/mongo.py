@@ -62,6 +62,7 @@ from ivre.db import (
     DBPassive,
     DBView,
     LockError,
+    _RecInfo,
 )
 from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
@@ -4957,13 +4958,13 @@ class MongoDBPassive(MongoDB, DBPassive):
         method.
 
         """
-        bulk = []
+        records = {}
 
         if separated_timestamps:
 
             def generator(specs):
                 for timestamp, spec in specs:
-                    yield timestamp, timestamp, spec
+                    yield timestamp, timestamp, spec.pop("count", 1), spec
 
         else:
 
@@ -4971,48 +4972,59 @@ class MongoDBPassive(MongoDB, DBPassive):
                 for spec in specs:
                     firstseen = spec.pop("firstseen", None)
                     lastseen = spec.pop("lastseen", None)
-                    yield firstseen or lastseen, lastseen or firstseen, spec
+                    yield firstseen or lastseen, lastseen or firstseen, spec.pop(
+                        "count", 1
+                    ), spec
 
         try:
-            for firstseen, lastseen, spec in generator(specs):
+
+            def item2bulkop(spec, metadata):
+                spec_doc = dict(spec)
+                data = metadata.data
+                count = data.pop("count")
+                updatespec = {
+                    "$min": {"firstseen": metadata.firstseen},
+                    "$max": {"lastseen": metadata.lastseen},
+                    "$set" if replacecount else "$inc": {"count": count},
+                }
+                if getinfos is not None:
+                    data.update(getinfos(spec_doc))
+                try:
+                    infos = {"infos": data.pop("infos")}
+                except KeyError:
+                    pass
+                else:
+                    self._fix_sizes(infos)
+                    updatespec["$setOnInsert"] = infos
+                spec_doc = self.rec2internal(spec_doc)
+                return pymongo.UpdateOne(spec_doc, updatespec, upsert=True)
+
+            for firstseen, lastseen, count, spec in generator(specs):
                 if spec is None:
                     continue
-                updatespec = {
-                    "$min": {"firstseen": firstseen},
-                    "$max": {"lastseen": lastseen},
-                }
-                if replacecount:
-                    updatespec["$set"] = {"count": spec.pop("count", 1)}
-                else:
-                    updatespec["$inc"] = {"count": spec.pop("count", 1)}
-                if getinfos is not None:
-                    spec.update(getinfos(spec))
-                    try:
-                        infos = {"infos": spec["infos"]}
-                    except KeyError:
-                        pass
-                    else:
-                        self._fix_sizes(infos)
-                        updatespec["$setOnInsert"] = infos
-                spec = self.rec2internal(spec)
-                findspec = deepcopy(spec)
-                for key in ["infos", "fullinfos"]:
-                    try:
-                        del findspec[key]
-                    except KeyError:
-                        pass
-                bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
-                if len(bulk) >= config.MONGODB_BATCH_SIZE:
-                    utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(bulk))
+                infos = spec.pop("infos", None)
+                basespec = tuple(sorted(spec.items()))
+                records.setdefault(basespec, _RecInfo(infos)).update(
+                    firstseen, lastseen=lastseen, count=count
+                )
+                if len(records) >= config.MONGODB_BATCH_SIZE:
+                    utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(records))
                     self.db[self.columns[self.column_passive]].bulk_write(
-                        bulk, ordered=False
+                        [
+                            item2bulkop(spec, metadata)
+                            for spec, metadata in records.items()
+                        ],
+                        ordered=False,
                     )
-                    bulk = []
+                    records = {}
         except IOError:
             pass
-        if bulk:
-            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", len(bulk))
-            self.db[self.columns[self.column_passive]].bulk_write(bulk, ordered=False)
+        if records:
+            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", len(records))
+            self.db[self.columns[self.column_passive]].bulk_write(
+                [item2bulkop(spec, metadata) for spec, metadata in records.items()],
+                ordered=False,
+            )
 
     def insert_or_update_mix(self, spec, getinfos=None, replacecount=False):
         """Updates the first record matching "spec" (without
