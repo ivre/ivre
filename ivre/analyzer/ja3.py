@@ -72,10 +72,15 @@ def banner2ja34c(
             from scapy.layers.tls.record import TLS  # type: ignore
         except ImportError:
             HAS_SCAPY = False
+            utils.LOGGER.warning("Scapy not found; cannot parse TLS banners")
+        except Exception:
+            HAS_SCAPY = False
+            utils.LOGGER.warning(
+                "Scapy cannot be imported; cannot parse TLS banners", exc_info=True
+            )
         else:
             HAS_SCAPY = True
     if not HAS_SCAPY:
-        utils.LOGGER.warning("Scapy not found: cannot parse TLS banners")
         return None
     data = TLS(banner)  # type: ignore  # pylint: disable=possibly-used-before-assignment
     try:
