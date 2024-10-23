@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -28,11 +28,11 @@ import signal
 import subprocess
 import time
 from argparse import ArgumentParser
-from typing import Any, Dict, List, Match, Optional
+from typing import Any
 
 from ivre import utils
 
-SENSORS: Dict[str, str] = {}  # shortname: fullname
+SENSORS: dict[str, str] = {}  # shortname: fullname
 FILEFORMAT = "^(?P<sensor>%s)[.-](?P<datetime>[0-9-]+)\\.log(?:\\.(?:gz|bz2))?$"
 SLEEPTIME = 2
 WANTDOWN = False
@@ -49,8 +49,8 @@ def shutdown(signum: int, _: Any) -> None:
 
 
 def getnextfiles(
-    directory: str, sensor: Optional[str] = None, count: int = 1
-) -> List[Match[str]]:
+    directory: str, sensor: str | None = None, count: int = 1
+) -> list[re.Match[str]]:
     """Returns a list of maximum `count` filenames (as FILEFORMAT matches)
     to process, given the `directory` and the `sensor` (or, if it is
     `None`, from any sensor).
@@ -78,13 +78,13 @@ def create_process(progname: str, sensor: str) -> subprocess.Popen:
     )
 
 
-def worker(progname: str, directory: str, sensor: Optional[str] = None) -> None:
+def worker(progname: str, directory: str, sensor: str | None = None) -> None:
     """This function is the main loop, creating the processes when
     needed and feeding them with the data from the files.
 
     """
     utils.makedirs(os.path.join(directory, "current"))
-    procs: Dict[str, subprocess.Popen] = {}
+    procs: dict[str, subprocess.Popen] = {}
     while not WANTDOWN:
         # We get the next file to handle
         fname_l = getnextfiles(directory, sensor=sensor, count=1)

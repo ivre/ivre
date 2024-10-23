@@ -21,8 +21,9 @@
 
 import os
 from argparse import ArgumentParser
+from collections.abc import Callable, Iterable
 from sys import stdin
-from typing import Any, BinaryIO, Callable, Dict, Iterable, Union
+from typing import Any, BinaryIO
 
 from ivre import config, flow, utils
 from ivre.db import db
@@ -32,7 +33,7 @@ from ivre.types.flow import Bulk
 from ivre.utils import recursive_filelisting
 
 
-def _zeek2flow(rec: Dict[str, Any]) -> Record:
+def _zeek2flow(rec: dict[str, Any]) -> Record:
     """Prepares a document"""
     if "id_orig_h" in rec:
         rec["src"] = rec.pop("id_orig_h")
@@ -147,7 +148,7 @@ def main() -> None:
 
     if args.verbose:
         config.DEBUG = True
-    files: Iterable[Union[BinaryIO, str]]
+    files: Iterable[BinaryIO | str]
 
     if not args.files:
         files = [stdin.buffer]

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,11 +18,10 @@
 
 """Support for http server log files"""
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
 
 import datetime
 import re
-from typing import Any, Dict
+from typing import Any
 
 from ivre.parser import Parser
 from ivre.utils import LOGGER
@@ -35,7 +34,7 @@ class WeblogFile(Parser):
         r'^(?P<addr>[^ ]*) (?P<identity>[^ ]*) (?P<username>[^ ]*) \[(?P<datetime>[^]]*)\] "(?P<request>[^"]*)" (?P<status>[^ ]*) (?P<size>[^ ]*) "(?P<referer>[^"]*)" "(?P<useragent>[^"]*)"(?: "(?P<x_forwarded_for>[^"]*)")?\r?$'
     )
 
-    def parse_line(self, line: bytes) -> Dict[str, Any]:
+    def parse_line(self, line: bytes) -> dict[str, Any]:
         m = self.line_re.match(line.decode())
         if not m:
             LOGGER.warning("Cannot parse line [%r]", line)

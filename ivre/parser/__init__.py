@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,11 +19,12 @@
 """Parsers for file formats / tool outputs"""
 
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
+from __future__ import annotations  # needed for flake8
 
 import subprocess
+from collections.abc import Iterator
 from types import TracebackType
-from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Type, Union, cast
+from typing import Any, BinaryIO, Type, cast
 
 from ivre.utils import FileOpener
 
@@ -31,17 +32,17 @@ from ivre.utils import FileOpener
 class Parser:
     """Parent class for file parsers"""
 
-    def __init__(self, fname: Union[str, BinaryIO]) -> None:
+    def __init__(self, fname: str | BinaryIO) -> None:
         self.fopener = FileOpener(fname)
         self.fdesc = self.fopener.fdesc
 
-    def __iter__(self) -> Iterator[Dict[str, Any]]:
+    def __iter__(self) -> Iterator[dict[str, Any]]:
         return self
 
-    def __next__(self) -> Dict[str, Any]:
+    def __next__(self) -> dict[str, Any]:
         return self.parse_line(next(self.fdesc))
 
-    def parse_line(self, line: bytes) -> Dict[str, Any]:
+    def parse_line(self, line: bytes) -> dict[str, Any]:
         raise NotImplementedError
 
     def fileno(self) -> int:
@@ -55,9 +56,9 @@ class Parser:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.fopener.__exit__(exc_type, exc_val, exc_tb)
 
@@ -65,7 +66,7 @@ class Parser:
 class CmdParser(Parser):
     """Parent class for file parsers with commands"""
 
-    def __init__(self, cmd: List[str], cmdkargs: Dict[str, Any]) -> None:
+    def __init__(self, cmd: list[str], cmdkargs: dict[str, Any]) -> None:
         cmdkargs["stdout"] = subprocess.PIPE
         # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(cmd, **cmdkargs)
@@ -74,9 +75,9 @@ class CmdParser(Parser):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.fdesc.close()
         if self.proc is not None:

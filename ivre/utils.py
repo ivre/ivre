@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -24,7 +23,7 @@ sub-module or script.
 """
 
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
+from __future__ import annotations  # needed for flake8
 
 import argparse
 import ast
@@ -46,27 +45,10 @@ import subprocess
 import sys
 import time
 from bisect import bisect_left
+from collections.abc import Callable, Generator, Iterable
 from io import BytesIO
 from types import TracebackType
-from typing import (
-    Any,
-    AnyStr,
-    BinaryIO,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Match,
-    Optional,
-    Pattern,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, AnyStr, BinaryIO, Type, TypeVar, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import build_opener
@@ -256,7 +238,7 @@ def ip2int(ipstr: AnyStr) -> int:
     return (val1 << 64) + val2
 
 
-def force_ip2int(ipstr: Union[AnyStr, int]) -> int:
+def force_ip2int(ipstr: AnyStr | int) -> int:
     """Same as ip2int(), but works when ipstr is already an int"""
     if isinstance(ipstr, (str, bytes)):
         return ip2int(ipstr)
@@ -290,14 +272,14 @@ def int2ip6(ipint: int) -> str:
     )
 
 
-def force_int2ip(ipint: Union[int, str]) -> str:
+def force_int2ip(ipint: int | str) -> str:
     """Same as int2ip(), but works when ipint is already a atring"""
     if isinstance(ipint, int):
         return int2ip(ipint)
     return ipint
 
 
-def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
+def ip2bin(ipval: AnyStr | int) -> bytes:
     """Attempts to convert any IP address representation (both IPv4 and
     IPv6) to a 16-bytes binary blob.
 
@@ -331,7 +313,7 @@ def ip2bin(ipval: Union[AnyStr, int]) -> bytes:
         raise InvalidIPAddress(data) from exc
 
 
-def bin2ip(ipval: Union[AnyStr, int]) -> str:
+def bin2ip(ipval: AnyStr | int) -> str:
     """Converts a 16-bytes binary blob to an IPv4 or IPv6 standard
     representation. See ip2bin().
 
@@ -365,15 +347,13 @@ def int2mask(mask: int) -> int:
     return (0xFFFFFFFF00000000 >> mask) & 0xFFFFFFFF
 
 
-def net2range(network: str) -> Tuple[str, str]:
+def net2range(network: str) -> tuple[str, str]:
     """Converts a network to a (start, stop) tuple."""
     net = ipaddress.ip_interface(network).network
     return str(net.network_address), str(net.broadcast_address)
 
 
-def range2nets(
-    rng: Tuple[Union[str, int], Union[str, int]]
-) -> Generator[str, None, None]:
+def range2nets(rng: tuple[str | int, str | int]) -> Generator[str, None, None]:
     """Converts a (start, stop) tuple to a generator of networks."""
     for net in ipaddress.summarize_address_range(
         ipaddress.ip_address(rng[0]), ipaddress.ip_address(rng[1])
@@ -413,7 +393,7 @@ def _escape_first_slash(string: str) -> str:
     return string
 
 
-def str2regexp(string: str) -> Union[str, Pattern[str]]:
+def str2regexp(string: str) -> str | re.Pattern[str]:
     """This function takes a string and returns either this string or
     a python regexp object, when the string is using the syntax
     /regexp[/flags].
@@ -431,7 +411,7 @@ def str2regexp(string: str) -> Union[str, Pattern[str]]:
     return re.compile(_espace_slash(string), flags)
 
 
-def str2regexpnone(value: str) -> Union[str, Pattern[str], bool]:
+def str2regexpnone(value: str) -> str | re.Pattern[str] | bool:
     """Just like str2regexp, but handle special '-' value, which means
     False.
 
@@ -441,9 +421,7 @@ def str2regexpnone(value: str) -> Union[str, Pattern[str], bool]:
     return str2regexp(value)
 
 
-def regexp2pattern(
-    string: Union[Union[str, bytes], Pattern]
-) -> Tuple[Union[str, bytes], int]:
+def regexp2pattern(string: str | bytes | re.Pattern) -> tuple[str | bytes, int]:
     """This function takes a regexp or a string and returns a pattern and
     some flags, suitable for use with re.compile(), combined with
     another pattern before. Useful, for example, if you want to create
@@ -477,7 +455,7 @@ def regexp2pattern(
     raise TypeError()
 
 
-def str2list(string: AnyStr) -> Union[AnyStr, List[AnyStr]]:
+def str2list(string: AnyStr) -> AnyStr | list[AnyStr]:
     """This function takes a string and returns either this string or
     a list of the coma-or-pipe separated elements from the string.
 
@@ -512,8 +490,8 @@ def ports2nmapspec(portlist: Iterable[int]) -> str:
     """
     # unique and sorted (http://stackoverflow.com/a/13605607/3223422)
     portlist = sorted(set(portlist))
-    result: List[str] = []
-    current: Tuple[Optional[int], Optional[int]] = (None, None)
+    result: list[str] = []
+    current: tuple[int | None, int | None] = (None, None)
     for port in portlist:
         if port - 1 == current[1]:
             current = (current[0], port)
@@ -532,12 +510,12 @@ def ports2nmapspec(portlist: Iterable[int]) -> str:
     return ",".join(result)
 
 
-def nmapspec2ports(string: str) -> Set[int]:
+def nmapspec2ports(string: str) -> set[int]:
     """This function takes a string suitable for use as argument for
     Nmap's -p option and returns the corresponding set of ports.
 
     """
-    result: Set[int] = set()
+    result: set[int] = set()
     for ports in string.split(","):
         if "-" in ports:
             port1, port2 = (int(port) for port in ports.split("-", 1))
@@ -547,7 +525,7 @@ def nmapspec2ports(string: str) -> Set[int]:
     return result
 
 
-def all2datetime(arg: Union[int, float, str, datetime.datetime]) -> datetime.datetime:
+def all2datetime(arg: int | float | str | datetime.datetime) -> datetime.datetime:
     """Return a datetime object from an int (timestamp) or an iso
     formatted string '%Y-%m-%d %H:%M:%S'.
 
@@ -601,14 +579,14 @@ def isfinal(elt: Any) -> bool:
     return isinstance(elt, (str, int, float, datetime.datetime, REGEXP_T))
 
 
-def diff(doc1: Dict[str, Any], doc2: Dict[str, Any]) -> Dict[str, Any]:
+def diff(doc1: dict[str, Any], doc2: dict[str, Any]) -> dict[str, Any]:
     """NOT WORKING YET - WORK IN PROGRESS - Returns fields that differ
     between two scans.
 
     """
     keys1 = set(doc1)
     keys2 = set(doc2)
-    res: Dict[str, Any] = {}
+    res: dict[str, Any] = {}
     for key in keys1.symmetric_difference(keys2):
         res[key] = True
     for key in keys1.intersection(keys2):
@@ -643,7 +621,7 @@ def diff(doc1: Dict[str, Any], doc2: Dict[str, Any]) -> Dict[str, Any]:
     return res
 
 
-def fields2csv_head(fields: Dict[str, Any], prefix: str = "") -> List[str]:
+def fields2csv_head(fields: dict[str, Any], prefix: str = "") -> list[str]:
     """Given an (ordered) dictionary `fields`, returns a list of the
     fields. NB: recursive function, hence the `prefix` parameter.
 
@@ -657,12 +635,12 @@ def fields2csv_head(fields: Dict[str, Any], prefix: str = "") -> List[str]:
     return line
 
 
-def doc2csv(doc: Record, fields: Dict[str, Any], nastr: str = "NA") -> List[list]:
+def doc2csv(doc: Record, fields: dict[str, Any], nastr: str = "NA") -> list[list]:
     """Given a document and an (ordered) dictionary `fields`, returns
     a list of CSV lines. NB: recursive function.
 
     """
-    lines: List[list] = [[]]
+    lines: list[list] = [[]]
     for field, subfields in fields.items():
         if subfields is True:
             value = doc.get(field)
@@ -719,12 +697,12 @@ class FileOpener(BinaryIO):
 
     """
 
-    FILE_OPENERS_MAGIC: Dict[bytes, Callable] = {
+    FILE_OPENERS_MAGIC: dict[bytes, Callable] = {
         b"\x1f\x8b": gzip.open,
         b"BZ": bz2.BZ2File,
     }
 
-    def __init__(self, fname: Union[str, BinaryIO]) -> None:
+    def __init__(self, fname: str | BinaryIO) -> None:
         if not isinstance(fname, str):
             self.fdesc = fname
             self.needsclose = False
@@ -760,9 +738,9 @@ class FileOpener(BinaryIO):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         if self.needsclose:
             self.fdesc.close()
@@ -796,7 +774,7 @@ class FileOpener(BinaryIO):
     def readable(self) -> bool:
         return self.fdesc.readable()
 
-    def readlines(self, hint: int = -1) -> List[bytes]:
+    def readlines(self, hint: int = -1) -> list[bytes]:
         return self.fdesc.readlines(hint)
 
     def seekable(self) -> bool:
@@ -808,7 +786,7 @@ class FileOpener(BinaryIO):
     def tell(self) -> int:
         return self.fdesc.tell()
 
-    def truncate(self, size: Optional[int] = None) -> int:
+    def truncate(self, size: int | None = None) -> int:
         return self.fdesc.truncate(size)
 
     def writable(self) -> bool:
@@ -826,7 +804,7 @@ def open_file(fname: str) -> FileOpener:
 
 
 def recursive_filelisting(
-    base_directories: Iterable[str], error: Optional[List[bool]] = None
+    base_directories: Iterable[str], error: list[bool] | None = None
 ) -> Generator[str, None, None]:
     """Iterator on filenames in base_directories. Ugly hack: error is a
     one-element list that will be set to True if one of the directories in
@@ -874,7 +852,7 @@ class LogFilter(logging.Filter):
 
     def __init__(self) -> None:
         super().__init__()
-        self.warnings: Set[str] = set()
+        self.warnings: set[str] = set()
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Decides whether we should log a record"""
@@ -975,7 +953,7 @@ CLI_ARGPARSER.add_argument("--skip", type=int, help="Skip first SKIP results.")
 # Country aliases:
 #   - UK: GB
 #   - EU: 27 EU member states, + EU itself, for historical reasons
-COUNTRY_ALIASES: Dict[str, Union[str, List[str]]] = {
+COUNTRY_ALIASES: dict[str, str | list[str]] = {
     "UK": "GB",
     "EU": [
         "AT",
@@ -1010,7 +988,7 @@ COUNTRY_ALIASES: Dict[str, Union[str, List[str]]] = {
 }
 
 
-def country_unalias(country: Union[str, Iterable[str]]) -> Union[str, List[str]]:
+def country_unalias(country: str | Iterable[str]) -> str | list[str]:
     """Takes either a country code (or an iterator of country codes)
     and returns either a country code or a list of country codes.
 
@@ -1027,7 +1005,7 @@ def country_unalias(country: Union[str, Iterable[str]]) -> Union[str, List[str]]
     if isinstance(country, str):
         return COUNTRY_ALIASES.get(country, country)
     if hasattr(country, "__iter__"):
-        empty: List[str] = []
+        empty: list[str] = []
         return functools.reduce(
             lambda x, y: x + (y if isinstance(y, list) else [y]),
             (country_unalias(country_elt) for country_elt in country),
@@ -1039,7 +1017,7 @@ def country_unalias(country: Union[str, Iterable[str]]) -> Union[str, List[str]]
 _WORDS = re.compile(b"\\w+")
 
 
-def screenwords(imgdata: bytes) -> Optional[List[str]]:
+def screenwords(imgdata: bytes) -> list[str] | None:
     """Takes an image and returns a list of the words seen by the OCR"""
     if config.TESSERACT_CMD is not None:
         # pylint: disable=consider-using-with
@@ -1084,13 +1062,11 @@ def screenwords(imgdata: bytes) -> Optional[List[str]]:
 
 if USE_PIL:
 
-    def _img_size(bbox: Tuple[int, int, int, int]) -> int:
+    def _img_size(bbox: tuple[int, int, int, int]) -> int:
         """Returns the size of a given `bbox`"""
         return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
 
-    def _trim_image(
-        img: PIL.Image, tolerance: int
-    ) -> Optional[Tuple[int, int, int, int]]:
+    def _trim_image(img: PIL.Image, tolerance: int) -> tuple[int, int, int, int] | None:
         """Returns the tiniest `bbox` to trim `img`"""
         result = None
         for pixel in [
@@ -1122,7 +1098,7 @@ if USE_PIL:
 
     def trim_image(
         imgdata: bytes, tolerance: int = 1, minborder: int = 10
-    ) -> Union[bytes, bool]:
+    ) -> bytes | bool:
         """Trims the image, `tolerance` is an integer from 0 (not
         tolerant, trims region with the exact same color) to 255
         (too tolerant, will trim the whole image).
@@ -1155,13 +1131,13 @@ else:
 
     def trim_image(
         imgdata: bytes, tolerance: int = 1, minborder: int = 10
-    ) -> Union[bytes, bool]:
+    ) -> bytes | bool:
         """Stub function used when PIL cannot be found"""
         LOGGER.warning("Python PIL not found, screenshots will not be trimmed")
         return imgdata
 
 
-_PORTS: Dict[str, Dict[int, float]] = {}
+_PORTS: dict[str, dict[int, float]] = {}
 _PORTS_POPULATED = False
 
 
@@ -1224,13 +1200,13 @@ def guess_srv_port(port1: int, port2: int, proto: str = "tcp") -> int:
     return cmpval
 
 
-_NMAP_PROBES: Dict[
+_NMAP_PROBES: dict[
     str,
-    Dict[str, NmapProbeRec],
+    dict[str, NmapProbeRec],
 ] = {}
 _NMAP_PROBES_POPULATED = False
-_NMAP_CUR_PROBE: Optional[NmapProbe] = None
-_NMAP_CUR_FALLBACK: Optional[List[str]] = None
+_NMAP_CUR_PROBE: NmapProbe | None = None
+_NMAP_CUR_FALLBACK: list[str] | None = None
 
 
 def _read_nmap_probes() -> None:
@@ -1253,7 +1229,7 @@ def _read_nmap_probes() -> None:
         elif line.startswith(b"Probe "):
             _NMAP_CUR_PROBE = []
             _NMAP_CUR_FALLBACK = []
-            probe: Optional[bytes]
+            probe: bytes | None
             proto, name, probe = line[6:].split(b" ", 2)
             if not (len(probe) >= 3 and probe[:2] == b"q|"):
                 LOGGER.warning("Invalid nmap probe %r", probe)
@@ -1279,7 +1255,7 @@ def _read_nmap_probes() -> None:
         else:
             return
         service, data = line.split(b" ", 1)
-        info: Dict[str, Any] = {"soft": soft}
+        info: dict[str, Any] = {"soft": soft}
         while data:
             if data.startswith(b"cpe:"):
                 key = "cpe"
@@ -1291,7 +1267,7 @@ def _read_nmap_probes() -> None:
             data = data[1:]
             index = data.index(sep)
             value = data[:index]
-            value_out: Union[Pattern[bytes], str]
+            value_out: re.Pattern[bytes] | str
             data = data[index + 1 :]
             flag = b""
             if data:
@@ -1346,7 +1322,7 @@ def get_nmap_svc_fp(proto: str = "tcp", probe: str = "NULL") -> NmapProbeRec:
     return _NMAP_PROBES[proto][probe]
 
 
-def get_nmap_probes(proto: str) -> Dict[bytes, str]:
+def get_nmap_probes(proto: str) -> dict[bytes, str]:
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return {value["probe"]: name for name, value in _NMAP_PROBES[proto].items()}
@@ -1498,13 +1474,13 @@ def _read_nmap_payloads() -> None:
     _NMAP_PAYLOADS_POPULATED = True
 
 
-def get_nmap_udp_payloads() -> Dict[bytes, str]:
+def get_nmap_udp_payloads() -> dict[bytes, str]:
     if not _NMAP_PAYLOADS_POPULATED:
         _read_nmap_payloads()
     return _NMAP_PAYLOADS
 
 
-_IKESCAN_VENDOR_IDS: List[Tuple[bytes, Pattern[bytes]]]
+_IKESCAN_VENDOR_IDS: list[tuple[bytes, re.Pattern[bytes]]]
 _IKESCAN_VENDOR_IDS_POPULATED = False
 
 
@@ -1530,13 +1506,13 @@ def _read_ikescan_vendor_ids() -> None:
     _IKESCAN_VENDOR_IDS_POPULATED = True
 
 
-def get_ikescan_vendor_ids() -> List[Tuple[bytes, Pattern[bytes]]]:
+def get_ikescan_vendor_ids() -> list[tuple[bytes, re.Pattern[bytes]]]:
     if not _IKESCAN_VENDOR_IDS_POPULATED:
         _read_ikescan_vendor_ids()
     return _IKESCAN_VENDOR_IDS
 
 
-def find_ike_vendor_id(vendorid: bytes) -> Optional[bytes]:
+def find_ike_vendor_id(vendorid: bytes) -> bytes | None:
     vid = encode_hex(vendorid)
     for name, sig in get_ikescan_vendor_ids():
         if sig.search(vid):
@@ -1544,8 +1520,8 @@ def find_ike_vendor_id(vendorid: bytes) -> Optional[bytes]:
     return None
 
 
-_MANUF_DB_LAST_ADDR: List[int] = []
-_MANUF_DB_VALUES: List[Optional[Tuple[str, Optional[str]]]] = []
+_MANUF_DB_LAST_ADDR: list[int] = []
+_MANUF_DB_VALUES: list[tuple[str, str | None] | None] = []
 _MANUF_DB_POPULATED = False
 
 
@@ -1579,7 +1555,7 @@ def _read_wireshark_manuf_db() -> None:
         line = line.strip()
         if not line:
             return
-        comment: Optional[str]
+        comment: str | None
         try:
             addr, manuf, comment = sep.split(line, 2)
         except ValueError:
@@ -1632,15 +1608,13 @@ def _read_wireshark_manuf_db() -> None:
     _MANUF_DB_POPULATED = True
 
 
-def get_wireshark_manuf_db() -> (
-    Tuple[List[int], List[Optional[Tuple[str, Optional[str]]]]]
-):
+def get_wireshark_manuf_db() -> tuple[list[int], list[tuple[str, str | None] | None]]:
     if not _MANUF_DB_POPULATED:
         _read_wireshark_manuf_db()
     return _MANUF_DB_LAST_ADDR, _MANUF_DB_VALUES
 
 
-def mac2manuf(mac: str) -> Optional[Tuple[str, Optional[str]]]:
+def mac2manuf(mac: str) -> tuple[str, str | None] | None:
     last_addr, values = get_wireshark_manuf_db()
     try:
         return values[bisect_left(last_addr, _mac2int(mac))]
@@ -1736,15 +1710,15 @@ def nmap_decode_data(data: str, arbitrary_escapes: bool = False) -> bytes:
     return b"".join(_nmap_decode_data(data, arbitrary_escapes=arbitrary_escapes))
 
 
-def _nmap_command_match_subst(match_num: int) -> Pattern[str]:
+def _nmap_command_match_subst(match_num: int) -> re.Pattern[str]:
     return re.compile('\\$SUBST\\(%d,"([^"]*)","([^"]*)"\\)' % match_num)
 
 
-def _nmap_command_match_i(match_num: int) -> Pattern[str]:
+def _nmap_command_match_i(match_num: int) -> re.Pattern[str]:
     return re.compile('\\$I\\(%d,"([<>])"\\)' % match_num)
 
 
-def nmap_svc_fp_format_data(data: str, match: Match) -> Optional[str]:
+def nmap_svc_fp_format_data(data: str, match: re.Match) -> str | None:
     for i, value in enumerate(match.groups()):
         if value is None:
             if (
@@ -1759,7 +1733,7 @@ def nmap_svc_fp_format_data(data: str, match: Match) -> Optional[str]:
         data = data.replace("$P(%d)" % (i + 1), nmap_encode_data(only_printable(value)))
         # pylint: disable=cell-var-from-loop
         data = _nmap_command_match_subst(i + 1).sub(
-            # we know m.groups() is a Tuple[str, str]
+            # we know m.groups() is a tuple[str, str]
             lambda m: nmap_encode_data(value).replace(*m.groups()),  # type: ignore
             data,
         )
@@ -1772,7 +1746,7 @@ def nmap_svc_fp_format_data(data: str, match: Match) -> Optional[str]:
     return data
 
 
-def normalize_props(props: Union[list, dict]) -> dict:
+def normalize_props(props: list | dict) -> dict:
     """Returns a normalized property list/dict so that (roughly):
     - a list [k] gives {k: str(k)}
     - a dict {k: v} gives {k: str(k) if v is None else str(v)}
@@ -1788,7 +1762,7 @@ def normalize_props(props: Union[list, dict]) -> dict:
     return props
 
 
-def tz_offset(timestamp: Optional[Union[int, float]] = None) -> int:
+def tz_offset(timestamp: int | float | None = None) -> int:
     """
     Returns the offset between UTC and local time at "timestamp".
     """
@@ -1814,7 +1788,7 @@ _UNITS = [""]
 _UNITS.extend("kMGTPEZY")
 
 
-def num2readable(value: Union[int, float]) -> str:
+def num2readable(value: int | float) -> str:
     idx = int(math.log(value, 1000))
     try:
         unit = _UNITS[idx]
@@ -1871,8 +1845,8 @@ def _parse_ssh_key(data: bytes) -> Generator[bytes, None, None]:
         data = data[4 + length :]
 
 
-def parse_ssh_key(data: bytes) -> Dict[str, Any]:
-    info: Dict[str, Any] = {
+def parse_ssh_key(data: bytes) -> dict[str, Any]:
+    info: dict[str, Any] = {
         hashtype: hashlib.new(hashtype, data).hexdigest()
         for hashtype in ["md5", "sha1", "sha256"]
     }
@@ -2026,7 +2000,7 @@ _ADDR_TYPES_LAST_IP = [
 ]
 
 
-def get_addr_type(addr: str) -> Optional[str]:
+def get_addr_type(addr: str) -> str | None:
     """Returns the type (Private, Loopback, etc.) of an IPv4 address, or
     None if it is a "normal", usable address.
 
@@ -2121,7 +2095,7 @@ PUBKEY_TYPES = {
 PUBKEY_REV_TYPES = {val: key for key, val in PUBKEY_TYPES.items()}
 
 
-def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
+def _parse_datetime(value: bytes) -> datetime.datetime | None:
     try:
         return datetime.datetime.strptime(value.decode(), "%Y%m%d%H%M%S%z")
     except ValueError:
@@ -2133,7 +2107,7 @@ def _parse_datetime(value: bytes) -> Optional[datetime.datetime]:
 
 if USE_PYOPENSSL:
 
-    def _parse_subject(subject: osslc.X509Name) -> Tuple[str, Dict[str, str]]:
+    def _parse_subject(subject: osslc.X509Name) -> tuple[str, dict[str, str]]:
         """Parses an X509Name object (from pyOpenSSL module) and returns a
         text and a dict suitable for use by get_cert_info().
 
@@ -2146,14 +2120,14 @@ if USE_PYOPENSSL:
             components.append((k, v))
         return "/".join("%s=%s" % kv for kv in components), dict(components)
 
-    def get_cert_info(cert: bytes) -> Dict[str, Any]:
+    def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
             algorithm) in an handy-to-index-and-query form.
 
         This version relies on the pyOpenSSL module.
 
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             hashtype: hashlib.new(hashtype, cert).hexdigest()
             for hashtype in ["md5", "sha1", "sha256"]
         }
@@ -2220,7 +2194,7 @@ if USE_PYOPENSSL:
 
 else:
 
-    def _parse_cert_subject(subject: str) -> Generator[Tuple[str, str], None, None]:
+    def _parse_cert_subject(subject: str) -> Generator[tuple[str, str], None, None]:
         status = 0
         curkey = []
         curvalue = []
@@ -2278,7 +2252,7 @@ else:
                 status -= 1
         yield "".join(curkey), "".join(curvalue)
 
-    def get_cert_info(cert: bytes) -> Dict[str, Any]:
+    def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
             algorithm) in an handy-to-index-and-query form.
 
@@ -2286,7 +2260,7 @@ else:
         and is a fallback when pyOpenSSL cannot be imported.
 
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             hashtype: hashlib.new(hashtype, cert).hexdigest()
             for hashtype in ["md5", "sha1", "sha256"]
         }
@@ -2405,7 +2379,7 @@ class MinValue:
 MIN_VALUE = MinValue()
 
 
-def key_sort_none(value: Optional[Any]) -> Any:
+def key_sort_none(value: Any | None) -> Any:
     """This function can be used as `key=` argument for sorted() and
     .sort(), in order to sort values that can be of a certain type (e.g.,
     str), or None, so that None is always lower.
@@ -2419,7 +2393,7 @@ def key_sort_none(value: Optional[Any]) -> Any:
     return value
 
 
-def ptr2addr(ptr: str) -> Optional[str]:
+def ptr2addr(ptr: str) -> str | None:
     """
     Returns the IP address (v4 or v6) represented by the given PTR,
     None if the string does not seem to be a PTR
@@ -2454,7 +2428,7 @@ def deep_sort_dict_list(elt: dict) -> None:
 _SCHEMES_PORTS = {"ftp": 21, "http": 80, "https": 443}
 
 
-def url2hostport(url: str) -> Tuple[str, int]:
+def url2hostport(url: str) -> tuple[str, int]:
     url_p = urlparse(url)
     host = url_p.netloc
     if host.startswith("["):
@@ -2487,7 +2461,7 @@ def url2hostport(url: str) -> Tuple[str, int]:
         raise ValueError("Bad scheme in URL") from exc
 
 
-def key_sort_dom(domain: str) -> List[str]:
+def key_sort_dom(domain: str) -> list[str]:
     """Takes a host / domain name and returns the list of the labels,
     reversed, so that it can be used by sorted() / .sort()
 
@@ -2495,7 +2469,7 @@ def key_sort_dom(domain: str) -> List[str]:
     return domain.strip().split(".")[::-1]
 
 
-def key_sort_dom_addr(value: str) -> List[str]:
+def key_sort_dom_addr(value: str) -> list[str]:
     """Takes a host / domain name or an IP address and returns the list of
     the labels, reversed, for a name and a list containing the IP
     address as an hex string for an address so that it can be used by
@@ -2520,7 +2494,7 @@ def key_sort_dom_addr(value: str) -> List[str]:
 def download_if_newer(
     url: str,
     outfile: str,
-    processor: Optional[Callable[[BinaryIO, BinaryIO], None]] = None,
+    processor: Callable[[BinaryIO, BinaryIO], None] | None = None,
 ) -> bool:
     """Fetches `url` to `outfile`, if the source is newer than `outfile`,
     using an If-Modified-Since: header.
@@ -2593,7 +2567,7 @@ def generic_processor(
 T = TypeVar("T")
 
 
-def _fix_range(start: str, stop: str, label: T) -> Tuple[int, int, T]:
+def _fix_range(start: str, stop: str, label: T) -> tuple[int, int, T]:
     return (
         ip2int(start) if ":" in start else ip2int(f"::ffff:{start}"),
         ip2int(stop) if ":" in stop else ip2int(f"::ffff:{stop}"),
@@ -2602,12 +2576,12 @@ def _fix_range(start: str, stop: str, label: T) -> Tuple[int, int, T]:
 
 
 def make_range_tables(
-    ranges: Iterable[Tuple[str, str, T]]
-) -> List[Tuple[int, Optional[T]]]:
-    ranges_sorted: List[Tuple[int, int, T]] = sorted(
+    ranges: Iterable[tuple[str, str, T]]
+) -> list[tuple[int, T | None]]:
+    ranges_sorted: list[tuple[int, int, T]] = sorted(
         (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True
     )
-    result: List[Tuple[int, Optional[T]]] = []
+    result: list[tuple[int, T | None]] = []
     prev = 0
     while ranges_sorted:
         start, stop, label = ranges_sorted.pop()

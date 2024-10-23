@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,8 +21,8 @@
 
 
 from argparse import ArgumentParser
+from collections.abc import Iterable
 from shlex import quote
-from typing import Dict, Iterable, List, Optional
 
 from ivre import config
 
@@ -36,7 +35,7 @@ ARGPARSER.add_argument(
     default="default",
 )
 
-NMAP_OPT_PORTS: Dict[Optional[str], List[str]] = {
+NMAP_OPT_PORTS: dict[str | None, list[str]] = {
     None: [],
     "fast": ["-F"],
     "more": ["--top-ports", "2000"],
@@ -54,14 +53,14 @@ class Scan:
         traceroute: bool = True,
         resolve: int = 1,
         verbosity: int = 2,
-        ports: Optional[str] = None,
-        top_ports: Optional[int] = None,
-        host_timeout: Optional[str] = None,
-        script_timeout: Optional[str] = None,
-        scripts_categories: Optional[Iterable[str]] = None,
-        scripts_exclude: Optional[Iterable[str]] = None,
-        scripts_force: Optional[Iterable[str]] = None,
-        extra_options: Optional[Iterable[str]] = None,
+        ports: str | None = None,
+        top_ports: int | None = None,
+        host_timeout: str | None = None,
+        script_timeout: str | None = None,
+        scripts_categories: Iterable[str] | None = None,
+        scripts_exclude: Iterable[str] | None = None,
+        scripts_force: Iterable[str] | None = None,
+        extra_options: Iterable[str] | None = None,
     ) -> None:
         self.nmap = nmap
         self.pings = set(pings)
@@ -91,7 +90,7 @@ class Scan:
         self.extra_options = extra_options
 
     @property
-    def options(self) -> List[str]:
+    def options(self) -> list[str]:
         options = [self.nmap]
         # use -A instead of many options when possible
         if (
@@ -162,7 +161,7 @@ class Scan:
         return options
 
 
-def build_nmap_options(template: str = "default") -> List[str]:
+def build_nmap_options(template: str = "default") -> list[str]:
     return Scan(**config.NMAP_SCAN_TEMPLATES[template]).options
 
 

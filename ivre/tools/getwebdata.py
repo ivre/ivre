@@ -46,7 +46,8 @@ import json
 import os
 import re
 import socket
-from typing import BinaryIO, Callable, Generator, List, Tuple
+from collections.abc import Callable, Generator
+from typing import BinaryIO
 
 from ivre import config
 from ivre.data import govcloud
@@ -90,12 +91,12 @@ def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
                 yield f"{addr}{mask}"
 
 
-def dns_get_names(name: str) -> List[str]:
+def dns_get_names(name: str) -> list[str]:
     return sorted(set(ans[4][0] for ans in socket.getaddrinfo(name, None)))
 
 
 assert config.DATA_PATH is not None
-URLS: List[Tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
+URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
     (
         "https://raw.githubusercontent.com/projectdiscovery/cdncheck/main/sources_data.json",
         os.path.join(config.DATA_PATH, "cdn_nuclei.py"),

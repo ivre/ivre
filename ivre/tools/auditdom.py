@@ -24,9 +24,10 @@ Nmap script result."""
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from datetime import datetime
 from shlex import quote
-from typing import Any, Iterable, Optional
+from typing import Any
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
@@ -46,7 +47,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.json:
 
-        def displayfunction(cur: Iterable[Record], scan: Optional[Any] = None) -> None:
+        def displayfunction(cur: Iterable[Record], scan: Any | None = None) -> None:
             if scan is not None:
                 LOGGER.debug("Scan not displayed in JSON mode")
             for rec in cur:

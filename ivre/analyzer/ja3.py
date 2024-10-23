@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -19,7 +18,7 @@
 
 
 import hashlib
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ivre import utils
 
@@ -59,9 +58,7 @@ JA4_VERSIONS = {
 }
 
 
-def banner2ja34c(
-    banner: bytes, protocol: str
-) -> Optional[Tuple[str, str, str, str, str]]:
+def banner2ja34c(banner: bytes, protocol: str) -> tuple[str, str, str, str, str] | None:
     # "lazy" import for scapy, as this import is slow.
     # TLS is assigned by the import statement, but pylint seems to miss it.
     global HAS_SCAPY, TLS
@@ -101,8 +98,8 @@ def banner2ja34c(
         output_ja3.append("-".join(str(c) for c in ciphers))
         exts = [e.type for e in msg.ext or [] if e.type not in GREASE]
         output_ja3.append("-".join(str(e) for e in exts))
-        ecsg: List[int] = []
-        ecpf: List[int] = []
+        ecsg: list[int] = []
+        ecpf: list[int] = []
         sni = "i"
         alpn = "--"
         version = msg.version
@@ -151,9 +148,9 @@ def banner2ja34c(
 
 def banner2scripts(
     banner: bytes,
-    protocol: Optional[str] = None,
-    service: Optional[str] = None,
-) -> Optional[List[Dict[str, Any]]]:
+    protocol: str | None = None,
+    service: str | None = None,
+) -> list[dict[str, Any]] | None:
     result = banner2ja34c(
         banner,
         (

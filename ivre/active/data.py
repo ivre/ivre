@@ -25,10 +25,11 @@ active (nmap & view) purposes.
 import json
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime
 from itertools import chain
 from textwrap import wrap
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from ivre.active.cpe import add_cpe_values
@@ -66,7 +67,7 @@ from ivre.utils import (
 )
 
 
-def create_ssl_output(info: ParsedCertificate) -> List[str]:
+def create_ssl_output(info: ParsedCertificate) -> list[str]:
     out = []
     for key, name in [("subject_text", "Subject"), ("issuer_text", "Issuer")]:
         try:
@@ -111,7 +112,7 @@ def create_ssl_output(info: ParsedCertificate) -> List[str]:
 
 def create_ssl_cert(
     data: bytes, b64encoded: bool = True
-) -> Tuple[str, List[ParsedCertificate]]:
+) -> tuple[str, list[ParsedCertificate]]:
     """Produces an output similar to Nmap script ssl-cert from Masscan
     X509 "service" tag.
 
@@ -132,7 +133,7 @@ def create_ssl_cert(
     return "\n".join(create_ssl_output(info)), [info]
 
 
-def add_cert_hostnames(cert: ParsedCertificate, hostnames: List[NmapHostname]) -> None:
+def add_cert_hostnames(cert: ParsedCertificate, hostnames: list[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
         add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
@@ -161,12 +162,12 @@ def merge_ja3_scripts(
     def is_server(script_id: str) -> bool:
         return script_id == "ssl-ja3-server"
 
-    def ja3_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    def ja3_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
         return a["md5"] == b["md5"] and (
             not is_server(script_id) or a["client"]["md5"] == b["client"]["md5"]
         )
 
-    def ja3_output(ja3: Dict[str, Any], script_id: str) -> str:
+    def ja3_output(ja3: dict[str, Any], script_id: str) -> str:
         output = cast(str, ja3["md5"])
         if is_server(script_id):
             output += " - " + ja3["client"]["md5"]
@@ -178,10 +179,10 @@ def merge_ja3_scripts(
 def merge_ja4_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
-    def ja4_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    def ja4_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
         return cast(bool, a["ja4"] == b["ja4"])
 
-    def ja4_output(ja4: Dict[str, Any], script_id: str) -> str:
+    def ja4_output(ja4: dict[str, Any], script_id: str) -> str:
         return cast(str, ja4["ja4"])
 
     return _merge_scripts(curscript, script, script_id, ja4_equals, ja4_output)
@@ -190,12 +191,12 @@ def merge_ja4_scripts(
 def merge_http_app_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
-    def http_app_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    def http_app_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
         return cast(
             bool, a["application"] == b["application"] and a["path"] == b["path"]
         )
 
-    def http_app_output(app: Dict[str, Any], script_id: str) -> str:
+    def http_app_output(app: dict[str, Any], script_id: str) -> str:
         output = ["%(application)s: path %(path)s" % app]
         if app.get("version") is not None:
             output.append(", version %(version)s" % app)
@@ -231,7 +232,7 @@ def merge_ssl_cert_scripts(
     def cert_equals(a: ParsedCertificate, b: ParsedCertificate, script_id: str) -> bool:
         return cast(bool, a["sha256"] == b["sha256"])
 
-    def cert_output(cert: Dict[str, Any], script_id: str) -> str:
+    def cert_output(cert: dict[str, Any], script_id: str) -> str:
         return "\n".join(create_ssl_output(cert))
 
     return _merge_scripts(
@@ -256,7 +257,7 @@ def merge_axfr_scripts(
         curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
-    res: List[Dict[str, Any]] = []
+    res: list[dict[str, Any]] = []
     for data in chain(curscript[script_id], script[script_id]):
         if any(data["domain"] == r["domain"] for r in res):
             continue
@@ -291,7 +292,7 @@ def merge_scanner_scripts(
         curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
-    res: Dict[str, Any] = {}
+    res: dict[str, Any] = {}
     for data in [curscript[script_id], script[script_id]]:
         for proto, ports in data.get("ports", {}).items():
             if proto == "count":
@@ -367,8 +368,8 @@ def merge_scanner_scripts(
             )
         )
     if res.get("http_uris"):
-        uris_methods: Dict[str, Set[str]] = {}
-        uris_versions: Dict[str, Set[str]] = {}
+        uris_methods: dict[str, set[str]] = {}
+        uris_versions: dict[str, set[str]] = {}
         for uri in res["http_uris"]:
             uris_methods.setdefault(uri["uri"], set()).add(uri["method"])
             uris_versions.setdefault(uri["uri"], set()).add(uri["version"])
@@ -388,8 +389,8 @@ def merge_scanner_scripts(
             )
         )
     if res.get("dns_queries"):
-        queries_qtype: Dict[str, Set[str]] = {}
-        queries_qclass: Dict[str, Set[str]] = {}
+        queries_qtype: dict[str, set[str]] = {}
+        queries_qclass: dict[str, set[str]] = {}
         for query in res["dns_queries"]:
             queries_qtype.setdefault(query["query"], set()).add(query["qtype"])
             queries_qclass.setdefault(query["query"], set()).add(query["qclass"])
@@ -410,7 +411,7 @@ def merge_scanner_scripts(
         )
     if scanners:
 
-        def _fmt_sc(sc: Dict[str, Any]) -> str:
+        def _fmt_sc(sc: dict[str, Any]) -> str:
             res = sc["name"]  # type: str
             if "probes" in sc:
                 res += " [%s]" % ", ".join(
@@ -432,10 +433,10 @@ def merge_scanner_scripts(
 def merge_nuclei_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
-    def nuclei_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    def nuclei_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
         return a == b
 
-    def nuclei_output(nuclei: Dict[str, Any], script_id: str) -> str:
+    def nuclei_output(nuclei: dict[str, Any], script_id: str) -> str:
         return "[%(severity)s] %(name)s found at %(url)s" % nuclei
 
     return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
@@ -444,7 +445,7 @@ def merge_nuclei_scripts(
 def merge_http_git_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
-    repos: Dict[str, Any] = {}
+    repos: dict[str, Any] = {}
     for scr in [script, curscript]:
         for rep in scr.get(script_id, []):
             repos.setdefault(rep["repository"], set()).update(
@@ -594,13 +595,11 @@ def _merge_scripts(
     curscript: NmapScript,
     script: NmapScript,
     script_id: str,
-    script_equals: Union[
-        Callable[[Dict[str, Any], Dict[str, Any], str], bool],
-        Callable[[str, str, str], bool],
-    ],
-    script_output: Union[
-        Callable[[Dict[str, Any], str], str], Callable[[str, str], str]
-    ],
+    script_equals: (
+        Callable[[dict[str, Any], dict[str, Any], str], bool]
+        | Callable[[str, str, str], bool]
+    ),
+    script_output: Callable[[dict[str, Any], str], str] | Callable[[str, str], str],
     outsep: str = "\n",
 ) -> NmapScript:
     """Helper function to merge two scripts and return the result, using
@@ -887,7 +886,7 @@ _EXPR_FILES = [
 ]
 
 
-def create_http_ls(data: bytes, volname: str = "???") -> Optional[NmapScript]:
+def create_http_ls(data: bytes, volname: str = "???") -> NmapScript | None:
     """Produces an http-ls script output (both structured and human
     readable) from the content of an HTML page. Used for Zgrab and Masscan
     results.
@@ -925,7 +924,7 @@ def create_http_ls(data: bytes, volname: str = "???") -> Optional[NmapScript]:
     }
 
 
-def create_elasticsearch_service(data: bytes) -> Optional[NmapServiceMatch]:
+def create_elasticsearch_service(data: bytes) -> NmapServiceMatch | None:
     """Produces the service_* attributes from the (JSON) content of an
     HTTP response. Used for Zgrab and Masscan results.
 
@@ -998,7 +997,7 @@ def create_elasticsearch_service(data: bytes) -> Optional[NmapServiceMatch]:
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
 
 
-def add_hostname(name: str, name_type: str, hostnames: List[NmapHostname]) -> None:
+def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> None:
     name = name.rstrip(".").lower()
     if not _HOSTNAME.search(name):
         return
@@ -1056,7 +1055,7 @@ def handle_http_content(
 def handle_http_headers(
     host: NmapHost,
     port: NmapPort,
-    headers: List[HttpHeader],
+    headers: list[HttpHeader],
     path: str = "/",
     handle_server: bool = True,
 ) -> None:

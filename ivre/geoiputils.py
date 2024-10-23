@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -23,7 +22,7 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 """
 
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
+from __future__ import annotations  # needed for flake8
 
 import codecs
 import csv
@@ -32,8 +31,9 @@ import sys
 import tarfile
 import time
 import zipfile
+from collections.abc import Callable, Generator, Iterable
 from shutil import copyfileobj
-from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import Any
 from urllib.error import HTTPError
 from urllib.request import build_opener
 
@@ -78,7 +78,7 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
 
 def unzip_all(
     fname: str,
-    cond: Optional[Callable[[zipfile.ZipInfo], bool]] = None,
+    cond: Callable[[zipfile.ZipInfo], bool] | None = None,
 ) -> None:
     assert config.GEOIP_PATH is not None
     with zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname)) as zdesc:
@@ -110,7 +110,7 @@ def gunzip(fname: str) -> None:
 
 def untar_all(
     fname: str,
-    cond: Optional[Callable[[tarfile.TarInfo], bool]] = None,
+    cond: Callable[[tarfile.TarInfo], bool] | None = None,
 ) -> None:
     assert config.GEOIP_PATH is not None
     with tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname)) as tdesc:
@@ -133,7 +133,7 @@ def rename(src: str, dst: str) -> None:
     )
 
 
-PARSERS: Dict[str, List[Tuple[Callable, List[str], Dict[str, Any]]]] = {
+PARSERS: dict[str, list[tuple[Callable, list[str], dict[str, Any]]]] = {
     "GeoLite2-City-CSV.zip": [
         (
             unzip_all,
@@ -315,12 +315,12 @@ def locids_by_region(country_code: str, reg_code: str) -> Generator[int, None, N
 
 
 class IPRanges:
-    def __init__(self, ranges: Optional[Iterable[Tuple[int, int]]] = None) -> None:
+    def __init__(self, ranges: Iterable[tuple[int, int]] | None = None) -> None:
         """ranges must be given in the "correct" order *and* not
         overlap.
 
         """
-        self.ranges: Dict[int, Tuple[int, int]] = {}
+        self.ranges: dict[int, tuple[int, int]] = {}
         self.length = 0
         if ranges is not None:
             for rnge in ranges:
@@ -383,11 +383,11 @@ class IPRanges:
             res.append(*cur_range)
         return res
 
-    def iter_int_ranges(self) -> Generator[Tuple[int, int], None, None]:
+    def iter_int_ranges(self) -> Generator[tuple[int, int], None, None]:
         for start, length in sorted(self.ranges.values()):
             yield start, start + length - 1
 
-    def iter_ranges(self) -> Generator[Tuple[str, str], None, None]:
+    def iter_ranges(self) -> Generator[tuple[str, str], None, None]:
         for start, length in sorted(self.ranges.values()):
             yield utils.int2ip(start), utils.int2ip(start + length - 1)
 
@@ -414,12 +414,12 @@ class IPRanges:
         raise IndexError("index out of range")
 
 
-ConditionCallback = Callable[[List[str]], bool]
+ConditionCallback = Callable[[list[str]], bool]
 
 
 def _get_by_data(
     datafile: str, condition: ConditionCallback
-) -> Generator[Tuple[int, int], None, None]:
+) -> Generator[tuple[int, int], None, None]:
     assert config.GEOIP_PATH is not None
     with open(os.path.join(config.GEOIP_PATH, datafile), encoding="utf8") as fdesc:
         for line in fdesc:

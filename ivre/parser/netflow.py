@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 """Support for NetFlow files"""
 
 import datetime
-from typing import Any, BinaryIO, Dict, Optional, Union, cast
+from typing import Any, BinaryIO, cast
 
 from ivre import utils
 from ivre.parser import CmdParser
@@ -52,9 +52,7 @@ class NetFlow(CmdParser):
     }
     timefmt = "%Y-%m-%d %H:%M:%S.%f"
 
-    def __init__(
-        self, fdesc: Union[str, BinaryIO], pcap_filter: Optional[str] = None
-    ) -> None:
+    def __init__(self, fdesc: str | BinaryIO, pcap_filter: str | None = None) -> None:
         """Creates the NetFlow object.
 
         fdesc: a file-like object or a filename
@@ -83,8 +81,8 @@ class NetFlow(CmdParser):
             return int(float(val[:-1]) * cls.units[val[-1]])
 
     @classmethod
-    def parse_line(cls, line: bytes) -> Dict[str, Any]:
-        fields: Dict[str, Any] = {
+    def parse_line(cls, line: bytes) -> dict[str, Any]:
+        fields: dict[str, Any] = {
             name[0]: val.strip()
             for name, val in zip(cls.fields, line.decode().split(","))
         }

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,13 +18,14 @@
 
 
 import struct
-from typing import Dict, Generator, Tuple, Union, cast
+from collections.abc import Generator
+from typing import cast
 
 from ivre import utils
 from ivre.types.active import NmapPort
 
 
-def _gen_items(data: bytes) -> Generator[Tuple[int, bytes], None, None]:
+def _gen_items(data: bytes) -> Generator[tuple[int, bytes], None, None]:
     while data:
         if len(data) < 4:
             utils.LOGGER.debug(
@@ -55,14 +56,14 @@ _USER_INFO_ITEMS = {
 }
 
 
-def _parse_items(data: bytes) -> Dict[str, Union[int, str]]:
-    res: Dict[str, Union[int, str]] = {}
+def _parse_items(data: bytes) -> dict[str, int | str]:
+    res: dict[str, int | str] = {}
     items = dict(_gen_items(data))
     if 0x50 not in items:
         utils.LOGGER.warning("No User Info in items [%r]", items)
         return res
     ivalue: bytes
-    ivalue_parsed: Union[int, str]
+    ivalue_parsed: int | str
     for itype, ivalue in _gen_items(items[0x50]):
         if itype == 0x51:
             try:
@@ -116,7 +117,7 @@ def parse_message(data: bytes) -> NmapPort:
         return res
     if rtype in [2, 3]:  # Associate accept / reject
         res["service_name"] = "dicom"
-        extra_info: Dict[str, Union[int, str]] = {}
+        extra_info: dict[str, int | str] = {}
         if rtype == 2:
             msg = "Any AET is accepted (Insecure)"
             if (
@@ -141,7 +142,7 @@ def parse_message(data: bytes) -> NmapPort:
             "dicom: DICOM Service Provider discovered!",
             "config: %s" % msg,
         ]
-        script_data: Dict[str, Union[int, str]] = {
+        script_data: dict[str, int | str] = {
             "dicom": "DICOM Service Provider discovered!",
             "config": msg,
         }

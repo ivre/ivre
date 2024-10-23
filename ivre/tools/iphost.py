@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,14 +22,15 @@
 
 import json
 from argparse import ArgumentParser
-from typing import Any, Callable, Dict, List, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 from ivre.db import db
 from ivre.utils import serialize, str2regexp
 
 
 def merge_results(
-    result: Dict[Tuple[str, str], Any], new_result: Dict[Tuple[str, str], Any]
+    result: dict[tuple[str, str], Any], new_result: dict[tuple[str, str], Any]
 ) -> None:
     for key, value in new_result.items():
         cur_res = result.setdefault(
@@ -47,7 +48,7 @@ def merge_results(
         cur_res["lastseen"] = max(cur_res["lastseen"], value["lastseen"])
 
 
-def serialize_sets(obj: Any) -> Union[str, list]:
+def serialize_sets(obj: Any) -> str | list:
     if isinstance(obj, set):
         return sorted(obj)
     return serialize(obj)
@@ -83,7 +84,7 @@ def main() -> None:
         help="Names or addresses to resolve",
     )
     args = parser.parse_args()
-    resolvers: List[Callable[[str], Dict[Tuple[str, str], Any]]] = []
+    resolvers: list[Callable[[str], dict[tuple[str, str], Any]]] = []
     if args.passive:
         args.passive_direct = True
         args.passive_reverse = True
@@ -107,7 +108,7 @@ def main() -> None:
 
     for addr_or_name in args.names_or_addresses:
         addr_or_name = str2regexp(addr_or_name)
-        result: Dict[Tuple[str, str], Any] = {}
+        result: dict[tuple[str, str], Any] = {}
         for resolver in resolvers:
             merge_results(result, resolver(addr_or_name))
         for (name, target), values in result.items():

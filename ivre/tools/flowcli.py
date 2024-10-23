@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ import datetime
 import os
 import sys
 from argparse import ArgumentParser
-from typing import Dict, Tuple
 
 try:
     import matplotlib  # type: ignore
@@ -47,7 +46,7 @@ addr_fields = {
 }
 
 
-def get_addr_argument(field: str, value: str) -> Tuple[str, str]:
+def get_addr_argument(field: str, value: str) -> tuple[str, str]:
     addr_field = addr_fields[field]
     # Detect CIDR
     op = "="
@@ -394,7 +393,7 @@ def main() -> None:
         precision = (
             args.precision if args.precision is not None else config.FLOW_TIME_PRECISION
         )
-        plot_data: Dict[str, Dict[datetime.datetime, int]] = {}
+        plot_data: dict[str, dict[datetime.datetime, int]] = {}
         for rec in db.flow.flow_daily(
             precision, query, after=time_values["after"], before=time_values["before"]
         ):

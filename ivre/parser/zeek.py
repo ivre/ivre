@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,11 +18,12 @@
 
 """Support for Zeek log files"""
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
+
+from __future__ import annotations  # needed for flake8
 
 import datetime
 import re
-from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
+from typing import Any, BinaryIO
 
 from ivre.parser import Parser
 from ivre.utils import LOGGER, decode_hex
@@ -37,14 +38,14 @@ class ZeekFile(Parser):
     float_types = set([b"interval"])
     time_types = set([b"time"])
 
-    def __init__(self, fname: Union[BinaryIO, str]) -> None:
+    def __init__(self, fname: BinaryIO | str) -> None:
         self.sep = b" "  # b"\t"
         self.set_sep = b","
         self.empty_field = b"(empty)"
         self.unset_field = b"-"
-        self.fields: List[bytes] = []
-        self.types: List[bytes] = []
-        self.path: Optional[str] = None
+        self.fields: list[bytes] = []
+        self.types: list[bytes] = []
+        self.path: str | None = None
         self.nextlines = []
         super().__init__(fname)
         for line in self.fdesc:
@@ -57,7 +58,7 @@ class ZeekFile(Parser):
     def __enter__(self) -> ZeekFile:
         return self
 
-    def __next__(self) -> Dict[str, Any]:
+    def __next__(self) -> dict[str, Any]:
         return self.parse_line(
             self.nextlines.pop(0) if self.nextlines else next(self.fdesc).strip()
         )
@@ -97,7 +98,7 @@ class ZeekFile(Parser):
         elif directive == b"types":
             self.types = arg.split(self.sep)
 
-    def parse_line(self, line: bytes) -> Dict[str, Any]:
+    def parse_line(self, line: bytes) -> dict[str, Any]:
         if line.startswith(b"#"):
             self.parse_header_line(line)
             return next(self)
@@ -110,7 +111,7 @@ class ZeekFile(Parser):
 
     def fix_value(
         self, val: bytes, typ: bytes
-    ) -> Optional[Union[bool, str, int, float, datetime.datetime, list]]:
+    ) -> bool | str | int | float | datetime.datetime | list | None:
         if val == self.unset_field:
             return None
         if typ == b"bool":
@@ -132,7 +133,7 @@ class ZeekFile(Parser):
         return val.decode()
 
     @property
-    def field_types(self) -> List[Tuple[bytes, bytes]]:
+    def field_types(self) -> list[tuple[bytes, bytes]]:
         return list(zip(self.fields, self.types))
 
     def __str__(self) -> str:

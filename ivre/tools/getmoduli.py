@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ moduli. A simple sed with 's# .*##' will do the trick."""
 
 import getopt
 import sys
-from typing import Dict, Set, Tuple, Type, Union
+from typing import Type
 
 import ivre.db
 import ivre.keys
@@ -38,7 +38,7 @@ import ivre.utils
 def main() -> None:
     # FIXME: this will not work if .nmap and .passive have different
     # backends
-    bases: Set[Type[Union[ivre.keys.PassiveKey, ivre.keys.NmapKey]]] = set()
+    bases: set[Type[ivre.keys.PassiveKey | ivre.keys.NmapKey]] = set()
     try:
         opts, _ = getopt.getopt(
             sys.argv[1:],
@@ -70,7 +70,7 @@ def main() -> None:
                 "%r %r not understood (this is probably a bug).\n" % (o, a)
             )
             sys.exit(-1)
-    moduli: Dict[int, Set[Tuple[str, int, str]]] = {}
+    moduli: dict[int, set[tuple[str, int, str]]] = {}
     if not bases:
         bases = {
             ivre.keys.SSLRsaPassiveKey,

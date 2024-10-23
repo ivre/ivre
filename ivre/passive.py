@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -26,7 +25,6 @@ import binascii
 import hashlib
 import re
 import struct
-from typing import Dict, List, Optional, Tuple
 
 from ivre import config, utils
 from ivre.analyzer import ntlm
@@ -809,13 +807,13 @@ def getinfos(spec):
 
 
 def get_ignore_rules(
-    ignore_spec: Optional[str],
-) -> Dict[str, Dict[str, List[Tuple[int, int]]]]:
+    ignore_spec: str | None,
+) -> dict[str, dict[str, list[tuple[int, int]]]]:
     """Executes the ignore_spec file and returns the ignore_rules
     dictionary.
 
     """
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]] = {}
+    ignore_rules: dict[str, dict[str, list[tuple[int, int]]]] = {}
     if ignore_spec is not None:
         with open(ignore_spec, "rb") as fdesc:
             # pylint: disable=exec-used

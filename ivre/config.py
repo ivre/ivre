@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -32,7 +31,7 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 
 import os
 import stat
-from typing import Dict, Generator, List, Optional
+from collections.abc import Generator
 
 from ivre.types import NmapScanTemplate
 
@@ -64,7 +63,7 @@ OPENSSL_CMD = "openssl"
 # End commands
 
 # Begin default Nmap scan template
-NMAP_SCAN_TEMPLATES: Dict[str, NmapScanTemplate] = {
+NMAP_SCAN_TEMPLATES: dict[str, NmapScanTemplate] = {
     "default": {
         # Commented values are default values and to not need to be
         # specified:
@@ -198,7 +197,7 @@ DNS_BLACKLIST_DOMAINS = set(
 #          20202: 0.8,
 #      },
 #  }
-KNOWN_PORTS: Dict[str, Dict[int, float]] = {}
+KNOWN_PORTS: dict[str, dict[int, float]] = {}
 # Enable the recording of appearance times for flows. Will slow down a
 # bit the insertion rate
 FLOW_TIME = True
@@ -266,7 +265,7 @@ WEB_GET_NOTEPAD_PAGES = None
 WEB_LIMIT = 10
 WEB_GRAPH_LIMIT = 1000
 # access control disabled by default:
-WEB_INIT_QUERIES: Dict[str, str] = {}
+WEB_INIT_QUERIES: dict[str, str] = {}
 # Warning: None means no access control, and is equivalent to "full"
 WEB_DEFAULT_INIT_QUERY = None
 # upload disabled by default
@@ -283,7 +282,7 @@ WEB_PUBLIC_SRV = False
 WEB_SECRET = None
 
 
-def get_config_file(paths: Optional[List[str]] = None) -> Generator[str, None, None]:
+def get_config_file(paths: list[str] | None = None) -> Generator[str, None, None]:
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
         paths = [
@@ -304,13 +303,13 @@ for fname in get_config_file():
         exec(compile(fdesc.read(), fname, "exec"))
 
 
-def guess_prefix(directory: Optional[str] = None) -> Optional[str]:
+def guess_prefix(directory: str | None = None) -> str | None:
     """Attempts to find the base directory where IVRE components are
     installed.
 
     """
 
-    def check_candidate(path: str, directory: Optional[str] = None) -> Optional[str]:
+    def check_candidate(path: str, directory: str | None = None) -> str | None:
         """Auxiliary function that checks whether a particular path is a good
         candidate.
 
@@ -341,7 +340,7 @@ def guess_prefix(directory: Optional[str] = None) -> Optional[str]:
     return None
 
 
-def guess_share(soft: str) -> Optional[str]:
+def guess_share(soft: str) -> str | None:
     for path in [
         "/usr/local/share/%s" % soft,
         "/opt/%s/share/%s" % (soft, soft),

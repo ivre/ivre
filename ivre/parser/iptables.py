@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@
 """Support for Iptables log from syslog files."""
 
 import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ivre.parser import Parser
 from ivre.utils import LOGGER
@@ -44,13 +44,13 @@ from ivre.utils import LOGGER
 class Iptables(Parser):
     """Iptables log generator from a syslog file descriptor."""
 
-    def __init__(self, fname: str, pcap_filter: Optional[str] = None) -> None:
+    def __init__(self, fname: str, pcap_filter: str | None = None) -> None:
         """Init Ipatbles class."""
         if pcap_filter is not None:
             LOGGER.warning("PCAP filter not supported in Iptables")
         super().__init__(fname)
 
-    def parse_line(self, line: bytes) -> Dict[str, Any]:
+    def parse_line(self, line: bytes) -> dict[str, Any]:
         """Process current line in Parser.__next__."""
         field_idx = line.find(b"IN=")
         if field_idx < 0:
@@ -58,7 +58,7 @@ class Iptables(Parser):
             return next(self)
 
         # Converts the syslog iptables log into hash
-        fields: Dict[str, Any] = {
+        fields: dict[str, Any] = {
             key.decode().lower(): value.decode()
             for key, value in (
                 val.split(b"=", 1) if b"=" in val else (val, b"")

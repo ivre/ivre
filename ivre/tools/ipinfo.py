@@ -26,13 +26,14 @@ import json
 import os
 import sys
 import time
-from typing import Callable, Optional, cast
+from collections.abc import Callable
+from typing import cast
 
 from ivre import utils
 from ivre.db import DBPassive, db
 from ivre.types import Filter, Record, Sort, SortKey
 
-Displayer = Callable[[DBPassive, Filter, Sort, Optional[int], Optional[int]], None]
+Displayer = Callable[[DBPassive, Filter, Sort, int | None, int | None], None]
 
 
 def disp_rec(rec: Record) -> None:
@@ -74,7 +75,7 @@ def disp_rec(rec: Record) -> None:
 
 
 def disp_recs_std(
-    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: int | None, skip: int | None
 ) -> None:
     old_addr = None
     sort = sort or [("addr", 1), ("port", 1), ("recontype", 1), ("source", 1)]
@@ -117,9 +118,9 @@ def disp_recs_std(
 
 
 def disp_recs_json(
-    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: int | None, skip: int | None
 ) -> None:
-    indent: Optional[int]
+    indent: int | None
     if os.isatty(sys.stdout.fileno()):
         indent = 4
     else:
@@ -136,8 +137,8 @@ def disp_recs_short(
     dbase: DBPassive,
     flt: Filter,
     _sort: Sort,
-    _limit: Optional[int],
-    _skip: Optional[int],
+    _limit: int | None,
+    _skip: int | None,
 ) -> None:
     for addr in dbase.distinct("addr", flt=flt):
         if addr is not None:
@@ -149,8 +150,8 @@ def disp_recs_distinct(
     dbase: DBPassive,
     flt: Filter,
     _sort: Sort,
-    _limit: Optional[int],
-    _skip: Optional[int],
+    _limit: int | None,
+    _skip: int | None,
 ) -> None:
     for value in dbase.distinct(field, flt=flt):
         print(value)
@@ -163,14 +164,12 @@ def disp_recs_top(top: str) -> Displayer:
 
 
 def disp_recs_count(
-    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: int | None, skip: int | None
 ) -> None:
     print(dbase.count(flt))
 
 
-def _disp_recs_tail(
-    dbase: DBPassive, flt: Filter, field: str, nbr: Optional[int]
-) -> None:
+def _disp_recs_tail(dbase: DBPassive, flt: Filter, field: str, nbr: int | None) -> None:
     recs = list(dbase.get(flt, sort=[(field, -1)], limit=nbr))
     recs.reverse()
     for r in recs:
@@ -233,13 +232,13 @@ def disp_recs_tailf() -> Displayer:
 
 
 def disp_recs_explain(
-    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: int | None, skip: int | None
 ) -> None:
     print(dbase.explain(dbase._get(flt, sort=sort, limit=limit, skip=skip), indent=4))
 
 
 def disp_recs_delete(
-    dbase: DBPassive, flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+    dbase: DBPassive, flt: Filter, sort: Sort, limit: int | None, skip: int | None
 ) -> None:
     dbase.remove(flt)
 
@@ -249,8 +248,8 @@ def disp_recs_todb(to_db: DBPassive) -> Displayer:
         dbase: DBPassive,
         flt: Filter,
         sort: Sort,
-        limit: Optional[int],
-        skip: Optional[int],
+        limit: int | None,
+        skip: int | None,
     ) -> None:
         for rec in dbase.get(flt, sort=sort, limit=limit, skip=skip):
             try:

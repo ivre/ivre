@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 
 import binascii
 import re
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from ivre import utils
 from ivre.active.cpe import add_cpe_values
@@ -66,7 +66,7 @@ ntlm_values = [
 
 
 def zgrap_parser_http(
-    data: Dict[str, Any], hostrec: NmapHost, port: Optional[int] = None
+    data: dict[str, Any], hostrec: NmapHost, port: int | None = None
 ) -> NmapPort:
     """This function handles data from `{"data": {"http": [...]}}`
     records. `data` should be the content, i.e. the `[...]`. It should
@@ -232,7 +232,7 @@ def zgrap_parser_http(
             if match.groups()[0] != "Centreon - IT & Network Monitoring":
                 return {}
             match = _EXPR_CENTREON_VERSION.search(body)
-            version: Optional[str]
+            version: str | None
             if match is None:
                 version = None
             else:
@@ -269,7 +269,7 @@ def zgrap_parser_http(
                 return {}
             body = resp["body"]
             res["port"] = port
-            parsed: Dict[str, List[str]] = {}
+            parsed: dict[str, list[str]] = {}
             for line in body.splitlines():
                 line = line.strip().split("#", 1)[0]
                 if not line:
@@ -339,8 +339,8 @@ def zgrap_parser_http(
         ):
             return res
         # If we have headers_raw value, let's use it. Else, let's fake it as well as we can.
-        http_hdrs: List[HttpHeader] = []
-        output_list: List[str] = []
+        http_hdrs: list[HttpHeader] = []
+        output_list: list[str] = []
         has_raw_value = False
         if resp.get("headers_raw"):
             try:
@@ -433,7 +433,7 @@ def zgrap_parser_http(
 
 
 def zgrap_parser_jarm(
-    data: Dict[str, Any], hostrec: NmapHost, port: Optional[int] = None
+    data: dict[str, Any], hostrec: NmapHost, port: int | None = None
 ) -> NmapPort:
     """This function handles data from `{"data": {"jarm": [...]}}`
     records. `data` should be the content, i.e. the `[...]`. It should

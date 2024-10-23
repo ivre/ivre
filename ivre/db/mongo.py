@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -23,7 +22,7 @@ databases.
 """
 
 
-from __future__ import annotations  # drop when Python 3.10+ only is supported
+from __future__ import annotations  # needed for flake8
 
 import datetime
 import hashlib
@@ -36,7 +35,7 @@ import time
 import uuid
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
+from typing import Any
 from urllib.parse import unquote
 
 import bson
@@ -84,7 +83,7 @@ def log_pipeline(pipeline):
 
 
 class MongoDBConnection:
-    __instances: Dict[str, MongoDBConnection] = {}
+    __instances: dict[str, MongoDBConnection] = {}
 
     def __new__(cls, url, *args):
         del args
@@ -143,12 +142,12 @@ class MongoDBConnection:
 
 class MongoDB(DB):
     is_documentdb = False  # set to True for AWS DocumentDB sub-classes
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = []
-    schema_migrations_indexes: List[
-        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = []
+    schema_migrations_indexes: list[
+        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
     ] = []
-    schema_latest_versions: List[int] = []
-    hint_indexes: List[Dict[str, List[IndexKey]]] = []
+    schema_latest_versions: list[int] = []
+    hint_indexes: list[dict[str, list[IndexKey]]] = []
     no_limit = 0
     cursor_timeout_exceptions = (CursorNotFound,)
 
@@ -812,7 +811,7 @@ class MongoDB(DB):
 class MongoDBActive(MongoDB, DBActive):
     column_hosts = 0
     _features_column = 0
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # hosts
         [
             ([("schema_version", pymongo.ASCENDING)], {}),
@@ -1031,8 +1030,8 @@ class MongoDBActive(MongoDB, DBActive):
             ),
         ],
     ]
-    schema_migrations_indexes: List[
-        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    schema_migrations_indexes: list[
+        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
     ] = [
         # hosts
         {
@@ -2971,10 +2970,10 @@ class MongoDBActive(MongoDB, DBActive):
 
     @staticmethod
     def searchscreenshot(
-        port: Optional[int] = None,
+        port: int | None = None,
         protocol: str = "tcp",
-        service: Optional[str] = None,
-        words: Optional[Union[bool, str, Pattern[str], List[str]]] = None,
+        service: str | None = None,
+        words: bool | str | re.Pattern[str] | list[str] | None = None,
         neg: bool = False,
     ) -> Filter:
         """Filter results with (without, when `neg == True`) a
@@ -2997,7 +2996,7 @@ class MongoDBActive(MongoDB, DBActive):
             result["ports"]["$elemMatch"]["screenshot"] = {"$exists": True}
             if isinstance(words, list):
                 words_f = {"$ne" if neg else "$all": [w.lower() for w in words]}
-            elif isinstance(words, Pattern):
+            elif isinstance(words, re.Pattern):
                 words = re.compile(words.pattern.lower(), flags=words.flags)
                 words_f = {"$not": words} if neg else words
             elif isinstance(words, bool):
@@ -4253,8 +4252,8 @@ class MongoDBActive(MongoDB, DBActive):
 
 class MongoDBNmap(MongoDBActive, DBNmap):
     content_handler = Nmap2Mongo
-    schema_migrations_indexes: List[
-        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    schema_migrations_indexes: list[
+        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
     ] = [
         (
             {
@@ -4349,7 +4348,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 
 class MongoDBView(MongoDBActive, DBView):
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         (
             idxs
             + [
@@ -4376,8 +4375,8 @@ class MongoDBView(MongoDBActive, DBView):
         )
         for i, idxs in enumerate(MongoDBActive.indexes)
     ]
-    schema_migrations_indexes: List[
-        Dict[int, Dict[str, List[Tuple[List[IndexKey], Dict[str, Any]]]]]
+    schema_migrations_indexes: list[
+        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
     ] = [
         (
             {
@@ -5621,7 +5620,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     column_agents = 0
     column_scans = 1
     column_masters = 2
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # agents
         [
             ([("host", pymongo.ASCENDING)], {}),
@@ -5830,7 +5829,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     # insertion in db.
     meta_kinds = {"keys": "$addToSet", "counters": "$inc"}
 
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # flows
         [
             (

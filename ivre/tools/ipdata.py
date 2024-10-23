@@ -26,7 +26,8 @@ AS number and country information.
 import json
 import sys
 from argparse import ArgumentParser
-from typing import Any, Callable, Dict, List, Tuple, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from ivre import geoiputils, utils
 from ivre.db import DBData, db
@@ -35,7 +36,7 @@ from ivre.tags import add_tags, gen_addr_tags
 
 def main() -> None:
     parser = ArgumentParser(description=__doc__)
-    torun: List[Tuple[Callable, list, dict]] = []
+    torun: list[tuple[Callable, list, dict]] = []
     parser.add_argument("--download", action="store_true", help="Fetch all data files.")
     parser.add_argument(
         "--import-all",
@@ -85,7 +86,7 @@ def main() -> None:
             except utils.InvalidIPAddress as exc:
                 utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
                 sys.exit(1)
-            info: Dict[str, Any] = {}
+            info: dict[str, Any] = {}
             add_tags(info, gen_addr_tags(addr))
             for tag in info.get("tags", []):
                 if tag.get("info"):

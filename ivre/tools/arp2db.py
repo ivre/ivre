@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,8 +21,9 @@
 
 import subprocess
 from argparse import ArgumentParser
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable, cast
+from typing import cast
 
 from scapy.all import ARP, Packet, PcapReader  # type: ignore
 
