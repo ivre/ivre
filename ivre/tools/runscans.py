@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -37,7 +36,7 @@ import sys
 import termios
 import time
 from multiprocessing import Pool
-from typing import Any, BinaryIO, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, BinaryIO, Type
 
 import ivre.agent
 import ivre.geoiputils
@@ -51,7 +50,7 @@ STATUS_DONE_UP = 1
 STATUS_DONE_DOWN = 2
 STATUS_DONE_UNKNOWN = 3
 
-NMAP_LIMITS: Dict[int, Tuple[int, int]] = {}
+NMAP_LIMITS: dict[int, tuple[int, int]] = {}
 
 
 def setnmaplimits() -> None:
@@ -195,10 +194,10 @@ def restore_echo() -> None:
 
 
 def call_nmap(
-    options: List[str],
+    options: list[str],
     xmlprocess: XmlProcess,
     targets: Target,
-    accept_target_status: Optional[Set[int]] = None,
+    accept_target_status: set[int] | None = None,
 ) -> int:
     if accept_target_status is None:
         accept_target_status = {STATUS_NEW}
@@ -252,7 +251,7 @@ def call_nmap(
 
 
 def _call_nmap_single(
-    maincategory: str, options: List[str], accept_target_status: Set[int], target: int
+    maincategory: str, options: list[str], accept_target_status: set[int], target: int
 ) -> None:
     target_str = ivre.utils.int2ip(target)
     outfile = "scans/%s/%%s/%s.xml" % (maincategory, target_str.replace(".", "/"))
@@ -443,7 +442,7 @@ def main() -> None:
                 % " ".join(str(elt) for elt in targiter.getstate())
             )
         sys.exit(0)
-    xmlprocess_choice: Dict[str, Tuple[Type[XmlProcess], List[str], Dict[str, Any]]] = {
+    xmlprocess_choice: dict[str, tuple[Type[XmlProcess], list[str], dict[str, Any]]] = {
         "XML": (
             XmlProcessWritefile,
             ["./scans/%s/" % targets.infos["categories"][0]],

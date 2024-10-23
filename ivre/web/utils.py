@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -29,7 +28,6 @@ import os
 import re
 import shlex
 import sys
-from typing import List, Optional
 
 try:
     import MySQLdb  # type: ignore
@@ -122,7 +120,7 @@ def _find_get_notepad_pages():
 get_notepad_pages = _find_get_notepad_pages()
 
 
-def _split_param(pval: str) -> List[Optional[str]]:
+def _split_param(pval: str) -> list[str | None]:
     # This is needed for IPv6 filters
     if utils.IPADDR.search(pval):
         return [pval, None]

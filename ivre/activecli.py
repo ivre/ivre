@@ -21,17 +21,10 @@ import json
 import os
 import sys
 from collections import OrderedDict
+from collections.abc import Callable, Iterable
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
     TextIO,
-    Tuple,
-    Union,
     cast,
 )
 from xml.sax import saxutils
@@ -63,7 +56,7 @@ set default default icmp action block
     )
 
 
-def _getscript(port: NmapPort, sname: str) -> Optional[NmapScript]:
+def _getscript(port: NmapPort, sname: str) -> NmapScript | None:
     for s in port.get("scripts", []):
         if s["id"] == sname:
             return s
@@ -105,8 +98,8 @@ def _nmap_port2honeyd_action(port: NmapPort) -> str:
     return "open"
 
 
-HoneydRoutes = Dict[Tuple[str, str], Dict[str, Any]]
-HoneydNodes = Set[str]
+HoneydRoutes = dict[tuple[str, str], dict[str, Any]]
+HoneydNodes = set[str]
 
 
 def _display_honeyd_conf(
@@ -114,7 +107,7 @@ def _display_honeyd_conf(
     honeyd_routes: HoneydRoutes,
     honeyd_entries: HoneydNodes,
     out: TextIO = sys.stdout,
-) -> Tuple[HoneydRoutes, HoneydNodes]:
+) -> tuple[HoneydRoutes, HoneydNodes]:
     addr = host["addr"]
     hname = "host_%s" % addr.replace(".", "_").replace(":", "_")
     out.write("create %s\n" % hname)
@@ -125,7 +118,7 @@ def _display_honeyd_conf(
             max(
                 extra.values(), key=lambda state: cast(int, cast(dict, state)["total"])
             )["reasons"].items(),
-            key=lambda reason: cast(Tuple[str, int], reason)[1],
+            key=lambda reason: cast(tuple[str, int], reason)[1],
         )[0]
         try:
             defaction = HONEYD_ACTION_FROM_NMAP_STATE[defaction]
@@ -210,7 +203,7 @@ def _display_xml_preamble(out: TextIO = sys.stdout) -> None:
     )
 
 
-def _display_xml_scan(scan: Dict[str, Any], out: TextIO = sys.stdout) -> None:
+def _display_xml_scan(scan: dict[str, Any], out: TextIO = sys.stdout) -> None:
     if "scaninfos" in scan and scan["scaninfos"]:
         for k in scan["scaninfos"][0]:
             scan["scaninfo.%s" % k] = scan["scaninfos"][0][k]
@@ -254,7 +247,7 @@ def _display_xml_scan(scan: Dict[str, Any], out: TextIO = sys.stdout) -> None:
 def _display_xml_table_elem(
     doc: NmapHost,
     first: bool = False,
-    name: Optional[str] = None,
+    name: str | None = None,
     out: TextIO = sys.stdout,
 ) -> None:
     if first:
@@ -354,7 +347,7 @@ def _display_xml_host(host: NmapHost, out: TextIO = sys.stdout) -> None:
         for reason, count in counts["reasons"].items():
             out.write('<extrareasons reason="%s" count="%d"/>\n' % (reason, count))
         out.write("</extraports>\n")
-    hostscripts: List[NmapScript] = []
+    hostscripts: list[NmapScript] = []
     for p in host.get("ports", []):
         if p.get("port") == -1:
             hostscripts = p["scripts"]
@@ -434,7 +427,7 @@ def _display_xml_epilogue(out: TextIO = sys.stdout) -> None:
 
 
 def _displayhost_csv(
-    fields: Dict[str, Any],
+    fields: dict[str, Any],
     separator: str,
     nastr: str,
     dic: NmapHost,
@@ -449,7 +442,7 @@ def _displayhost_csv(
     out.write("\n")
 
 
-def _display_gnmap_scan(scan: Dict[str, Any], out: TextIO = sys.stdout) -> None:
+def _display_gnmap_scan(scan: dict[str, Any], out: TextIO = sys.stdout) -> None:
     if "scaninfos" in scan and scan["scaninfos"]:
         for k in scan["scaninfos"][0]:
             scan["scaninfo.%s" % k] = scan["scaninfos"][0][k]
@@ -573,7 +566,7 @@ def displayfunction_http_urls(
 
 
 def displayfunction_nmapxml(
-    cur: Iterable[NmapHost], scan: Optional[Dict[str, Any]] = None
+    cur: Iterable[NmapHost], scan: dict[str, Any] | None = None
 ) -> None:
     _display_xml_preamble(out=sys.stdout)
     _display_xml_scan(scan or {}, out=sys.stdout)
@@ -599,11 +592,11 @@ def displayfunction_remove(flt: Filter, dbase: DB) -> None:
 def displayfunction_graphroute(
     cur: Iterable[NmapHost],
     arg: str,
-    cluster: Optional[str],
-    gr_include: Optional[str],
+    cluster: str | None,
+    gr_include: str | None,
     gr_dont_reset: bool,
 ) -> None:
-    cluster_f: Optional[Callable[[str], Optional[Tuple[Union[int, str], str]]]]
+    cluster_f: Callable[[str], tuple[int | str, str] | None] | None
     graph, entry_nodes = graphroute.buildgraph(
         cur,
         include_last_hop=gr_include == "last-hop",
@@ -612,7 +605,7 @@ def displayfunction_graphroute(
     if arg == "dot":
         if cluster == "AS":
 
-            def cluster_f(ipaddr: str) -> Optional[Tuple[int, str]]:
+            def cluster_f(ipaddr: str) -> tuple[int, str] | None:
                 res = db.data.as_byip(ipaddr)
                 if res is None:
                     return None
@@ -620,7 +613,7 @@ def displayfunction_graphroute(
 
         elif cluster == "Country":
 
-            def cluster_f(ipaddr: str) -> Optional[Tuple[str, str]]:
+            def cluster_f(ipaddr: str) -> tuple[str, str] | None:
                 res = db.data.country_byip(ipaddr)
                 if res is None:
                     return None
@@ -641,7 +634,7 @@ def displayfunction_graphroute(
 def displayfunction_csv(
     cur: Iterable[NmapHost], arg: str, csv_sep: str, csv_na_str: str, add_infos: bool
 ) -> None:
-    fields: Optional[OrderedDict] = {
+    fields: OrderedDict | None = {
         "ports": OrderedDict(
             [
                 ("addr", True),
@@ -722,7 +715,7 @@ def displayfunction_csv(
 def displayfunction_json(
     cur: Iterable[Record], dbase: DB, no_screenshots: bool = False
 ) -> None:
-    indent: Optional[int]
+    indent: int | None
     if os.isatty(sys.stdout.fileno()):
         indent = 4
     else:
@@ -751,7 +744,7 @@ def displayfunction_json(
 
 
 def display_short(
-    dbase: DB, flt: Filter, srt: Optional[Any], lmt: Optional[int], skp: Optional[int]
+    dbase: DB, flt: Filter, srt: Any | None, lmt: int | None, skp: int | None
 ) -> None:
     for val in dbase.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
         sys.stdout.write(val + "\n")
@@ -761,9 +754,9 @@ def display_distinct(
     dbase: DB,
     arg: str,
     flt: Filter,
-    srt: Optional[Any],
-    lmt: Optional[int],
-    skp: Optional[int],
+    srt: Any | None,
+    lmt: int | None,
+    skp: int | None,
 ) -> None:
     for val in dbase.distinct(arg, flt=flt, sort=srt, limit=lmt, skip=skp):
         sys.stdout.write(str(val) + "\n")

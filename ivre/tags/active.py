@@ -27,7 +27,8 @@ For the sake of code "simplicity", this sub-module also handles the
 
 import re
 from collections import Counter
-from typing import Callable, Generator, List, cast
+from collections.abc import Callable, Generator
+from typing import cast
 
 from ivre.config import VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.data.abuse_ch.sslbl import SSLBL_CERTIFICATES, SSLBL_JA3
@@ -74,13 +75,13 @@ BIG_IP_ERROR_BANNER = re.compile("^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ")
 SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
-TAGS_GENERATOR_PLUGINS_SCRIPT: List[
+TAGS_GENERATOR_PLUGINS_SCRIPT: list[
     Callable[[NmapHost, NmapPort, NmapScript], Generator[Tag, None, None]]
 ] = []
-TAGS_GENERATOR_PLUGINS_PORT: List[
+TAGS_GENERATOR_PLUGINS_PORT: list[
     Callable[[NmapHost, NmapPort], Generator[Tag, None, None]]
 ] = []
-TAGS_GENERATOR_PLUGINS_HOST: List[Callable[[NmapHost], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_HOST: list[Callable[[NmapHost], Generator[Tag, None, None]]] = []
 
 
 def is_synack_honeypot(host: NmapHost) -> bool:

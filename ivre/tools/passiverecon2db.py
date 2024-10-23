@@ -24,17 +24,8 @@ import functools
 import signal
 import sys
 from argparse import ArgumentParser
-from typing import (
-    Any,
-    BinaryIO,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from collections.abc import Generator, Iterable
+from typing import Any, BinaryIO
 
 from ivre.db import DBPassive, db
 from ivre.parser.zeek import ZeekFile
@@ -47,10 +38,10 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 
 def rec_iter(
-    zeek_parser: Iterable[Dict[str, Any]],
-    sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
-) -> Generator[Tuple[Optional[int], Record], None, None]:
+    zeek_parser: Iterable[dict[str, Any]],
+    sensor: str | None,
+    ignore_rules: dict[str, dict[str, list[tuple[int, int]]]],
+) -> Generator[tuple[int | None, Record], None, None]:
     for line in zeek_parser:
         line["timestamp"] = line.pop("ts")
         # skip PassiveRecon::
@@ -81,7 +72,7 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
-    files: Iterable[Union[BinaryIO, str]]
+    files: Iterable[BinaryIO | str]
     if not args.files:
         files = [sys.stdin.buffer]
     elif args.recursive:

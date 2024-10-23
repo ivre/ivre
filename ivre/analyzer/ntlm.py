@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,7 +19,7 @@
 
 import binascii
 import struct
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ivre import utils
 
@@ -78,7 +77,7 @@ def is_unicode(msg: bytes, flags: int) -> bool:
     return False
 
 
-def _ntlm_negotiate_extract(negotiate: bytes) -> Optional[Dict[str, Any]]:
+def _ntlm_negotiate_extract(negotiate: bytes) -> dict[str, Any] | None:
     """
     Extract host information in an NTLMSSP_NEGOTIATE message
     """
@@ -127,7 +126,7 @@ info_types = {
 }
 
 
-def _ntlm_challenge_extract(challenge: bytes) -> Optional[Dict[str, Any]]:
+def _ntlm_challenge_extract(challenge: bytes) -> dict[str, Any] | None:
     """
     Extract host information in an NTLMSSP_CHALLENGE message
     """
@@ -220,7 +219,7 @@ def _ntlm_challenge_extract(challenge: bytes) -> Optional[Dict[str, Any]]:
     return value
 
 
-def _ntlm_authenticate_info(request: bytes) -> Optional[Dict[str, Any]]:
+def _ntlm_authenticate_info(request: bytes) -> dict[str, Any] | None:
     """
     Extract host information in an NTLMSSP_AUTH message
     """
@@ -284,7 +283,7 @@ def _ntlm_authenticate_info(request: bytes) -> Optional[Dict[str, Any]]:
     return value
 
 
-def ntlm_extract_info(value: bytes) -> Optional[Dict[str, Any]]:
+def ntlm_extract_info(value: bytes) -> dict[str, Any] | None:
     """
     Extract valuable host information from an NTLM message
     """
@@ -303,7 +302,7 @@ def ntlm_extract_info(value: bytes) -> Optional[Dict[str, Any]]:
     return {}
 
 
-def _ntlm_dict2string(dic: Dict[str, str]) -> str:
+def _ntlm_dict2string(dic: dict[str, str]) -> str:
     """
     Returns a string with the keys and values (encoded in base64)
     of the given dict, in the format

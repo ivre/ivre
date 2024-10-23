@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 
 import datetime
-from typing import Any, BinaryIO, Dict, Optional, Union
+from typing import Any, BinaryIO
 
 from ivre.parser import CmdParser
 
@@ -45,7 +45,7 @@ class Argus(CmdParser):
     aggregation = ["saddr", "sport", "daddr", "dport", "proto"]
     timefmt = "%s.%f"
 
-    def __init__(self, fdesc: Union[str, BinaryIO], pcap_filter: Optional[str] = None):
+    def __init__(self, fdesc: str | BinaryIO, pcap_filter: str | None = None):
         """Creates the Argus object.
 
         fdesc: a file-like object or a filename
@@ -65,8 +65,8 @@ class Argus(CmdParser):
         self.fdesc.readline()
 
     @classmethod
-    def parse_line(cls, line: bytes) -> Dict[str, Any]:
-        fields: Dict[str, Any] = {
+    def parse_line(cls, line: bytes) -> dict[str, Any]:
+        fields: dict[str, Any] = {
             name: val.strip().decode()
             for name, val in zip(cls.fields, line.split(b","))
         }

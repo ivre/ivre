@@ -19,7 +19,8 @@
 """Support for Airodump csv files"""
 
 import datetime
-from typing import Any, BinaryIO, Callable, Dict, Optional, Union
+from collections.abc import Callable
+from typing import Any, BinaryIO
 
 from ivre.parser import Parser
 
@@ -44,7 +45,7 @@ class Airodump(Parser):
         "channel": TYPE_INT,
         "# beacons": TYPE_INT,
     }
-    converters: Dict[Optional[int], Callable[[str], Any]] = {
+    converters: dict[int | None, Callable[[str], Any]] = {
         TYPE_INT: int,
         TYPE_DATE: lambda val: datetime.datetime.strptime(val, "%Y-%m-%d %H:%M:%S"),
         TYPE_IP: lambda val: ".".join(elt.strip() for elt in val.split(".")),
@@ -52,11 +53,11 @@ class Airodump(Parser):
         None: lambda val: val.strip(),
     }
 
-    def __init__(self, fname: Union[str, BinaryIO]) -> None:
+    def __init__(self, fname: str | BinaryIO) -> None:
         super().__init__(fname)
         self.nextline_headers = False
 
-    def parse_line(self, line: bytes) -> Dict[str, Any]:
+    def parse_line(self, line: bytes) -> dict[str, Any]:
         line_s = line.decode().rstrip("\r\n")
         if not line_s:
             self.nextline_headers = True

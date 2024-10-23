@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
 
 import argparse
 import re
-from typing import List, Tuple
 
 from ivre import utils
 from ivre.db import db
@@ -50,7 +49,7 @@ def main() -> None:
         "-r", "--resolve", action="store_true", help="Resolve MAC manufacturer"
     )
     args = parser.parse_args()
-    flts: Tuple[List[str], List[str]] = ([], [])  # MAC & IP filters
+    flts: tuple[list[str], list[str]] = ([], [])  # MAC & IP filters
     for arg in args.ips_or_macs:
         if arg[:1] in "-!~":
             neg = True

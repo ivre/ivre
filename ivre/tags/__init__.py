@@ -23,16 +23,9 @@
 
 import os
 from bisect import bisect_left
+from collections.abc import Callable, Generator, Iterable
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
     TypeVar,
     cast,
 )
@@ -55,14 +48,14 @@ TAG_VULN_LIKELY: Tag = {"value": "Likely vulnerable", "type": "warning"}
 TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
 
 
-_TOR_NODES: Optional[Set[str]] = None
-_CDN_TABLE: Optional[Tuple[List[int], List[Optional[Tuple[str, str]]]]] = None
-_GOVCLOUD_TABLE: Optional[Tuple[List[int], List[Optional[List[str]]]]] = None
-_SCANNERS_TABLE: Optional[Tuple[List[int], List[Optional[str]]]] = None
+_TOR_NODES: set[str] | None = None
+_CDN_TABLE: tuple[list[int], list[tuple[str, str] | None]] | None = None
+_GOVCLOUD_TABLE: tuple[list[int], list[list[str] | None]] | None = None
+_SCANNERS_TABLE: tuple[list[int], list[str | None]] | None = None
 
 
-TAGS_GENERATOR_PLUGINS_ADDR: List[Callable[[str], Generator[Tag, None, None]]] = []
-TAGS_GENERATOR_PLUGINS_HOSTNAME: List[Callable[[str], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_ADDR: list[Callable[[str], Generator[Tag, None, None]]] = []
+TAGS_GENERATOR_PLUGINS_HOSTNAME: list[Callable[[str], Generator[Tag, None, None]]] = []
 
 
 def _get_data() -> None:
@@ -80,7 +73,7 @@ def _get_data() -> None:
             )
             _TOR_NODES = set()
     if _SCANNERS_TABLE is None:
-        ranges: List[Tuple[str, str, str]] = []
+        ranges: list[tuple[str, str, str]] = []
         try:
             with open(
                 os.path.join(DATA_PATH, "ssigouvfr_scanners.txt"), encoding="utf8"
@@ -144,7 +137,7 @@ def _get_data() -> None:
 T = TypeVar("T")
 
 
-def _get_name(table: Tuple[List[int], List[Optional[T]]], addr: str) -> Optional[T]:
+def _get_name(table: tuple[list[int], list[T | None]], addr: str) -> T | None:
     """Devs: please make sure _get_data() has been called before calling me!"""
     addr_i = ip2int(addr) if ":" in addr else ip2int(f"::ffff:{addr}")
     try:
@@ -153,7 +146,7 @@ def _get_name(table: Tuple[List[int], List[Optional[T]]], addr: str) -> Optional
         return None
 
 
-def _prepare_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
+def _prepare_tag(tag: dict[str, Any]) -> dict[str, Any]:
     """This function uses a set() for the "info" value, while a list() is
     used to store it. It is used in add_tags().
 
@@ -163,7 +156,7 @@ def _prepare_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
     return tag
 
 
-def _clean_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
+def _clean_tag(tag: dict[str, Any]) -> dict[str, Any]:
     """This function is the opposite of `_prepare_tag()`. It is used in
     add_tags().
 
@@ -173,7 +166,7 @@ def _clean_tag(tag: Dict[str, Any]) -> Dict[str, Any]:
     return tag
 
 
-def add_tags(record: Dict[str, Any], tags: Iterable[Tag]) -> None:
+def add_tags(record: dict[str, Any], tags: Iterable[Tag]) -> None:
     """This function sets or update the "tags" attribute in `record` by
     adding or updating the provided `tags`.
 

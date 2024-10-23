@@ -20,7 +20,7 @@
 """Tools to handle IVRE plugins."""
 
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 try:
     from importlib import import_module
@@ -43,7 +43,7 @@ CATEGORIES = [
 ]
 
 
-def load_plugins(group: str, scope: Dict[str, Any]) -> None:
+def load_plugins(group: str, scope: dict[str, Any]) -> None:
     if not HAS_PLUGINS:
         return
     try:
@@ -55,7 +55,7 @@ def load_plugins(group: str, scope: Dict[str, Any]) -> None:
             entry_point.load()(scope)
 
 
-def get_version(module: str) -> Optional[str]:
+def get_version(module: str) -> str | None:
     try:
         mod = import_module(module)
     except ImportError:
@@ -71,10 +71,10 @@ def get_version(module: str) -> Optional[str]:
     return "[unknown version]"
 
 
-def list_plugins() -> Dict[str, List[Tuple[str, Optional[str]]]]:
+def list_plugins() -> dict[str, list[tuple[str, str | None]]]:
     if not HAS_PLUGINS:
         return {}
-    modules: Dict[str, Set[str]] = {}
+    modules: dict[str, set[str]] = {}
     for category in CATEGORIES:
         group = f"ivre.plugins.{category}"
         try:

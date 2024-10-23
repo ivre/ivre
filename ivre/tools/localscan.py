@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,8 +27,8 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Generator
 from datetime import datetime
-from typing import Dict, Generator, Set, Tuple
 
 from ivre import utils
 from ivre.activecli import displayfunction_nmapxml
@@ -55,9 +55,9 @@ class LocalPorts:
                     continue
                 yield m.groupdict()["addr"]
 
-    def parse(self) -> Dict[str, Dict[Tuple[str, int], Set[str]]]:
+    def parse(self) -> dict[str, dict[tuple[str, int], set[str]]]:
         addresses = set(self.get_addrs())
-        results: Dict[str, Dict[Tuple[str, int], Set[str]]] = {}
+        results: dict[str, dict[tuple[str, int], set[str]]] = {}
         with subprocess.Popen(self.cmd_openports, stdout=subprocess.PIPE) as proc:
             assert proc.stdout is not None
             for line in proc.stdout:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ documents from the active (nmap & view) purposes.
 """
 
 
-from typing import Any, Dict, List
+from typing import Any
 
 from ivre.types import CpeDict
 from ivre.utils import LOGGER
@@ -57,7 +57,7 @@ def cpe2dict(cpe_str: str) -> CpeDict:
     return ret
 
 
-def add_cpe_values(hostrec: Dict[str, Any], path: str, cpe_values: List[str]) -> None:
+def add_cpe_values(hostrec: dict[str, Any], path: str, cpe_values: list[str]) -> None:
     """Add CPE values (`cpe_values`) to the `hostrec` at the given `path`.
 
     CPEs are indexed in a dictionary to agglomerate origins, but this dict

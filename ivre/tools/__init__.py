@@ -20,7 +20,8 @@
 """This sub-module contains functions to implement ivre commands."""
 
 from itertools import chain
-from typing import Callable, Dict, List, Optional, cast
+from collections.abc import Callable
+from typing import cast
 
 from ivre.plugins import load_plugins
 
@@ -69,10 +70,10 @@ ALIASES = {
 }
 
 
-PLUGINS: Dict[str, Callable[[], None]] = {}
+PLUGINS: dict[str, Callable[[], None]] = {}
 
 
-def get_command(name: str) -> Optional[Callable[[], None]]:
+def get_command(name: str) -> Callable[[], None] | None:
     if name in __all__:
         return cast(
             Callable[[], None],
@@ -89,7 +90,7 @@ def get_command(name: str) -> Optional[Callable[[], None]]:
     return None
 
 
-def guess_command(name: str) -> List[str]:
+def guess_command(name: str) -> list[str]:
     if name in __all__:
         return [name]
     if name in ALIASES:

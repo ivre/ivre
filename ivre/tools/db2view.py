@@ -21,9 +21,9 @@
 
 
 import argparse
+from collections.abc import Generator
 from functools import reduce
 from multiprocessing import Pool, cpu_count
-from typing import Generator, List, Optional
 
 from ivre.active.data import merge_host_docs
 from ivre.activecli import displayfunction_json
@@ -38,7 +38,7 @@ from ivre.view import (
 )
 
 
-def merge_and_output(records: List[Record]) -> None:
+def merge_and_output(records: list[Record]) -> None:
     result = reduce(
         lambda r1, r2: merge_host_docs(
             r1, r2, auto_tags=False, openports_attribute=False
@@ -48,7 +48,7 @@ def merge_and_output(records: List[Record]) -> None:
     w_output(prepare_record(result, w_datadb))  # type: ignore
 
 
-def worker_initializer(dburl: Optional[str], no_merge: bool) -> None:
+def worker_initializer(dburl: str | None, no_merge: bool) -> None:
     # pylint: disable=global-variable-undefined
     global w_datadb, w_outdb, w_output
     w_outdb = db.view if dburl is None else DBView.from_url(dburl)  # type: ignore
@@ -78,7 +78,7 @@ def main() -> None:
         fltpass = None
     else:
         fltpass = db.passive.flt_empty
-    _from: List[Generator[Record, None, None]] = []
+    _from: list[Generator[Record, None, None]] = []
 
     parser.add_argument(
         "--view-category",

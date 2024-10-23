@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,7 +21,7 @@
 
 
 import re
-from typing import Dict, Generator, List, Optional, Union
+from collections.abc import Generator
 
 from ivre import config, utils
 from ivre.types.flow import Clause
@@ -71,7 +70,7 @@ META_DESC_ARRAYS = ["dns.keys.answers"]
 # field name equals the parsed Zeek file field name.
 # If its associated value is a list, each internal field name equals its
 # corresponding parsed Zeek file field name.
-META_DESC: Dict[str, Dict[str, Union[List[str], Dict[str, Optional[str]]]]] = {
+META_DESC: dict[str, dict[str, list[str] | dict[str, str | None]]] = {
     "arp": {
         "keys": ["op", "mac_src", "mac_dst"],
     },
@@ -175,7 +174,7 @@ META_DESC: Dict[str, Dict[str, Union[List[str], Dict[str, Optional[str]]]]] = {
 
 # Stores available fields
 # Populated by validate_field
-_ALL_FIELDS: Optional[Dict[str, bool]] = None
+_ALL_FIELDS: dict[str, bool] | None = None
 
 
 def validate_field(field: str) -> None:
@@ -230,11 +229,11 @@ class Query:
     # Used to split filter in tokens (attributes, operators, values)
     # Example: '"test" test' is divided in 2 groups "test" and test
     splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
-    clauses: List[List[Clause]] = []
+    clauses: list[list[Clause]] = []
 
     @classmethod
     def _split_filter_or(cls, flt: str) -> Generator[str, None, None]:
-        current: List[str] = []
+        current: list[str] = []
         for subflt in cls.splitter_re.finditer(flt):
             subflt_str = subflt.group()
             if cls.or_re.search(subflt_str):
@@ -244,7 +243,7 @@ class Query:
                 current.append(subflt_str)
         yield " ".join(current)
 
-    def _add_clause_from_filter(self, flt: str) -> Optional[Clause]:
+    def _add_clause_from_filter(self, flt: str) -> Clause | None:
         """
         Returns a clause object computed from the given filter
         flt format is
@@ -306,7 +305,7 @@ class Query:
                     clauses.append(subclause)
         return self.add_clause(clauses)
 
-    def add_clause(self, clauses: List[Clause]) -> None:
+    def add_clause(self, clauses: list[Clause]) -> None:
         self.clauses.append(clauses)
 
     def __init__(self) -> None:

@@ -21,9 +21,10 @@
 
 
 from argparse import ArgumentParser
+from collections.abc import Generator, Iterable
 from functools import partial
 from sys import stdin
-from typing import BinaryIO, Dict, Generator, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO
 
 from ivre.db import DBPassive, db
 from ivre.parser.weblog import WeblogFile
@@ -33,10 +34,10 @@ from ivre.utils import recursive_filelisting
 
 
 def rec_iter(
-    filenames: Iterable[Union[BinaryIO, str]],
-    sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
-) -> Generator[Tuple[Optional[int], Record], None, None]:
+    filenames: Iterable[BinaryIO | str],
+    sensor: str | None,
+    ignore_rules: dict[str, dict[str, list[tuple[int, int]]]],
+) -> Generator[tuple[int | None, Record], None, None]:
     ignorenets = ignore_rules.get("IGNORENETS", {})
     neverignore = ignore_rules.get("NEVERIGNORE", {})
     for fname in filenames:
@@ -91,7 +92,7 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
-    files: Iterable[Union[BinaryIO, str]]
+    files: Iterable[BinaryIO | str]
     if not args.files:
         files = [stdin.buffer]
     elif args.recursive:

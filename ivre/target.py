@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>

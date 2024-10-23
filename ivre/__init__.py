@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
@@ -26,7 +25,7 @@ IVRE is a network recon framework. See https://ivre.rocks/
 import os
 import re
 import subprocess
-from typing import Tuple, cast
+from typing import cast
 
 _DIR = os.path.dirname(__file__)
 _VERSION_FILE = os.path.join(_DIR, "VERSION")
@@ -58,7 +57,7 @@ def _get_version_from_git() -> str:
     match = re.match("^v?(.+?)-(\\d+)-g[a-f0-9]+$", tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
-        value = "%s.dev%s" % cast(Tuple[str, str], match.groups())
+        value = "%s.dev%s" % cast(tuple[str, str], match.groups())
     else:
         # just remove the 'v' prefix
         value = tag[1:] if tag.startswith("v") else tag

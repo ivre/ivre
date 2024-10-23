@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 
 
 import struct
-from typing import Any, Dict, Tuple, Union, cast
+from typing import Any, cast
 
 from ivre.types import NmapServiceMatch
 from ivre.types.active import NmapPort
 from ivre.utils import encode_hex, find_ike_vendor_id
 
 
-class Values(Dict[int, str]):
+class Values(dict[int, str]):
     def __getitem__(self, item: int) -> str:
         try:
             return super().__getitem__(item)
@@ -101,7 +101,7 @@ NOTIFICATION = Values(
 
 
 # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-2
-TRANSFORM_VALUES: Dict[int, Tuple[str, Union[Values, NumValues]]] = {
+TRANSFORM_VALUES: dict[int, tuple[str, Values | NumValues]] = {
     # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-4
     1: (
         "Encryption",
@@ -222,7 +222,7 @@ TRANSFORM_VALUES: Dict[int, Tuple[str, Union[Values, NumValues]]] = {
 
 
 def info_from_notification(
-    payload: bytes, _: NmapServiceMatch, output: Dict[str, Any]
+    payload: bytes, _: NmapServiceMatch, output: dict[str, Any]
 ) -> None:
     payload_len = len(payload)
     if payload_len < 12:
@@ -241,7 +241,7 @@ def info_from_notification(
 
 
 def info_from_vendorid(
-    payload: bytes, service: NmapServiceMatch, output: Dict[str, Any]
+    payload: bytes, service: NmapServiceMatch, output: dict[str, Any]
 ) -> None:
     name = find_ike_vendor_id(payload[4:])
     if name is not None:
@@ -340,7 +340,7 @@ def info_from_vendorid(
     output.setdefault("vendor_ids", []).append(entry)
 
 
-def info_from_sa(payload: bytes, _: NmapServiceMatch, output: Dict[str, Any]) -> None:
+def info_from_sa(payload: bytes, _: NmapServiceMatch, output: dict[str, Any]) -> None:
     payload_len = len(payload)
     if payload_len < 20:
         output.setdefault("protocol", []).append(
@@ -399,7 +399,7 @@ PAYLOADS = {
 
 def analyze_ike_payload(payload: bytes, probe: str = "ike") -> NmapPort:
     service: NmapServiceMatch = {}
-    output: Dict[str, Any] = {}
+    output: dict[str, Any] = {}
     if probe == "ike-ipsec-nat-t":
         if payload.startswith(b"\x00\x00\x00\x00"):
             payload = payload[4:]

@@ -21,19 +21,10 @@
 
 
 from argparse import ArgumentParser
+from collections.abc import Generator, Iterable
 from functools import partial
 from sys import stdin
-from typing import (
-    Any,
-    BinaryIO,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, BinaryIO
 
 from ivre.db import DBPassive, db
 from ivre.parser.airodump import Airodump
@@ -43,8 +34,8 @@ from ivre.utils import recursive_filelisting
 
 
 def _handle_rec(
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
-    line: Dict[str, Any],
+    ignore_rules: dict[str, dict[str, list[tuple[int, int]]]],
+    line: dict[str, Any],
 ) -> Generator[Record, None, None]:
     yield from _prepare_rec(
         line, ignore_rules.get("IGNORENETS", {}), ignore_rules.get("NEVERIGNORE", {})
@@ -52,9 +43,9 @@ def _handle_rec(
 
 
 def rec_iter(
-    filenames: Iterable[Union[BinaryIO, str]],
-    sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
+    filenames: Iterable[BinaryIO | str],
+    sensor: str | None,
+    ignore_rules: dict[str, dict[str, list[tuple[int, int]]]],
 ) -> Generator[Record, None, None]:
     for fname in filenames:
         with Airodump(fname) as fdesc:
@@ -149,7 +140,7 @@ def main() -> None:
             DBPassive.insert_or_update_bulk,
             db.passive,
         )
-    files: Iterable[Union[BinaryIO, str]]
+    files: Iterable[BinaryIO | str]
     if not args.files:
         files = [stdin.buffer]
     elif args.recursive:

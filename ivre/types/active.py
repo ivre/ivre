@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +22,7 @@ Specific type definitions for IVRE (active)
 """
 
 
-from typing import Any, Dict, List, Union
+from typing import Any
 
 try:
     from typing import TypedDict
@@ -35,9 +34,9 @@ else:
 
 from ivre.types import NmapServiceMatch
 
-NmapHost = Dict[str, Any]  # TODO (see below)
-NmapAddress = Dict[str, Any]  # TODO & TO FIX...
-NmapScript = Dict[str, Any]  # seems hard to do better for now (lots of keys)
+NmapHost = dict[str, Any]  # TODO (see below)
+NmapAddress = dict[str, Any]  # TODO & TO FIX...
+NmapScript = dict[str, Any]  # seems hard to do better for now (lots of keys)
 
 
 if HAS_TYPED_DICT:
@@ -52,28 +51,28 @@ if HAS_TYPED_DICT:
         state_state: str
         state_reason: str
         state_reason_ttl: int
-        scripts: List[NmapScript]
+        scripts: list[NmapScript]
         screendata: bytes
-        screenwords: List[str]
+        screenwords: list[str]
         screenshot: str
 
     class NmapHostname(TypedDict):
         type: str
         name: str
-        domains: List[str]
+        domains: list[str]
 
     # TODO
     # class NmapHost(TypedDict, total=False):
     #     addr: str
-    #     addresses: List[NmapAddress]
-    #     hostnames: List[NmapHostname]
-    #     ports: List[NmapPort]
+    #     addresses: list[NmapAddress]
+    #     hostnames: list[NmapHostname]
+    #     ports: list[NmapPort]
     #     state: str
-    #     tags: List[Tag]
+    #     tags: list[Tag]
 
 
 else:
-    HttpHeader = Dict[str, str]  # type: ignore
-    NmapPort = Dict[str, Union[str, int, List[NmapScript], bytes, List[str]]]  # type: ignore
-    NmapHostname = Dict[str, Union[str, List[str]]]  # type: ignore
-    # NmapHost = Dict[str, Any]  # type: ignore
+    HttpHeader = dict[str, str]  # type: ignore
+    NmapPort = dict[str, str | int | list[NmapScript] | bytes | list[str]]  # type: ignore
+    NmapHostname = dict[str, str | list[str]]  # type: ignore
+    # NmapHost = dict[str, Any]  # type: ignore

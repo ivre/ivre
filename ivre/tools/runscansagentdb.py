@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import os
 import signal
 import sys
 import time
-from typing import Any, Dict
+from typing import Any
 
 import ivre.config
 import ivre.db
@@ -33,7 +33,7 @@ import ivre.target
 import ivre.utils
 
 
-def display_scan(scan: Dict[str, Any], verbose: bool = True) -> None:
+def display_scan(scan: dict[str, Any], verbose: bool = True) -> None:
     scan["target"] = ivre.db.db.agent.get_scan_target(scan["_id"])
     print("scan:")
     if verbose:
@@ -62,7 +62,7 @@ def display_scan(scan: Dict[str, Any], verbose: bool = True) -> None:
         print("    - %s" % agent)
 
 
-def display_agent(agent: Dict[str, Any], verbose: bool = True) -> None:
+def display_agent(agent: dict[str, Any], verbose: bool = True) -> None:
     print("agent:")
     if verbose:
         print("  - id: %s" % agent["_id"])
@@ -90,7 +90,7 @@ def display_agent(agent: Dict[str, Any], verbose: bool = True) -> None:
     print("  - can receive: %d" % (ivre.db.db.agent.may_receive(agent["_id"])))
 
 
-def display_master(master: Dict[str, Any], verbose: bool = True) -> None:
+def display_master(master: dict[str, Any], verbose: bool = True) -> None:
     print("master:")
     if verbose:
         print("  - id: %s" % master["_id"])

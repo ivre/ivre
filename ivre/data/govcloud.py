@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@ from this repository).
 import json
 import os
 import re
-from typing import List, Tuple
 
 from ivre import VERSION, config
 from ivre.utils import build_opener, download_if_newer, make_range_tables, net2range
@@ -59,7 +58,7 @@ def get_all_files() -> float:
     return most_recent
 
 
-def build_table() -> List[Tuple[str, str, List[str]]]:
+def build_table() -> list[tuple[str, str, list[str]]]:
     assert config.DATA_PATH is not None
     all_ranges = []
 

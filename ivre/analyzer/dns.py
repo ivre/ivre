@@ -24,9 +24,9 @@ import re
 import subprocess
 from ast import literal_eval
 from collections import namedtuple
+from collections.abc import Generator, Sequence
 from datetime import datetime
 from itertools import chain
-from typing import Dict, FrozenSet, Generator, List, Optional, Sequence, Set, Tuple
 
 from ivre.types.active import NmapHost
 from ivre.utils import LOGGER, get_domains, key_sort_dom
@@ -47,7 +47,7 @@ MAIL_REGEXP = re.compile(r"[^@]+@[^@]+\.[^@]+", re.IGNORECASE)
 
 
 def _dns_do_query(
-    name: str, rtype: Optional[str] = None, srv: Optional[str] = None
+    name: str, rtype: str | None = None, srv: str | None = None
 ) -> Generator[nsrecord, None, None]:
     cmd = ["dig", "+noquestion", "+nocomments", "+nocmd", "+nostat"]
     if rtype:
@@ -68,9 +68,9 @@ def _dns_do_query(
 
 def _dns_query_full(
     name: str,
-    rtype: Optional[str] = None,
-    srv: Optional[str] = None,
-    getall: Optional[bool] = False,
+    rtype: str | None = None,
+    srv: str | None = None,
+    getall: bool | None = False,
 ) -> Generator[nsrecord, None, None]:
     for ans in _dns_do_query(name, rtype=rtype, srv=srv):
         if ans.rclass == "IN" and (getall or (rtype is None) or (ans.rtype == rtype)):
@@ -79,24 +79,24 @@ def _dns_query_full(
 
 def _dns_query(
     name: str,
-    rtype: Optional[str] = None,
-    srv: Optional[str] = None,
-    getall: Optional[bool] = False,
+    rtype: str | None = None,
+    srv: str | None = None,
+    getall: bool | None = False,
 ) -> Generator[str, None, None]:
     for ans in _dns_query_full(name, rtype=rtype, srv=srv, getall=getall):
         yield ans.data
 
 
 class Checker:
-    _ns: List[str]
-    _ns4: List[Tuple[str, str]]
-    _ns6: List[Tuple[str, str]]
+    _ns: list[str]
+    _ns4: list[tuple[str, str]]
+    _ns6: list[tuple[str, str]]
 
     def __init__(self, domain: str) -> None:
         self.domain = domain
 
     @property
-    def ns_servers(self) -> List[str]:
+    def ns_servers(self) -> list[str]:
         try:
             return self._ns
         except AttributeError:
@@ -104,7 +104,7 @@ class Checker:
             return self._ns
 
     @property
-    def ns4_servers(self) -> List[Tuple[str, str]]:
+    def ns4_servers(self) -> list[tuple[str, str]]:
         try:
             return self._ns4
         except AttributeError:
@@ -116,7 +116,7 @@ class Checker:
             return self._ns4
 
     @property
-    def ns6_servers(self) -> List[Tuple[str, str]]:
+    def ns6_servers(self) -> list[tuple[str, str]]:
         try:
             return self._ns6
         except AttributeError:
@@ -127,7 +127,7 @@ class Checker:
             )
             return self._ns6
 
-    def _test(self, addr: str) -> List[nsrecord]:
+    def _test(self, addr: str) -> list[nsrecord]:
         raise NotImplementedError
 
     def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
@@ -135,7 +135,7 @@ class Checker:
 
     def do_test(
         self, v4: bool = True, v6: bool = True
-    ) -> Generator[Tuple[str, str, Sequence[nsrecord]], None, None]:
+    ) -> Generator[tuple[str, str, Sequence[nsrecord]], None, None]:
         servers = []
         if v4:
             servers.append(self.ns4_servers)
@@ -147,7 +147,7 @@ class Checker:
 
 
 class AXFRChecker(Checker):
-    def _test(self, addr: str) -> List[nsrecord]:
+    def _test(self, addr: str) -> list[nsrecord]:
         return list(_dns_query_full(self.domain, rtype="AXFR", srv=addr, getall=True))
 
     def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
@@ -213,7 +213,7 @@ class AXFRChecker(Checker):
                     },
                 ],
             }
-            hosts: Dict[str, Set[Tuple[str, str]]] = {}
+            hosts: dict[str, set[tuple[str, str]]] = {}
             for r in res:
                 if r.rclass != "IN":
                     continue
@@ -239,16 +239,16 @@ class AXFRChecker(Checker):
 
 
 class SameValueChecker(Checker):
-    name: Optional[str] = None
-    rtype: Optional[str] = None
+    name: str | None = None
+    rtype: str | None = None
 
-    def _sv_test(self, addr: str) -> FrozenSet[str]:
+    def _sv_test(self, addr: str) -> frozenset[str]:
         assert self.name is not None
         return frozenset(_dns_query(self.name, rtype=self.rtype, srv=addr))
 
     def do_sv_test(
         self, v4: bool = True, v6: bool = True
-    ) -> Generator[Tuple[str, str, FrozenSet[str]], None, None]:
+    ) -> Generator[tuple[str, str, frozenset[str]], None, None]:
         servers = []
         if v4:
             servers.append(self.ns4_servers)
@@ -260,7 +260,7 @@ class SameValueChecker(Checker):
 
     def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
         self.start = datetime.now()
-        results: Dict[FrozenSet[str], Dict[str, List[str]]] = {}
+        results: dict[frozenset[str], dict[str, list[str]]] = {}
         self.results = list(self.do_sv_test(v4=v4, v6=v6))
         for srvname, addr, res in self.results:
             srvname = srvname.rstrip(".")
@@ -373,9 +373,9 @@ class DNSMXChecker(SameValueChecker):
     def __init__(self, domain: str) -> None:
         super().__init__(domain)
         self.name = domain
-        self._name2addr: Dict[str, List[str]] = {}
+        self._name2addr: dict[str, list[str]] = {}
 
-    def name2addr(self, name: str, v4: bool = True, v6: bool = True) -> List[str]:
+    def name2addr(self, name: str, v4: bool = True, v6: bool = True) -> list[str]:
         try:
             return self._name2addr[name]
         except KeyError:

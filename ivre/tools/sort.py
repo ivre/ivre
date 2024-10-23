@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,8 +18,8 @@
 
 
 import argparse
+from collections.abc import Iterable
 from sys import stdin
-from typing import Iterable
 
 from ivre.utils import key_sort_dom_addr
 

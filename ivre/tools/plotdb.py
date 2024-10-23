@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@
 
 import argparse
 import math
-from typing import List, Optional, Tuple
 
 import matplotlib  # type: ignore
 import matplotlib.pyplot  # type: ignore
@@ -32,7 +31,7 @@ from ivre import db, utils
 from ivre.types import Filter, Record
 
 
-def graphhost(host: Record) -> Tuple[List[int], List[int]]:
+def graphhost(host: Record) -> tuple[list[int], list[int]]:
     if "ports" not in host:
         return [], []
     hh, pp = [], []
@@ -44,7 +43,7 @@ def graphhost(host: Record) -> Tuple[List[int], List[int]]:
     return hh, pp
 
 
-def getgraph(flt: Filter = db.db.view.flt_empty) -> Tuple[List[int], List[int]]:
+def getgraph(flt: Filter = db.db.view.flt_empty) -> tuple[list[int], list[int]]:
     h, p = [], []
     allhosts = db.db.view.get(flt)
     for ap in allhosts:
@@ -55,7 +54,7 @@ def getgraph(flt: Filter = db.db.view.flt_empty) -> Tuple[List[int], List[int]]:
 
 
 def graph3d(
-    mainflt: Filter = db.db.view.flt_empty, alertflt: Optional[Filter] = None
+    mainflt: Filter = db.db.view.flt_empty, alertflt: Filter | None = None
 ) -> None:
     h, p = getgraph(flt=mainflt)
     fig = matplotlib.pyplot.figure()
@@ -83,7 +82,7 @@ def graph3d(
 
 
 def graph2d(
-    mainflt: Filter = db.db.view.flt_empty, alertflt: Optional[Filter] = None
+    mainflt: Filter = db.db.view.flt_empty, alertflt: Filter | None = None
 ) -> None:
     h, p = getgraph(flt=mainflt)
     fig = matplotlib.pyplot.figure()
