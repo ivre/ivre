@@ -2953,9 +2953,13 @@ class DBNmap(DBActive):
                 # new vs old format
                 if "matched-at" in rec:
                     rec["matched"] = rec.pop("matched-at")
-                is_ssl = False
+                port_doc = {
+                    "protocol": "tcp",
+                    "state_state": "open",
+                    "state_reason": "response",
+                }
                 # Supported types
-                # Important: add new supportde types to ALIASES_TABLE_ELEMS in ivre/active/data.py
+                # Important: add new supported types to ivre.active.nmap.ALIASES_TABLE_ELEMS
                 if rec.get("type") == "http":
                     try:
                         url = rec.get("matched", rec["host"])
@@ -2967,25 +2971,57 @@ class DBNmap(DBActive):
                     except ValueError:
                         utils.LOGGER.warning("Invalid URL %r", url)
                         continue
-                    else:
-                        if url.startswith("https:"):
-                            is_ssl = True
-                elif rec.get("type") == "network":
+                    if addr.startswith("[") and addr.startswith("]"):
+                        addr = addr[1:-1]
+                    port_doc.update(
+                        {
+                            "port": port,
+                            "service_name": "http",
+                            "service_method": "probed",
+                        }
+                    )
+                    if url.startswith("https:"):
+                        port_doc["service_tunnel"] = "ssl"
+                elif rec.get("type") in {"ssl", "network", "tcp"}:
                     try:
-                        url = rec.get("matched", rec["host"])
+                        addr = rec["host"]
                     except KeyError:
-                        utils.LOGGER.warning("No URL found [%r]", rec)
-                        continue
-                    try:
-                        addr, port = url.split(":", 1)
-                    except ValueError:
-                        utils.LOGGER.warning("Invalid URL [%r]", url)
-                        continue
-                    try:
-                        port = int(port)
-                    except ValueError:
-                        utils.LOGGER.warning("Invalid URL [%r]", url)
-                        continue
+                        try:
+                            url = rec["matched"]
+                        except KeyError:
+                            utils.LOGGER.warning("No host found [%r]", rec)
+                            continue
+                        try:
+                            addr, port = url.split(":", 1)
+                        except ValueError:
+                            utils.LOGGER.warning("Invalid URL [%r]", url)
+                            continue
+                        try:
+                            port = int(port)
+                        except ValueError:
+                            utils.LOGGER.warning("No port found [%r]", url)
+                            continue
+                    else:
+                        try:
+                            port = int(rec["port"])
+                        except (KeyError, ValueError):
+                            utils.LOGGER.warning("No port found [%r]", url)
+                            continue
+                        if ":" in addr:
+                            url = f"[{addr}]:{port}"
+                        else:
+                            url = f"{addr}:{port}"
+                    port_doc["port"] = port
+                    if rec["type"] == "ssl":
+                        port_doc["service_tunnel"] = "ssl"
+                    elif rec["type"] == "tcp":
+                        # TODO: handle request (probe)
+                        try:
+                            response = rec["response"].encode()
+                        except (KeyError, UnicodeEncodeError):
+                            pass
+                        else:
+                            port_doc.update(utils.match_nmap_svc_fp(response))
                 elif rec.get("type") == "dns":
                     if rec.get("template-id") != "ptr-fingerprint":
                         # only supported template for now
@@ -3057,17 +3093,7 @@ class DBNmap(DBActive):
                         ],
                     },
                 ]
-                port_doc = {
-                    "protocol": "tcp",
-                    "port": port,
-                    "state_state": "open",
-                    "state_reason": "response",
-                    "service_name": "http",
-                    "service_method": "probed",
-                    "scripts": scripts,
-                }
-                if is_ssl:
-                    port_doc["service_tunnel"] = "ssl"
+                port_doc["scripts"] = scripts
                 host = {
                     "addr": addr,
                     "state": "up",

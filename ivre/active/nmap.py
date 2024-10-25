@@ -25,8 +25,11 @@ ALIASES_TABLE_ELEMS = {
     # Use the same structured output for both ssl-cert and ssl-cacert
     "ssl-cacert": "ssl-cert",
     # Use the same structured output for all the Nuclei scripts
+    "dns-nuclei": "nuclei",
     "http-nuclei": "nuclei",
     "network-nuclei": "nuclei",
+    "ssl-nuclei": "nuclei",
+    "tcp-nuclei": "nuclei",
     # ls unified output (ls NSE module + ftp-anon)
     #   grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
     "afp-ls": "ls",
