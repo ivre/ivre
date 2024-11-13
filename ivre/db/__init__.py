@@ -3989,6 +3989,12 @@ class DBView(DBActive):
             return flt
         if args.tag is not None:
             tag = {}
+            neg = False
+            # Check if the tag is prefixed with '!' or '-'
+            if args.tag[:1] in "!-":
+                neg = True
+                args.tag = args.tag[1:]  # Remove the prefix
+            # Parse value / info
             if ":" in args.tag:
                 value, info = args.tag.split(":", 1)
                 if value:
@@ -3997,7 +4003,7 @@ class DBView(DBActive):
                     tag["info"] = utils.str2regexp(info)
             elif args.tag:
                 tag["value"] = utils.str2regexp(args.tag)
-            flt = self.flt_and(flt, self.searchtag(tag))
+            flt = self.flt_and(flt, self.searchtag(tag, neg=neg))
         if args.asname is not None:
             flt = self.flt_and(flt, self.searchasname(utils.str2regexp(args.asname)))
         if args.asnum is not None:
