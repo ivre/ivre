@@ -4203,16 +4203,19 @@ class _RecInfo:
             else:
                 self.lastseen = min(self.lastseen, lastseen)
 
-    def update(self, timestamp):
-        self.count += 1
+    def update(self, firstseen, lastseen=None, count=None):
+        if count is None:
+            self.count += 1
+        else:
+            self.count += count
         if self.firstseen is None:
-            self.firstseen = timestamp
+            self.firstseen = firstseen
         else:
-            self.firstseen = min(self.firstseen, timestamp)
+            self.firstseen = min(self.firstseen, firstseen)
         if self.lastseen is None:
-            self.lastseen = timestamp
+            self.lastseen = lastseen or firstseen
         else:
-            self.lastseen = max(self.lastseen, timestamp)
+            self.lastseen = max(self.lastseen, lastseen or firstseen)
 
 
 class DBPassive(DB):
@@ -4493,7 +4496,7 @@ class DBPassive(DB):
                 basespec = tuple(
                     (key, spec[key])
                     for key in sorted(spec)
-                    if key not in ["count", "firstseen", "lastseen"]
+                    if key not in {"count", "firstseen", "lastseen"}
                 )
                 records.setdefault(basespec, _RecInfo(infos)).update_from_spec(spec)
                 if len(records) >= config.LOCAL_BATCH_SIZE:
