@@ -48,11 +48,13 @@ import re
 import socket
 from collections.abc import Callable, Generator
 from typing import BinaryIO
+from urllib.error import HTTPError, URLError
 
 from ivre import config
 from ivre.data import govcloud
 from ivre.utils import (
     IPADDR,
+    LOGGER,
     NETADDR,
     download_if_newer,
     generic_ipaddr_extractor,
@@ -136,4 +138,9 @@ def main() -> None:
             f"{addr}\n"
             for addr in dns_get_names("scanner.scanning.service.ncsc.gov.uk")
         )
-    govcloud.fetch_and_build()
+    try:
+        govcloud.fetch_and_build()
+    except HTTPError as exc:
+        LOGGER.error("Cannot download govcloud data [%s]", exc)
+    except URLError as exc:
+        LOGGER.error("Cannot download govcloud data [%s]", exc)

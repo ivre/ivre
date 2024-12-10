@@ -37,7 +37,7 @@ def get_azure_url() -> str:
     opener = build_opener()
     opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
     with opener.open(
-        "https://www.microsoft.com/en-us/download/confirmation.aspx?id=57063"
+        "https://www.microsoft.com/en-us/download/details.aspx?id=57063"
     ) as udesc:
         for line in udesc:
             if (match := AZURE_URL.search(line)) is None:
