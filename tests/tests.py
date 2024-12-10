@@ -3739,6 +3739,7 @@ class IvreTests(unittest.TestCase):
     registered_country_name United States
     coordinates (37.751, -97.822)
     coordinates_accuracy_radius 1000
+    CDN: google as listed by cdncheck (projectdiscovery)
 """.splitlines()
             ),
         )
@@ -3759,6 +3760,13 @@ class IvreTests(unittest.TestCase):
                 "registered_country_name": "United States",
                 "coordinates": [37.751, -97.822],
                 "coordinates_accuracy_radius": 1000,
+                "tags": [
+                    {
+                        "value": "CDN",
+                        "type": "info",
+                        "info": ["google as listed by cdncheck (projectdiscovery)"],
+                    }
+                ],
             },
         )
 
