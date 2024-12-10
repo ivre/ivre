@@ -201,7 +201,7 @@ def main() -> None:
 
         def displayfunction(cur: DBCursor) -> None:
             return displayfunction_http_urls(
-                cur, with_addrs=False, with_names=True, add_addrs=True
+                cur, with_addrs=True, with_names=True, add_addrs=True
             )
 
     elif args.nmap_xml:
