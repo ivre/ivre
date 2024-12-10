@@ -547,9 +547,18 @@ def displayfunction_http_urls(
             )
         prefix = f"{addr}, " if add_addrs else ""
         for p in h.get("ports", []):
-            if p.get("service_name") not in {"http", "http-proxy", "https"}:
+            if p.get("service_name") not in {
+                "http",
+                "http-proxy",
+                "http-alt",
+                "https",
+                "https-alt",
+            }:
                 continue
-            if p.get("service_tunnel") == "ssl" or p.get("service_name") == "https":
+            if p.get("service_tunnel") == "ssl" or p.get("service_name") in {
+                "https",
+                "https-alt",
+            }:
                 if p.get("port") == 443:
                     for name in names:
                         sys.stdout.write(f"{prefix}https://{name}/\n")
