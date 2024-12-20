@@ -5,6 +5,9 @@ build/
 dist/
 doc/_build
 docker/base-local/ivre.tar
+docker/ivre-share
+docker/var_lib_mongodb
+docker/dokuwiki_data
 ivre/VERSION
 ivre.egg-info/
 tests/samples*
