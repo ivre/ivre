@@ -3100,6 +3100,12 @@ class DBNmap(DBActive):
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "ports": [port_doc],
                 }
+                
+                # CPE parsing
+                cpeval = rec.get("metadata", {}).get("cpe")
+                if cpeval:
+                    add_cpe_values(host, f"ports.port:{port}", [cpeval])
+                    
                 if rec["template"] == "git-config":
                     repository = "%s:%d%s" % (addr, port, urlparse(url).path[:-6])
                     scripts.append(
