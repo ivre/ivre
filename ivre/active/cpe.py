@@ -29,32 +29,38 @@ from ivre.utils import LOGGER
 
 
 def cpe2dict(cpe_str: str) -> CpeDict:
-    """Helper function to parse CPEs. This is a very partial/simple parser.
+    """Parse a CPE string (2.2 or 2.3) into a dictionary.
+
+    Supports:
+    - CPE 2.2 format: cpe:/<type>:<vendor>:<product>:<version>
+    - CPE 2.3 format: cpe:2.3:<type>:<vendor>:<product>:<version>:...
 
     Raises:
-        ValueError if the cpe string is not parsable.
-
+        ValueError: If the CPE string is invalid or unsupported.
     """
-    # Remove prefix
-    if not cpe_str.startswith("cpe:/"):
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_body = cpe_str[5:]
-    parts = cpe_body.split(":", 3)
-    nparts = len(parts)
-    if nparts < 2:
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_type = parts[0]
-    cpe_vend = parts[1]
-    cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_vers = parts[3] if nparts > 3 else ""
+    # Initialize default values
+    cpe_data = CpeDict(type="", vendor="", product="", version="")
 
-    ret: CpeDict = {
-        "type": cpe_type,
-        "vendor": cpe_vend,
-        "product": cpe_prod,
-        "version": cpe_vers,
-    }
-    return ret
+    if cpe_str.startswith("cpe:2.3:"):
+        # CPE 2.3: Remove 'cpe:2.3:' and split
+        parts = cpe_str[8:].split(":")
+    elif cpe_str.startswith("cpe:/"):
+        # CPE 2.2: Remove 'cpe:/' and split
+        parts = cpe_str[5:].split(":")
+    else:
+        raise ValueError(f"Unsupported CPE format: {cpe_str}")
+
+    # Ensure the required fields exist
+    if len(parts) < 2:
+        raise ValueError(f"Invalid CPE format: {cpe_str}")
+
+    # Remove wildcard elements (*) after the version field
+    parts = parts[:4]  # Limit to 'type', 'vendor', 'product', 'version'
+    # Assign values from the parsed parts
+    for key, value in zip(cpe_data.keys(), parts):
+        cpe_data[key] = value
+
+    return cpe_data
 
 
 def add_cpe_values(hostrec: dict[str, Any], path: str, cpe_values: list[str]) -> None:
