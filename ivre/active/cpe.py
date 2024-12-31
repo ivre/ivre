@@ -39,7 +39,7 @@ def cpe2dict(cpe_str: str) -> CpeDict:
         ValueError: If the CPE string is invalid or unsupported.
     """
     # Initialize default values
-    cpe_data = CpeDict(type="", vendor="", product="", version="")
+    cpe_data: CpeDict = {"type": "", "vendor": "", "product": "", "version": ""}
 
     if cpe_str.startswith("cpe:2.3:"):
         # CPE 2.3: Remove 'cpe:2.3:' and split
@@ -56,8 +56,9 @@ def cpe2dict(cpe_str: str) -> CpeDict:
 
     # Remove wildcard elements (*) after the version field
     parts = parts[:4]  # Limit to 'type', 'vendor', 'product', 'version'
-    # Assign values from the parsed parts
-    for key, value in zip(cpe_data.keys(), parts):
+    # Assign values explicitly using known keys
+    keys = ["type", "vendor", "product", "version"]
+    for key, value in zip(keys, parts):
         cpe_data[key] = value
 
     return cpe_data
