@@ -57,9 +57,10 @@ def cpe2dict(cpe_str: str) -> CpeDict:
     # Remove wildcard elements (*) after the version field
     parts = parts[:4]  # Limit to 'type', 'vendor', 'product', 'version'
     # Assign values explicitly using known keys
-    keys = ["type", "vendor", "product", "version"]
-    for key, value in zip(keys, parts):
-        cpe_data[key] = value
+    cpe_data["type"] = parts[0]
+    cpe_data["vendor"] = parts[1]
+    cpe_data["product"] = parts[2]
+    cpe_data["version"] = parts[3]
 
     return cpe_data
 
