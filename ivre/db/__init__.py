@@ -114,7 +114,9 @@ class DB:
             help="show only results WITHOUT this(those) ID(s)",
             nargs="+",
         )
-        self.argparser.add_argument("--version", metavar="VERSION", type=int)
+        self.argparser.add_argument(
+            "--version", "--schema-version", metavar="VERSION", type=int
+        )
         self.argparser.add_argument(
             "--category", metavar="CAT", help="show only results from this category"
         )
@@ -122,6 +124,9 @@ class DB:
         self.argparser.add_argument("--service", metavar="SVC[:PORT]")
         self.argparser.add_argument("--svchostname", metavar="HOSTNAME")
         self.argparser.add_argument("--product", metavar="[SVC:]PROD")
+        self.argparser.add_argument(
+            "--prodversion", "--product-version", metavar="[[SVC:]PROD:]VERSION"
+        )
         self.argparser.add_argument(
             "--useragent", metavar="USER-AGENT", nargs="?", const=False
         )
@@ -207,6 +212,39 @@ class DB:
                 flt,
                 self.searchproduct(
                     product=utils.str2regexpnone(prod),
+                    service=svc,
+                    port=port,
+                ),
+            )
+        if args.prodversion is not None:
+            try:
+                svc_prod, prod_version = args.prodversion.split(":", 1)
+            except ValueError:
+                svc = None
+                prod = None
+                version = args.prodversion
+                port = None
+            else:
+                try:
+                    prod, version = prod_version.split(":", 1)
+                except ValueError:
+                    svc = None
+                    prod = utils.str2regexpnone(svc_prod)
+                    version = prod_version
+                    port = None
+                else:
+                    svc = utils.str2regexpnone(svc_prod)
+                    prod = utils.str2regexpnone(prod)
+                    if ":" in version:
+                        version, port = version.split(":", 1)
+                        port = int(port)
+                    else:
+                        port = None
+            flt = self.flt_and(
+                flt,
+                self.searchproduct(
+                    version=utils.str2regexpnone(version),
+                    product=prod,
                     service=svc,
                     port=port,
                 ),
