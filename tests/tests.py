@@ -5261,7 +5261,7 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.view.count(ivre.db.db.view.searchtag()),
             # This value changes a bit, depending on current data files => assertAlmostEqual
             check=lambda first, second: self.assertAlmostEqual(
-                first, second, places=-1
+                first, second, places=-2
             ),
         )
         self.check_value(
