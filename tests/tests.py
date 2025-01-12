@@ -3685,7 +3685,12 @@ class IvreTests(unittest.TestCase):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
         # Download
-        res = RUN(["ivre", "ipdata", "--download"])[0]
+        for _ in range(3):
+            res = RUN(["ivre", "ipdata", "--download"])[0]
+            if res == 0:
+                break
+            time.sleep(2)
+
         self.assertEqual(res, 0)
 
         # Reinit data DB since we have downloaded the files
