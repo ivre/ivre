@@ -3278,6 +3278,8 @@ class DBNmap(DBActive):
                     )
                 if "technologies" in rec:
                     script["technologies"] = rec["technologies"]
+                elif "tech" in rec:
+                    script["technologies"] = rec["tech"]
                 if "raw_header" in rec:
                     hdrs = rec["raw_header"].encode()
                     try:
@@ -3402,7 +3404,7 @@ class DBNmap(DBActive):
                     output = []
                     if "technologies" in script:
                         output.append("Technologies:")
-                        output.extend(f"- {tech}\n" for tech in script["technologies"])
+                        output.extend(f"- {tech}" for tech in script["technologies"])
                     port.setdefault("scripts", []).append(
                         {
                             "id": "http-httpx",
