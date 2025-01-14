@@ -48,18 +48,24 @@
               <div class="col-md-5">
                 <div class="row result-cpe-item"
                      ng-repeat="version in ::product.data">
-                  <div class="col-md-12">
+		  <!-- Column for version name -->
+                  <div class="col-md-10">
                     <a
-                       data-html="true"
-                       data-title="{{::version.tooltitle}}"
-                       data-content="{{::version.toolcontent}}"
-		       data-container="body"
                        class="clickable"
                        ng-click="set_cpe_param(type, vendor, product, version)"
-                       popover>
+                       >
                       {{::version.pretty_name}}
 		    </a>
                   </div>
+                  <!-- Column for the copy icon -->
+                  <div class="col-md-2">
+                    <button
+                     class="btn btn-default btn-xs small-copy-icon"
+                     ng-click="copyToClipboard(version.tooltitle)"
+                     title="Copy to Clipboard">
+                     <i class="glyphicon glyphicon-copy"></i>
+                    </button>
+                  </div>			
                 </div>
               </div>
             </div>
