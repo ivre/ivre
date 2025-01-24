@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,12 +15,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
-
-"""Standard setup.py file. Run
-
-$ python setup.py build
-# python setup.py install
-"""
 
 
 import os
@@ -467,6 +461,7 @@ setup(
             [
                 "patches/dokuwiki/backlinks.patch",
                 "patches/dokuwiki/backlinks-20200729.patch",
+                "patches/dokuwiki/backlinks-20230404a.patch",
             ],
         ),
         (
