@@ -3746,7 +3746,10 @@ class IvreTests(unittest.TestCase):
             out
             in [
                 sorted(expected),
-                sorted(expected + [b"    coordinates_accuracy_radius 1000"]),
+                sorted(
+                    expected
+                    + [b"    CDN: google as listed by cdncheck (projectdiscovery)"]
+                ),
             ]
         )
 
