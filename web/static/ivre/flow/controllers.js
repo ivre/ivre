@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2025 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -653,7 +653,7 @@ ivreWebUi
                 if (size > 1) {
                     // We can't delete alldates elements now because we
                     // use alldates_index which is based on the number
-                    // of alldates eleemnts.
+                    // of alldates elements.
                     to_delete_indexes.push([alldates_index + 1, size -1]);
                 }
             });
