@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # pylint: disable=wrong-import-position,redefined-builtin
 project = "IVRE"
-copyright = "2011 - 2024, Pierre LALET"
+copyright = "2011 - 2025, Pierre LALET"
 author = "Pierre LALET"
 html_logo = "../web/static/logo.png"
 master_doc = "index"
