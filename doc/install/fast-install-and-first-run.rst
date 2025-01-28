@@ -24,12 +24,12 @@ Install IVRE
 ::
 
    $ sudo apt -y --no-install-recommends install python3-pymongo \
-   >   python3-cryptography python3-bottle python3-openssl apache2 \
-   >   libapache2-mod-wsgi-py3 dokuwiki
+   >   python3-cryptography python3-bottle python3-openssl \
+   >   python3-pillow python3-pip apache2 libapache2-mod-wsgi-py3 \
+   >   dokuwiki git
    $ git clone https://github.com/ivre/ivre
    $ cd ivre
-   $ python3 setup.py build
-   $ sudo python3 setup.py install
+   $ sudo pip3 install . --break-system-packages
 
 Setup
 -----
@@ -46,7 +46,7 @@ Setup
    # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
    # ln -s /usr/local/share/ivre/dokuwiki/media/doc
    # cd /usr/share/dokuwiki
-   # patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks-20200729.patch
+   # patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks-20230404a.patch
    # cd /etc/apache2/mods-enabled
    # for m in rewrite.load wsgi.conf wsgi.load ; do
    >   [ -L $m ] || ln -s ../mods-available/$m ; done
@@ -77,6 +77,7 @@ Database init, data download & importation
    $ yes | ivre flowcli --init
    $ yes | sudo ivre runscansagentdb --init
    $ sudo ivre ipdata --download
+   $ sudo ivre getwebdata
 
 Run a first scan
 ----------------

@@ -196,7 +196,7 @@ variable. Usually, this variable should <strong>not</strong> be overridden, but
 rather modified.</p>
 <p>By default, <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code> contains one template, named
 <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>, which is defined as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NmapScanTemplate</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NmapScanTemplate</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span>
         <span class="c1"># Commented values are default values and to not need to be</span>
         <span class="c1"># specified:</span>
@@ -366,7 +366,7 @@ their default values:</p>
 <span class="c1">#          20202: 0.8,</span>
 <span class="c1">#      },</span>
 <span class="c1">#  }</span>
-<span class="n">KNOWN_PORTS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">KNOWN_PORTS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 <span class="c1"># Enable the recording of appearance times for flows. Will slow down a</span>
 <span class="c1"># bit the insertion rate</span>
 <span class="n">FLOW_TIME</span> <span class="o">=</span> <span class="kc">True</span>
@@ -558,7 +558,7 @@ in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLAC
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2011 - 2024, Pierre LALET.</p>
+    <p>&#169; Copyright 2011 - 2025, Pierre LALET.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
