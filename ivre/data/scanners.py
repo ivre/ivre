@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains data used to identify network scanners.
-
-"""
+"""This sub-module contains data used to identify network scanners."""
 
 # pylint: disable=line-too-long
 

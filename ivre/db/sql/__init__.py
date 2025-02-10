@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This module contains functions to interact with *ANY* SQL database.
-
-"""
+"""This module contains functions to interact with *ANY* SQL database."""
 
 
 # Tests like "expr == None" should be used for BinaryExpression instances

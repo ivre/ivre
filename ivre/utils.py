@@ -2576,7 +2576,7 @@ def _fix_range(start: str, stop: str, label: T) -> tuple[int, int, T]:
 
 
 def make_range_tables(
-    ranges: Iterable[tuple[str, str, T]]
+    ranges: Iterable[tuple[str, str, T]],
 ) -> list[tuple[int, T | None]]:
     ranges_sorted: list[tuple[int, int, T]] = sorted(
         (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True

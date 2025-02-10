@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,9 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # https://docs.mongodb.com/drivers/pymongo/#compatibility
+        # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
         python-version: ['3.11', '3.12']
-        mongodb-version: ['3.6', '5.0']
+        mongodb-version: ['4.0', '5.0', '6.0', '7.0', '8.0']
 
     steps:
 

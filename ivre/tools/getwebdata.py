@@ -94,7 +94,13 @@ def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
 
 
 def dns_get_names(name: str) -> list[str]:
-    return sorted(set(ans[4][0] for ans in socket.getaddrinfo(name, None)))
+    return sorted(
+        set(
+            ans[4][0]
+            for ans in socket.getaddrinfo(name, None)
+            if isinstance(ans[4][0], str)
+        )
+    )
 
 
 assert config.DATA_PATH is not None
