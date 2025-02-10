@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This submodule contains data needed for Nmap results manipulation.
-
-"""
+"""This submodule contains data needed for Nmap results manipulation."""
 
 
 ALIASES_TABLE_ELEMS = {

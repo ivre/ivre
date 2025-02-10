@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains SQL tables and columns definition.
-
-"""
+"""This sub-module contains SQL tables and columns definition."""
 
 
 import json

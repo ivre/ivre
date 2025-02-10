@@ -17,9 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""This sub-module contains functions to handle JSON output from zgrab.
-
-"""
+"""This sub-module contains functions to handle JSON output from zgrab."""
 
 
 import binascii

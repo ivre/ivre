@@ -17,9 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""This tool can be used to query manufacturers for MAC addresses.
-
-"""
+"""This tool can be used to query manufacturers for MAC addresses."""
 
 
 import json
