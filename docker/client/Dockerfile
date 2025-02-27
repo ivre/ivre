@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ RUN apt-get -q update && \
     tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs
 
 # Install Nmap using the official RPM package.
-ADD https://nmap.org/dist/nmap-7.94-1.x86_64.rpm ./nmap.rpm
+ADD https://nmap.org/dist/nmap-7.95-3.x86_64.rpm ./nmap.rpm
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install alien && \
     alien ./nmap.rpm && \
