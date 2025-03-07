@@ -278,3 +278,8 @@ form {
 .port {
     margin-top: 2px;
 }
+
+.small-copy-icon i {
+  font-size: 80%;
+  padding: 1px 1px;
+}
