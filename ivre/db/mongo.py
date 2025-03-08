@@ -2172,11 +2172,14 @@ class MongoDBActive(MongoDB, DBActive):
             self.count(flt),
         )
 
-    def store_host(self, host):
-        host = deepcopy(host)
-        # Convert IP addresses to internal DB format
+    @classmethod
+    def rec2internal(cls, host):
+        """Given a record as presented to the user, fixes it before it can be
+        inserted in the database.
+
+        """
         try:
-            host["addr_0"], host["addr_1"] = self.ip2internal(host.pop("addr"))
+            host["addr_0"], host["addr_1"] = cls.ip2internal(host.pop("addr"))
         except (KeyError, ValueError):
             pass
         if "ports" in host:
@@ -2189,14 +2192,14 @@ class MongoDBActive(MongoDB, DBActive):
                         (
                             port["state_reason_ip_0"],
                             port["state_reason_ip_1"],
-                        ) = self.ip2internal(port.pop("state_reason_ip"))
+                        ) = cls.ip2internal(port.pop("state_reason_ip"))
                     except ValueError:
                         pass
         for trace in host.get("traces", []):
             for hop in trace.get("hops", []):
                 if "ipaddr" in hop:
                     try:
-                        hop["ipaddr_0"], hop["ipaddr_1"] = self.ip2internal(
+                        hop["ipaddr_0"], hop["ipaddr_1"] = cls.ip2internal(
                             hop.pop("ipaddr")
                         )
                     except ValueError:
@@ -2207,6 +2210,11 @@ class MongoDBActive(MongoDB, DBActive):
                 "type": "Point",
                 "coordinates": host["infos"].pop("coordinates")[::-1],
             }
+        return host
+
+    def store_host(self, host):
+        host = deepcopy(host)
+        self.rec2internal(host)
         try:
             ident = (
                 self.db[self.columns[self.column_hosts]].insert_one(host).inserted_id
