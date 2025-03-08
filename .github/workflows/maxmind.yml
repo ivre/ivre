@@ -18,6 +18,11 @@ name: Maxmind tests
 
 on: [push, pull_request]
 
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
 jobs:
   build:
     runs-on: ubuntu-20.04
