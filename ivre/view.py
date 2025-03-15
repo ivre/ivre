@@ -205,11 +205,17 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
 def _extract_passive_HONEYPOT_HIT(rec):
     """Handle {TCP,UDP}_HONEYPOT_HIT records"""
     try:
-        scanned_proto, scanned_port = rec["source"].split("/", 1)
+        parts = rec["source"].split("/")
+        if len(parts) == 2:
+            scanned_proto, scanned_port = parts
+        elif len(parts) == 3:
+            scanned_proto, _, scanned_port = parts
+        else:
+            raise ValueError
+        scanned_port = int(scanned_port)
     except ValueError:
         utils.LOGGER.warning("Unknown source in record [%r]", rec)
         return {}
-    scanned_port = int(scanned_port)
     output = "Scanned port: %s" % rec["source"].replace("/", ": ")
     structured_output = {
         "ports": {"count": 1, scanned_proto: {"count": 1, "ports": [scanned_port]}}
