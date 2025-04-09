@@ -22,11 +22,7 @@
 import os
 from bisect import bisect_left
 from collections.abc import Callable, Generator, Iterable
-from typing import (
-    Any,
-    TypeVar,
-    cast,
-)
+from typing import Any, TypeVar, cast
 
 from ivre.config import DATA_PATH
 from ivre.plugins import load_plugins

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ from ivre.types.active import (
     NmapScript,
 )
 from ivre.utils import (
+    _CERTKEYS,
     IPV4ADDR,
     LOGGER,
     decode_b64,
@@ -63,6 +64,7 @@ from ivre.utils import (
     get_domains,
     key_sort_dom,
     nmap_encode_data,
+    parse_cert_subject_string,
     ports2nmapspec,
 )
 
@@ -1013,6 +1015,112 @@ def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> No
             "domains": list(get_domains(name)),
         }
     )
+
+
+def handle_tlsx_result(
+    host: NmapHost,
+    port: NmapPort,
+    result: dict[str, Any],
+) -> None:
+    cert_added = False
+    if "certificate" in result:
+        try:
+            output_cert, info_cert = create_ssl_cert(
+                "".join(result["certificate"].splitlines()[1:-1]).encode(),
+                b64encoded=True,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Cannot parse certificate %r",
+                result["certificate"],
+                exc_info=True,
+            )
+        else:
+            cert_added = True
+            if info_cert:
+                port.setdefault("scripts", []).append(
+                    {
+                        "id": "ssl-cert",
+                        "output": output_cert,
+                        "ssl-cert": info_cert,
+                    }
+                )
+                for cert in info_cert:
+                    add_cert_hostnames(cert, host.setdefault("hostnames", []))
+    if not cert_added:
+        # add at least parsed info when the raw certificate is not
+        # available or could not be parsed
+        cert_object = dict(result.get("fingerprint_hash", {}))
+        for fld in ["subject", "issuer"]:
+            try:
+                flddata = [
+                    (_CERTKEYS.get(key, key), value)
+                    for key, value in parse_cert_subject_string(result[f"{fld}_dn"])
+                ]
+            except KeyError:
+                continue
+            cert_object[fld] = {key.replace(".", "_"): value for key, value in flddata}
+            cert_object[f"{fld}_text"] = "/".join("%s=%s" % item for item in flddata)
+        if "self_signed" in result:
+            cert_object["self_signed"] = result["self_signed"]
+        elif "subject_text" in cert_object and "issuer_text" in cert_object:
+            cert_object["self_signed"] = (
+                cert_object["subject_text"] == cert_object["issuer_text"]
+            )
+        for fld in ["not_before", "not_after"]:
+            try:
+                cert_object[fld] = result["fld"][:19].replace("T", " ")
+            except (KeyError, ValueError):
+                pass
+        if "not_before" in result and "not_after" in result:
+            cert_object["lifetime"] = int(
+                (
+                    datetime.fromisoformat(result["not_after"])
+                    - datetime.fromisoformat(result["not_before"])
+                ).total_seconds()
+            )
+        try:
+            cert_object["serial_number"] = str(
+                int(result["serial"].replace(":", ""), 16)
+            )
+        except (KeyError, ValueError):
+            pass
+        if "subject_an" in result:
+            # tlsx (used by httpx for TLS) only stores DNS SANs
+            cert_object["san"] = [f"DNS:{value}" for value in result["subject_an"]]
+        if cert_object:
+            port.setdefault("scripts", []).append(
+                {
+                    "id": "ssl-cert",
+                    "output": "\n".join(create_ssl_output(cert_object)),
+                    "ssl-cert": [cert_object],
+                }
+            )
+            add_cert_hostnames(cert_object, host.setdefault("hostnames", []))
+    if "jarm_hash" in result:
+        port.setdefault("scripts", []).append(
+            {
+                "id": "ssl-jarm",
+                "output": result["jarm_hash"],
+                "ssl-jarm": result["jarm_hash"],
+            }
+        )
+    structured = {}
+    output = []
+    for fld in ["tls_version", "cipher", "tls_connection"]:
+        if fld in result:
+            structured[fld] = result[fld]
+            output.append(
+                f"{fld.replace('_', ' ').capitalize().replace('Tls', 'TLS')}: {result[fld]}"
+            )
+    if structured:
+        port.setdefault("scripts", []).append(
+            {
+                "id": "ssl-tlsx",
+                "output": "\n".join(output),
+                "ssl-tlsx": structured,
+            }
+        )
 
 
 _EXPR_TITLE = re.compile(b"<title[^>]*>([^<]*)</title>", re.I)
