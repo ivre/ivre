@@ -2105,6 +2105,79 @@ def _parse_datetime(value: bytes) -> datetime.datetime | None:
         return None
 
 
+def parse_cert_subject_string(subject: str) -> Generator[tuple[str, str], None, None]:
+    status = 0
+    status_space_before_key = -1
+    status_key = 0
+    status_equal = 1
+    status_space_after_equal = 2
+    status_value_wo_quotes = 3
+    status_value_wo_quotes_protected = 4
+    status_value_w_quotes = 5
+    status_value_w_quotes_protected = 6
+    curkey = []
+    curvalue = []
+    for char in subject:
+        if status == status_space_before_key:
+            # reading space before the key
+            if char == " ":
+                continue
+            curkey.append(char)
+            status = status_key
+        elif status == status_key:
+            # reading key
+            if char == " ":
+                status = status_equal
+                continue
+            if char == "=":
+                status = status_space_after_equal
+                continue
+            curkey.append(char)
+        elif status == status_equal:
+            # reading '='
+            if char != "=":
+                return
+            status = status_space_after_equal
+        elif status == status_space_after_equal:
+            # reading space after '='
+            if char == " ":
+                continue
+            # reading beginning of value
+            if char == '"':
+                status = status_value_w_quotes
+                continue
+            curvalue.append(char)
+            status = status_value_wo_quotes
+        elif status == status_value_wo_quotes:
+            # reading value without quotes
+            if char == ",":
+                yield "".join(curkey), "".join(curvalue)
+                curkey = []
+                curvalue = []
+                status = status_space_before_key
+                continue
+            if char == "\\":
+                status = status_value_wo_quotes_protected
+                continue
+            curvalue.append(char)
+        elif status == status_value_wo_quotes_protected:
+            curvalue.append(char)
+            status = status_value_wo_quotes
+        elif status == status_value_w_quotes:
+            # reading value with quotes
+            if char == '"':
+                status = status_value_wo_quotes
+                continue
+            if char == "\\":
+                status = status_value_w_quotes_protected
+                continue
+            curvalue.append(char)
+        elif status == status_value_w_quotes_protected:
+            curvalue.append(char)
+            status = status_value_w_quotes
+    yield "".join(curkey), "".join(curvalue)
+
+
 if USE_PYOPENSSL:
 
     def _parse_subject(subject: osslc.X509Name) -> tuple[str, dict[str, str]]:
@@ -2194,64 +2267,6 @@ if USE_PYOPENSSL:
 
 else:
 
-    def _parse_cert_subject(subject: str) -> Generator[tuple[str, str], None, None]:
-        status = 0
-        curkey = []
-        curvalue = []
-        for char in subject:
-            if status == -1:
-                # reading space before the key
-                if char == " ":
-                    continue
-                curkey.append(char)
-                status += 1
-            elif not status:
-                # reading key
-                if char == " ":
-                    status += 1
-                    continue
-                if char == "=":
-                    status += 2
-                    continue
-                curkey.append(char)
-            elif status == 1:
-                # reading '='
-                if char != "=":
-                    return
-                status += 1
-            elif status == 2:
-                # reading space after '='
-                if char == " ":
-                    continue
-                # reading beginning of value
-                if char == '"':
-                    status += 2
-                    continue
-                curvalue.append(char)
-                status += 1
-            elif status == 3:
-                # reading value without quotes
-                if char == ",":
-                    yield "".join(curkey), "".join(curvalue)
-                    curkey = []
-                    curvalue = []
-                    status = -1
-                    continue
-                curvalue.append(char)
-            elif status == 4:
-                # reading value with quotes
-                if char == '"':
-                    status -= 1
-                    continue
-                if char == "\\":
-                    status += 1
-                    continue
-                curvalue.append(char)
-            elif status == 5:
-                curvalue.append(char)
-                status -= 1
-        yield "".join(curkey), "".join(curvalue)
-
     def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
             algorithm) in an handy-to-index-and-query form.
@@ -2299,13 +2314,13 @@ else:
                 if field in ["issuer", "subject"]:
                     flddata = [
                         (_CERTKEYS.get(key, key), value)
-                        for key, value in _parse_cert_subject(fdata_str)
+                        for key, value in parse_cert_subject_string(fdata_str)
                     ]
                     # replace '.' by '_' in keys to produce valid JSON
                     result[field] = {
                         key.replace(".", "_"): value for key, value in flddata
                     }
-                    result["%s_text" % field] = "/".join(
+                    result[f"{field}_text"] = "/".join(
                         "%s=%s" % item for item in flddata
                     )
                 elif field in ["bits", "exponent"]:

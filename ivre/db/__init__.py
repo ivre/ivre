@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -55,11 +55,10 @@ except ImportError:
 from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
-    add_cert_hostnames,
     add_hostname,
-    create_ssl_cert,
     handle_http_content,
     handle_http_headers,
+    handle_tlsx_result,
     merge_host_docs,
 )
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
@@ -3438,6 +3437,13 @@ class DBNmap(DBActive):
                             port["screenwords"] = screenwords
                     else:
                         port["screenshot"] = "empty"
+                if (
+                    "tls" in rec
+                    and rec["tls"].get("probe_status")
+                    and not rec["tls"].get("failed")
+                ):
+                    port["service_tunnel"] = "ssl"
+                    handle_tlsx_result(host, port, rec["tls"])
                 if script:
                     output = []
                     if "technologies" in script:
@@ -3540,56 +3546,7 @@ class DBNmap(DBActive):
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r', rec)
                         continue
-                if "certificate" in rec:
-                    try:
-                        output, info_cert = create_ssl_cert(
-                            "".join(rec["certificate"].splitlines()[1:-1]).encode(),
-                            b64encoded=True,
-                        )
-                    except Exception:
-                        utils.LOGGER.warning(
-                            "Cannot parse certificate %r",
-                            rec["certificate"],
-                            exc_info=True,
-                        )
-                    else:
-                        if info_cert:
-                            port.setdefault("scripts", []).append(
-                                {
-                                    "id": "ssl-cert",
-                                    "output": output,
-                                    "ssl-cert": info_cert,
-                                }
-                            )
-                            for cert in info_cert:
-                                add_cert_hostnames(
-                                    cert, host.setdefault("hostnames", [])
-                                )
-                if "jarm_hash" in rec:
-                    port.setdefault("scripts", []).append(
-                        {
-                            "id": "ssl-jarm",
-                            "output": rec["jarm_hash"],
-                            "ssl-jarm": rec["jarm_hash"],
-                        }
-                    )
-                structured = {}
-                output = []
-                for fld in ["tls_version", "cipher", "tls_connection"]:
-                    if fld in rec:
-                        structured[fld] = rec[fld]
-                        output.append(
-                            f"{fld.replace('_', ' ').capitalize().replace('Tls', 'TLS')}: {rec[fld]}"
-                        )
-                if structured:
-                    port.setdefault("scripts", []).append(
-                        {
-                            "id": "ssl-tlsx",
-                            "output": "\n".join(output),
-                            "ssl-tlsx": structured,
-                        }
-                    )
-                # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
+                handle_tlsx_result(host, port, rec)
                 if categories:
                     host["categories"] = categories
                 if tags:
