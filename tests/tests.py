@@ -4282,12 +4282,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(ivre.utils.guess_srv_port(67, 68, proto="udp"), 1)
         self.assertEqual(ivre.utils.guess_srv_port(65432, 80), -1)
         self.assertEqual(ivre.utils.guess_srv_port(666, 666), 0)
-        if not ivre.utils.USE_PYOPENSSL:
-            # Certificate argument parsing
-            self.assertCountEqual(
-                list(ivre.utils._parse_cert_subject('O = "Test\\", Inc."')),
-                [("O", 'Test", Inc.')],
-            )
+        # Certificate argument parsing
+        self.assertCountEqual(
+            list(ivre.utils.parse_cert_subject_string('O = "Test\\", Inc."')),
+            [("O", 'Test", Inc.')],
+        )
 
         # ipcalc tool
         res, out, _ = RUN(["ivre", "ipcalc", "192.168.0.0/16"])
