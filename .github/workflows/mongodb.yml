@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +55,7 @@ jobs:
     - name: Install IVRE
       uses: ./.github/actions/install
 
-    - run: mongo --eval 'db.version()'
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
 
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done

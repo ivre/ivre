@@ -30,7 +30,8 @@ ADD https://nmap.org/dist/nmap-7.95-3.x86_64.rpm ./nmap.rpm
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install alien && \
     alien ./nmap.rpm && \
-    dpkg -i ./nmap*.deb
+    dpkg -i ./nmap*.deb && \
+    rm -f ./nmap.rpm ./nmap*.deb
 
 # Build scrying for RDP screenshots with Nmap
 ADD https://github.com/nccgroup/scrying/archive/refs/heads/main.tar.gz ./main.tar.gz
