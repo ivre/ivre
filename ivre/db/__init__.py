@@ -23,6 +23,7 @@ backends.
 
 import base64
 import binascii
+import hashlib
 import json
 import os
 import pickle
@@ -857,7 +858,7 @@ class DB:
         if key == "raw":
             return (
                 "md5",
-                utils.hashlib.new(
+                hashlib.new(
                     "md5", data=value_or_hash.encode(), usedforsecurity=False
                 ).hexdigest(),
             )
@@ -5289,7 +5290,8 @@ class DBRir(DB):
 
     def import_files(self, files):
         for fname in files:
-            fileid = utils.hash_file(fname, hashtype="sha256")
+            with utils.open_file(fname) as fdesc:
+                fileid = hashlib.file_digest(fdesc.fdesc, 'sha256').hexdigest()
             try:
                 next(iter(self.get(self.searchfileid(fileid))))
             except StopIteration:
