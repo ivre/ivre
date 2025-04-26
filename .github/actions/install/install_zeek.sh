@@ -21,8 +21,6 @@ wget -qO - https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.0
 sudo apt-get -q update
 sudo apt-get -qy --no-install-recommends install zeek
 
-cat tests/samples/results_zeek_v4 >> tests/samples/results
-
 for path_val in "/opt/zeek/bin"; do
     echo "$path_val" >> "$GITHUB_PATH"
     export PATH="$path_val:$PATH"
