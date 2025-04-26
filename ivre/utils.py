@@ -349,7 +349,21 @@ def int2mask(mask: int) -> int:
 
 def net2range(network: str) -> tuple[str, str]:
     """Converts a network to a (start, stop) tuple."""
-    net = ipaddress.ip_interface(network).network
+    try:
+        net = ipaddress.ip_interface(network).network
+    except ValueError as exc:
+        try:
+            base, mask = network.split("/", 1)
+        except ValueError as exc2:
+            raise exc2 from exc
+        if ":" in base:
+            raise
+        if base.count(".") > 2:
+            raise
+        if base.endswith("."):
+            base += "0"
+        base += ".0" * (3 - base.count("."))
+        net = ipaddress.ip_interface(f"{base}/{mask}").network
     return str(net.network_address), str(net.broadcast_address)
 
 
