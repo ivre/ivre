@@ -6001,6 +6001,7 @@ class MongoDBRir(MongoDB, DBRir):
                 {"sparse": True},
             ),
             ([("aut-num", pymongo.ASCENDING)], {"sparse": True}),
+            ([("country", pymongo.ASCENDING)], {}),
             ([("source", pymongo.ASCENDING)], {}),
             ([("source_file", pymongo.ASCENDING)], {}),
             ([("source_hash", pymongo.ASCENDING)], {}),
@@ -6070,6 +6071,17 @@ class MongoDBRir(MongoDB, DBRir):
                 },
             ],
         }
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            return {"country": {"$nin" if neg else "$in": country}}
+        return {"country": {"$ne": country} if neg else country}
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with

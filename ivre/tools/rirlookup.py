@@ -25,7 +25,7 @@ from typing import Dict
 
 from ivre.config import RIR_PATH
 from ivre.db import DBRir, db
-from ivre.utils import CLI_ARGPARSER, range2nets
+from ivre.utils import CLI_ARGPARSER, range2nets, str2list
 
 
 def printrec_full(rec: Dict[str, str]) -> None:
@@ -93,6 +93,9 @@ def main() -> None:
             "--search", metavar="FREE TEXT", help="perform a full-text search"
         )
     parser.add_argument(
+        "--country", metavar="CODE", help="show only results from this country"
+    )
+    parser.add_argument(
         "ips",
         nargs="*",
         help="Display results for specified IP addresses.",
@@ -102,6 +105,8 @@ def main() -> None:
     # inherited from CLI_ARGPARSER but meaningless here
     parser.add_argument("--to-db", help=argparse.SUPPRESS)
     parser.add_argument("--http-urls", help=argparse.SUPPRESS)
+    parser.add_argument("--http-urls-names", help=argparse.SUPPRESS)
+    parser.add_argument("--http-urls-full", help=argparse.SUPPRESS)
     parser.add_argument("--delete", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.from_db:
@@ -160,8 +165,8 @@ def main() -> None:
         elif args.download:
             print("\n".join(sorted(filenames)))
         sys.exit(0)
+    flt = dbase.flt_empty
     if args.distinct is not None:
-        flt = dbase.flt_empty
         if hasattr(dbase, "searchtext") and args.search is not None:
             flt = dbase.flt_and(flt, dbase.searchtext(args.search))
         if args.ips:
@@ -171,17 +176,19 @@ def main() -> None:
         for val in dbase.distinct(args.distinct, flt=flt, **kargs):
             print(val)
         sys.exit(0)
+    if args.country is not None:
+        flt = dbase.flt_and(flt, dbase.searchcountry(str2list(args.country)))
     if hasattr(dbase, "searchtext") and args.search is not None:
         print(args.search)
         print()
-        for res in dbase.get(dbase.searchtext(args.search), **kargs):
+        for res in dbase.get(dbase.flt_and(flt, dbase.searchtext(args.search)), **kargs):
             printrec(res)
         print()
     # For IP addresses, we only output the "best" (smallest) match, so
     # no limit, skip or sort
     for addr in args.ips:
         print(addr)
-        res = dbase.get_best(dbase.searchhost(addr))
+        res = dbase.get_best(dbase.flt_and(flt, dbase.searchhost(addr)))
         if res is None:
             print("UNKNOWN")
             if not args.short:
