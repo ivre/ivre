@@ -47,6 +47,7 @@ mv tests/geoip/GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2 "
 wget -q --no-check-certificate "https://ivre.rocks/data/tests/share_data.tar.bz2" -O - | (cd "$(python -c "import ivre.config; print(ivre.config.guess_prefix('data'))")" && tar jxf -)
 
 sudo cp "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/nmap/scripts/"*.nse "/usr/share/nmap/scripts/"
+# shellcheck disable=SC2024
 for patch in "$(python -c "import ivre.config; print(ivre.config.guess_prefix('patches'))")/nmap/"*.patch; do (cd "/usr/share/nmap" && sudo patch -p0 < "$patch"); done
 sudo nmap --script-updatedb
 

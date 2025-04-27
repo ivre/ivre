@@ -21,10 +21,8 @@ wget -qO - https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.0
 sudo apt-get -q update
 sudo apt-get -qy --no-install-recommends install zeek
 
-for path_val in "/opt/zeek/bin"; do
-    echo "$path_val" >> "$GITHUB_PATH"
-    export PATH="$path_val:$PATH"
-done
+echo "/opt/zeek/bin" >> "$GITHUB_PATH"
+export PATH="/opt/zeek/bin:$PATH"
 
 # for env_val in "ZEEKPATH=.:/opt/zeek/share/zeek:/opt/zeek/share/zeek/policy:/opt/zeek/share/zeek/site"; do
 #     echo "$env_val" >> "$GITHUB_ENV"

@@ -3387,7 +3387,7 @@ class IvreTests(unittest.TestCase):
         # all protocols count == total count
         flt = "proto = tcp OR proto = udp OR proto = icmp OR proto = arp"
         self.check_flow_count_value(
-            "flow_count",
+            "flow_count_tcp_udp_icmp_arp",
             {"edges": [flt]},
             ["--flow-filters", flt],
             {"edges": [flt]},
