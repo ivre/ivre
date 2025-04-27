@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,7 +16,10 @@
 
 name: Elasticsearch tests
 
-on: [push, pull_request]
+on:
+  workflow_run:
+    workflows: [MongoDB tests]
+    types: [completed]
 
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
@@ -25,7 +28,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +62,13 @@ jobs:
 
     - run: pip install -r requirements-mongo.txt
 
+    - name: Install MongoDB tools (mongorestore)
+      run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get -q update
+          sudo apt-get -qy install mongodb-org-tools
+
     - run: pip install -r requirements-elastic.txt
 
     - name: Install IVRE
@@ -67,10 +78,17 @@ jobs:
 
     - run: echo 'DB_VIEW = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
 
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
 
-    - run: tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
+    - name: Get MongoDB dump artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: backup_nmap_passive
+
+    - run: tar jxf ./backup_nmap_passive.tar.bz2
 
     - run: cd tests && python tests.py
       env:
