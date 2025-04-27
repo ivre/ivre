@@ -52,6 +52,14 @@ jobs:
 
     - run: pip install -r requirements-mongo.txt
 
+    - name: Install MongoDB tools (mongodump)
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get -q update
+          sudo apt-get -qy install mongodb-org-tools
+
     - name: Install IVRE
       uses: ./.github/actions/install
 
@@ -64,6 +72,21 @@ jobs:
       env:
         CI: true
         DB: mongo
+
+    - name: Create MongoDB dump for Elasticsearch tests
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      run: |
+          rm -rf ./backup/ && mkdir ./backup/
+          mongodump --db=ivre --out=./backup/
+          mv ./backup/ivre/*.bson ./backup/
+          tar jcf ./backup_nmap_passive.tar.bz2 ./backup/{hosts,passive}.bson
+
+    - name: Archive MongoDB dump artifacts
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: backup_nmap_passive
+        path: ./backup_nmap_passive.tar.bz2
 
     - run: cat /tmp/webserver.log
       if: failure()

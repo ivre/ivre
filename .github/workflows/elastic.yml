@@ -16,7 +16,10 @@
 
 name: Elasticsearch tests
 
-on: [push, pull_request]
+on:
+  workflow_run:
+    workflows: [MongoDB tests]
+    types: [completed]
 
 # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
 concurrency:
@@ -26,6 +29,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +83,12 @@ jobs:
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
 
-    - run: tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
+    - name: Get MongoDB dump artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: backup_nmap_passive
+
+    - run: tar jxf ./backup_nmap_passive.tar.bz2
 
     - run: cd tests && python tests.py
       env:
