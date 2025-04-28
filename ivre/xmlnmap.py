@@ -298,7 +298,7 @@ def add_smb_ls_data(script):
                 state = 0  # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
-    if not state:
+    if state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
@@ -1011,6 +1011,7 @@ IGNORE_SCRIPTS = {
             "\n  ERROR: Not a Cisco ASA or unsupported version",
         ]
     ),
+    "http-trane-info": set(["Problem with XML parsing of /evox/about"]),
     "ndmp-fs-info": set(
         [
             "\n  ERROR: Failed to get filesystem information from server",
