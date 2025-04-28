@@ -3398,11 +3398,6 @@ class DBNmap(DBActive):
                                 f"ports.port:{rec['port']}",
                                 nmap_info.pop("cpe", []),
                             )
-                            host["cpes"] = list(host["cpes"].values())
-                            for cpe in host["cpes"]:
-                                cpe["origins"] = sorted(cpe["origins"])
-                            if not host["cpes"]:
-                                del host["cpes"]
                             port.update(nmap_info)
                             xmlnmap.add_service_hostname(
                                 nmap_info,
@@ -3468,6 +3463,12 @@ class DBNmap(DBActive):
                     add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
+                if "cpes" in host:
+                    host["cpes"] = list(host["cpes"].values())
+                    for cpe in host["cpes"]:
+                        cpe["origins"] = sorted(cpe["origins"])
+                    if not host["cpes"]:
+                        del host["cpes"]
                 host = self.json2dbrec(host)
                 self.store_host(host)
                 if callback is not None:
