@@ -87,6 +87,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: backup_nmap_passive
+	path: ./backup_nmap_passive.tar.bz2
+        run-id: ${{ github.event.workflow_run.id }}
 
     - run: tar jxf ./backup_nmap_passive.tar.bz2
 

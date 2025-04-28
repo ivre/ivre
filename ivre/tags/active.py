@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -438,24 +438,18 @@ def is_real_service_port(port: NmapPort) -> bool:
     """Decides whether a port has a "real" service (=> True) or if it is
     **possibly** a SYN-ACK "honeypot" (=> False).
 
-    The idea is that a port is "real" if it has a reason that is not
-    "syn-ack" (or similar), or if it has a service_name, or if it has a
-    least one script.
+    The idea is that a port is "real" if it has a service_name (and
+    not "tcpwrapped"), or if it has a least one script (other than a
+    banner of a known SYN proxy).
 
     Host scripts (port == -1) are also considered True.
 
     """
     if port.get("port") == -1:
         return True
-    if port.get("state_reason") and not (
-        # might be "syn-ack" but might as
-        # well be "syn-ack-cwr" or
-        # "syn-psh-ack"
-        port["state_reason"].startswith("syn-")
-        or port["state_reason"] == "passive"
-    ):
-        return True
-    if port.get("service_name") and port["service_name"] != "tcpwrapped":
+    if port.get("service_name"):
+        if port["service_name"] == "tcpwrapped":
+            return False
         return True
     if port.get("scripts"):
         # Ports with scripts usually are "real" service ports, **but**
@@ -472,7 +466,7 @@ def is_real_service_port(port: NmapPort) -> bool:
             if SONICWALL_ERROR_BANNER.search(banner):
                 return False
         return True
-    return False
+    return False  # no scripts or service name
 
 
 def set_openports_attribute(host: NmapHost) -> None:
