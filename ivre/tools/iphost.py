@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 import json
 from argparse import ArgumentParser
 from collections.abc import Callable
+from re import Pattern
 from typing import Any
 
 from ivre.db import db
@@ -84,7 +85,7 @@ def main() -> None:
         help="Names or addresses to resolve",
     )
     args = parser.parse_args()
-    resolvers: list[Callable[[str], dict[tuple[str, str], Any]]] = []
+    resolvers: list[Callable[[str | Pattern[str]], dict[tuple[str, str], Any]]] = []
     if args.passive:
         args.passive_direct = True
         args.passive_reverse = True
