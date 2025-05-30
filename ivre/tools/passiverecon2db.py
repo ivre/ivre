@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,17 +21,19 @@
 
 
 import functools
+import json
+import os
 import signal
 import sys
 from argparse import ArgumentParser
 from collections.abc import Generator, Iterable
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Callable
 
 from ivre.db import DBPassive, db
 from ivre.parser.zeek import ZeekFile
 from ivre.passive import get_ignore_rules, getinfos, handle_rec
 from ivre.types import Record
-from ivre.utils import recursive_filelisting
+from ivre.utils import LOGGER, open_file, recursive_filelisting
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -79,7 +81,33 @@ def main() -> None:
         files = recursive_filelisting(args.files)
     else:
         files = args.files
-    for fdesc in files:
-        function(
-            rec_iter(ZeekFile(fdesc), args.sensor, ignore_rules), getinfos=getinfos
-        )
+    error = 0
+    generator: Callable[[BinaryIO | str], Iterable[dict[str, Any]]]
+    for fname in files:
+        if isinstance(fname, str):
+            if not os.path.exists(fname):
+                LOGGER.warning("file %r does not exist", fname)
+                error += 1
+                continue
+            with open_file(fname) as fdesc:
+                fchar = fdesc.read(1)
+            try:
+                generator = {
+                    b"{": lambda fname: (json.loads(line) for line in open_file(fname)),  # type: ignore
+                    b"#": ZeekFile,
+                }[fchar]
+            except KeyError:
+                LOGGER.warning("file %r is invalid", fname)
+                error += 1
+                continue
+        else:
+            generator = ZeekFile
+        try:
+            function(
+                rec_iter(generator(fname), args.sensor, ignore_rules), getinfos=getinfos
+            )
+        except Exception:
+            LOGGER.warning("failed to import file %r", fname, exc_info=True)
+            error += 1
+            continue
+        sys.exit(error)
