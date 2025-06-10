@@ -2240,8 +2240,14 @@ if USE_PYOPENSSL:
                     )
                 break
         result["self_signed"] = result["issuer_text"] == result["subject_text"]
-        not_before = _parse_datetime(data.get_notBefore())
-        not_after = _parse_datetime(data.get_notAfter())
+        try:
+            not_before = _parse_datetime(data.get_notBefore())
+        except ValueError:
+            not_before = None
+        try:
+            not_after = _parse_datetime(data.get_notAfter())
+        except ValueError:
+            not_after = None
         if not_before is not None:
             result["not_before"] = not_before
             if not_after is not None:
