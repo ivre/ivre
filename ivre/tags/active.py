@@ -38,6 +38,7 @@ from ivre.tags import (
     TAG_DEFAULT_PASSWORD,
     TAG_HONEYPOT,
     TAG_MALWARE,
+    TAG_ORGANIZATION,
     TAG_SCANNER,
     TAG_TOR,
     TAG_VULN,
@@ -138,6 +139,12 @@ def gen_script_tags(
                         ],
                     ),
                 )
+            if (
+                org_name := cert.get("subject", {}).get("organizationName")
+            ) is not None:
+                org_name = org_name.strip()
+                if org_name:
+                    yield cast(Tag, dict(TAG_ORGANIZATION, info=[org_name]))
     elif script["id"] == "ssl-ja3-client":
         for ja3fp in script.get("ssl-ja3-client", []):
             if ja3fp.get("md5") in SSLBL_JA3:
