@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@ TAG_GOVCLOUD: Tag = {"value": "GovCloud", "type": "info"}
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
+TAG_ORGANIZATION: Tag = {"value": "Organization", "type": "info"}
 TAG_RESERVED: Tag = {"value": "Reserved address", "type": "info"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR", "type": "info"}
