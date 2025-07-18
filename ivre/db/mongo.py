@@ -68,6 +68,9 @@ from ivre.tags.active import is_synack_honeypot, set_auto_tags
 from ivre.types import Filter, IndexKey
 
 
+VALID_KEY = re.compile("^[a-zA-Z0-9_]+$")
+
+
 class Nmap2Mongo(xmlnmap.Nmap2DB):
     @staticmethod
     def _to_binary(data):
@@ -754,7 +757,26 @@ class MongoDB(DB):
         raise Exception(f"Unknown operator {cmpop!r} (for key {key!r} and val {val!r})")
 
     @staticmethod
+    def _searchcertsubject(prefix, subject, field):
+        res = {}
+        if isinstance(subject, dict):
+            if not subject:
+                res[f"{prefix}{field}_text"] = {"$exists": True}
+            else:
+                for key, value in subject.items():
+                    if VALID_KEY.match(key):
+                        res[f"{prefix}{field}.{key}"] = value
+                    else:
+                        utils.LOGGER.warning(
+                            "Skipping invalid key [%r] in cert lookup", key[:100]
+                        )
+        else:
+            res[f"{prefix}{field}_text"] = subject
+        return res
+
+    @classmethod
     def _searchcert(
+        cls,
         prefix="",
         base=None,
         keytype=None,
@@ -784,9 +806,9 @@ class MongoDB(DB):
                 continue
             res[key] = hashval.lower()
         if subject is not None:
-            res[f"{prefix}subject_text"] = subject
+            res.update(cls._searchcertsubject(prefix, subject, "subject"))
         if issuer is not None:
-            res[f"{prefix}issuer_text"] = issuer
+            res.update(cls._searchcertsubject(prefix, issuer, "issuer"))
         if self_signed is not None:
             res[f"{prefix}self_signed"] = self_signed
         for hashtype in ["md5", "sha1", "sha256"]:
