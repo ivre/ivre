@@ -4719,7 +4719,37 @@ class MongoDBPassive(MongoDB, DBPassive):
             ([("infos.sha1", pymongo.ASCENDING)], {"sparse": True}),
             ([("infos.sha256", pymongo.ASCENDING)], {"sparse": True}),
             ([("infos.issuer_text", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [
+                    ("infos.issuer.countryName", pymongo.ASCENDING),
+                    ("info.issuer.stateOrProvinceName", pymongo.ASCENDING),
+                    ("info.issuer.localityName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.issuer.fields_1"},
+            ),
+            (
+                [
+                    ("info.issuer.organizationName", pymongo.ASCENDING),
+                    ("info.issuer.organizationalUnitName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.issuer.fields_2"},
+            ),
             ([("infos.subject_text", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [
+                    ("info.subject.countryName", pymongo.ASCENDING),
+                    ("info.subject.stateOrProvinceName", pymongo.ASCENDING),
+                    ("info.subject.localityName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.subject.fields_1"},
+            ),
+            (
+                [
+                    ("info.subject.organizationName", pymongo.ASCENDING),
+                    ("info.subject.organizationalUnitName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.subject.fields_2"},
+            ),
             ([("infos.pubkey.type", pymongo.ASCENDING)], {"sparse": True}),
         ],
     ]
