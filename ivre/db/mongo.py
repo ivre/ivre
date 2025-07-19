@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -147,7 +147,7 @@ class MongoDB(DB):
     is_documentdb = False  # set to True for AWS DocumentDB sub-classes
     indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = []
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = []
     schema_latest_versions: list[int] = []
     hint_indexes: list[dict[str, list[IndexKey]]] = []
@@ -338,9 +338,7 @@ class MongoDB(DB):
                 .get("ensure", [])
             )
             if new_indexes:
-                utils.LOGGER.info(
-                    "Creating new indexes...",
-                )
+                utils.LOGGER.info("Creating new indexes...")
                 try:
                     self.db[self.columns[colnum]].create_indexes(
                         [pymongo.IndexModel(idx[0], **idx[1]) for idx in new_indexes]
@@ -349,12 +347,8 @@ class MongoDB(DB):
                     utils.LOGGER.debug(
                         "Cannot create indexes %r", new_indexes, exc_info=True
                     )
-                utils.LOGGER.info(
-                    "  ... Done.",
-                )
-            utils.LOGGER.info(
-                "Migrating records...",
-            )
+                utils.LOGGER.info("  ... Done.")
+            utils.LOGGER.info("Migrating records...")
             updated = False
             # unlimited find()!
             for i, record in enumerate(
@@ -381,13 +375,9 @@ class MongoDB(DB):
                     failed += 1
                 if not (i + 1) % 100000:
                     utils.LOGGER.info("  %d records migrated", i + 1)
-            utils.LOGGER.info(
-                "  ... Done.",
-            )
+            utils.LOGGER.info("  ... Done.")
             # Checking for required actions on indexes
-            utils.LOGGER.info(
-                "  Performing other actions on indexes...",
-            )
+            utils.LOGGER.info("Performing other actions on indexes...")
             for action, indexes in (
                 self.schema_migrations_indexes[colnum].get(new_version, {}).items()
             ):
@@ -401,9 +391,7 @@ class MongoDB(DB):
                         (utils.LOGGER.warning if updated else utils.LOGGER.debug)(
                             "Cannot %s index %s", action, idx, exc_info=True
                         )
-            utils.LOGGER.info(
-                "  ... Done.",
-            )
+            utils.LOGGER.info("  ... Done.")
             utils.LOGGER.info(
                 "Migration of column %d from version %r to %r DONE",
                 colnum,
@@ -931,6 +919,14 @@ class MongoDBActive(MongoDB, DBActive):
                         pymongo.ASCENDING,
                     ),
                     ("ports.scripts.ssl-cert.issuer.localityName", pymongo.ASCENDING),
+                ],
+                {
+                    "sparse": True,
+                    "name": "ports.scripts.ssl-cert.issuer.fields_1",
+                },
+            ),
+            (
+                [
                     (
                         "ports.scripts.ssl-cert.issuer.organizationName",
                         pymongo.ASCENDING,
@@ -942,7 +938,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {
                     "sparse": True,
-                    "name": "ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1",
+                    "name": "ports.scripts.ssl-cert.issuer.fields_2",
                 },
             ),
             (
@@ -957,6 +953,14 @@ class MongoDBActive(MongoDB, DBActive):
                         pymongo.ASCENDING,
                     ),
                     ("ports.scripts.ssl-cert.subject.localityName", pymongo.ASCENDING),
+                ],
+                {
+                    "sparse": True,
+                    "name": "ports.scripts.ssl-cert.subject.fields_1",
+                },
+            ),
+            (
+                [
                     (
                         "ports.scripts.ssl-cert.subject.organizationName",
                         pymongo.ASCENDING,
@@ -968,7 +972,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {
                     "sparse": True,
-                    "name": "ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1",
+                    "name": "ports.scripts.ssl-cert.subject.fields_2",
                 },
             ),
             ([("ports.scripts.ssl-cert.md5", pymongo.ASCENDING)], {"sparse": True}),
@@ -1053,7 +1057,7 @@ class MongoDBActive(MongoDB, DBActive):
         ],
     ]
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         # hosts
         {
@@ -1314,7 +1318,86 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ]
             },
-            22: {},  # needed for MongoDBNmap
+            22: {
+                "drop": [
+                    ("ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1", {}),
+                    ("ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1", {}),
+                ],
+                "ensure": [
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.issuer.countryName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.stateOrProvinceName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.localityName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.issuer.fields_1",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.issuer.organizationName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.organizationalUnitName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.issuer.fields_2",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.subject.countryName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.stateOrProvinceName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.localityName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.subject.fields_1",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.subject.organizationName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.organizationalUnitName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.subject.fields_2",
+                        },
+                    ),
+                ],
+            },
         },
     ]
     schema_latest_versions = [
@@ -4283,7 +4366,7 @@ class MongoDBActive(MongoDB, DBActive):
 class MongoDBNmap(MongoDBActive, DBNmap):
     content_handler = Nmap2Mongo
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         (
             {
@@ -4311,7 +4394,22 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                         ],
                     )
                     if key == 22
-                    else value
+                    else (
+                        dict(
+                            value,
+                            ensure=[
+                                v
+                                for v in value.get("ensure", [])
+                                if v
+                                != (
+                                    [("tags.value", 1), ("tags.info", 1)],
+                                    {"sparse": True},
+                                )
+                            ],
+                        )
+                        if key == 20
+                        else value
+                    )
                 )
                 for key, value in idxs.items()
             }
@@ -4406,7 +4504,7 @@ class MongoDBView(MongoDBActive, DBView):
         for i, idxs in enumerate(MongoDBActive.indexes)
     ]
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         (
             {
