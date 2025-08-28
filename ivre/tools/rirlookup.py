@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2022 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -179,19 +179,31 @@ def main() -> None:
     if args.country is not None:
         flt = dbase.flt_and(flt, dbase.searchcountry(str2list(args.country)))
     if hasattr(dbase, "searchtext") and args.search is not None:
-        print(args.search)
-        print()
-        for res in dbase.get(dbase.flt_and(flt, dbase.searchtext(args.search)), **kargs):
-            printrec(res)
-        print()
+        flt = dbase.flt_and(flt, dbase.searchtext(args.search))
+        if not args.ips:
+            if args.count:
+                print(f"{args.search}: {dbase.count(flt)}")
+                sys.exit(0)
+            print(args.search)
+            print()
+            for res in dbase.get(flt, **kargs):
+                printrec(res)
+            print()
+            sys.exit(0)
+    if not args.ips and args.count:
+        print(dbase.count(flt))
+        sys.exit(0)
     # For IP addresses, we only output the "best" (smallest) match, so
     # no limit, skip or sort
     for addr in args.ips:
+        if args.count:
+            print(f"{addr}: {dbase.count(dbase.flt_and(dbase.searchhost(addr), flt))}")
+            continue
         print(addr)
-        res = dbase.get_best(dbase.flt_and(flt, dbase.searchhost(addr)))
+        res = dbase.get_best(addr, spec=flt)
         if res is None:
             print("UNKNOWN")
-            if not args.short:
-                print()
         else:
             printrec(res)
+        if not args.short:
+            print()

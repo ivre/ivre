@@ -5988,15 +5988,15 @@ class MongoDBRir(MongoDB, DBRir):
         # rir
         1,
     ]
-    indexes: List[List[Tuple[List[IndexKey], Dict[str, Any]]]] = [
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # rir
         [
             (
                 [
-                    ("start_addr_0", pymongo.ASCENDING),
-                    ("start_addr_1", pymongo.ASCENDING),
-                    ("stop_addr_0", pymongo.DESCENDING),
-                    ("stop_addr_1", pymongo.DESCENDING),
+                    ("start_0", pymongo.ASCENDING),
+                    ("stop_0", pymongo.DESCENDING),
+                    ("start_1", pymongo.ASCENDING),
+                    ("stop_1", pymongo.DESCENDING),
                 ],
                 {"sparse": True},
             ),
@@ -6071,6 +6071,21 @@ class MongoDBRir(MongoDB, DBRir):
                 },
             ],
         }
+        # This query is equivalent but slower with our indexes
+        # return {
+        #     "$and": [
+        #         {"start_0": {"$lte": addr_0}},
+        #         {"stop_0": {"$gte": addr_0}},
+        #         {"$or": [
+        #             {"start_0": {"$ne": addr_0}},
+        #             {"start_1": {"$lte": addr_1}},
+        #         ]},
+        #         {"$or": [
+        #             {"stop_0": {"$ne": addr_0}},
+        #             {"stop_1": {"$gte": addr_1}},
+        #         ]},
+        #     ]
+        # }
 
     @staticmethod
     def searchcountry(country, neg=False):
@@ -6114,6 +6129,46 @@ class MongoDBRir(MongoDB, DBRir):
                 except (KeyError, socket.error):
                     pass
             yield rec
+
+    def count(self, flt):
+        """Count documents in RIR column."""
+        if not flt:
+            return self.db[self.columns[self.column_rir]].estimated_document_count()
+        return self.db[self.columns[self.column_rir]].count_documents(flt)
+
+    def get_best(self, addr, spec=None):
+        if spec is None:
+            spec = self.flt_empty
+        addr_0, addr_1 = self.ip2internal(addr)
+        # First try with start_0 == stop_0 == addr_0.
+        # Rationale: if one result exists, it is the best, and this query should be faster
+        spec_addr = {
+            "start_0": addr_0,
+            "stop_0": addr_0,
+            "start_1": {"$lte": addr_1},
+            "stop_1": {"$gte": addr_1},
+        }
+        try:
+            return next(
+                iter(
+                    self.get(
+                        self.flt_and(spec_addr, spec), sort=[("start", -1), ("stop", 1)]
+                    )
+                )
+            )
+        except StopIteration:
+            pass
+        try:
+            return next(
+                iter(
+                    self.get(
+                        self.flt_and(self.searchhost(addr), spec),
+                        sort=[("start", -1), ("stop", 1)],
+                    )
+                )
+            )
+        except StopIteration:
+            return None
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to

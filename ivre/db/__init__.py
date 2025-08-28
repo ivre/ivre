@@ -5581,7 +5581,7 @@ class DBRir(DB):
     def import_files(self, files):
         for fname in files:
             with utils.open_file(fname) as fdesc:
-                fileid = hashlib.file_digest(fdesc.fdesc, 'sha256').hexdigest()
+                fileid = hashlib.file_digest(fdesc.fdesc, "sha256").hexdigest()
             try:
                 next(iter(self.get(self.searchfileid(fileid))))
             except StopIteration:
@@ -5621,7 +5621,11 @@ class DBRir(DB):
                     bulk = self.insert_bulk(bulk, rec)
                 self.stop_bulk(bulk)
 
-    def get_best(self, spec):
+    def get_best(self, addr: str, spec=None):
+        if spec is None:
+            spec = self.searchhost(addr)
+        else:
+            spec = self.flt_and(self.searchhost(addr), spec)
         try:
             return next(iter(self.get(spec, sort=[("start", -1), ("stop", 1)])))
         except StopIteration:
