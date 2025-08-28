@@ -31,7 +31,7 @@ jobs:
       matrix:
         # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
         python-version: ['3.11', '3.12']
-        mongodb-version: ['4.0', '5.0', '6.0', '7.0', '8.0']
+        mongodb-version: ['5.0', '6.0', '7.0', '8.0']
 
     steps:
 

@@ -4496,7 +4496,7 @@ class IvreTests(unittest.TestCase):
                                 self.assertNotIn("warnings", script["dns-tls-rpt"])
                                 self.assertEqual(
                                     script["output"],
-                                    "Domain hardenize.com has a valid TLS-RPT configuration",
+                                    "Domain hardenize.com has no TLS-RPT configuration",
                                 )
                             found_dns_tls_rpt.add(script["dns-tls-rpt"][0]["domain"])
             self.assertTrue(found_zone_transfer)

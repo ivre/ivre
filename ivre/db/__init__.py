@@ -2910,8 +2910,6 @@ class DBNmap(DBActive):
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 rec = json.loads(line.decode())
-                if rec.get("status_code") != "NOERROR":
-                    continue
                 name = rec.get("host", "").lower()
                 if not name:
                     continue
