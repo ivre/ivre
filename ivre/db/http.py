@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ from functools import update_wrapper
 from getpass import getpass
 from io import BytesIO
 from urllib.parse import quote
-from urllib.request import URLopener
+from urllib.request import build_opener
 
 try:
     import pycurl
@@ -49,7 +49,7 @@ try:
     from ivre.db.mongo import MongoDBActive, MongoDBNmap, MongoDBPassive, MongoDBView
 except ImportError:
     MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBView = None
-from ivre import utils
+from ivre import VERSION, utils
 
 RESULTS_COUNT = 200
 
@@ -102,13 +102,13 @@ class HttpFetcher:
 class HttpFetcherBasic(HttpFetcher):
     def __init__(self, url):
         super().__init__(url)
-        self.urlop = URLopener()
-        for hdr, val in (
+        self.urlop = build_opener()
+        self.urlop.addheaders = [("User-Agent", f"IVRE/{VERSION} +https://ivre.rocks/")]
+        self.urlop.addheaders.extend(
             tuple(x.split("=", 1)) if "=" in x else (x, "")
             for x in url.fragment.split("&")
             if x
-        ):
-            self.urlop.addheader(hdr, val)
+        )
 
     def open(self, url):
         return self.urlop.open(url)
