@@ -922,6 +922,7 @@ class DBActive(DB):
     datetime_fields = [
         "starttime",
         "endtime",
+        "ports.scripts.http-citrix-netscaler-triage.rdx_en_gzip_datetime",
         "ports.scripts.ssl-cert.not_after",
         "ports.scripts.ssl-cert.not_before",
     ]
@@ -942,6 +943,7 @@ class DBActive(DB):
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-app",
+        "ports.scripts.http-citrix-netscaler-triage.rdx_en_gzip_datetime.tls_names",
         "ports.scripts.http-headers",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
@@ -2332,6 +2334,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_dnsx
                 elif "host" in firstres:
                     store_scan_function = self.store_scan_json_dismap
+                elif "rdx_en_stamp" in firstres:
+                    store_scan_function = self.store_scan_json_netscaler_triage
                 else:
                     raise ValueError(  # pylint: disable=raise-missing-from
                         f"Unknown file type {fname}"
@@ -3920,6 +3924,117 @@ class DBNmap(DBActive):
                     callback(host)
             self.stop_store_hosts()
             return True
+
+    def store_scan_json_netscaler_triage(
+        self,
+        fname,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        tags=None,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by
+        citrix-netscaler-triage[1], displays the parsing result, and
+        return True if everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        [1] See <https://github.com/fox-it/citrix-netscaler-triage>
+        """
+        if categories is None:
+            categories = []
+        else:
+            categories = sorted(set(categories))
+        if tags is None:
+            tags = []
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
+                if rec.get("error"):
+                    continue
+                url = rec["target"]
+                try:
+                    addr, port = utils.url2hostport(url)
+                except ValueError:
+                    utils.LOGGER.warning("Invalid URL %r", url)
+                    continue
+                if addr.startswith("[") and addr.startswith("]"):
+                    addr = addr[1:-1]
+                try:
+                    utils.ip2int(addr)
+                except (TypeError, socket.error, struct.error):
+                    utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
+                    continue
+                port_doc = {
+                    "protocol": "tcp",
+                    "state_state": "open",
+                    "state_reason": "response",
+                }
+                port_doc.update(
+                    {
+                        "port": port,
+                        "service_name": "http",
+                        "service_method": "probed",
+                    }
+                )
+                if url.startswith("https:"):
+                    port_doc["service_tunnel"] = "ssl"
+                script_values = {
+                    "version": rec["version"],
+                    "rdx_en_gzip_timestamp": rec["rdx_en_stamp"],
+                    "rdx_en_gzip_datetime": rec["rdx_en_dt"][:19].replace("T", " "),
+                }
+                host = {
+                    "addr": addr,
+                    "state": "up",
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "ports": [port_doc],
+                }
+                if rec.get("tls_names"):
+                    tls_names = rec["tls_names"].split(", ")
+                    script_values["tls_names"] = tls_names
+                    hostnames = []
+                    for name in tls_names:
+                        add_hostname(name, "cert-san-dns", hostnames)
+                    if hostnames:
+                        host["hostnames"] = hostnames
+                port_doc["scripts"] = [
+                    {
+                        "id": "http-citrix-netscaler-triage",
+                        "output": f"Citrix NetScaler version {rec['version']}\nrdx_en.json gzip timestamp {rec['rdx_en_dt']}",
+                        "http-citrix-netscaler-triage": script_values,
+                    },
+                ]
+                if "scanned_at" in rec:
+                    host["starttime"] = host["endtime"] = rec["scanned_at"][
+                        :19
+                    ].replace("T", " ")
+                if categories:
+                    host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
 
 
 class DBView(DBActive):
