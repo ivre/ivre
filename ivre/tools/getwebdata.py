@@ -80,9 +80,18 @@ def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
 
 
 def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
-    expr = re.compile(f"<code>{IPADDR.pattern[1:-1]}(/[0-9]+)?</code>")
-    for line in fdesc:
-        for m in expr.finditer(line.decode()):
+    page_content = fdesc.read().decode('utf-8')
+    block_match = re.search(r"<code[^>]*>(.*?)</code>", page_content, re.DOTALL)
+    if not block_match:
+        return
+    block = block_match.group(1)
+    lines = block.splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        expr = re.compile(f"{IPADDR.pattern[1:-1]}(/[0-9]+)")
+        for m in expr.finditer(line):
             addr, mask = m.groups()
             if mask is None:
                 if ":" in addr:
