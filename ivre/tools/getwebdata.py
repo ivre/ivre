@@ -130,7 +130,7 @@ URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
         functools.partial(generic_processor, generic_ipaddr_extractor),
     ),
     (
-        "https://support.censys.io/hc/en-us/articles/360043177092-from-faq",
+        "https://docs.censys.com/docs/opt-out-of-data-collection",
         os.path.join(config.DATA_PATH, "censys_scanners.txt"),
         functools.partial(generic_processor, censys_net_extractor),
     ),
