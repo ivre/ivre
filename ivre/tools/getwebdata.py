@@ -35,7 +35,7 @@ data files to add tags to scan results. For now, the following lists are used:
     <https://www.ncsc.gov.uk/information/ncsc-scanning-information>
 
   - Scanners operated by the Censys, from
-    <https://support.censys.io/hc/en-us/articles/360043177092-from-faq>
+    <https://docs.censys.com/docs/opt-out-of-data-collection>
 
 """
 
@@ -80,7 +80,7 @@ def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
 
 
 def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
-    expr = re.compile(f"<code>{IPADDR.pattern[1:-1]}(/[0-9]+)?</code>")
+    expr = re.compile(f"(?:>|^) +{IPADDR.pattern[1:-1]}(/[0-9]+)?(?:<|$)")
     for line in fdesc:
         for m in expr.finditer(line.decode()):
             addr, mask = m.groups()
@@ -121,7 +121,7 @@ URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
         functools.partial(generic_processor, generic_ipaddr_extractor),
     ),
     (
-        "https://support.censys.io/hc/en-us/articles/360043177092-from-faq",
+        "https://docs.censys.com/docs/opt-out-of-data-collection",
         os.path.join(config.DATA_PATH, "censys_scanners.txt"),
         functools.partial(generic_processor, censys_net_extractor),
     ),
