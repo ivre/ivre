@@ -210,6 +210,7 @@ setup(
                 "data/ike-vendor-ids",
                 "data/manuf",
                 "data/censys_scanners.txt",
+                "data/rapid7_scanners.txt",
                 "data/ssigouvfr_scanners.txt",
                 "data/ukncsc_scanners.txt",
                 "data/cdn_nuclei.py",
