@@ -34,9 +34,10 @@ data files to add tags to scan results. For now, the following lists are used:
   - Scanners operated by the UK NCSC, from
     <https://www.ncsc.gov.uk/information/ncsc-scanning-information>
 
-  - Scanners operated by the Censys, from
+  - Scanners operated by Censys, from
     <https://docs.censys.com/docs/opt-out-of-data-collection>
 
+  - Scanners operated by Rapid7, from <https://opendata.rapid7.com/about/>
 """
 
 
@@ -103,6 +104,20 @@ def dns_get_names(name: str) -> list[str]:
     )
 
 
+def rapid7_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
+    expr = re.compile(f"<li>{IPADDR.pattern[1:-1]}(/[0-9]+)?</li>")
+    for line in fdesc:
+        for m in expr.finditer(line.decode()):
+            addr, mask = m.groups()
+            if mask is None:
+                if ":" in addr:
+                    yield f"{addr}/128"
+                else:
+                    yield f"{addr}/32"
+            else:
+                yield f"{addr}{mask}"
+
+
 assert config.DATA_PATH is not None
 URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
     (
@@ -124,6 +139,12 @@ URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
         "https://docs.censys.com/docs/opt-out-of-data-collection",
         os.path.join(config.DATA_PATH, "censys_scanners.txt"),
         functools.partial(generic_processor, censys_net_extractor),
+    ),
+    # Rapid7 Project Sonar scanner IP ranges (static, from their about page)
+    (
+        "https://opendata.rapid7.com/about/",  # For reference only; data is hardcoded
+        os.path.join(config.DATA_PATH, "rapid7_scanners.txt"),
+        functools.partial(generic_processor, rapid7_net_extractor),
     ),
 ]
 

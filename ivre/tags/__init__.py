@@ -100,6 +100,15 @@ def _get_data() -> None:
             LOGGER.warning(
                 "Cannot find file [censys_scanners.txt]. Try running `ivre getwebdata`"
             )
+        try:
+            with open(
+                os.path.join(DATA_PATH, "rapid7_scanners.txt"), encoding="utf8"
+            ) as fdesc:
+                ranges.extend(net2range(line.strip()) + ("Rapid7",) for line in fdesc)
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [rapid7_scanners.txt]. Try running `ivre getwebdata`"
+            )
         parsed_ranges = make_range_tables(ranges)
         _SCANNERS_TABLE = (
             [elt[0] for elt in parsed_ranges],
