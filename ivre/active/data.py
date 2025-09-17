@@ -166,7 +166,10 @@ def san2hostname(san: str) -> tuple[str, str] | None:
         if upn.startswith("S-1-"):
             # SID
             return None
-        hostname = upn.split("/", 1)[1].split("@", 1)[0] if "/" in upn else upn
+        if "/" in upn:
+            hostname = upn.split("/", 1)[1].split("@", 1)[0]
+        else:
+            hostname = upn
         return "othername-upn", hostname
     if san.startswith("othername:"):
         name = san[10:]
