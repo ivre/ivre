@@ -144,7 +144,7 @@ def san2hostname(san: str) -> tuple[str, str] | None:
         if url.startswith("://"):
             url = f"x{url}"  # add a fake scheme for URL parsing
         try:
-            hostname = urlparse(san[4:]).hostname
+            hostname = urlparse(url).hostname
         except Exception:
             LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
             return None
