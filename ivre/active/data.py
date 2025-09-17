@@ -135,27 +135,54 @@ def create_ssl_cert(
     return "\n".join(create_ssl_output(info)), [info]
 
 
+def san2hostname(san: str) -> tuple[str, str] | None:
+    """Extract a hostname from a Subject Alt Name value when possible."""
+    if san.startswith("DNS:"):
+        return "dns", san[4:]
+    if san.startswith("URI:"):
+        url = san[4:]
+        if url.startswith("://"):
+            url = f"x{url}"  # add a fake scheme for URL parsing
+        try:
+            hostname = urlparse(san[4:]).hostname
+        except Exception:
+            LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
+            return None
+        if hostname:
+            return "uri", hostname
+        return None
+    if san.startswith("DirName:"):
+        dir_name = san[8:]
+        try:
+            key, value = dir_name.split("=", 1)
+        except ValueError:
+            LOGGER.warning("Invalid DirName in SAN %r", san, exc_info=True)
+            return None
+        if key.strip().lower() != "cn":
+            return None
+        return "dirname-cn", value.strip()
+    if san.startswith("othername:UPN:"):
+        upn = san[14:]
+        if upn.startswith("S-1-"):
+            # SID
+            return None
+        hostname = upn.split("/", 1)[1].split("@", 1)[0] if "/" in upn else upn
+        return "othername-upn", hostname
+    if san.startswith("othername:"):
+        name = san[10:]
+        if ":" not in name:
+            return None
+        subtype, hostname = name.split(":", 1)
+        return f"othername-{subtype.lower()}", hostname
+    return None
+
+
 def add_cert_hostnames(cert: ParsedCertificate, hostnames: list[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
         add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
-        if san.startswith("DNS:"):
-            add_hostname(san[4:], "cert-san-dns", hostnames)
-            continue
-        if san.startswith("URI:"):
-            try:
-                netloc = urlparse(san[4:]).netloc
-            except Exception:
-                LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
-                continue
-            if not netloc:
-                continue
-            if netloc.startswith("["):
-                # IPv6
-                continue
-            if ":" in netloc:
-                netloc = netloc.split(":", 1)[0]
-            add_hostname(netloc, "cert-san-uri", hostnames)
+        if (type_hostname := san2hostname(san)) is not None:
+            add_hostname(type_hostname[1], f"cert-san-{type_hostname[0]}", hostnames)
 
 
 def merge_ja3_scripts(
