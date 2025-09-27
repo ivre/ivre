@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 
 import errno
 import json
+import logging
 import os
 import random
 import re
@@ -65,6 +66,25 @@ PYTHON_BUG_45235 = {
     (3, 9, 8),
 }
 HAS_PYTHON_BUG_45235 = sys.version_info[:3] in PYTHON_BUG_45235
+
+
+_DEBUG = re.compile("^DEBUG = ")
+
+
+def set_debug(value: bool) -> None:
+    with (
+        open(os.path.join(os.path.expanduser("~"), ".ivre.conf")) as idesc,
+        open(os.path.join(os.path.expanduser("~"), ".ivre.conf.new"), "w") as odesc,
+    ):
+        for line in idesc:
+            if _DEBUG.search(line) is not None:
+                odesc.write(f"DEBUG = {value!r}\n")
+            else:
+                odesc.write(line)
+    os.rename(
+        os.path.join(os.path.expanduser("~"), ".ivre.conf.new"),
+        os.path.join(os.path.expanduser("~"), ".ivre.conf"),
+    )
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -910,7 +930,9 @@ class IvreTests(unittest.TestCase):
             if "-probe-" in fname:
                 options.extend(["--masscan-probes", fname.split("-probe-")[1]])
             options.extend(["--", fname])
+            set_debug(True)
             res, _, err = RUN(options)
+            set_debug(False)
             print("Inserting %r" % fname)
             if res:
                 print("Error: %r" % err)
@@ -6058,11 +6080,8 @@ if __name__ == "__main__":
     SAMPLES = None
     parse_args()
     parse_env()
-    if not ivre.config.DEBUG:
-        sys.stderr.write(
-            "You *must* have the DEBUG config value set to " "True to run the tests.\n"
-        )
-        sys.exit(-1)
+    ivre.config.DEBUG = True
+    logging.basicConfig()
     if USE_COVERAGE:
         COVERAGE = [sys.executable, os.path.dirname(__import__("coverage").__file__)]
         RUN = coverage_run
