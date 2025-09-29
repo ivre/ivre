@@ -67,7 +67,6 @@ from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
 from ivre.types import Filter, IndexKey
 
-
 VALID_KEY = re.compile("^[a-zA-Z0-9_]+$")
 
 

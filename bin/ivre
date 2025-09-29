@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 """IVRE command line"""
 
 
+import logging
 import os
 import sys
 import warnings
@@ -98,6 +99,7 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig()
     try:
         main()
     except IOError as exc:

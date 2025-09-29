@@ -91,6 +91,9 @@ MAXVALLEN = 1000
 
 
 LOGGER = logging.getLogger("ivre")
+LOGGER.setLevel(logging.DEBUG if config.DEBUG or config.DEBUG_DB else logging.INFO)
+
+
 REGEXP_T = type(re.compile(""))
 HEX = re.compile("^[a-f0-9]+$", re.IGNORECASE)
 
@@ -182,8 +185,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
     "v": "service_version",
     "cpe": "cpe",
 }
-
-logging.basicConfig()
 
 
 class InvalidIPAddress(ValueError):
@@ -853,39 +854,6 @@ def serialize(obj: Any) -> str:
     if isinstance(obj, bytes):
         return obj.decode()
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
-
-
-class LogFilter(logging.Filter):
-    """A logging filter that prevents duplicate warnings and only reports
-    messages with level lower than INFO when config.DEBUG (or
-    config.DEBUG_DB) is True.
-
-    """
-
-    MAX_WARNINGS_STORED = 100
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.warnings: set[str] = set()
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Decides whether we should log a record"""
-        if record.levelno < logging.INFO:
-            if record.msg.startswith("DB:"):
-                return config.DEBUG_DB
-            return config.DEBUG
-        if record.levelno != logging.WARNING:
-            return True
-        if record.msg in self.warnings:
-            return False
-        if len(self.warnings) > self.MAX_WARNINGS_STORED:
-            self.warnings = set()
-        self.warnings.add(record.msg)
-        return True
-
-
-LOGGER.addFilter(LogFilter())
-LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 
 CLI_ARGPARSER = argparse.ArgumentParser(add_help=False)
