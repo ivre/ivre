@@ -62,6 +62,7 @@ from ivre.active.data import (
     merge_host_docs,
 )
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
+from ivre.analyzer.dns import nsrecord
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.plugins import load_plugins
 from ivre.tags import add_tags, gen_addr_tags
@@ -2879,6 +2880,114 @@ class DBNmap(DBActive):
                     }
                 ],
             }
+        for axfr in rec.get("axfr", {}).get("chain", []):
+            try:
+                domain = axfr["host"]
+            except KeyError:
+                utils.LOGGER.warning(
+                    "Dnsx record has no host entry [%r]",
+                    axfr,
+                    exc_info=True,
+                )
+                continue
+            records = []
+            for record_s in axfr.get("all", []):
+                try:
+                    records.append(nsrecord(*record_s.split(None, 4)))
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Dnsx AXFR has no incorrect record [%r]",
+                        record_s,
+                        exc_info=True,
+                    )
+                    continue
+            if not records:
+                continue
+            if len(records) == 1 and records[0].rtype in {"SOA", "CNAME"}:
+                # SOA only: transfer failed
+                # CNAME only: no transfer actually performed
+                continue
+            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
+                max(len(r.name) for r in records),
+                max(len(r.rtype) for r in records),
+            )
+            for resolver in axfr.get("resolver", []):
+                try:
+                    addr, port_s = resolver.rsplit(":", 1)
+                    port = int(port_s)
+                    if addr.startswith("[") and addr.endswith("]"):
+                        addr = addr[1:-1]
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Dnsx record has invalid resolver entry [%r]",
+                        resolver,
+                        exc_info=True,
+                    )
+                    continue
+                yield {
+                    "addr": addr,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [
+                        {
+                            "port": port,
+                            "protocol": "tcp",
+                            "service_name": "domain",
+                            "state_state": "open",
+                            "scripts": [
+                                {
+                                    "id": "dns-zone-transfer",
+                                    "output": "\nDomain: %s\n%s\n\\\n"
+                                    % (
+                                        domain,
+                                        "\n".join(
+                                            line_fmt % (r.name, r.rtype, r.data)
+                                            for r in records
+                                        ),
+                                    ),
+                                    "dns-zone-transfer": [
+                                        {
+                                            "domain": domain,
+                                            "records": [
+                                                {
+                                                    "name": r.name,
+                                                    "ttl": r.ttl,
+                                                    "class": r.rclass,
+                                                    "type": r.rtype,
+                                                    "data": r.data,
+                                                }
+                                                for r in records
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                }
+            hosts: dict[str, set[tuple[str, str]]] = {}
+            for r in records:
+                if r.rclass != "IN":
+                    continue
+                if r.rtype in ["A", "AAAA"]:
+                    name = r.name.rstrip(".").lower()
+                    hosts.setdefault(r.data, set()).add((r.rtype, name))
+            for host, names in hosts.items():
+                yield {
+                    "addr": host,
+                    "hostnames": [
+                        {
+                            "name": name[1],
+                            "type": name[0],
+                            "domains": list(utils.get_domains(name[1])),
+                        }
+                        for name in names
+                    ],
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                }
 
     def store_scan_json_dnsx(
         self,
