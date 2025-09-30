@@ -219,7 +219,7 @@ class AXFRChecker(Checker):
                 if r.rclass != "IN":
                     continue
                 if r.rtype in ["A", "AAAA"]:
-                    name = r.name.rstrip(".")
+                    name = r.name.rstrip(".").lower()
                     hosts.setdefault(r.data, set()).add((r.rtype, name))
             for host, records in hosts.items():
                 yield {
