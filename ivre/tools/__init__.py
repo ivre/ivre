@@ -46,6 +46,7 @@ __all__ = [
     "passiverecon2db",
     "passivereconworker",
     "plotdb",
+    "rirlookup",
     "runscans",
     "runscansagent",
     "runscansagentdb",
