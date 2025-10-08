@@ -1,0 +1,320 @@
+/*
+ * This file is part of IVRE.
+ * Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+ *
+ * IVRE is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * IVRE is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+ * License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+body {
+    background-color: #111;
+    color: #ddd;
+}
+
+.navbar, .navbar-inverse {
+    background-color: #1b1b1b;
+    border-color: #222;
+}
+
+.navbar .logo { filter: brightness(0.9) contrast(1.1); }
+
+.result-container, .preview, .result-cpe-item {
+    background-color: #161616;
+    border-color: rgba(255,255,255,0.22) !important; /* even stronger border */
+    box-shadow: 0 8px 30px rgba(0,0,0,0.75), /* stronger outer shadow */
+                0 3px 18px rgba(74,144,226,0.05) !important; /* subtle bluish glow */
+    outline: 1px solid rgba(255,255,255,0.02) inset !important;
+}
+
+.result-traceroute-hops {
+    background-color: #0f0f0f;
+    border-color: rgba(255,255,255,0.20) !important;
+    color: #ddd;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6) inset, 0 2px 12px rgba(74,144,226,0.03) !important;
+    outline: 1px solid rgba(255,255,255,0.02) inset !important;
+}
+
+.sidebox-header, .navbar-brand {
+    color: #ccc;
+}
+
+.label, .label-status {
+    background-color: rgba(255,255,255,0.06);
+    color: #ddd;
+}
+
+/* Tag / label color overrides for dark mode */
+.label {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 90%;
+    font-weight: 600;
+    border-radius: 3px;
+    text-transform: none;
+}
+.label-default {
+    background-color: #4f4f4f; /* brighter neutral */
+    color: #fff;
+}
+.label-primary {
+    background-color: #3b5cff; /* vivid blue */
+    color: #fff;
+}
+.label-success {
+    background-color: #28a745; /* brighter green */
+    color: #fff;
+}
+.label-info {
+    background-color: #17a2b8; /* brighter teal */
+    color: #fff;
+}
+.label-warning {
+    background-color: #ffb84d; /* brighter orange */
+    color: #111;
+}
+.label-danger {
+    background-color: #d9534f; /* vivid red */
+    color: #fff;
+}
+.label-status {
+    padding: 0.15em 0.5em;
+    font-weight: bold;
+}
+
+.highlight {
+    /* subtle red wash for wanted elements; readable on dark backgrounds */
+    background-color: rgba(122,43,43,0.16) !important; /* based on .label-danger */
+    color: #fff !important;
+}
+.highlight-more {
+    /* much stronger red for higher-priority wanted elements */
+    background-color: rgba(200,50,50,0.60) !important; /* brighter & more opaque */
+    color: #fff !important;
+    border-left: 3px solid rgba(220,70,70,0.85) !important; /* extra visual cue */
+    box-shadow: inset 6px 0 12px rgba(220,70,70,0.06) !important;
+}
+
+/* Specific tweaks for scripts, traceroute hops and outputs when highlighted */
+.result-scripts-output.highlight,
+.result-scripts-output.highlight pre {
+    /* keep script output readable while keeping the red emphasis subtle */
+    background-color: rgba(122,43,43,0.10) !important;
+    color: #fff !important;
+}
+/* stronger variant for highlight-more inside script outputs */
+.result-scripts-output.highlight-more,
+.result-scripts-output.highlight-more pre {
+    background-color: rgba(200,50,50,0.36) !important;
+    color: #fff !important;
+    border-left: 3px solid rgba(220,70,70,0.8) !important;
+    box-shadow: inset 6px 0 12px rgba(220,70,70,0.05) !important;
+}
+.result-traceroute-hops table tr.highlight td {
+    background-color: rgba(122,43,43,0.12) !important;
+    color: #fff !important;
+}
+.result-traceroute-hops table tr.highlight-more td {
+    background-color: rgba(200,50,50,0.30) !important;
+    color: #fff !important;
+    border-left: 3px solid rgba(220,70,70,0.8) !important;
+}
+.result-traceroute-hops.highlight, .result-traceroute-hops .highlight {
+    background-color: rgba(122,43,43,0.10) !important;
+    color: #fff !important;
+}
+.result-traceroute-hops.highlight-more, .result-traceroute-hops .highlight-more {
+    background-color: rgba(200,50,50,0.24) !important;
+    color: #fff !important;
+    border-left: 3px solid rgba(220,70,70,0.75) !important;
+}
+
+/* Ensure script output blocks are dark and readable even when NOT highlighted */
+pre.result-scripts-output,
+.result-scripts-output,
+.result-scripts-output pre,
+.result-scripts-output code {
+    background-color: #0b0b0b !important;
+    color: #e8e8e8 !important;
+    border: 1px solid rgba(255,255,255,0.04) !important;
+    padding: 10px !important;
+    white-space: pre-wrap !important; /* keep long lines visible but wrap if necessary */
+    word-break: break-word !important;
+    font-family: Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-size: 13px !important;
+    border-radius: 3px !important;
+}
+
+/* Scrollbar styling for script outputs (WebKit) */
+.result-scripts-output::-webkit-scrollbar,
+pre.result-scripts-output::-webkit-scrollbar {
+    height: 10px;
+    background: transparent;
+}
+.result-scripts-output::-webkit-scrollbar-thumb,
+pre.result-scripts-output::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.06);
+    border-radius: 6px;
+}
+
+/* Links and tokens inside script outputs should remain visible */
+.result-scripts-output a,
+.result-scripts-output .token,
+pre.result-scripts-output a,
+pre.result-scripts-output .token {
+    color: #9fc7ff !important;
+}
+
+/* Tables and borders */
+table, th, td { color: #ddd; }
+hr { border-color: rgba(255,255,255,0.06); }
+
+.popover { background-color: #1f1f1f; color: #ddd; }
+
+/* Ensure icons with .white remain visible */
+.glyphicon.white { color: #fff; }
+
+/* Charts and other elements fallback */
+.chart, .preview, .result { background-color: transparent; }
+
+/* Sidebar and left panel styling */
+.sidebar, .panel, .nav, .nav > li > a, .panel-group, .panel-default {
+    background-color: transparent;
+    color: #ddd;
+}
+
+/* Inputs and filters */
+input, textarea, select {
+    background-color: #1a1a1a !important;
+    color: #ddd !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* Buttons */
+.btn, .btn-default {
+    background-color: #2a2a2a;
+    color: #ddd;
+    border-color: rgba(255,255,255,0.06);
+}
+.btn:hover, .btn:focus {
+    background-color: #3a3a3a;
+}
+
+/* Progress bar */
+.progress { background-color: #141414; border: 1px solid rgba(255,255,255,0.05); }
+.progress .progress-bar {
+    background-color: #4a90e2; /* blue-ish for clarity */
+}
+
+/* List groups (address space buttons) */
+.list-group, .list-group-item {
+    background-color: #121212;
+    border-color: rgba(255,255,255,0.04);
+    color: #ddd;
+}
+
+/* Small UI tweaks */
+.result-url, .label-status { color: #ddd; }
+.preview .screenshot, .result-cpe-item { background-color: #111; }
+
+
+/* Small 'x' buttons next to inputs (filter/remove) - match control buttons */
+li.filter-list > div.input-group > span.input-group-addon {
+    background-color: #2a2a2a; /* same as .btn in dark mode */
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.06) !important;
+    box-shadow: none !important;
+}
+.filter-list .input-group .input-group-btn .btn .glyphicon,
+.sidebar .input-group .input-group-btn .btn .glyphicon,
+.input-group .input-group-btn .btn .glyphicon,
+.input-group .btn .glyphicon {
+    color: #fff !important;
+}
+.filter-list .input-group .input-group-btn .btn:hover,
+.sidebar .input-group .input-group-btn .btn:hover,
+.input-group .input-group-btn .btn:hover,
+.input-group .btn:hover {
+    background-color: #3a3a3a !important;
+}
+
+/* Prevent input-group addons from clipping tooltips/popovers */
+.input-group, .input-group-addon, li.filter-list > div.input-group {
+    overflow: visible !important;
+}
+
+/* Ensure tooltips and popovers appear above input controls */
+.tooltip, .tooltip > .tooltip-inner, .popover, .popover-title, .popover-header {
+    z-index: 3000 !important;
+}
+
+/* make the remove 'x' icon a dark grey to match control button icons */
+.input-group .input-group-btn .btn .glyphicon-remove,
+.filter-list .input-group .input-group-btn .btn .glyphicon-remove,
+.sidebar .input-group .input-group-btn .btn .glyphicon-remove,
+.input-group .btn .glyphicon-remove,
+.input-group-btn .btn .glyphicon-remove,
+.btn.btn-default .glyphicon-remove {
+    color: #222 !important;
+}
+
+/* Popovers and tooltips (Bootstrap 3 & 4) */
+.popover, .popover-body, .popover-content {
+    background-color: #222 !important;
+    color: #ddd !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+.popover-title, .popover-header {
+    background-color: #262626 !important;
+    color: #f0f0f0 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Popover arrow (various placements) */
+.popover.top .arrow:after, .popover.top .arrow:before,
+.popover.bottom .arrow:after, .popover.bottom .arrow:before,
+.popover.left .arrow:after, .popover.left .arrow:before,
+.popover.right .arrow:after, .popover.right .arrow:before,
+.popover .arrow::before, .popover .arrow::after {
+    border-color: transparent !important;
+}
+.popover.top .arrow:after, .popover.top .arrow:before,
+.popover .arrow::before {
+    border-bottom-color: #222 !important;
+}
+.popover.bottom .arrow:after, .popover.bottom .arrow:before,
+.popover .arrow::after {
+    border-top-color: #222 !important;
+}
+.popover.left .arrow:after, .popover.left .arrow:before {
+    border-right-color: #222 !important;
+}
+.popover.right .arrow:after, .popover.right .arrow:before {
+    border-left-color: #222 !important;
+}
+
+/* Tooltip (small help tooltips) */
+.tooltip > .tooltip-inner {
+    background-color: #222 !important;
+    color: #ddd !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+}
+.tooltip.top .tooltip-arrow { border-top-color: #222 !important; }
+.tooltip.bottom .tooltip-arrow { border-bottom-color: #222 !important; }
+.tooltip.left .tooltip-arrow { border-left-color: #222 !important; }
+.tooltip.right .tooltip-arrow { border-right-color: #222 !important; }
+
+/* General code block and inline code styling for dark mode */
+code, kbd, pre, samp {
+    background-color: #0b0b0b;
+    color: #e8e8e8;
+}

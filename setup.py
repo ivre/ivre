@@ -401,6 +401,7 @@ setup(
             [
                 "web/static/ivre/flow.css",
                 "web/static/ivre/ivre.css",
+                "web/static/ivre/ivre-dark.css",
                 "web/static/ivre/compare.js",
                 "web/static/ivre/controllers.js",
                 "web/static/ivre/filters.js",
