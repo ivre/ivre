@@ -66,7 +66,7 @@ from ivre.analyzer.dns import nsrecord
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.plugins import load_plugins
 from ivre.tags import add_tags, gen_addr_tags
-from ivre.tags.active import set_auto_tags
+from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -2444,6 +2444,7 @@ class DBNmap(DBActive):
                             host,
                         )
                         break
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2565,6 +2566,7 @@ class DBNmap(DBActive):
                     )
                 ):
                     continue
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2641,6 +2643,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2714,6 +2717,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     self.store_host(host)
                     if callback is not None:
                         callback(host)
@@ -2841,6 +2845,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3048,6 +3053,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     try:
                         self.store_host(host)
                     except Exception:
@@ -3197,6 +3203,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     self.store_host(host)
                     if callback is not None:
                         callback(host)
@@ -3340,6 +3347,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3581,6 +3589,7 @@ class DBNmap(DBActive):
                     if not host["cpes"]:
                         del host["cpes"]
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3669,6 +3678,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3820,6 +3830,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -4028,6 +4039,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -4139,6 +4151,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
