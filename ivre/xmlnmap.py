@@ -359,7 +359,7 @@ def add_nfs_ls_data(script):
         state = 0  # outside a volume
         result["volumes"].append(cur_vol)
         cur_vol = None
-    if not state:
+    if state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
