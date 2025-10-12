@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1412,15 +1412,14 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(output=smb["output"], data=data)
                         )
-                        if ntlm:
-                            self.db.execute(
-                                insert(self.tables.script).values(
-                                    port=rec.port,
-                                    name=ntlm["id"],
-                                    output=ntlm["output"],
-                                    data={"ntlm-info": ntlm["ntlm-info"]},
-                                )
+                        self.db.execute(
+                            insert(self.tables.script).values(
+                                port=rec.port,
+                                name=ntlm["id"],
+                                output=ntlm["output"],
+                                data={"ntlm-info": ntlm["ntlm-info"]},
                             )
+                        )
                 elif rec.name.endswith("-ntlm-info"):
                     script = {"id": rec.name, "output": rec.output, rec.name: rec.data}
                     xmlnmap.post_ntlm_info(script, {}, {})

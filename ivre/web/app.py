@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -351,6 +351,7 @@ def get_nmap_action(subdb, action):
 
     if flt_params.fmt == "txt":
         for rec in result:
+            # pylint: disable=possibly-used-before-assignment
             yield "%s\n" % r2res(rec)
         return
 

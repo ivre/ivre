@@ -1992,8 +1992,7 @@ class MongoDBActive(MongoDB, DBActive):
                 if script["id"] == "smb-os-discovery":
                     smb, ntlm = xmlnmap.split_smb_os_discovery(script)
                     script.update(smb)
-                    if ntlm:
-                        port["scripts"].append(ntlm)
+                    port["scripts"].append(ntlm)
                     updated = True
                 if script["id"].endswith("-ntlm-info"):
                     xmlnmap.post_ntlm_info(script, port, doc)
