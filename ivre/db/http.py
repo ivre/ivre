@@ -81,6 +81,7 @@ class HttpFetcher:
     @staticmethod
     def from_url(url):
         if HAS_CURL and "@" in url.netloc:
+            # pylint: disable=possibly-used-before-assignment
             username, netloc = url.netloc.split("@", 1)
             if username == "GSSAPI":
                 return HttpFetcherCurlGssapi(url._replace(netloc=netloc))
