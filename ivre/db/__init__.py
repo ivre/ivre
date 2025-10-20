@@ -23,6 +23,7 @@ backends.
 
 import base64
 import binascii
+import hashlib
 import json
 import os
 import pickle
@@ -34,6 +35,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 import xml.sax
 from argparse import ArgumentParser
@@ -41,7 +43,11 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from functools import reduce
 from importlib import import_module
+from io import BytesIO
+from typing import Dict, Generator
+from urllib.error import HTTPError
 from urllib.parse import urlparse
+from urllib.request import build_opener
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -52,7 +58,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, flow, nmapout, passive, utils, xmlnmap
+from ivre import VERSION, config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_hostname,
@@ -853,7 +859,7 @@ class DB:
         if key == "raw":
             return (
                 "md5",
-                utils.hashlib.new(
+                hashlib.new(
                     "md5", data=value_or_hash.encode(), usedforsecurity=False
                 ).hexdigest(),
             )
@@ -5405,6 +5411,189 @@ class DBAgent(DB):
             return self.str2id(fdesc.read())
 
 
+class DBRir(DB):
+    urls = [
+        "https://ftp.afrinic.net/pub/dbase/afrinic.db.gz",
+        "https://ftp.apnic.net/pub/apnic/whois/apnic.db.inetnum.gz",
+        "https://ftp.apnic.net/pub/apnic/whois/apnic.db.inet6num.gz",
+        "https://ftp.arin.net/pub/rr/arin.db.gz",
+        "https://ftp.lacnic.net/lacnic/dbase/lacnic.db.gz",
+        "https://ftp.ripe.net/ripe/dbase/split/ripe.db.inetnum.gz",
+        "https://ftp.ripe.net/ripe/dbase/split/ripe.db.inet6num.gz",
+    ]
+    backends = {
+        "mongodb": ("mongo", "MongoDBRir"),
+    }
+
+    ipaddr_fields = ["start", "stop"]
+    text_fields = ["netname", "descr", "remarks", "notify", "org"]
+
+    @staticmethod
+    def gen_records(fdesc: BytesIO) -> Generator[Dict[str, str], None, None]:
+        """Generate inetnum (and inet6num) records from fdesc, as a
+        dict."""
+        current = {}
+        cur_key = None
+        sep = re.compile(b": *")
+        for line in fdesc:
+            if line.startswith((b"#", b"%")):
+                continue
+            if not line.strip():
+                if current:
+                    if current.pop("_type", None) in {"inetnum", "inet6num", "aut-num"}:
+                        yield {key: "\n".join(value) for key, value in current.items()}
+                current = {}
+                cur_key = None
+                continue
+            if line.startswith((b" ", b"+", b"\t")):
+                key = cur_key
+                try:
+                    value = line[1:].strip().decode("latin-1")
+                except UnicodeDecodeError:
+                    utils.LOGGER.warning("Cannot parse line [%r]", line)
+                    continue
+            else:
+                try:
+                    key, value = (val.strip() for val in sep.split(line, 1))
+                except ValueError:
+                    utils.LOGGER.warning("Cannot parse line [%r]", line)
+                    continue
+                try:
+                    key = key.decode()
+                except UnicodeDecodeError:
+                    utils.LOGGER.warning("Cannot parse line [%r]", line)
+                    continue
+                if key == "language":  # FIXME MongoDB bulk insert bug?
+                    cur_key = key = "lang"
+                else:
+                    cur_key = key
+                try:
+                    value = value.decode("latin-1")
+                except UnicodeDecodeError:
+                    utils.LOGGER.warning("Cannot parse line [%r]", line)
+                    continue
+            if not current:
+                # first key == type
+                current["_type"] = key
+            current.setdefault(key, []).append(value)
+        if current:
+            if current.pop("_type", None) in {"inetnum", "inet6num"}:
+                yield {key: "\n".join(value) for key, value in current.items()}
+
+    def fetch_and_import_all(self):
+        self.import_files(self.fetch())
+
+    def fetch(self):
+        opener = build_opener()
+        new_files = set()
+        for url in self.urls:
+            opener.addheaders = [
+                ("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)
+            ]
+            outfile = os.path.join(config.RIR_PATH, os.path.basename(url))
+            try:
+                outstat = os.stat(outfile)
+            except FileNotFoundError:
+                pass
+            else:
+                opener.addheaders.append(
+                    (
+                        "If-Modified-Since",
+                        time.strftime(
+                            "%a, %d %b %Y %H:%M:%S GMT", time.gmtime(outstat.st_mtime)
+                        ),
+                    )
+                )
+            utils.LOGGER.debug("Downloading %s to %s", url, outfile)
+            try:
+                with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
+                    shutil.copyfileobj(udesc, wdesc)
+            except HTTPError as exc:
+                if exc.status == 304:
+                    utils.LOGGER.debug(
+                        "%s already downloaded", os.path.basename(outfile)
+                    )
+                    continue
+                utils.LOGGER.error("Cannot download %s [%s]", url, exc)
+                try:
+                    os.unlink(outfile)
+                except FileNotFoundError:
+                    pass
+                continue
+            new_files.add(outfile)
+            utils.LOGGER.debug("%s downloaded", url)
+        return new_files
+
+    def import_files(self, files):
+        for fname in files:
+            with utils.open_file(fname) as fdesc:
+                fileid = hashlib.file_digest(fdesc.fdesc, "sha256").hexdigest()
+            try:
+                next(iter(self.get(self.searchfileid(fileid))))
+            except StopIteration:
+                pass
+            else:
+                utils.LOGGER.debug("%s already imported", fname)
+                continue
+            self.remove_many(self.searchsourcefile(os.path.basename(fname)))
+            utils.LOGGER.debug("Importing %s", fname)
+            with utils.open_file(fname) as fdesc:
+                bulk = self.start_bulk()
+                for rec in self.gen_records(fdesc):
+                    if "inetnum" in rec:
+                        inetnum = rec.pop("inetnum")
+                        if "-" in inetnum:
+                            rec["start"], rec["stop"] = (
+                                v.strip() for v in inetnum.split("-", 1)
+                            )
+                        else:
+                            rec["start"], rec["stop"] = utils.net2range(inetnum)
+                    elif "inet6num" in rec:
+                        rec["start"], rec["stop"] = utils.net2range(rec.pop("inet6num"))
+                    elif "aut-num" in rec:
+                        if not rec["aut-num"].startswith("AS"):
+                            utils.LOGGER.warning("Incorrect record [%r]", rec)
+                            continue
+                        try:
+                            rec["aut-num"] = int(rec["aut-num"][2:])
+                        except ValueError:
+                            utils.LOGGER.warning("Incorrect record [%r]", rec)
+                            continue
+                    else:
+                        utils.LOGGER.warning("Incorrect record [%r]", rec)
+                        continue
+                    rec["source_file"] = os.path.basename(fname)
+                    rec["source_hash"] = fileid
+                    bulk = self.insert_bulk(bulk, rec)
+                self.stop_bulk(bulk)
+
+    def get_best(self, addr: str, spec=None):
+        if spec is None:
+            spec = self.searchhost(addr)
+        else:
+            spec = self.flt_and(self.searchhost(addr), spec)
+        try:
+            return next(iter(self.get(spec, sort=[("start", -1), ("stop", 1)])))
+        except StopIteration:
+            return None
+
+    @staticmethod
+    def start_bulk():
+        return None
+
+    @staticmethod
+    def stop_bulk(bulk):
+        pass
+
+    @staticmethod
+    def insert_bulk(bulk, rec):
+        print(rec)
+
+    @staticmethod
+    def searchsourceurl(src, neg=False):
+        raise NotImplementedError
+
+
 class DBFlowMeta(type):
     """
     This metaclass aims to compute 'meta_desc' and 'list_fields' once for all
@@ -5497,22 +5686,22 @@ class DBFlow(DB):
         first_timeslot = cls._get_timeslot(
             start_time, config.FLOW_TIME_PRECISION, config.FLOW_TIME_BASE
         )
-        time = first_timeslot["start"]
+        cur_time = first_timeslot["start"]
         last_timeslot = cls._get_timeslot(
             end_time, config.FLOW_TIME_PRECISION, config.FLOW_TIME_BASE
         )
         end_time = last_timeslot["start"]
-        while time <= end_time:
+        while cur_time <= end_time:
             d = OrderedDict()
-            d["start"] = time
+            d["start"] = cur_time
             d["duration"] = config.FLOW_TIME_PRECISION
             times.append(d)
-            time += timedelta(seconds=config.FLOW_TIME_PRECISION)
+            cur_time += timedelta(seconds=config.FLOW_TIME_PRECISION)
         return times
 
     @staticmethod
-    def _get_timeslot(time, precision, base):
-        ts = time.timestamp()
+    def _get_timeslot(time_val, precision, base):
+        ts = time_val.timestamp()
         ts += utils.tz_offset(ts)
         new_ts = ts - (((ts % precision) - base) % precision)
         new_ts -= utils.tz_offset(new_ts)
@@ -5874,6 +6063,7 @@ class MetaDB:
         "passive": DBPassive,
         "data": DBData,
         "agent": DBAgent,
+        "rir": DBRir,
         "flow": DBFlow,
     }
 
@@ -5940,6 +6130,16 @@ class MetaDB:
             pass
         self._view = self.get_class("view")
         return self._view
+
+    @property
+    def rir(self):
+        try:
+            # pylint: disable=access-member-before-definition
+            return self._rir
+        except AttributeError:
+            pass
+        self._rir = self.get_class("rir")
+        return self._rir
 
     def get_class(self, purpose):
         url = self.urls.get(purpose, self.url)
