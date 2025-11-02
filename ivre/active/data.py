@@ -466,7 +466,10 @@ def merge_nuclei_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
     def nuclei_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
-        return a == b
+        return all(
+            a.get(key) == b.get(key)
+            for key in ["name", "url", "template", "host", "path"]
+        )
 
     def nuclei_output(nuclei: dict[str, Any], script_id: str) -> str:
         return "[%(severity)s] %(name)s found at %(url)s" % nuclei
