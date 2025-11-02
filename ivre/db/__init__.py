@@ -3229,22 +3229,31 @@ class DBNmap(DBActive):
                 elif "template-id" in rec:
                     rec["template"] = rec.pop("template-id")
                 name = rec["name"]
-                if "matcher_name" in rec:
-                    name += " (%s)" % rec["matcher_name"]
-                elif "matcher-name" in rec:
+                nuclei_data = {
+                    "template": rec["template"],
+                    "url": url,
+                    "severity": rec["severity"],
+                }
+                if "matcher-name" in rec:
                     name += " (%s)" % rec["matcher-name"]
+                    nuclei_data["matcher-name"] = rec["matcher-name"]
+                elif "matcher_name" in rec:
+                    name += " (%s)" % rec["matcher_name"]
+                    nuclei_data["matcher-name"] = rec["matcher_name"]
+                nuclei_data["name"] = name
+                for key in ["curl-command", "extracted-results", "matcher-status"]:
+                    if key in rec:
+                        nuclei_data[key] = rec[key]
+                    elif (alt_key := key.replace("-", "_")) in rec:
+                        nuclei_data[key] = rec[alt_key]
+                for key in ["host", "path", "request"]:
+                    if key in rec:
+                        nuclei_data[key] = rec[key]
                 scripts = [
                     {
                         "id": "%s-nuclei" % (rec["type"]),
                         "output": "[%s] %s found at %s" % (rec["severity"], name, url),
-                        "nuclei": [
-                            {
-                                "template": rec["template"],
-                                "name": name,
-                                "url": url,
-                                "severity": rec["severity"],
-                            },
-                        ],
+                        "nuclei": [nuclei_data],
                     },
                 ]
                 port_doc["scripts"] = scripts
