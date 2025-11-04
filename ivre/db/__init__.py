@@ -946,6 +946,7 @@ class DBActive(DB):
         "ports.scripts.http-app",
         "ports.scripts.http-citrix-netscaler-triage.rdx_en_gzip_datetime.tls_names",
         "ports.scripts.http-headers",
+        "ports.scripts.http-httpx.technologies",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
@@ -3569,7 +3570,7 @@ class DBNmap(DBActive):
                         {
                             "id": "http-httpx",
                             "output": "\n".join(output),
-                            "http-hpptx": script,
+                            "http-httpx": script,
                         }
                     )
                 # remaining fields (TODO): path body-sha256
