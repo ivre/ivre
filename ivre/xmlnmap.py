@@ -151,6 +151,12 @@ def add_mongodb_databases_data(script):
      'totalSizeMb': 123456}
     """
 
+    if (
+        script["output"]
+        .strip()
+        .startswith("errmsg = command listDatabases requires authentication")
+    ):
+        return None
     out = {}
     cur_dict = {}  # not needed, just to make pylint happy
     # Global modes, see MODES[1]
@@ -2267,9 +2273,17 @@ class NmapHandler(ContentHandler):
                             if infos:
                                 self._curscript[infokey] = infos
                 elif hasattr(infos, "__call__"):
-                    infos = infos(self._curscript)
-                    if infos is not None:
-                        self._curscript[infokey] = infos
+                    try:
+                        infos = infos(self._curscript)
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot create structured output for %s",
+                            infokey,
+                            exc_info=True,
+                        )
+                    else:
+                        if infos is not None:
+                            self._curscript[infokey] = infos
             if infokey in POST_PROCESS:
                 POST_PROCESS[infokey](self._curscript, current, self._curhost)
             if infokey in SPLIT_SCRIPTS:
