@@ -3575,6 +3575,17 @@ class DBNmap(DBActive):
                     if "technologies" in script:
                         output.append("Technologies:")
                         output.extend(f"- {tech}" for tech in script["technologies"])
+                        # after creating the output, structure the data
+                        script["technologies"] = [
+                            (
+                                {"name": tech_v[0], "version": tech_v[1]}
+                                if len(tech_v) > 1
+                                else {"name": tech_v[0]}
+                            )
+                            for tech_v in (
+                                tech.split(":", 1) for tech in script["technologies"]
+                            )
+                        ]
                     port.setdefault("scripts", []).append(
                         {
                             "id": "http-httpx",
