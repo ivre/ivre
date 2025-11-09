@@ -57,6 +57,17 @@ ivreWebUi.directive('popover', function(){
 
 ivreWebUi
     .controller('IvreMainCtrl', function ($scope) {
+	$scope.copyToClipboard = function (text) {
+          if (!text) {
+            console.warn('No text provided to copy!');
+            return;
+          }
+          navigator.clipboard.writeText(text).then(function () {
+            console.log('Copied to clipboard:', text);
+          }).catch(function (err) {
+            console.error('Could not copy text:', err);
+          });
+        };
 	$scope.setparam = function(param, value, unique, notnow) {
 	     return setparam($scope.shared.filter,
 			     param, value, unique, notnow);
