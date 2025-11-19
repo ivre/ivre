@@ -5902,6 +5902,13 @@ class MetaDB:
         self.url = url
         self.urls = urls or {}
 
+    def close(self):
+        for attr in ["nmap", "passive", "data", "agent", "flow", "view"]:
+            try:
+                getattr(self, f"_{attr}").close()
+            except AttributeError:
+                pass
+
     @property
     def nmap(self):
         try:
