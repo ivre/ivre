@@ -42,7 +42,7 @@ from ivre.activecli import (
 from ivre.db import DBView, db
 from ivre.nmapout import displayhosts
 from ivre.types import DBCursor
-from ivre.utils import CLI_ARGPARSER, LOGGER, InvalidIPAddress
+from ivre.utils import CLI_ARGPARSER, LOGGER, InvalidIPAddress, InvalidPort
 
 
 def main() -> None:
@@ -140,6 +140,9 @@ def main() -> None:
         flt = dbase.parse_args(args)
     except InvalidIPAddress as exc:
         LOGGER.error("Invalid IP address [%r]!", exc.value)
+        sys.exit(1)
+    except InvalidPort as exc:
+        LOGGER.error("Invalid port [%r]!", exc.value)
         sys.exit(1)
 
     if args.init:

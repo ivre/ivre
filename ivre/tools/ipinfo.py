@@ -309,6 +309,9 @@ def main() -> None:
     except utils.InvalidIPAddress as exc:
         utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
         sys.exit(1)
+    except utils.InvalidPort as exc:
+        utils.LOGGER.error("Invalid port [%r]!", exc.value)
+        sys.exit(1)
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
