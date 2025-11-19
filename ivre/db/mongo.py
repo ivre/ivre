@@ -132,6 +132,13 @@ class MongoDBConnection:
         self._client = pymongo.MongoClient(host=host or None, **self.params)
         return self._client
 
+    def close(self):
+        try:
+            # We do not use .client to avoid a useless connection.
+            self._client.close()  # pylint: disable=access-member-before-definition
+        except AttributeError:
+            pass
+
     @property
     def db(self):
         try:
@@ -193,6 +200,9 @@ class MongoDB(DB):
             },
         )
         self.schema_migrations = []
+
+    def close(self):
+        self._db.close()
 
     def set_limits(self, cur):
         if self.maxscan is not None:
