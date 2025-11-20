@@ -256,6 +256,9 @@ VIEW_SYNACK_HONEYPOT_COUNT = 200
 # Some hostnames (often at CDNs) have too many hostnames and it might
 # not be very useful to count them all
 VIEW_MAX_HOSTNAMES_COUNT = 200
+# Control how hostnames extracted from TLS certificates are stored.
+# Accepted values: "all" (default), "no-wildcard", "none".
+CERT_HOSTNAMES_POLICY = "all"
 
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
