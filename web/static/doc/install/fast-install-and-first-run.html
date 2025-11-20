@@ -121,12 +121,12 @@ server, database server) on the same (Debian or Ubuntu) machine.</p>
 <section id="install-ivre">
 <h2>Install IVRE<a class="headerlink" href="#install-ivre" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install python3-pymongo \
-&gt;   python3-cryptography python3-bottle python3-openssl apache2 \
-&gt;   libapache2-mod-wsgi-py3 dokuwiki
+&gt;   python3-cryptography python3-bottle python3-openssl \
+&gt;   python3-pillow python3-pip apache2 libapache2-mod-wsgi-py3 \
+&gt;   dokuwiki git
 $ git clone https://github.com/ivre/ivre
 $ cd ivre
-$ python3 setup.py build
-$ sudo python3 setup.py install
+$ sudo pip3 install . --break-system-packages
 </pre></div>
 </div>
 </section>
@@ -142,7 +142,7 @@ $ sudo python3 setup.py install
 # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
 # ln -s /usr/local/share/ivre/dokuwiki/media/doc
 # cd /usr/share/dokuwiki
-# patch -p0 &lt; /usr/local/share/ivre/patches/dokuwiki/backlinks-20200729.patch
+# patch -p0 &lt; /usr/local/share/ivre/patches/dokuwiki/backlinks-20230404a.patch
 # cd /etc/apache2/mods-enabled
 # for m in rewrite.load wsgi.conf wsgi.load ; do
 &gt;   [ -L $m ] || ln -s ../mods-available/$m ; done
@@ -171,6 +171,7 @@ $ yes | ivre view --init
 $ yes | ivre flowcli --init
 $ yes | sudo ivre runscansagentdb --init
 $ sudo ivre ipdata --download
+$ sudo ivre getwebdata
 </pre></div>
 </div>
 </section>
@@ -225,7 +226,7 @@ and the <code class="docutils literal notranslate"><span class="pre">ivre</span>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2011 - 2024, Pierre LALET.</p>
+    <p>&#169; Copyright 2011 - 2025, Pierre LALET.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

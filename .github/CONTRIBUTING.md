@@ -1,6 +1,6 @@
 # How to contribute
 
-You'll find here tips and advices to help you contribute to IVRE in
+You'll find here tips and advice to help you contribute to IVRE in
 the most efficient way.
 
 ## Project objectives

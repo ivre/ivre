@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -67,6 +67,8 @@ from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
 from ivre.types import Filter, IndexKey
 
+VALID_KEY = re.compile("^[a-zA-Z0-9_]+$")
+
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
     @staticmethod
@@ -130,6 +132,13 @@ class MongoDBConnection:
         self._client = pymongo.MongoClient(host=host or None, **self.params)
         return self._client
 
+    def close(self):
+        try:
+            # We do not use .client to avoid a useless connection.
+            self._client.close()  # pylint: disable=access-member-before-definition
+        except AttributeError:
+            pass
+
     @property
     def db(self):
         try:
@@ -144,7 +153,7 @@ class MongoDB(DB):
     is_documentdb = False  # set to True for AWS DocumentDB sub-classes
     indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = []
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = []
     schema_latest_versions: list[int] = []
     hint_indexes: list[dict[str, list[IndexKey]]] = []
@@ -191,6 +200,9 @@ class MongoDB(DB):
             },
         )
         self.schema_migrations = []
+
+    def close(self):
+        self._db.close()
 
     def set_limits(self, cur):
         if self.maxscan is not None:
@@ -335,9 +347,7 @@ class MongoDB(DB):
                 .get("ensure", [])
             )
             if new_indexes:
-                utils.LOGGER.info(
-                    "Creating new indexes...",
-                )
+                utils.LOGGER.info("Creating new indexes...")
                 try:
                     self.db[self.columns[colnum]].create_indexes(
                         [pymongo.IndexModel(idx[0], **idx[1]) for idx in new_indexes]
@@ -346,12 +356,8 @@ class MongoDB(DB):
                     utils.LOGGER.debug(
                         "Cannot create indexes %r", new_indexes, exc_info=True
                     )
-                utils.LOGGER.info(
-                    "  ... Done.",
-                )
-            utils.LOGGER.info(
-                "Migrating records...",
-            )
+                utils.LOGGER.info("  ... Done.")
+            utils.LOGGER.info("Migrating records...")
             updated = False
             # unlimited find()!
             for i, record in enumerate(
@@ -378,13 +384,9 @@ class MongoDB(DB):
                     failed += 1
                 if not (i + 1) % 100000:
                     utils.LOGGER.info("  %d records migrated", i + 1)
-            utils.LOGGER.info(
-                "  ... Done.",
-            )
+            utils.LOGGER.info("  ... Done.")
             # Checking for required actions on indexes
-            utils.LOGGER.info(
-                "  Performing other actions on indexes...",
-            )
+            utils.LOGGER.info("Performing other actions on indexes...")
             for action, indexes in (
                 self.schema_migrations_indexes[colnum].get(new_version, {}).items()
             ):
@@ -398,9 +400,7 @@ class MongoDB(DB):
                         (utils.LOGGER.warning if updated else utils.LOGGER.debug)(
                             "Cannot %s index %s", action, idx, exc_info=True
                         )
-            utils.LOGGER.info(
-                "  ... Done.",
-            )
+            utils.LOGGER.info("  ... Done.")
             utils.LOGGER.info(
                 "Migration of column %d from version %r to %r DONE",
                 colnum,
@@ -754,7 +754,26 @@ class MongoDB(DB):
         raise Exception(f"Unknown operator {cmpop!r} (for key {key!r} and val {val!r})")
 
     @staticmethod
+    def _searchcertsubject(prefix, subject, field):
+        res = {}
+        if isinstance(subject, dict):
+            if not subject:
+                res[f"{prefix}{field}_text"] = {"$exists": True}
+            else:
+                for key, value in subject.items():
+                    if VALID_KEY.match(key):
+                        res[f"{prefix}{field}.{key}"] = value
+                    else:
+                        utils.LOGGER.warning(
+                            "Skipping invalid key [%r] in cert lookup", key[:100]
+                        )
+        else:
+            res[f"{prefix}{field}_text"] = subject
+        return res
+
+    @classmethod
     def _searchcert(
+        cls,
         prefix="",
         base=None,
         keytype=None,
@@ -784,9 +803,9 @@ class MongoDB(DB):
                 continue
             res[key] = hashval.lower()
         if subject is not None:
-            res[f"{prefix}subject_text"] = subject
+            res.update(cls._searchcertsubject(prefix, subject, "subject"))
         if issuer is not None:
-            res[f"{prefix}issuer_text"] = issuer
+            res.update(cls._searchcertsubject(prefix, issuer, "issuer"))
         if self_signed is not None:
             res[f"{prefix}self_signed"] = self_signed
         for hashtype in ["md5", "sha1", "sha256"]:
@@ -909,6 +928,14 @@ class MongoDBActive(MongoDB, DBActive):
                         pymongo.ASCENDING,
                     ),
                     ("ports.scripts.ssl-cert.issuer.localityName", pymongo.ASCENDING),
+                ],
+                {
+                    "sparse": True,
+                    "name": "ports.scripts.ssl-cert.issuer.fields_1",
+                },
+            ),
+            (
+                [
                     (
                         "ports.scripts.ssl-cert.issuer.organizationName",
                         pymongo.ASCENDING,
@@ -920,7 +947,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {
                     "sparse": True,
-                    "name": "ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1",
+                    "name": "ports.scripts.ssl-cert.issuer.fields_2",
                 },
             ),
             (
@@ -935,6 +962,14 @@ class MongoDBActive(MongoDB, DBActive):
                         pymongo.ASCENDING,
                     ),
                     ("ports.scripts.ssl-cert.subject.localityName", pymongo.ASCENDING),
+                ],
+                {
+                    "sparse": True,
+                    "name": "ports.scripts.ssl-cert.subject.fields_1",
+                },
+            ),
+            (
+                [
                     (
                         "ports.scripts.ssl-cert.subject.organizationName",
                         pymongo.ASCENDING,
@@ -946,7 +981,7 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {
                     "sparse": True,
-                    "name": "ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1",
+                    "name": "ports.scripts.ssl-cert.subject.fields_2",
                 },
             ),
             ([("ports.scripts.ssl-cert.md5", pymongo.ASCENDING)], {"sparse": True}),
@@ -1031,7 +1066,7 @@ class MongoDBActive(MongoDB, DBActive):
         ],
     ]
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         # hosts
         {
@@ -1292,7 +1327,86 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ]
             },
-            22: {},  # needed for MongoDBNmap
+            22: {
+                "drop": [
+                    ("ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1", {}),
+                    ("ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1", {}),
+                ],
+                "ensure": [
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.issuer.countryName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.stateOrProvinceName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.localityName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.issuer.fields_1",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.issuer.organizationName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.issuer.organizationalUnitName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.issuer.fields_2",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.subject.countryName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.stateOrProvinceName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.localityName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.subject.fields_1",
+                        },
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ssl-cert.subject.organizationName",
+                                pymongo.ASCENDING,
+                            ),
+                            (
+                                "ports.scripts.ssl-cert.subject.organizationalUnitName",
+                                pymongo.ASCENDING,
+                            ),
+                        ],
+                        {
+                            "sparse": True,
+                            "name": "ports.scripts.ssl-cert.subject.fields_2",
+                        },
+                    ),
+                ],
+            },
         },
     ]
     schema_latest_versions = [
@@ -1888,8 +2002,7 @@ class MongoDBActive(MongoDB, DBActive):
                 if script["id"] == "smb-os-discovery":
                     smb, ntlm = xmlnmap.split_smb_os_discovery(script)
                     script.update(smb)
-                    if ntlm:
-                        port["scripts"].append(ntlm)
+                    port["scripts"].append(ntlm)
                     updated = True
                 if script["id"].endswith("-ntlm-info"):
                     xmlnmap.post_ntlm_info(script, port, doc)
@@ -2172,11 +2285,14 @@ class MongoDBActive(MongoDB, DBActive):
             self.count(flt),
         )
 
-    def store_host(self, host):
-        host = deepcopy(host)
-        # Convert IP addresses to internal DB format
+    @classmethod
+    def rec2internal(cls, host):
+        """Given a record as presented to the user, fixes it before it can be
+        inserted in the database.
+
+        """
         try:
-            host["addr_0"], host["addr_1"] = self.ip2internal(host.pop("addr"))
+            host["addr_0"], host["addr_1"] = cls.ip2internal(host.pop("addr"))
         except (KeyError, ValueError):
             pass
         if "ports" in host:
@@ -2189,14 +2305,14 @@ class MongoDBActive(MongoDB, DBActive):
                         (
                             port["state_reason_ip_0"],
                             port["state_reason_ip_1"],
-                        ) = self.ip2internal(port.pop("state_reason_ip"))
+                        ) = cls.ip2internal(port.pop("state_reason_ip"))
                     except ValueError:
                         pass
         for trace in host.get("traces", []):
             for hop in trace.get("hops", []):
                 if "ipaddr" in hop:
                     try:
-                        hop["ipaddr_0"], hop["ipaddr_1"] = self.ip2internal(
+                        hop["ipaddr_0"], hop["ipaddr_1"] = cls.ip2internal(
                             hop.pop("ipaddr")
                         )
                     except ValueError:
@@ -2207,6 +2323,11 @@ class MongoDBActive(MongoDB, DBActive):
                 "type": "Point",
                 "coordinates": host["infos"].pop("coordinates")[::-1],
             }
+        return host
+
+    def store_host(self, host):
+        host = deepcopy(host)
+        self.rec2internal(host)
         try:
             ident = (
                 self.db[self.columns[self.column_hosts]].insert_one(host).inserted_id
@@ -4253,7 +4374,7 @@ class MongoDBActive(MongoDB, DBActive):
 class MongoDBNmap(MongoDBActive, DBNmap):
     content_handler = Nmap2Mongo
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         (
             {
@@ -4281,7 +4402,22 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                         ],
                     )
                     if key == 22
-                    else value
+                    else (
+                        dict(
+                            value,
+                            ensure=[
+                                v
+                                for v in value.get("ensure", [])
+                                if v
+                                != (
+                                    [("tags.value", 1), ("tags.info", 1)],
+                                    {"sparse": True},
+                                )
+                            ],
+                        )
+                        if key == 20
+                        else value
+                    )
                 )
                 for key, value in idxs.items()
             }
@@ -4376,7 +4512,7 @@ class MongoDBView(MongoDBActive, DBView):
         for i, idxs in enumerate(MongoDBActive.indexes)
     ]
     schema_migrations_indexes: list[
-        dict[int, dict[str, list[tuple[list[IndexKey], dict[str, Any]]]]]
+        dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
     ] = [
         (
             {
@@ -4591,7 +4727,37 @@ class MongoDBPassive(MongoDB, DBPassive):
             ([("infos.sha1", pymongo.ASCENDING)], {"sparse": True}),
             ([("infos.sha256", pymongo.ASCENDING)], {"sparse": True}),
             ([("infos.issuer_text", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [
+                    ("infos.issuer.countryName", pymongo.ASCENDING),
+                    ("info.issuer.stateOrProvinceName", pymongo.ASCENDING),
+                    ("info.issuer.localityName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.issuer.fields_1"},
+            ),
+            (
+                [
+                    ("info.issuer.organizationName", pymongo.ASCENDING),
+                    ("info.issuer.organizationalUnitName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.issuer.fields_2"},
+            ),
             ([("infos.subject_text", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [
+                    ("info.subject.countryName", pymongo.ASCENDING),
+                    ("info.subject.stateOrProvinceName", pymongo.ASCENDING),
+                    ("info.subject.localityName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.subject.fields_1"},
+            ),
+            (
+                [
+                    ("info.subject.organizationName", pymongo.ASCENDING),
+                    ("info.subject.organizationalUnitName", pymongo.ASCENDING),
+                ],
+                {"sparse": True, "name": "info.subject.fields_2"},
+            ),
             ([("infos.pubkey.type", pymongo.ASCENDING)], {"sparse": True}),
         ],
     ]

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ from ivre.types.active import (
     NmapScript,
 )
 from ivre.utils import (
+    _CERTKEYS,
     IPV4ADDR,
     LOGGER,
     decode_b64,
@@ -63,6 +64,7 @@ from ivre.utils import (
     get_domains,
     key_sort_dom,
     nmap_encode_data,
+    parse_cert_subject_string,
     ports2nmapspec,
 )
 
@@ -133,27 +135,57 @@ def create_ssl_cert(
     return "\n".join(create_ssl_output(info)), [info]
 
 
+def san2hostname(san: str) -> tuple[str, str] | None:
+    """Extract a hostname from a Subject Alt Name value when possible."""
+    if san.startswith("DNS:"):
+        return "dns", san[4:]
+    if san.startswith("URI:"):
+        url = san[4:]
+        if url.startswith("://"):
+            url = f"x{url}"  # add a fake scheme for URL parsing
+        try:
+            hostname = urlparse(url).hostname
+        except Exception:
+            LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
+            return None
+        if hostname:
+            return "uri", hostname
+        return None
+    if san.startswith("DirName:"):
+        dir_name = san[8:]
+        try:
+            key, value = dir_name.split("=", 1)
+        except ValueError:
+            LOGGER.warning("Invalid DirName in SAN %r", san, exc_info=True)
+            return None
+        if key.strip().lower() != "cn":
+            return None
+        return "dirname-cn", value.strip()
+    if san.startswith("othername:UPN:"):
+        upn = san[14:]
+        if upn.startswith("S-1-"):
+            # SID
+            return None
+        if "/" in upn:
+            hostname = upn.split("/", 1)[1].split("@", 1)[0]
+        else:
+            hostname = upn
+        return "othername-upn", hostname
+    if san.startswith("othername:"):
+        name = san[10:]
+        if ":" not in name:
+            return None
+        subtype, hostname = name.split(":", 1)
+        return f"othername-{subtype.lower()}", hostname
+    return None
+
+
 def add_cert_hostnames(cert: ParsedCertificate, hostnames: list[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
         add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
-        if san.startswith("DNS:"):
-            add_hostname(san[4:], "cert-san-dns", hostnames)
-            continue
-        if san.startswith("URI:"):
-            try:
-                netloc = urlparse(san[4:]).netloc
-            except Exception:
-                LOGGER.warning("Invalid URL in SAN %r", san, exc_info=True)
-                continue
-            if not netloc:
-                continue
-            if netloc.startswith("["):
-                # IPv6
-                continue
-            if ":" in netloc:
-                netloc = netloc.split(":", 1)[0]
-            add_hostname(netloc, "cert-san-uri", hostnames)
+        if (type_hostname := san2hostname(san)) is not None:
+            add_hostname(type_hostname[1], f"cert-san-{type_hostname[0]}", hostnames)
 
 
 def merge_ja3_scripts(
@@ -434,7 +466,10 @@ def merge_nuclei_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
     def nuclei_equals(a: dict[str, Any], b: dict[str, Any], script_id: str) -> bool:
-        return a == b
+        return all(
+            a.get(key) == b.get(key)
+            for key in ["name", "url", "template", "host", "path"]
+        )
 
     def nuclei_output(nuclei: dict[str, Any], script_id: str) -> str:
         return "[%(severity)s] %(name)s found at %(url)s" % nuclei
@@ -1013,6 +1048,112 @@ def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> No
             "domains": list(get_domains(name)),
         }
     )
+
+
+def handle_tlsx_result(
+    host: NmapHost,
+    port: NmapPort,
+    result: dict[str, Any],
+) -> None:
+    cert_added = False
+    if "certificate" in result:
+        try:
+            output_cert, info_cert = create_ssl_cert(
+                "".join(result["certificate"].splitlines()[1:-1]).encode(),
+                b64encoded=True,
+            )
+        except Exception:
+            LOGGER.warning(
+                "Cannot parse certificate %r",
+                result["certificate"],
+                exc_info=True,
+            )
+        else:
+            cert_added = True
+            if info_cert:
+                port.setdefault("scripts", []).append(
+                    {
+                        "id": "ssl-cert",
+                        "output": output_cert,
+                        "ssl-cert": info_cert,
+                    }
+                )
+                for cert in info_cert:
+                    add_cert_hostnames(cert, host.setdefault("hostnames", []))
+    if not cert_added:
+        # add at least parsed info when the raw certificate is not
+        # available or could not be parsed
+        cert_object = dict(result.get("fingerprint_hash", {}))
+        for fld in ["subject", "issuer"]:
+            try:
+                flddata = [
+                    (_CERTKEYS.get(key, key), value)
+                    for key, value in parse_cert_subject_string(result[f"{fld}_dn"])
+                ]
+            except KeyError:
+                continue
+            cert_object[fld] = {key.replace(".", "_"): value for key, value in flddata}
+            cert_object[f"{fld}_text"] = "/".join("%s=%s" % item for item in flddata)
+        if "self_signed" in result:
+            cert_object["self_signed"] = result["self_signed"]
+        elif "subject_text" in cert_object and "issuer_text" in cert_object:
+            cert_object["self_signed"] = (
+                cert_object["subject_text"] == cert_object["issuer_text"]
+            )
+        for fld in ["not_before", "not_after"]:
+            try:
+                cert_object[fld] = result["fld"][:19].replace("T", " ")
+            except (KeyError, ValueError):
+                pass
+        if "not_before" in result and "not_after" in result:
+            cert_object["lifetime"] = int(
+                (
+                    datetime.fromisoformat(result["not_after"])
+                    - datetime.fromisoformat(result["not_before"])
+                ).total_seconds()
+            )
+        try:
+            cert_object["serial_number"] = str(
+                int(result["serial"].replace(":", ""), 16)
+            )
+        except (KeyError, ValueError):
+            pass
+        if "subject_an" in result:
+            # tlsx (used by httpx for TLS) only stores DNS SANs
+            cert_object["san"] = [f"DNS:{value}" for value in result["subject_an"]]
+        if cert_object:
+            port.setdefault("scripts", []).append(
+                {
+                    "id": "ssl-cert",
+                    "output": "\n".join(create_ssl_output(cert_object)),
+                    "ssl-cert": [cert_object],
+                }
+            )
+            add_cert_hostnames(cert_object, host.setdefault("hostnames", []))
+    if "jarm_hash" in result:
+        port.setdefault("scripts", []).append(
+            {
+                "id": "ssl-jarm",
+                "output": result["jarm_hash"],
+                "ssl-jarm": result["jarm_hash"],
+            }
+        )
+    structured = {}
+    output = []
+    for fld in ["tls_version", "cipher", "tls_connection"]:
+        if fld in result:
+            structured[fld] = result[fld]
+            output.append(
+                f"{fld.replace('_', ' ').capitalize().replace('Tls', 'TLS')}: {result[fld]}"
+            )
+    if structured:
+        port.setdefault("scripts", []).append(
+            {
+                "id": "ssl-tlsx",
+                "output": "\n".join(output),
+                "ssl-tlsx": structured,
+            }
+        )
 
 
 _EXPR_TITLE = re.compile(b"<title[^>]*>([^<]*)</title>", re.I)

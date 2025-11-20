@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains the parser for nmap's XML output files.
-
-"""
+"""This sub-module contains the parser for nmap's XML output files."""
 
 
 import datetime
@@ -153,6 +151,12 @@ def add_mongodb_databases_data(script):
      'totalSizeMb': 123456}
     """
 
+    if (
+        script["output"]
+        .strip()
+        .startswith("errmsg = command listDatabases requires authentication")
+    ):
+        return None
     out = {}
     cur_dict = {}  # not needed, just to make pylint happy
     # Global modes, see MODES[1]
@@ -300,7 +304,7 @@ def add_smb_ls_data(script):
                 state = 0  # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
-    if not state:
+    if state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
@@ -361,7 +365,7 @@ def add_nfs_ls_data(script):
         state = 0  # outside a volume
         result["volumes"].append(cur_vol)
         cur_vol = None
-    if not state:
+    if state:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
@@ -1013,6 +1017,7 @@ IGNORE_SCRIPTS = {
             "\n  ERROR: Not a Cisco ASA or unsupported version",
         ]
     ),
+    "http-trane-info": set(["Problem with XML parsing of /evox/about"]),
     "ndmp-fs-info": set(
         [
             "\n  ERROR: Failed to get filesystem information from server",
@@ -2268,9 +2273,17 @@ class NmapHandler(ContentHandler):
                             if infos:
                                 self._curscript[infokey] = infos
                 elif hasattr(infos, "__call__"):
-                    infos = infos(self._curscript)
-                    if infos is not None:
-                        self._curscript[infokey] = infos
+                    try:
+                        infos = infos(self._curscript)
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot create structured output for %s",
+                            infokey,
+                            exc_info=True,
+                        )
+                    else:
+                        if infos is not None:
+                            self._curscript[infokey] = infos
             if infokey in POST_PROCESS:
                 POST_PROCESS[infokey](self._curscript, current, self._curhost)
             if infokey in SPLIT_SCRIPTS:

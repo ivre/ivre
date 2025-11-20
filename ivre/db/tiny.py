@@ -3819,7 +3819,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
         if config.FLOW_STORE_METADATA:
             for kind, op in self.meta_kinds.items():
                 for key, value in self.meta_desc[name].get(kind, {}).items():
-                    if not rec[value]:
+                    if not rec.get(value):
                         continue
                     if "%s.%s.%s" % (name, kind, key) in flow.META_DESC_ARRAYS:
                         for val in rec[value]:

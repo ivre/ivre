@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -55,18 +55,18 @@ except ImportError:
 from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
-    add_cert_hostnames,
     add_hostname,
-    create_ssl_cert,
     handle_http_content,
     handle_http_headers,
+    handle_tlsx_result,
     merge_host_docs,
 )
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
+from ivre.analyzer.dns import nsrecord
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
 from ivre.plugins import load_plugins
 from ivre.tags import add_tags, gen_addr_tags
-from ivre.tags.active import set_auto_tags
+from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -114,7 +114,9 @@ class DB:
             help="show only results WITHOUT this(those) ID(s)",
             nargs="+",
         )
-        self.argparser.add_argument("--version", metavar="VERSION", type=int)
+        self.argparser.add_argument(
+            "--version", "--schema-version", metavar="VERSION", type=int
+        )
         self.argparser.add_argument(
             "--category", metavar="CAT", help="show only results from this category"
         )
@@ -122,6 +124,9 @@ class DB:
         self.argparser.add_argument("--service", metavar="SVC[:PORT]")
         self.argparser.add_argument("--svchostname", metavar="HOSTNAME")
         self.argparser.add_argument("--product", metavar="[SVC:]PROD")
+        self.argparser.add_argument(
+            "--prodversion", "--product-version", metavar="[[SVC:]PROD:]VERSION"
+        )
         self.argparser.add_argument(
             "--useragent", metavar="USER-AGENT", nargs="?", const=False
         )
@@ -207,6 +212,39 @@ class DB:
                 flt,
                 self.searchproduct(
                     product=utils.str2regexpnone(prod),
+                    service=svc,
+                    port=port,
+                ),
+            )
+        if args.prodversion is not None:
+            try:
+                svc_prod, prod_version = args.prodversion.split(":", 1)
+            except ValueError:
+                svc = None
+                prod = None
+                version = args.prodversion
+                port = None
+            else:
+                try:
+                    prod, version = prod_version.split(":", 1)
+                except ValueError:
+                    svc = None
+                    prod = utils.str2regexpnone(svc_prod)
+                    version = prod_version
+                    port = None
+                else:
+                    svc = utils.str2regexpnone(svc_prod)
+                    prod = utils.str2regexpnone(prod)
+                    if ":" in version:
+                        version, port = version.split(":", 1)
+                        port = int(port)
+                    else:
+                        port = None
+            flt = self.flt_and(
+                flt,
+                self.searchproduct(
+                    version=utils.str2regexpnone(version),
+                    product=prod,
                     service=svc,
                     port=port,
                 ),
@@ -885,6 +923,7 @@ class DBActive(DB):
     datetime_fields = [
         "starttime",
         "endtime",
+        "ports.scripts.http-citrix-netscaler-triage.rdx_en_gzip_datetime",
         "ports.scripts.ssl-cert.not_after",
         "ports.scripts.ssl-cert.not_before",
     ]
@@ -905,7 +944,9 @@ class DBActive(DB):
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-app",
+        "ports.scripts.http-citrix-netscaler-triage.rdx_en_gzip_datetime.tls_names",
         "ports.scripts.http-headers",
+        "ports.scripts.http-httpx.technologies",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
@@ -1494,8 +1535,7 @@ class DBActive(DB):
                 if script["id"] == "smb-os-discovery":
                     smb, ntlm = xmlnmap.split_smb_os_discovery(script)
                     script.update(smb)
-                    if ntlm:
-                        port["scripts"].append(ntlm)
+                    port["scripts"].append(ntlm)
                 if script["id"].endswith("-ntlm-info"):
                     xmlnmap.post_ntlm_info(script, port, doc)
         return doc
@@ -2295,6 +2335,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_dnsx
                 elif "host" in firstres:
                     store_scan_function = self.store_scan_json_dismap
+                elif "rdx_en_stamp" in firstres:
+                    store_scan_function = self.store_scan_json_netscaler_triage
                 else:
                     raise ValueError(  # pylint: disable=raise-missing-from
                         f"Unknown file type {fname}"
@@ -2402,6 +2444,7 @@ class DBNmap(DBActive):
                             host,
                         )
                         break
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2523,6 +2566,7 @@ class DBNmap(DBActive):
                     )
                 ):
                     continue
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2599,6 +2643,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2672,6 +2717,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     self.store_host(host)
                     if callback is not None:
                         callback(host)
@@ -2799,6 +2845,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -2838,6 +2885,114 @@ class DBNmap(DBActive):
                     }
                 ],
             }
+        for axfr in rec.get("axfr", {}).get("chain", []):
+            try:
+                domain = axfr["host"]
+            except KeyError:
+                utils.LOGGER.warning(
+                    "Dnsx record has no host entry [%r]",
+                    axfr,
+                    exc_info=True,
+                )
+                continue
+            records = []
+            for record_s in axfr.get("all", []):
+                try:
+                    records.append(nsrecord(*record_s.split(None, 4)))
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Dnsx AXFR has no incorrect record [%r]",
+                        record_s,
+                        exc_info=True,
+                    )
+                    continue
+            if not records:
+                continue
+            if len(records) == 1 and records[0].rtype in {"SOA", "CNAME"}:
+                # SOA only: transfer failed
+                # CNAME only: no transfer actually performed
+                continue
+            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
+                max(len(r.name) for r in records),
+                max(len(r.rtype) for r in records),
+            )
+            for resolver in axfr.get("resolver", []):
+                try:
+                    addr, port_s = resolver.rsplit(":", 1)
+                    port = int(port_s)
+                    if addr.startswith("[") and addr.endswith("]"):
+                        addr = addr[1:-1]
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Dnsx record has invalid resolver entry [%r]",
+                        resolver,
+                        exc_info=True,
+                    )
+                    continue
+                yield {
+                    "addr": addr,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [
+                        {
+                            "port": port,
+                            "protocol": "tcp",
+                            "service_name": "domain",
+                            "state_state": "open",
+                            "scripts": [
+                                {
+                                    "id": "dns-zone-transfer",
+                                    "output": "\nDomain: %s\n%s\n\\\n"
+                                    % (
+                                        domain,
+                                        "\n".join(
+                                            line_fmt % (r.name, r.rtype, r.data)
+                                            for r in records
+                                        ),
+                                    ),
+                                    "dns-zone-transfer": [
+                                        {
+                                            "domain": domain,
+                                            "records": [
+                                                {
+                                                    "name": r.name,
+                                                    "ttl": r.ttl,
+                                                    "class": r.rclass,
+                                                    "type": r.rtype,
+                                                    "data": r.data,
+                                                }
+                                                for r in records
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                }
+            hosts: dict[str, set[tuple[str, str]]] = {}
+            for r in records:
+                if r.rclass != "IN":
+                    continue
+                if r.rtype in ["A", "AAAA"]:
+                    name = r.name.rstrip(".").lower()
+                    hosts.setdefault(r.data, set()).add((r.rtype, name))
+            for host, names in hosts.items():
+                yield {
+                    "addr": host,
+                    "hostnames": [
+                        {
+                            "name": name[1],
+                            "type": name[0],
+                            "domains": list(utils.get_domains(name[1])),
+                        }
+                        for name in names
+                    ],
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                }
 
     def store_scan_json_dnsx(
         self,
@@ -2873,8 +3028,6 @@ class DBNmap(DBActive):
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 rec = json.loads(line.decode())
-                if rec.get("status_code") != "NOERROR":
-                    continue
                 name = rec.get("host", "").lower()
                 if not name:
                     continue
@@ -2900,6 +3053,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     try:
                         self.store_host(host)
                     except Exception:
@@ -3049,6 +3203,7 @@ class DBNmap(DBActive):
                     if source is not None:
                         host["source"] = source
                     host = self.json2dbrec(host)
+                    set_openports_attribute(host)
                     self.store_host(host)
                     if callback is not None:
                         callback(host)
@@ -3075,22 +3230,31 @@ class DBNmap(DBActive):
                 elif "template-id" in rec:
                     rec["template"] = rec.pop("template-id")
                 name = rec["name"]
-                if "matcher_name" in rec:
-                    name += " (%s)" % rec["matcher_name"]
-                elif "matcher-name" in rec:
+                nuclei_data = {
+                    "template": rec["template"],
+                    "url": url,
+                    "severity": rec["severity"],
+                }
+                if "matcher-name" in rec:
                     name += " (%s)" % rec["matcher-name"]
+                    nuclei_data["matcher-name"] = rec["matcher-name"]
+                elif "matcher_name" in rec:
+                    name += " (%s)" % rec["matcher_name"]
+                    nuclei_data["matcher-name"] = rec["matcher_name"]
+                nuclei_data["name"] = name
+                for key in ["curl-command", "extracted-results", "matcher-status"]:
+                    if key in rec:
+                        nuclei_data[key] = rec[key]
+                    elif (alt_key := key.replace("-", "_")) in rec:
+                        nuclei_data[key] = rec[alt_key]
+                for key in ["host", "path", "request"]:
+                    if key in rec:
+                        nuclei_data[key] = rec[key]
                 scripts = [
                     {
                         "id": "%s-nuclei" % (rec["type"]),
                         "output": "[%s] %s found at %s" % (rec["severity"], name, url),
-                        "nuclei": [
-                            {
-                                "template": rec["template"],
-                                "name": name,
-                                "url": url,
-                                "severity": rec["severity"],
-                            },
-                        ],
+                        "nuclei": [nuclei_data],
                     },
                 ]
                 port_doc["scripts"] = scripts
@@ -3192,6 +3356,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3258,6 +3423,9 @@ class DBNmap(DBActive):
                     "endtime": timestamp,
                     "ports": [port],
                 }
+                hostname = urlparse(rec["url"]).hostname
+                if hostname != rec["host"]:
+                    add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec.get("scheme") == "https":
                     port["service_tunnel"] = "ssl"
                 if "title" in rec:
@@ -3278,6 +3446,8 @@ class DBNmap(DBActive):
                     )
                 if "technologies" in rec:
                     script["technologies"] = rec["technologies"]
+                elif "tech" in rec:
+                    script["technologies"] = rec["tech"]
                 if "raw_header" in rec:
                     hdrs = rec["raw_header"].encode()
                     try:
@@ -3356,11 +3526,6 @@ class DBNmap(DBActive):
                                 f"ports.port:{rec['port']}",
                                 nmap_info.pop("cpe", []),
                             )
-                            host["cpes"] = list(host["cpes"].values())
-                            for cpe in host["cpes"]:
-                                cpe["origins"] = sorted(cpe["origins"])
-                            if not host["cpes"]:
-                                del host["cpes"]
                             port.update(nmap_info)
                             xmlnmap.add_service_hostname(
                                 nmap_info,
@@ -3398,16 +3563,34 @@ class DBNmap(DBActive):
                             port["screenwords"] = screenwords
                     else:
                         port["screenshot"] = "empty"
+                if (
+                    "tls" in rec
+                    and rec["tls"].get("probe_status")
+                    and not rec["tls"].get("failed")
+                ):
+                    port["service_tunnel"] = "ssl"
+                    handle_tlsx_result(host, port, rec["tls"])
                 if script:
                     output = []
                     if "technologies" in script:
                         output.append("Technologies:")
-                        output.extend(f"- {tech}\n" for tech in script["technologies"])
+                        output.extend(f"- {tech}" for tech in script["technologies"])
+                        # after creating the output, structure the data
+                        script["technologies"] = [
+                            (
+                                {"name": tech_v[0], "version": tech_v[1]}
+                                if len(tech_v) > 1
+                                else {"name": tech_v[0]}
+                            )
+                            for tech_v in (
+                                tech.split(":", 1) for tech in script["technologies"]
+                            )
+                        ]
                     port.setdefault("scripts", []).append(
                         {
                             "id": "http-httpx",
                             "output": "\n".join(output),
-                            "http-hpptx": script,
+                            "http-httpx": script,
                         }
                     )
                 # remaining fields (TODO): path body-sha256
@@ -3419,7 +3602,14 @@ class DBNmap(DBActive):
                     add_tags(host, tags)
                 if source is not None:
                     host["source"] = source
+                if "cpes" in host:
+                    host["cpes"] = list(host["cpes"].values())
+                    for cpe in host["cpes"]:
+                        cpe["origins"] = sorted(cpe["origins"])
+                    if not host["cpes"]:
+                        del host["cpes"]
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3500,56 +3690,7 @@ class DBNmap(DBActive):
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r', rec)
                         continue
-                if "certificate" in rec:
-                    try:
-                        output, info_cert = create_ssl_cert(
-                            "".join(rec["certificate"].splitlines()[1:-1]).encode(),
-                            b64encoded=True,
-                        )
-                    except Exception:
-                        utils.LOGGER.warning(
-                            "Cannot parse certificate %r",
-                            rec["certificate"],
-                            exc_info=True,
-                        )
-                    else:
-                        if info_cert:
-                            port.setdefault("scripts", []).append(
-                                {
-                                    "id": "ssl-cert",
-                                    "output": output,
-                                    "ssl-cert": info_cert,
-                                }
-                            )
-                            for cert in info_cert:
-                                add_cert_hostnames(
-                                    cert, host.setdefault("hostnames", [])
-                                )
-                if "jarm_hash" in rec:
-                    port.setdefault("scripts", []).append(
-                        {
-                            "id": "ssl-jarm",
-                            "output": rec["jarm_hash"],
-                            "ssl-jarm": rec["jarm_hash"],
-                        }
-                    )
-                structured = {}
-                output = []
-                for fld in ["tls_version", "cipher", "tls_connection"]:
-                    if fld in rec:
-                        structured[fld] = rec[fld]
-                        output.append(
-                            f"{fld.replace('_', ' ').capitalize().replace('Tls', 'TLS')}: {rec[fld]}"
-                        )
-                if structured:
-                    port.setdefault("scripts", []).append(
-                        {
-                            "id": "ssl-tlsx",
-                            "output": "\n".join(output),
-                            "ssl-tlsx": structured,
-                        }
-                    )
-                # remaining fields (TODO): jarm_hash tls_connection cipher tls_version
+                handle_tlsx_result(host, port, rec)
                 if categories:
                     host["categories"] = categories
                 if tags:
@@ -3557,6 +3698,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3708,6 +3850,7 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
@@ -3916,11 +4059,124 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 host = self.json2dbrec(host)
+                set_openports_attribute(host)
                 self.store_host(host)
                 if callback is not None:
                     callback(host)
             self.stop_store_hosts()
             return True
+
+    def store_scan_json_netscaler_triage(
+        self,
+        fname,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        tags=None,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by
+        citrix-netscaler-triage[1], displays the parsing result, and
+        return True if everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        [1] See <https://github.com/fox-it/citrix-netscaler-triage>
+        """
+        if categories is None:
+            categories = []
+        else:
+            categories = sorted(set(categories))
+        if tags is None:
+            tags = []
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
+                if rec.get("error"):
+                    continue
+                url = rec["target"]
+                try:
+                    addr, port = utils.url2hostport(url)
+                except ValueError:
+                    utils.LOGGER.warning("Invalid URL %r", url)
+                    continue
+                if addr.startswith("[") and addr.startswith("]"):
+                    addr = addr[1:-1]
+                try:
+                    utils.ip2int(addr)
+                except (TypeError, socket.error, struct.error):
+                    utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
+                    continue
+                port_doc = {
+                    "protocol": "tcp",
+                    "state_state": "open",
+                    "state_reason": "response",
+                }
+                port_doc.update(
+                    {
+                        "port": port,
+                        "service_name": "http",
+                        "service_method": "probed",
+                    }
+                )
+                if url.startswith("https:"):
+                    port_doc["service_tunnel"] = "ssl"
+                script_values = {
+                    "version": rec["version"],
+                    "rdx_en_gzip_timestamp": rec["rdx_en_stamp"],
+                    "rdx_en_gzip_datetime": rec["rdx_en_dt"][:19].replace("T", " "),
+                }
+                host = {
+                    "addr": addr,
+                    "state": "up",
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "ports": [port_doc],
+                }
+                if rec.get("tls_names"):
+                    tls_names = rec["tls_names"].split(", ")
+                    script_values["tls_names"] = tls_names
+                    hostnames = []
+                    for name in tls_names:
+                        add_hostname(name, "cert-san-dns", hostnames)
+                    if hostnames:
+                        host["hostnames"] = hostnames
+                port_doc["scripts"] = [
+                    {
+                        "id": "http-citrix-netscaler-triage",
+                        "output": f"Citrix NetScaler version {rec['version']}\nrdx_en.json gzip timestamp {rec['rdx_en_dt']}",
+                        "http-citrix-netscaler-triage": script_values,
+                    },
+                ]
+                if "scanned_at" in rec:
+                    host["starttime"] = host["endtime"] = rec["scanned_at"][
+                        :19
+                    ].replace("T", " ")
+                if categories:
+                    host["categories"] = categories
+                if tags:
+                    add_tags(host, tags)
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                set_openports_attribute(host)
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
 
 
 class DBView(DBActive):
@@ -5645,6 +5901,13 @@ class MetaDB:
     def __init__(self, url=None, urls=None):
         self.url = url
         self.urls = urls or {}
+
+    def close(self):
+        for attr in ["nmap", "passive", "data", "agent", "flow", "view"]:
+            try:
+                getattr(self, f"_{attr}").close()
+            except AttributeError:
+                pass
 
     @property
     def nmap(self):

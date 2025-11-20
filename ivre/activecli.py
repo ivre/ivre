@@ -22,11 +22,7 @@ import os
 import sys
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
-from typing import (
-    Any,
-    TextIO,
-    cast,
-)
+from typing import Any, TextIO, cast
 from xml.sax import saxutils
 
 from ivre import graphroute, utils

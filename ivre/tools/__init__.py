@@ -19,8 +19,8 @@
 
 """This sub-module contains functions to implement ivre commands."""
 
-from itertools import chain
 from collections.abc import Callable
+from itertools import chain
 from typing import cast
 
 from ivre.plugins import load_plugins

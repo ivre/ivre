@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,9 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains functions used for passive recon.
-
-"""
+"""This sub-module contains functions used for passive recon."""
 
 
 import binascii
@@ -540,9 +538,7 @@ def _getinfos_dns(spec):
         try:
             if value not in spec:
                 continue
-            infos[field] = []
-            for domain in utils.get_domains(spec[value]):
-                infos[field].append(domain)
+            infos[field] = list(utils.get_domains(spec[value]))
             if not infos[field]:
                 del infos[field]
         except Exception:
@@ -558,9 +554,7 @@ def _getinfos_dns_blacklist(spec):
     infos = {}
     try:
         if "source" in spec:
-            infos["domain"] = []
-            for domain in utils.get_domains(spec["source"].split("-")[-4]):
-                infos["domain"].append(domain)
+            infos["domain"] = list(utils.get_domains(spec["source"].split("-")[-4]))
             if not infos["domain"]:
                 del infos["domain"]
     except Exception:

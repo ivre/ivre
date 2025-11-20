@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,19 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This submodule contains functions to handle tags.
-
-"""
+"""This submodule contains functions to handle tags."""
 
 
 import os
 from bisect import bisect_left
 from collections.abc import Callable, Generator, Iterable
-from typing import (
-    Any,
-    TypeVar,
-    cast,
-)
+from typing import Any, TypeVar, cast
 
 from ivre.config import DATA_PATH
 from ivre.plugins import load_plugins
@@ -40,6 +34,7 @@ TAG_GOVCLOUD: Tag = {"value": "GovCloud", "type": "info"}
 TAG_DEFAULT_PASSWORD: Tag = {"value": "Default password", "type": "danger"}
 TAG_HONEYPOT: Tag = {"value": "Honeypot", "type": "warning"}
 TAG_MALWARE: Tag = {"value": "Malware", "type": "danger"}
+TAG_ORGANIZATION: Tag = {"value": "Organization", "type": "info"}
 TAG_RESERVED: Tag = {"value": "Reserved address", "type": "info"}
 TAG_SCANNER: Tag = {"value": "Scanner", "type": "warning"}
 TAG_TOR: Tag = {"value": "TOR", "type": "info"}
@@ -104,6 +99,15 @@ def _get_data() -> None:
         except FileNotFoundError:
             LOGGER.warning(
                 "Cannot find file [censys_scanners.txt]. Try running `ivre getwebdata`"
+            )
+        try:
+            with open(
+                os.path.join(DATA_PATH, "rapid7_scanners.txt"), encoding="utf8"
+            ) as fdesc:
+                ranges.extend(net2range(line.strip()) + ("Rapid7",) for line in fdesc)
+        except FileNotFoundError:
+            LOGGER.warning(
+                "Cannot find file [rapid7_scanners.txt]. Try running `ivre getwebdata`"
             )
         parsed_ranges = make_range_tables(ranges)
         _SCANNERS_TABLE = (

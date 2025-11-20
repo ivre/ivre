@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -91,6 +91,9 @@ MAXVALLEN = 1000
 
 
 LOGGER = logging.getLogger("ivre")
+LOGGER.setLevel(logging.DEBUG if config.DEBUG or config.DEBUG_DB else logging.INFO)
+
+
 REGEXP_T = type(re.compile(""))
 HEX = re.compile("^[a-f0-9]+$", re.IGNORECASE)
 
@@ -182,8 +185,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
     "v": "service_version",
     "cpe": "cpe",
 }
-
-logging.basicConfig()
 
 
 class InvalidIPAddress(ValueError):
@@ -349,7 +350,21 @@ def int2mask(mask: int) -> int:
 
 def net2range(network: str) -> tuple[str, str]:
     """Converts a network to a (start, stop) tuple."""
-    net = ipaddress.ip_interface(network).network
+    try:
+        net = ipaddress.ip_interface(network).network
+    except ValueError as exc:
+        try:
+            base, mask = network.split("/", 1)
+        except ValueError as exc2:
+            raise exc2 from exc
+        if ":" in base:
+            raise
+        if base.count(".") > 2:
+            raise
+        if base.endswith("."):
+            base += "0"
+        base += ".0" * (3 - base.count("."))
+        net = ipaddress.ip_interface(f"{base}/{mask}").network
     return str(net.network_address), str(net.broadcast_address)
 
 
@@ -839,39 +854,6 @@ def serialize(obj: Any) -> str:
     if isinstance(obj, bytes):
         return obj.decode()
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
-
-
-class LogFilter(logging.Filter):
-    """A logging filter that prevents duplicate warnings and only reports
-    messages with level lower than INFO when config.DEBUG (or
-    config.DEBUG_DB) is True.
-
-    """
-
-    MAX_WARNINGS_STORED = 100
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.warnings: set[str] = set()
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Decides whether we should log a record"""
-        if record.levelno < logging.INFO:
-            if record.msg.startswith("DB:"):
-                return config.DEBUG_DB
-            return config.DEBUG
-        if record.levelno != logging.WARNING:
-            return True
-        if record.msg in self.warnings:
-            return False
-        if len(self.warnings) > self.MAX_WARNINGS_STORED:
-            self.warnings = set()
-        self.warnings.add(record.msg)
-        return True
-
-
-LOGGER.addFilter(LogFilter())
-LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 
 CLI_ARGPARSER = argparse.ArgumentParser(add_help=False)
@@ -2105,6 +2087,79 @@ def _parse_datetime(value: bytes) -> datetime.datetime | None:
         return None
 
 
+def parse_cert_subject_string(subject: str) -> Generator[tuple[str, str], None, None]:
+    status = 0
+    status_space_before_key = -1
+    status_key = 0
+    status_equal = 1
+    status_space_after_equal = 2
+    status_value_wo_quotes = 3
+    status_value_wo_quotes_protected = 4
+    status_value_w_quotes = 5
+    status_value_w_quotes_protected = 6
+    curkey = []
+    curvalue = []
+    for char in subject:
+        if status == status_space_before_key:
+            # reading space before the key
+            if char == " ":
+                continue
+            curkey.append(char)
+            status = status_key
+        elif status == status_key:
+            # reading key
+            if char == " ":
+                status = status_equal
+                continue
+            if char == "=":
+                status = status_space_after_equal
+                continue
+            curkey.append(char)
+        elif status == status_equal:
+            # reading '='
+            if char != "=":
+                return
+            status = status_space_after_equal
+        elif status == status_space_after_equal:
+            # reading space after '='
+            if char == " ":
+                continue
+            # reading beginning of value
+            if char == '"':
+                status = status_value_w_quotes
+                continue
+            curvalue.append(char)
+            status = status_value_wo_quotes
+        elif status == status_value_wo_quotes:
+            # reading value without quotes
+            if char == ",":
+                yield "".join(curkey), "".join(curvalue)
+                curkey = []
+                curvalue = []
+                status = status_space_before_key
+                continue
+            if char == "\\":
+                status = status_value_wo_quotes_protected
+                continue
+            curvalue.append(char)
+        elif status == status_value_wo_quotes_protected:
+            curvalue.append(char)
+            status = status_value_wo_quotes
+        elif status == status_value_w_quotes:
+            # reading value with quotes
+            if char == '"':
+                status = status_value_wo_quotes
+                continue
+            if char == "\\":
+                status = status_value_w_quotes_protected
+                continue
+            curvalue.append(char)
+        elif status == status_value_w_quotes_protected:
+            curvalue.append(char)
+            status = status_value_w_quotes
+    yield "".join(curkey), "".join(curvalue)
+
+
 if USE_PYOPENSSL:
 
     def _parse_subject(subject: osslc.X509Name) -> tuple[str, dict[str, str]]:
@@ -2153,8 +2208,14 @@ if USE_PYOPENSSL:
                     )
                 break
         result["self_signed"] = result["issuer_text"] == result["subject_text"]
-        not_before = _parse_datetime(data.get_notBefore())
-        not_after = _parse_datetime(data.get_notAfter())
+        try:
+            not_before = _parse_datetime(data.get_notBefore())
+        except ValueError:
+            not_before = None
+        try:
+            not_after = _parse_datetime(data.get_notAfter())
+        except ValueError:
+            not_after = None
         if not_before is not None:
             result["not_before"] = not_before
             if not_after is not None:
@@ -2193,64 +2254,6 @@ if USE_PYOPENSSL:
         return result
 
 else:
-
-    def _parse_cert_subject(subject: str) -> Generator[tuple[str, str], None, None]:
-        status = 0
-        curkey = []
-        curvalue = []
-        for char in subject:
-            if status == -1:
-                # reading space before the key
-                if char == " ":
-                    continue
-                curkey.append(char)
-                status += 1
-            elif not status:
-                # reading key
-                if char == " ":
-                    status += 1
-                    continue
-                if char == "=":
-                    status += 2
-                    continue
-                curkey.append(char)
-            elif status == 1:
-                # reading '='
-                if char != "=":
-                    return
-                status += 1
-            elif status == 2:
-                # reading space after '='
-                if char == " ":
-                    continue
-                # reading beginning of value
-                if char == '"':
-                    status += 2
-                    continue
-                curvalue.append(char)
-                status += 1
-            elif status == 3:
-                # reading value without quotes
-                if char == ",":
-                    yield "".join(curkey), "".join(curvalue)
-                    curkey = []
-                    curvalue = []
-                    status = -1
-                    continue
-                curvalue.append(char)
-            elif status == 4:
-                # reading value with quotes
-                if char == '"':
-                    status -= 1
-                    continue
-                if char == "\\":
-                    status += 1
-                    continue
-                curvalue.append(char)
-            elif status == 5:
-                curvalue.append(char)
-                status -= 1
-        yield "".join(curkey), "".join(curvalue)
 
     def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
@@ -2299,13 +2302,13 @@ else:
                 if field in ["issuer", "subject"]:
                     flddata = [
                         (_CERTKEYS.get(key, key), value)
-                        for key, value in _parse_cert_subject(fdata_str)
+                        for key, value in parse_cert_subject_string(fdata_str)
                     ]
                     # replace '.' by '_' in keys to produce valid JSON
                     result[field] = {
                         key.replace(".", "_"): value for key, value in flddata
                     }
-                    result["%s_text" % field] = "/".join(
+                    result[f"{field}_text"] = "/".join(
                         "%s=%s" % item for item in flddata
                     )
                 elif field in ["bits", "exponent"]:
@@ -2576,7 +2579,7 @@ def _fix_range(start: str, stop: str, label: T) -> tuple[int, int, T]:
 
 
 def make_range_tables(
-    ranges: Iterable[tuple[str, str, T]]
+    ranges: Iterable[tuple[str, str, T]],
 ) -> list[tuple[int, T | None]]:
     ranges_sorted: list[tuple[int, int, T]] = sorted(
         (_fix_range(start, stop, label) for start, stop, label in ranges), reverse=True

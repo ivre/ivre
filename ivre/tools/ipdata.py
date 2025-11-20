@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -74,7 +74,10 @@ def main() -> None:
             addr = utils.int2ip(int(addr))
         if args.json:
             res = {"addr": addr}
-            res.update(dbase.infos_byip(addr) or {})
+            try:
+                res.update(dbase.infos_byip(addr) or {})
+            except utils.InvalidIPAddress as exc:
+                utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
             json.dump(res, sys.stdout)
             print()
         else:
@@ -85,7 +88,7 @@ def main() -> None:
                         print("    %s %s" % (key, value))
             except utils.InvalidIPAddress as exc:
                 utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
-                sys.exit(1)
+                continue
             info: dict[str, Any] = {}
             add_tags(info, gen_addr_tags(addr))
             for tag in info.get("tags", []):

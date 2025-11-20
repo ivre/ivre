@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
+ * Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -41,6 +41,34 @@ setdefaultconfig();
 /* global variables */
 var clicktimeout = null;
 var wanted_scripts, wanted_hops;
+
+/* Dark mode support */
+function setDarkMode(enabled) {
+    var link = document.getElementById('ivre-dark-stylesheet');
+    if(!link) return;
+    if(enabled) {
+        link.removeAttribute('disabled');
+        try { localStorage.setItem('ivre_dark_mode', '1'); } catch(e){}
+    } else {
+        link.setAttribute('disabled', 'disabled');
+        try { localStorage.setItem('ivre_dark_mode', '0'); } catch(e){}
+    }
+}
+
+function toggleDarkMode() {
+    var link = document.getElementById('ivre-dark-stylesheet');
+    if(!link) return;
+    setDarkMode(link.disabled);
+}
+
+/* Apply saved preference on script load */
+try {
+    var saved = localStorage.getItem('ivre_dark_mode');
+    if(saved === '1') {
+        // defer to onload to ensure DOM elements exist
+        window.addEventListener('load', function() { setDarkMode(true); });
+    }
+} catch(e) {}
 
 /******* IVRE specific methods *******/
 

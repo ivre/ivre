@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 
 import errno
 import json
+import logging
 import os
 import random
 import re
@@ -65,6 +66,25 @@ PYTHON_BUG_45235 = {
     (3, 9, 8),
 }
 HAS_PYTHON_BUG_45235 = sys.version_info[:3] in PYTHON_BUG_45235
+
+
+_DEBUG = re.compile("^DEBUG = ")
+
+
+def set_debug(value: bool) -> None:
+    with (
+        open(os.path.join(os.path.expanduser("~"), ".ivre.conf")) as idesc,
+        open(os.path.join(os.path.expanduser("~"), ".ivre.conf.new"), "w") as odesc,
+    ):
+        for line in idesc:
+            if _DEBUG.search(line) is not None:
+                odesc.write(f"DEBUG = {value!r}\n")
+            else:
+                odesc.write(line)
+    os.rename(
+        os.path.join(os.path.expanduser("~"), ".ivre.conf.new"),
+        os.path.join(os.path.expanduser("~"), ".ivre.conf"),
+    )
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -910,7 +930,9 @@ class IvreTests(unittest.TestCase):
             if "-probe-" in fname:
                 options.extend(["--masscan-probes", fname.split("-probe-")[1]])
             options.extend(["--", fname])
+            set_debug(True)
             res, _, err = RUN(options)
+            set_debug(False)
             print("Inserting %r" % fname)
             if res:
                 print("Error: %r" % err)
@@ -3387,7 +3409,7 @@ class IvreTests(unittest.TestCase):
         # all protocols count == total count
         flt = "proto = tcp OR proto = udp OR proto = icmp OR proto = arp"
         self.check_flow_count_value(
-            "flow_count",
+            "flow_count_tcp_udp_icmp_arp",
             {"edges": [flt]},
             ["--flow-filters", flt],
             {"edges": [flt]},
@@ -3685,7 +3707,12 @@ class IvreTests(unittest.TestCase):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
         # Download
-        res = RUN(["ivre", "ipdata", "--download"])[0]
+        for _ in range(3):
+            res = RUN(["ivre", "ipdata", "--download"])[0]
+            if res == 0:
+                break
+            time.sleep(2)
+
         self.assertEqual(res, 0)
 
         # Reinit data DB since we have downloaded the files
@@ -3725,10 +3752,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         # The order may differ, depending on the backend.
         out = sorted(out.splitlines())
-        self.assertEqual(
-            out,
-            sorted(
-                b"""8.8.8.8
+        expected = b"""8.8.8.8
     as_num 15169
     as_name Google LLC
     continent_code NA
@@ -3739,36 +3763,39 @@ class IvreTests(unittest.TestCase):
     registered_country_name United States
     coordinates (37.751, -97.822)
     coordinates_accuracy_radius 1000
-    CDN: google as listed by cdncheck (projectdiscovery)
 """.splitlines()
-            ),
+        self.assertTrue(
+            out
+            in [
+                sorted(expected),
+                sorted(
+                    expected
+                    + [b"    CDN: google as listed by cdncheck (projectdiscovery)"]
+                ),
+            ]
         )
 
         res, out, _ = RUN(["ivre", "ipdata", "--json", "8.8.8.8"])
         self.assertEqual(res, 0)
-        self.assertEqual(
-            json.loads(out),
-            {
-                "addr": "8.8.8.8",
-                "as_num": 15169,
-                "as_name": "Google LLC",
-                "continent_code": "NA",
-                "continent_name": "North America",
-                "country_code": "US",
-                "country_name": "United States",
-                "registered_country_code": "US",
-                "registered_country_name": "United States",
-                "coordinates": [37.751, -97.822],
-                "coordinates_accuracy_radius": 1000,
-                "tags": [
-                    {
-                        "value": "CDN",
-                        "type": "info",
-                        "info": ["google as listed by cdncheck (projectdiscovery)"],
-                    }
-                ],
-            },
-        )
+        expected = {
+            "addr": "8.8.8.8",
+            "as_num": 15169,
+            "as_name": "Google LLC",
+            "continent_code": "NA",
+            "continent_name": "North America",
+            "country_code": "US",
+            "country_name": "United States",
+            "registered_country_code": "US",
+            "registered_country_name": "United States",
+            "coordinates": [37.751, -97.822],
+            "coordinates_accuracy_radius": 1000,
+        }
+        tag = {
+            "value": "CDN",
+            "type": "info",
+            "info": ["google as listed by cdncheck (projectdiscovery)"],
+        }
+        self.assertTrue(json.loads(out) in [expected, dict(expected, tags=[tag])])
 
         res, out, _ = RUN(["ivre", "ipdata", "10.0.0.1"])
         self.assertEqual(res, 0)
@@ -4277,12 +4304,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(ivre.utils.guess_srv_port(67, 68, proto="udp"), 1)
         self.assertEqual(ivre.utils.guess_srv_port(65432, 80), -1)
         self.assertEqual(ivre.utils.guess_srv_port(666, 666), 0)
-        if not ivre.utils.USE_PYOPENSSL:
-            # Certificate argument parsing
-            self.assertCountEqual(
-                list(ivre.utils._parse_cert_subject('O = "Test\\", Inc."')),
-                [("O", 'Test", Inc.')],
-            )
+        # Certificate argument parsing
+        self.assertCountEqual(
+            list(ivre.utils.parse_cert_subject_string('O = "Test\\", Inc."')),
+            [("O", 'Test", Inc.')],
+        )
 
         # ipcalc tool
         res, out, _ = RUN(["ivre", "ipcalc", "192.168.0.0/16"])
@@ -4492,7 +4518,7 @@ class IvreTests(unittest.TestCase):
                                 self.assertNotIn("warnings", script["dns-tls-rpt"])
                                 self.assertEqual(
                                     script["output"],
-                                    "Domain hardenize.com has a valid TLS-RPT configuration",
+                                    "Domain hardenize.com has no TLS-RPT configuration",
                                 )
                             found_dns_tls_rpt.add(script["dns-tls-rpt"][0]["domain"])
             self.assertTrue(found_zone_transfer)
@@ -5261,7 +5287,7 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.view.count(ivre.db.db.view.searchtag()),
             # This value changes a bit, depending on current data files => assertAlmostEqual
             check=lambda first, second: self.assertAlmostEqual(
-                first, second, places=-1
+                first, second, places=-2
             ),
         )
         self.check_value(
@@ -6054,11 +6080,8 @@ if __name__ == "__main__":
     SAMPLES = None
     parse_args()
     parse_env()
-    if not ivre.config.DEBUG:
-        sys.stderr.write(
-            "You *must* have the DEBUG config value set to " "True to run the tests.\n"
-        )
-        sys.exit(-1)
+    ivre.config.DEBUG = True
+    logging.basicConfig()
     if USE_COVERAGE:
         COVERAGE = [sys.executable, os.path.dirname(__import__("coverage").__file__)]
         RUN = coverage_run

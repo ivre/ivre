@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,15 +18,20 @@ name: MongoDB tests
 
 on: [push, pull_request]
 
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        # https://docs.mongodb.com/drivers/pymongo/#compatibility
+        # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
         python-version: ['3.11', '3.12']
-        mongodb-version: ['3.6', '5.0']
+        mongodb-version: ['5.0', '6.0', '7.0', '8.0']
 
     steps:
 
@@ -47,10 +52,18 @@ jobs:
 
     - run: pip install -r requirements-mongo.txt
 
+    - name: Install MongoDB tools (mongodump)
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get -q update
+          sudo apt-get -qy install mongodb-org-tools
+
     - name: Install IVRE
       uses: ./.github/actions/install
 
-    - run: mongo --eval 'db.version()'
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
 
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
@@ -59,6 +72,21 @@ jobs:
       env:
         CI: true
         DB: mongo
+
+    - name: Create MongoDB dump for Elasticsearch tests
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      run: |
+          rm -rf ./backup/ && mkdir ./backup/
+          mongodump --db=ivre --out=./backup/
+          mv ./backup/ivre/*.bson ./backup/
+          tar jcf ./backup_nmap_passive.tar.bz2 ./backup/{hosts,passive}.bson
+
+    - name: Archive MongoDB dump artifacts
+      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: backup_nmap_passive
+        path: ./backup_nmap_passive.tar.bz2
 
     - run: cat /tmp/webserver.log
       if: failure()

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -156,8 +156,9 @@ class AXFRChecker(Checker):
             srvname = srvname.rstrip(".")
             if not res:
                 continue
-            if len(res) == 1 and res[0].rtype == "SOA":
+            if len(res) == 1 and res[0].rtype in {"SOA", "CNAME"}:
                 # SOA only: transfer failed
+                # CNAME only: no transfer actually performed
                 continue
             LOGGER.info("AXFR success for %r on %r", self.domain, addr)
             line_fmt = "| %%-%ds  %%-%ds  %%s" % (
@@ -218,7 +219,7 @@ class AXFRChecker(Checker):
                 if r.rclass != "IN":
                     continue
                 if r.rtype in ["A", "AAAA"]:
-                    name = r.name.rstrip(".")
+                    name = r.name.rstrip(".").lower()
                     hosts.setdefault(r.data, set()).add((r.rtype, name))
             for host, records in hosts.items():
                 yield {

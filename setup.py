@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,12 +15,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
-
-"""Standard setup.py file. Run
-
-$ python setup.py build
-# python setup.py install
-"""
 
 
 import os
@@ -122,7 +116,7 @@ setup(
     author_email="pierre@droids-corp.org",
     url="https://ivre.rocks/",
     download_url="https://github.com/ivre/ivre/tarball/master",
-    license="GPLv3+",
+    license="GPL-3.0-or-later",
     description="Network recon framework",
     long_description=long_description,
     long_description_content_type=long_description_content_type,
@@ -147,7 +141,6 @@ setup(
         "Intended Audience :: Science/Research",
         "Intended Audience :: System Administrators",
         "Intended Audience :: Telecommunications Industry",
-        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -216,8 +209,13 @@ setup(
                 "data/ike-vendor-ids",
                 "data/manuf",
                 "data/censys_scanners.txt",
+                "data/rapid7_scanners.txt",
                 "data/ssigouvfr_scanners.txt",
                 "data/ukncsc_scanners.txt",
+                "data/cdn_nuclei.py",
+                "data/govcloud.py",
+                "data/govcloud_aws.json",
+                "data/govcloud_azure.json",
             ],
         ),
         ("share/ivre/data/honeyd", ["data/honeyd/sshd"]),
@@ -403,6 +401,7 @@ setup(
             [
                 "web/static/ivre/flow.css",
                 "web/static/ivre/ivre.css",
+                "web/static/ivre/ivre-dark.css",
                 "web/static/ivre/compare.js",
                 "web/static/ivre/controllers.js",
                 "web/static/ivre/filters.js",
@@ -467,6 +466,7 @@ setup(
             [
                 "patches/dokuwiki/backlinks.patch",
                 "patches/dokuwiki/backlinks-20200729.patch",
+                "patches/dokuwiki/backlinks-20230404a.patch",
             ],
         ),
         (
