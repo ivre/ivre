@@ -32,6 +32,7 @@ from textwrap import wrap
 from typing import Any, cast
 from urllib.parse import urlparse
 
+from ivre import config
 from ivre.active.cpe import add_cpe_values
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.config import VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
@@ -182,10 +183,14 @@ def san2hostname(san: str) -> tuple[str, str] | None:
 
 def add_cert_hostnames(cert: ParsedCertificate, hostnames: list[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
-        add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
+        common_name = cert["subject"]["commonName"]
+        if _cert_hostname_allowed(common_name):
+            add_hostname(common_name, "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
         if (type_hostname := san2hostname(san)) is not None:
-            add_hostname(type_hostname[1], f"cert-san-{type_hostname[0]}", hostnames)
+            hostname = type_hostname[1]
+            if _cert_hostname_allowed(hostname):
+                add_hostname(hostname, f"cert-san-{type_hostname[0]}", hostnames)
 
 
 def merge_ja3_scripts(
@@ -1030,6 +1035,15 @@ def create_elasticsearch_service(data: bytes) -> NmapServiceMatch | None:
 # hostnames, but since they happen to exist anyway, we allow them
 # here.
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
+
+
+def _cert_hostname_allowed(name: str) -> bool:
+    policy = getattr(config, "CERT_HOSTNAMES_POLICY", "all")
+    if policy == "none":
+        return False
+    if policy == "no-wildcard" and "*" in name:
+        return False
+    return True
 
 
 def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> None:
