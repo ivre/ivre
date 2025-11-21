@@ -957,6 +957,11 @@ class DBActive(DB):
         "ports.scripts.mongodb-databases.databases",
         "ports.scripts.mongodb-databases.databases.shards",
         "ports.scripts.nuclei",
+        "ports.scripts.nuclei.extracted-results",
+        "ports.scripts.nuclei.classification.cve-id",
+        "ports.scripts.nuclei.classification.cwe-id",
+        "ports.scripts.nuclei.reference",
+        "ports.scripts.nuclei.tags",
         "ports.scripts.rpcinfo",
         "ports.scripts.rpcinfo.version",
         "ports.scripts.scanner.http_uris",
@@ -3214,7 +3219,10 @@ class DBNmap(DBActive):
                         rec.get("type"),
                     )
                     continue
+                hostname = None
                 if "ip" in rec:
+                    if addr != rec["ip"]:
+                        hostname = addr
                     addr = rec["ip"]
                 try:
                     utils.ip2int(addr)
@@ -3242,12 +3250,29 @@ class DBNmap(DBActive):
                     name += " (%s)" % rec["matcher_name"]
                     nuclei_data["matcher-name"] = rec["matcher_name"]
                 nuclei_data["name"] = name
-                for key in ["curl-command", "extracted-results", "matcher-status"]:
+                for key in [
+                    "curl-command",
+                    "extracted-results",
+                    "extractor-name",
+                    "matcher-status",
+                    "template-path",
+                    "template-url",
+                ]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
                     elif (alt_key := key.replace("-", "_")) in rec:
                         nuclei_data[key] = rec[alt_key]
-                for key in ["host", "path", "request"]:
+                for key in [
+                    "classification",
+                    "description",
+                    "impact",
+                    "host",
+                    "path",
+                    "reference",
+                    "remediation",
+                    "request",
+                    "tags",
+                ]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
                 scripts = [
@@ -3264,6 +3289,8 @@ class DBNmap(DBActive):
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "ports": [port_doc],
                 }
+                if hostname is not None:
+                    add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec["template"] == "git-config":
                     repository = "%s:%d%s" % (addr, port, urlparse(url).path[:-6])
                     scripts.append(
