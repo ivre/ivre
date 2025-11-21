@@ -207,12 +207,22 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
     """
     if isinstance(recordsgen, dict):
         recordsgen = [recordsgen]
-    for record in recordsgen:
-        displayhost(record, out=out, **kargs)
-        if os.isatty(out.fileno()):
-            input()
-        else:
-            out.write("\n")
+    try:
+        for record in recordsgen:
+            displayhost(record, out=out, **kargs)
+            if os.isatty(out.fileno()):
+                try:
+                    input()
+                except (KeyboardInterrupt, EOFError):
+                    # Gracefully exit pagination on Ctrl+C / Ctrl+D
+                    out.write("\n")
+                    return
+            else:
+                out.write("\n")
+    except KeyboardInterrupt:
+        # Exit quietly on Ctrl+C even if the interrupt happened mid-display
+        out.write("\n")
+        raise SystemExit(130) from None
 
 
 def displayhosts_json(recordsgen, out=sys.stdout):
