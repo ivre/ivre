@@ -180,7 +180,7 @@ class DB:
                 proto, port = port.split("/", 1)
             else:
                 proto = "tcp"
-            port = int(port)
+            port = utils.parse_port(port)
             flt = self.flt_and(flt, self.searchport(port=port, protocol=proto))
         if args.service is not None:
             try:
@@ -189,7 +189,7 @@ class DB:
                 svc = args.service
                 port = None
             else:
-                port = int(port)
+                port = utils.parse_port(port)
             flt = self.flt_and(
                 flt,
                 self.searchservice(utils.str2regexpnone(svc), port=port),
@@ -205,7 +205,7 @@ class DB:
                 svc = utils.str2regexpnone(svc)
                 if ":" in prod:
                     prod, port = prod.split(":", 1)
-                    port = int(port)
+                    port = utils.parse_port(port)
                 else:
                     port = None
             flt = self.flt_and(
@@ -237,7 +237,7 @@ class DB:
                     prod = utils.str2regexpnone(prod)
                     if ":" in version:
                         version, port = version.split(":", 1)
-                        port = int(port)
+                        port = utils.parse_port(port)
                     else:
                         port = None
             flt = self.flt_and(
