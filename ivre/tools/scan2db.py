@@ -24,6 +24,7 @@ import os
 import sys
 from argparse import ArgumentParser
 
+import ivre.config
 import ivre.db
 import ivre.utils
 import ivre.xmlnmap
@@ -87,7 +88,14 @@ def main() -> None:
         action="store_true",
         help="Do not merge hosts in current view (default)",
     )
+    parser.add_argument(
+        "--cert-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default=ivre.config.CERT_HOSTNAMES_POLICY,
+        help="Control storing hostnames extracted from certificates (default: %(default)s).",
+    )
     args = parser.parse_args()
+    ivre.config.CERT_HOSTNAMES_POLICY = args.cert_hostnames
     database = ivre.db.db.nmap
     categories = sorted(set(args.categories.split(","))) if args.categories else []
     tags = [
