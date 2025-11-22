@@ -102,6 +102,9 @@ if __name__ == "__main__":
     logging.basicConfig()
     try:
         main()
+    except KeyboardInterrupt:
+        # Gracefully exit on Ctrl+C without a traceback; 130 = 128 + SIGINT
+        sys.exit(130)
     except IOError as exc:
         if exc.errno != EPIPE:
             raise
