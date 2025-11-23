@@ -29,24 +29,26 @@ from ivre.utils import LOGGER
 
 
 def cpe2dict(cpe_str: str) -> CpeDict:
-    """Helper function to parse CPEs. This is a very partial/simple parser.
+    """Helper function to parse CPEs. Supports both 2.2 (`cpe:/...`) and
+    2.3 (`cpe:2.3:...`) formats. This is a very partial/simple parser.
 
     Raises:
         ValueError if the cpe string is not parsable.
 
     """
-    # Remove prefix
-    if not cpe_str.startswith("cpe:/"):
+    if cpe_str.startswith("cpe:2.3:"):
+        cpe_body = cpe_str[8:]
+    elif cpe_str.startswith("cpe:/"):
+        cpe_body = cpe_str[5:]
+    else:
         raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_body = cpe_str[5:]
+    # Keep anything after the version field grouped together to avoid losing
+    # update/edition components present in 2.2/2.3 strings.
     parts = cpe_body.split(":", 3)
-    nparts = len(parts)
-    if nparts < 2:
+    if len(parts) < 2:
         raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_type = parts[0]
-    cpe_vend = parts[1]
-    cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_vers = parts[3] if nparts > 3 else ""
+    parts += [""] * (4 - len(parts))
+    cpe_type, cpe_vend, cpe_prod, cpe_vers = parts[:4]
 
     ret: CpeDict = {
         "type": cpe_type,
