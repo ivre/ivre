@@ -193,6 +193,22 @@ class InvalidIPAddress(ValueError):
         self.value = value
 
 
+class InvalidPort(ValueError):
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
+def parse_port(value: Any) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError) as exc:
+        raise InvalidPort(value) from exc
+    if 0 <= port <= 65535:
+        return port
+    raise InvalidPort(value)
+
+
 def is_valid_ip(ipstr: AnyStr) -> bool:
     """Return True iff `ipstr` is a valid IP address."""
     if isinstance(ipstr, bytes):
