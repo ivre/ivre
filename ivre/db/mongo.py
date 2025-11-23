@@ -35,6 +35,7 @@ import time
 import uuid
 from collections import OrderedDict
 from copy import deepcopy
+from contextlib import nullcontext
 from typing import Any
 from urllib.parse import unquote
 
@@ -319,12 +320,12 @@ class MongoDB(DB):
     def ensure_indexes(self):
         return self.create_indexes()
 
-    def _migrate_update_record(self, colname, recid, update):
+    def _migrate_update_record(self, colname, recid, update, session=None):
         """Define how an update is handled. Purpose-specific subclasses may
         want to do something special here, e.g., mix with other records.
 
         """
-        return self.db[colname].update_one({"_id": recid}, update)
+        return self.db[colname].update_one({"_id": recid}, update, session=session)
 
     def migrate_schema(self, colnum, version):
         """Process to schema migrations in column `colname` starting
@@ -359,31 +360,49 @@ class MongoDB(DB):
                 utils.LOGGER.info("  ... Done.")
             utils.LOGGER.info("Migrating records...")
             updated = False
-            # unlimited find()!
-            for i, record in enumerate(
-                self.db[self.columns[colnum]]
-                .find(
-                    self.searchversion(version),
-                    no_cursor_timeout=not self.is_documentdb,
-                )
-                .batch_size(50000)
-            ):
+            session = None
+            session_ctx = nullcontext()
+            if not self.is_documentdb:
                 try:
-                    update = migration_function(record)
-                    if update is not None:
-                        updated = True
-                        self._migrate_update_record(
-                            self.columns[colnum], record["_id"], update
-                        )
-                except Exception:
-                    utils.LOGGER.warning(
-                        "Cannot migrate result %r",
-                        record,
+                    session = self.db_client.start_session()
+                except pymongo.errors.PyMongoError:
+                    utils.LOGGER.debug(
+                        "Cannot start a MongoDB session for migration cursor; "
+                        "continuing without it",
                         exc_info=True,
                     )
-                    failed += 1
-                if not (i + 1) % 100000:
-                    utils.LOGGER.info("  %d records migrated", i + 1)
+                else:
+                    session_ctx = session
+            with session_ctx:
+                # unlimited find()!
+                for i, record in enumerate(
+                    self.db[self.columns[colnum]]
+                    .find(
+                        self.searchversion(version),
+                        no_cursor_timeout=not self.is_documentdb,
+                        session=session,
+                    )
+                    .batch_size(50000)
+                ):
+                    try:
+                        update = migration_function(record)
+                        if update is not None:
+                            updated = True
+                            self._migrate_update_record(
+                                self.columns[colnum],
+                                record["_id"],
+                                update,
+                                session=session,
+                            )
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot migrate result %r",
+                            record,
+                            exc_info=True,
+                        )
+                        failed += 1
+                    if not (i + 1) % 100000:
+                        utils.LOGGER.info("  %d records migrated", i + 1)
             utils.LOGGER.info("  ... Done.")
             # Checking for required actions on indexes
             utils.LOGGER.info("Performing other actions on indexes...")
@@ -4855,17 +4874,21 @@ class MongoDBPassive(MongoDB, DBPassive):
         """
         MongoDB.migrate_schema(self, self.column_passive, version)
 
-    def _migrate_update_record(self, colname, recid, update):
+    def _migrate_update_record(self, colname, recid, update, session=None):
         """Define how an update is handled. Purpose-specific subclasses may
         want to do something special here, e.g., mix with other records.
 
         """
         if colname == self.columns[self.column_passive]:  # just in case
             del update["_id"]
-            self.insert_or_update_mix(update, getinfos=passive.getinfos)
-            self.db[self.columns[self.column_passive]].delete_one({"_id": recid})
+            self.insert_or_update_mix(
+                update, getinfos=passive.getinfos, session=session
+            )
+            self.db[self.columns[self.column_passive]].delete_one(
+                {"_id": recid}, session=session
+            )
             return None
-        return super()._migrate_update_record(colname, recid, update)
+        return super()._migrate_update_record(colname, recid, update, session=session)
 
     @classmethod
     def migrate_schema_passive_0_1(cls, doc):
@@ -4997,7 +5020,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         for rec in cursor:
             yield self.internal2rec(rec)
 
-    def get_one(self, spec, **kargs):
+    def get_one(self, spec, session=None, **kargs):
         """Same function as get, except .find_one() method is called
         instead of .find(), so the first record matching "spec" (or None) is
         returned.
@@ -5007,7 +5030,9 @@ class MongoDBPassive(MongoDB, DBPassive):
         if "fields" in kargs:
             kargs["projection"] = kargs.pop("fields")
         # TODO: check limits
-        rec = self.db[self.columns[self.column_passive]].find_one(spec, **kargs)
+        rec = self.db[self.columns[self.column_passive]].find_one(
+            spec, session=session, **kargs
+        )
         if rec is None:
             return None
         return self.internal2rec(rec)
@@ -5180,7 +5205,9 @@ class MongoDBPassive(MongoDB, DBPassive):
             utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", len(bulk))
             self.db[self.columns[self.column_passive]].bulk_write(bulk, ordered=False)
 
-    def insert_or_update_mix(self, spec, getinfos=None, replacecount=False):
+    def insert_or_update_mix(
+        self, spec, getinfos=None, replacecount=False, session=None
+    ):
         """Updates the first record matching "spec" (without
         "firstseen", "lastseen" and "count") by mixing "firstseen",
         "lastseen" and "count" from "spec" and from the database.
@@ -5207,11 +5234,12 @@ class MongoDBPassive(MongoDB, DBPassive):
                 updatespec["$setOnInsert"] = {
                     "fullinfos": spec.pop("fullinfos"),
                 }
-        current = self.get_one(spec, fields=[])
+        current = self.get_one(spec, fields=[], session=session)
         if current:
             self.db[self.columns[self.column_passive]].update_one(
                 {"_id": current["_id"]},
                 updatespec,
+                session=session,
             )
         else:
             if getinfos is not None and "$setOnInsert" not in updatespec:
@@ -5222,6 +5250,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 spec,
                 updatespec,
                 upsert=True,
+                session=session,
             )
 
     def remove(self, flt):
