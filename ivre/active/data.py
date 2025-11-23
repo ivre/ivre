@@ -1037,13 +1037,25 @@ def create_elasticsearch_service(data: bytes) -> NmapServiceMatch | None:
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
 
 
-def _cert_hostname_allowed(name: str) -> bool:
-    policy = getattr(config, "CERT_HOSTNAMES_POLICY", "all")
+def _get_hostname_policy(source: str) -> str:
+    """Return policy for a hostname source, combining defaults and overrides."""
+    defaults = {"cert": "all", "service": "all", "ntlm": "all", "httpx": "all"}
+    policies = dict(defaults)
+    policies.update(getattr(config, "HOSTNAMES_POLICY", {}) or {})
+    return policies.get(source, "all")
+
+
+def hostname_from_source_allowed(source: str, name: str | None = None) -> bool:
+    policy = _get_hostname_policy(source)
     if policy == "none":
         return False
-    if policy == "no-wildcard" and "*" in name:
+    if policy == "no-wildcard" and name is not None and "*" in name:
         return False
     return True
+
+
+def _cert_hostname_allowed(name: str) -> bool:
+    return hostname_from_source_allowed("cert", name)
 
 
 def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> None:
@@ -1196,11 +1208,13 @@ def handle_http_content(
     service_elasticsearch = create_elasticsearch_service(data)
     if service_elasticsearch:
         if "service_hostname" in service_elasticsearch:
-            add_hostname(
-                service_elasticsearch["service_hostname"],
-                "service",
-                host.setdefault("hostnames", []),
-            )
+            hostname = service_elasticsearch["service_hostname"]
+            if hostname_from_source_allowed("service", hostname):
+                add_hostname(
+                    hostname,
+                    "service",
+                    host.setdefault("hostnames", []),
+                )
         add_cpe_values(
             host, "ports.port:%s" % port, service_elasticsearch.pop("cpe", [])
         )

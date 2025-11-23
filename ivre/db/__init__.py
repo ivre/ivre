@@ -56,6 +56,7 @@ from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_hostname,
+    hostname_from_source_allowed,
     handle_http_content,
     handle_http_headers,
     handle_tlsx_result,
@@ -2976,6 +2977,8 @@ class DBNmap(DBActive):
                         },
                     ],
                 }
+            if not getattr(config, "AXFR_ADD_HOSTS", True):
+                continue
             hosts: dict[str, set[tuple[str, str]]] = {}
             for r in records:
                 if r.rclass != "IN":
@@ -3451,7 +3454,9 @@ class DBNmap(DBActive):
                     "ports": [port],
                 }
                 hostname = urlparse(rec["url"]).hostname
-                if hostname != rec["host"]:
+                if hostname != rec["host"] and hostname_from_source_allowed(
+                    "httpx", hostname
+                ):
                     add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec.get("scheme") == "https":
                     port["service_tunnel"] = "ssl"
