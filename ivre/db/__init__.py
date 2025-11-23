@@ -56,7 +56,6 @@ from ivre import config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_hostname,
-    format_nuclei_output,
     handle_http_content,
     handle_http_headers,
     handle_tlsx_result,
@@ -3243,26 +3242,18 @@ class DBNmap(DBActive):
                     name += " (%s)" % rec["matcher_name"]
                     nuclei_data["matcher-name"] = rec["matcher_name"]
                 nuclei_data["name"] = name
-                extracted_results = None
                 for key in ["curl-command", "extracted-results", "matcher-status"]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
-                        if key == "extracted-results":
-                            extracted_results = rec[key]
                     elif (alt_key := key.replace("-", "_")) in rec:
                         nuclei_data[key] = rec[alt_key]
-                        if key == "extracted-results":
-                            extracted_results = rec[alt_key]
-                if rec.get("template") == "favicon-detect" and extracted_results:
-                    # nuclei already provides the favicon hash in extracted results
-                    nuclei_data["favicon-hash"] = extracted_results[0]
                 for key in ["host", "path", "request"]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
                 scripts = [
                     {
                         "id": "%s-nuclei" % (rec["type"]),
-                        "output": format_nuclei_output(nuclei_data),
+                        "output": "[%s] %s found at %s" % (rec["severity"], name, url),
                         "nuclei": [nuclei_data],
                     },
                 ]

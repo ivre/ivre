@@ -462,13 +462,6 @@ def merge_scanner_scripts(
     return curscript
 
 
-def format_nuclei_output(nuclei: dict[str, Any]) -> str:
-    output = "[%(severity)s] %(name)s found at %(url)s" % nuclei
-    if "favicon-hash" in nuclei:
-        output += " (favicon hash: %s)" % nuclei["favicon-hash"]
-    return output
-
-
 def merge_nuclei_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
@@ -479,7 +472,7 @@ def merge_nuclei_scripts(
         )
 
     def nuclei_output(nuclei: dict[str, Any], script_id: str) -> str:
-        return format_nuclei_output(nuclei)
+        return "[%(severity)s] %(name)s found at %(url)s" % nuclei
 
     return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
 
