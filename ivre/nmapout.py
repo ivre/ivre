@@ -217,10 +217,6 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
                     # Gracefully exit pagination on Ctrl+D
                     out.write("\n")
                     return
-                except KeyboardInterrupt:
-                    # Tidy output, then exit with the conventional SIGINT code
-                    out.write("\n")
-                    raise SystemExit(130) from None
             else:
                 out.write("\n")
     except KeyboardInterrupt:
