@@ -213,14 +213,18 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
             if os.isatty(out.fileno()):
                 try:
                     input()
-                except (KeyboardInterrupt, EOFError):
-                    # Gracefully exit pagination on Ctrl+C / Ctrl+D
+                except EOFError:
+                    # Gracefully exit pagination on Ctrl+D
                     out.write("\n")
                     return
+                except KeyboardInterrupt:
+                    # Tidy output, then exit with the conventional SIGINT code
+                    out.write("\n")
+                    raise SystemExit(130) from None
             else:
                 out.write("\n")
     except KeyboardInterrupt:
-        # Exit quietly on Ctrl+C even if the interrupt happened mid-display
+        # Keep output tidy, then exit quietly even if caller does not catch Ctrl+C
         out.write("\n")
         raise SystemExit(130) from None
 
