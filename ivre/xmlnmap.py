@@ -33,6 +33,7 @@ from ivre.active.cpe import cpe2dict
 from ivre.active.data import (
     add_cert_hostnames,
     add_hostname,
+    hostname_from_source_allowed,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
@@ -866,7 +867,9 @@ def post_smb_os_discovery(script, port, host):
     data = script["smb-os-discovery"]
     if "DNS_Computer_Name" not in data:
         return
-    add_hostname(data["DNS_Computer_Name"], "smb", host.setdefault("hostnames", []))
+    if not hostname_from_source_allowed("ntlm", data["DNS_Computer_Name"]):
+        return
+    add_hostname(data["DNS_Computer_Name"], "ntlm", host.setdefault("hostnames", []))
 
 
 def post_ssl_cert(script, port, host):
@@ -889,6 +892,8 @@ def post_ntlm_info(script, port, host):
         return
     data = script["ntlm-info"]
     if "DNS_Computer_Name" not in data:
+        return
+    if not hostname_from_source_allowed("ntlm", data["DNS_Computer_Name"]):
         return
     add_hostname(data["DNS_Computer_Name"], "ntlm", host.setdefault("hostnames", []))
 
@@ -1492,6 +1497,8 @@ def add_service_hostname(service_info, hostnames):
             if data.startswith("domain:"):
                 name += "." + data[7:].strip()
                 break
+    if not hostname_from_source_allowed("service", name):
+        return
     add_hostname(name, "service", hostnames)
 
 
@@ -1869,11 +1876,13 @@ class NmapHandler(ContentHandler):
                                     )
                                 )
                     if "DNS_Computer_Name" in ntlm_info:
-                        add_hostname(
-                            ntlm_info["DNS_Computer_Name"],
-                            "smb",
-                            self._curhost.setdefault("hostnames", []),
-                        )
+                        hostname = ntlm_info["DNS_Computer_Name"]
+                        if hostname_from_source_allowed("ntlm", hostname):
+                            add_hostname(
+                                hostname,
+                                "ntlm",
+                                self._curhost.setdefault("hostnames", []),
+                            )
                     scripts = self._curport.setdefault("scripts", [])
                     if "time" in data:
                         smb2_time = {}

@@ -256,9 +256,19 @@ VIEW_SYNACK_HONEYPOT_COUNT = 200
 # Some hostnames (often at CDNs) have too many hostnames and it might
 # not be very useful to count them all
 VIEW_MAX_HOSTNAMES_COUNT = 200
-# Control how hostnames extracted from TLS certificates are stored.
-# Accepted values: "all" (default), "no-wildcard", "none".
-CERT_HOSTNAMES_POLICY = "all"
+# Control how hostnames extracted from various sources are stored.
+# Keys are source names, values follow the same policies:
+#   "all", "no-wildcard", "none".
+# Defaults are:
+#   cert -> "all", service -> "all", ntlm -> "all", httpx -> "all" (URL hostnames).
+HOSTNAMES_POLICY: dict[str, str] = {
+    "cert": "all",
+    "service": "all",
+    "ntlm": "all",
+    "httpx": "all",
+}
+# Control adding hosts discovered through AXFR results (dnsx / auditdom).
+AXFR_ADD_HOSTS = True
 
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"

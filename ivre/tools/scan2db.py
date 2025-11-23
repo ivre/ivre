@@ -34,6 +34,7 @@ from ivre.view import nmap_record_to_view
 
 
 def main() -> None:
+    hostnames_policy_conf = getattr(ivre.config, "HOSTNAMES_POLICY", {}) or {}
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("scan", nargs="*", metavar="SCAN", help="Scan results")
     parser.add_argument("-c", "--categories", default="", help="Scan categories.")
@@ -91,11 +92,45 @@ def main() -> None:
     parser.add_argument(
         "--cert-hostnames",
         choices=["all", "no-wildcard", "none"],
-        default=ivre.config.CERT_HOSTNAMES_POLICY,
+        default=hostnames_policy_conf.get("cert", "all"),
         help="Control storing hostnames extracted from certificates (default: %(default)s).",
     )
+    parser.add_argument(
+        "--service-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default=hostnames_policy_conf.get("service", "all"),
+        help="Control storing hostnames extracted from service banners (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--ntlm-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default=hostnames_policy_conf.get("ntlm", "all"),
+        help="Control storing hostnames extracted from NTLM information (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--httpx-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default=hostnames_policy_conf.get("httpx", "all"),
+        help="Control storing hostnames extracted from httpx results (URL host vs scanned addr; default: %(default)s).",
+    )
+    parser.add_argument(
+        "--axfr-hosts",
+        choices=["add", "skip"],
+        default="add" if ivre.config.AXFR_ADD_HOSTS else "skip",
+        help="Control adding hosts discovered through AXFR results (default: %(default)s).",
+    )
     args = parser.parse_args()
-    ivre.config.CERT_HOSTNAMES_POLICY = args.cert_hostnames
+    hostnames_policy = dict(hostnames_policy_conf)
+    hostnames_policy.update(
+        {
+            "cert": args.cert_hostnames,
+            "service": args.service_hostnames,
+            "ntlm": args.ntlm_hostnames,
+            "httpx": args.httpx_hostnames,
+        }
+    )
+    ivre.config.HOSTNAMES_POLICY = hostnames_policy
+    ivre.config.AXFR_ADD_HOSTS = args.axfr_hosts == "add"
     database = ivre.db.db.nmap
     categories = sorted(set(args.categories.split(","))) if args.categories else []
     tags = [
