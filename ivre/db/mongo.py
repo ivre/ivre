@@ -360,20 +360,17 @@ class MongoDB(DB):
                 utils.LOGGER.info("  ... Done.")
             utils.LOGGER.info("Migrating records...")
             updated = False
-            session = None
             session_ctx = nullcontext()
             if not self.is_documentdb:
                 try:
-                    session = self.db_client.start_session()
+                    session_ctx = self.db_client.start_session()
                 except pymongo.errors.PyMongoError:
                     utils.LOGGER.debug(
                         "Cannot start a MongoDB session for migration cursor; "
                         "continuing without it",
                         exc_info=True,
                     )
-                else:
-                    session_ctx = session
-            with session_ctx:
+            with session_ctx as session:
                 # unlimited find()!
                 for i, record in enumerate(
                     self.db[self.columns[colnum]]
