@@ -3128,7 +3128,7 @@ class DBNmap(DBActive):
                     try:
                         addr, port = utils.url2hostport(url)
                     except ValueError:
-                        utils.LOGGER.warning("Invalid URL %r", url)
+                        utils.LOGGER.warning("Invalid URL [%r]", url)
                         continue
                     if addr.startswith("[") and addr.startswith("]"):
                         addr = addr[1:-1]
@@ -3141,7 +3141,7 @@ class DBNmap(DBActive):
                     )
                     if url.startswith("https:"):
                         port_doc["service_tunnel"] = "ssl"
-                elif rec.get("type") in {"ssl", "network", "tcp"}:
+                elif rec.get("type") in {"javascript", "network", "ssl", "tcp"}:
                     try:
                         addr = rec["host"]
                     except KeyError:
@@ -3151,21 +3151,21 @@ class DBNmap(DBActive):
                             utils.LOGGER.warning("No host found [%r]", rec)
                             continue
                         try:
-                            addr, port = url.split(":", 1)
+                            addr, port = utils.parse_hostport(url)
                         except ValueError:
                             utils.LOGGER.warning("Invalid URL [%r]", url)
                             continue
-                        try:
-                            port = int(port)
-                        except ValueError:
-                            utils.LOGGER.warning("No port found [%r]", url)
-                            continue
                     else:
                         try:
-                            port = int(rec["port"])
-                        except (KeyError, ValueError):
-                            utils.LOGGER.warning("No port found [%r]", url)
-                            continue
+                            addr, port = utils.parse_hostport(addr)
+                        except ValueError:
+                            try:
+                                port = int(rec["port"])
+                            except (KeyError, ValueError):
+                                utils.LOGGER.warning("No port found [%r]", addr)
+                                continue
+                            if addr.startswith("[") and addr.endswith("]"):
+                                addr = addr[1:-1]
                         if ":" in addr:
                             url = f"[{addr}]:{port}"
                         else:
@@ -3227,7 +3227,7 @@ class DBNmap(DBActive):
                 try:
                     utils.ip2int(addr)
                 except (TypeError, socket.error, struct.error):
-                    utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
+                    utils.LOGGER.warning("Cannot find IP address for record")
                     continue
                 # new vs old format
                 if "info" in rec:
@@ -4138,7 +4138,7 @@ class DBNmap(DBActive):
                 try:
                     addr, port = utils.url2hostport(url)
                 except ValueError:
-                    utils.LOGGER.warning("Invalid URL %r", url)
+                    utils.LOGGER.warning("Invalid URL [%r]", url)
                     continue
                 if addr.startswith("[") and addr.startswith("]"):
                     addr = addr[1:-1]
