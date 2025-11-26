@@ -2447,9 +2447,7 @@ def deep_sort_dict_list(elt: dict) -> None:
 _SCHEMES_PORTS = {"ftp": 21, "http": 80, "https": 443}
 
 
-def url2hostport(url: str) -> tuple[str, int]:
-    url_p = urlparse(url)
-    host = url_p.netloc
+def parse_hostport(host: str, default_port: int | None = None) -> tuple[str, int]:
     if host.startswith("["):
         try:
             mark = host.index("]")
@@ -2458,10 +2456,9 @@ def url2hostport(url: str) -> tuple[str, int]:
         port = host[mark + 1 :]
         host = host[1:mark]
         if not port:
-            try:
-                return host, _SCHEMES_PORTS[url_p.scheme]
-            except KeyError as exc:
-                raise ValueError("Bad scheme in URL") from exc
+            if default_port is None:
+                raise ValueError("Bad scheme in URL")
+            return host, default_port
         if not port.startswith(":"):
             raise ValueError("Bad netloc in URL")
         try:
@@ -2474,10 +2471,14 @@ def url2hostport(url: str) -> tuple[str, int]:
             return host, int(port)
         except ValueError as exc:
             raise ValueError("Bad netloc in URL") from exc
-    try:
-        return host, _SCHEMES_PORTS[url_p.scheme]
-    except KeyError as exc:
-        raise ValueError("Bad scheme in URL") from exc
+    if default_port is None:
+        raise ValueError("Bad scheme in URL")
+    return host, default_port
+
+
+def url2hostport(url: str) -> tuple[str, int]:
+    url_p = urlparse(url)
+    return parse_hostport(url_p.netloc, default_port=_SCHEMES_PORTS.get(url_p.scheme))
 
 
 def key_sort_dom(domain: str) -> list[str]:
