@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ import sys
 import termios
 import time
 from multiprocessing import Pool
-from typing import Any, BinaryIO, Type
+from typing import Any, IO, Type
 
 import ivre.agent
 import ivre.geoiputils
@@ -65,12 +65,12 @@ class XmlProcess:
     def target_status(self, _target: str) -> int:
         return STATUS_NEW
 
-    def process(self, fdesc: BinaryIO) -> bool:
+    def process(self, fdesc: IO[bytes]) -> bool:
         raise NotImplementedError
 
 
 class XmlProcessTest(XmlProcess):
-    def process(self, fdesc: BinaryIO) -> bool:
+    def process(self, fdesc: IO[bytes]) -> bool:
         data = fdesc.read()
         if not data:
             return False
@@ -108,7 +108,7 @@ class XmlProcessWritefile(XmlProcess):
         else:
             self.has_fulloutput = False
 
-    def process(self, fdesc: BinaryIO) -> bool:
+    def process(self, fdesc: IO[bytes]) -> bool:
         newdata = fdesc.read()
         # print("READ", len(newdata), "bytes")
         if not newdata:
@@ -224,6 +224,8 @@ def call_nmap(
                 rfdesc.close()
                 toread.remove(rfdesc)
         for wfdesc in wlist:
+            if wfdesc is None:
+                continue
             try:
                 naddr = ivre.utils.int2ip(next(targiter))
                 while xmlprocess.target_status(naddr) not in accept_target_status:
