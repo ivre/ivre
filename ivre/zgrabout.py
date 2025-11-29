@@ -29,6 +29,7 @@ from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_cert_hostnames,
     add_hostname,
+    hostname_from_source_allowed,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
@@ -326,6 +327,10 @@ def zgrap_parser_http(
                         }
                     )
                     if "DNS_Computer_Name" in infos:
+                        if not hostname_from_source_allowed(
+                            "ntlm", infos["DNS_Computer_Name"]
+                        ):
+                            continue
                         add_hostname(
                             infos["DNS_Computer_Name"],
                             "ntlm",

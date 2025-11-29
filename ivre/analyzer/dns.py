@@ -28,6 +28,7 @@ from collections.abc import Generator, Sequence
 from datetime import datetime
 from itertools import chain
 
+from ivre import config
 from ivre.types.active import NmapHost
 from ivre.utils import LOGGER, get_domains, key_sort_dom
 from ivre.xmlnmap import SCHEMA_VERSION
@@ -214,6 +215,9 @@ class AXFRChecker(Checker):
                     },
                 ],
             }
+            if not getattr(config, "AXFR_ADD_HOSTS", True):
+                start = datetime.now()
+                continue
             hosts: dict[str, set[tuple[str, str]]] = {}
             for r in res:
                 if r.rclass != "IN":

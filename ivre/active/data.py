@@ -32,6 +32,7 @@ from textwrap import wrap
 from typing import Any, cast
 from urllib.parse import urlparse
 
+from ivre import config
 from ivre.active.cpe import add_cpe_values
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.config import VIEW_MAX_HOSTNAMES_COUNT, VIEW_SYNACK_HONEYPOT_COUNT
@@ -182,10 +183,14 @@ def san2hostname(san: str) -> tuple[str, str] | None:
 
 def add_cert_hostnames(cert: ParsedCertificate, hostnames: list[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
-        add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
+        common_name = cert["subject"]["commonName"]
+        if _cert_hostname_allowed(common_name):
+            add_hostname(common_name, "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
         if (type_hostname := san2hostname(san)) is not None:
-            add_hostname(type_hostname[1], f"cert-san-{type_hostname[0]}", hostnames)
+            hostname = type_hostname[1]
+            if _cert_hostname_allowed(hostname):
+                add_hostname(hostname, f"cert-san-{type_hostname[0]}", hostnames)
 
 
 def merge_ja3_scripts(
@@ -1032,6 +1037,27 @@ def create_elasticsearch_service(data: bytes) -> NmapServiceMatch | None:
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
 
 
+def _get_hostname_policy(source: str) -> str:
+    """Return policy for a hostname source, combining defaults and overrides."""
+    defaults = {"cert": "all", "service": "all", "ntlm": "all", "httpx": "all"}
+    policies = dict(defaults)
+    policies.update(getattr(config, "HOSTNAMES_POLICY", {}) or {})
+    return policies.get(source, "all")
+
+
+def hostname_from_source_allowed(source: str, name: str | None = None) -> bool:
+    policy = _get_hostname_policy(source)
+    if policy == "none":
+        return False
+    if policy == "no-wildcard" and name is not None and "*" in name:
+        return False
+    return True
+
+
+def _cert_hostname_allowed(name: str) -> bool:
+    return hostname_from_source_allowed("cert", name)
+
+
 def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> None:
     name = name.rstrip(".").lower()
     if not _HOSTNAME.search(name):
@@ -1182,11 +1208,13 @@ def handle_http_content(
     service_elasticsearch = create_elasticsearch_service(data)
     if service_elasticsearch:
         if "service_hostname" in service_elasticsearch:
-            add_hostname(
-                service_elasticsearch["service_hostname"],
-                "service",
-                host.setdefault("hostnames", []),
-            )
+            hostname = service_elasticsearch["service_hostname"]
+            if hostname_from_source_allowed("service", hostname):
+                add_hostname(
+                    hostname,
+                    "service",
+                    host.setdefault("hostnames", []),
+                )
         add_cpe_values(
             host, "ports.port:%s" % port, service_elasticsearch.pop("cpe", [])
         )
