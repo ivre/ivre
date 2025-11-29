@@ -882,7 +882,11 @@ def post_ntlm_info(script, port, host):
         if script["id"] in script:
             script["ntlm-info"] = script.pop(script["id"])
         proto = script["id"].rsplit("-", 2)[0]
-        if "ntlm-info" in script:
+        if script.get("ntlm-info"):
+            if len(script["ntlm-info"]) == 1 and "\\" in next(
+                iter(script["ntlm-info"])
+            ):
+                _, script["ntlm-info"] = script["ntlm-info"].popitem()
             script["ntlm-info"]["protocol"] = proto
         script["id"] = "ntlm-info"
     if "ntlm-info" not in script:
