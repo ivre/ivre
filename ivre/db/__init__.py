@@ -3454,7 +3454,7 @@ class DBNmap(DBActive):
                     "ports": [port],
                 }
                 hostname = urlparse(rec["url"]).hostname
-                    add_hostname(hostname, "user", host.setdefault("hostnames", []))
+                add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec.get("scheme") == "https":
                     port["service_tunnel"] = "ssl"
                 if "title" in rec:
