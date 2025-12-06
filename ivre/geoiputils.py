@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -117,13 +117,13 @@ def untar_all(
         for filedesc in tdesc:
             if cond and not cond(filedesc):
                 continue
-            with open(
-                os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name)), "wb"
-            ) as wdesc:
+            target = os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name))
+            with open(target, "wb") as wdesc:
                 rdesc = tdesc.extractfile(filedesc)
                 if rdesc is None:
                     continue
                 copyfileobj(rdesc, wdesc)
+            os.utime(target, (filedesc.mtime, filedesc.mtime))
 
 
 def rename(src: str, dst: str) -> None:
