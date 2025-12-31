@@ -3141,7 +3141,7 @@ class DBNmap(DBActive):
                     )
                     if url.startswith("https:"):
                         port_doc["service_tunnel"] = "ssl"
-                elif rec.get("type") in {"javascript", "network", "ssl", "tcp"}:
+                elif rec.get("type") in {"code", "javascript", "network", "ssl", "tcp"}:
                     try:
                         addr = rec["host"]
                     except KeyError:
