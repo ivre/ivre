@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3442,8 +3442,14 @@ class DBNmap(DBActive):
                     "service_method": "probed",
                 }
                 timestamp = rec["timestamp"][:19].replace("T", " ")
+                addr = rec.get("host_ip", rec["host"])
+                try:
+                    utils.ip2int(addr)
+                except (TypeError, socket.error, struct.error):
+                    utils.LOGGER.warning("No IP found in record [%r]", rec)
+                    continue
                 host = {
-                    "addr": rec["host"],
+                    "addr": addr,
                     "state": "up",
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     "starttime": timestamp,
@@ -3451,7 +3457,7 @@ class DBNmap(DBActive):
                     "ports": [port],
                 }
                 hostname = urlparse(rec["url"]).hostname
-                if hostname != rec["host"]:
+                if hostname != host["addr"]:
                     add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec.get("scheme") == "https":
                     port["service_tunnel"] = "ssl"
@@ -4145,7 +4151,7 @@ class DBNmap(DBActive):
                 try:
                     utils.ip2int(addr)
                 except (TypeError, socket.error, struct.error):
-                    utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
+                    utils.LOGGER.warning("No IP found in record [%r]", rec)
                     continue
                 port_doc = {
                     "protocol": "tcp",
