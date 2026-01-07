@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 
 import argparse
+import json
 import os
 import sys
 from glob import glob
@@ -53,6 +54,14 @@ def printrec_full(rec: Dict[str, str]) -> None:
         else:
             print(f"{k}: {v}")
     print()
+
+
+def printrec_json(rec: Dict[str, str]) -> None:
+    try:
+        del rec["_id"]
+    except KeyError:
+        pass
+    print(json.dumps(rec))
 
 
 def printrec_short(rec: Dict[str, str]) -> None:
@@ -114,7 +123,12 @@ def main() -> None:
         dbase.globaldb = db
     else:
         dbase = db.rir
-    printrec = printrec_short if args.short else printrec_full
+    if args.short:
+        printrec = printrec_short
+    elif args.json:
+        printrec = printrec_json
+    else:
+        printrec = printrec_full
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -184,11 +198,13 @@ def main() -> None:
             if args.count:
                 print(f"{args.search}: {dbase.count(flt)}")
                 sys.exit(0)
-            print(args.search)
-            print()
+            if not args.json:
+                print(args.search)
+                print()
             for res in dbase.get(flt, **kargs):
                 printrec(res)
-            print()
+            if not args.json:
+                print()
             sys.exit(0)
     if not args.ips and args.count:
         print(dbase.count(flt))
@@ -199,11 +215,13 @@ def main() -> None:
         if args.count:
             print(f"{addr}: {dbase.count(dbase.flt_and(dbase.searchhost(addr), flt))}")
             continue
-        print(addr)
+        if not args.json:
+            print(addr)
         res = dbase.get_best(addr, spec=flt)
         if res is None:
-            print("UNKNOWN")
+            if not args.json:
+                print("UNKNOWN")
         else:
             printrec(res)
-        if not args.short:
+        if not (args.short or args.json):
             print()
