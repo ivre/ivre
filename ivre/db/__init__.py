@@ -5605,11 +5605,11 @@ class DBRir(DB):
                     elif "inet6num" in rec:
                         rec["start"], rec["stop"] = utils.net2range(rec.pop("inet6num"))
                     elif "aut-num" in rec:
-                        if not rec["aut-num"].startswith("AS"):
-                            utils.LOGGER.warning("Incorrect record [%r]", rec)
-                            continue
+                        aut_num = rec["aut-num"]
+                        if aut_num.startswith("AS"):
+                            aut_num = aut_num[2:]
                         try:
-                            rec["aut-num"] = int(rec["aut-num"][2:])
+                            rec["aut-num"] = int(aut_num)
                         except ValueError:
                             utils.LOGGER.warning("Incorrect record [%r]", rec)
                             continue
