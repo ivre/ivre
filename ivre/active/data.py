@@ -69,6 +69,67 @@ from ivre.utils import (
 )
 
 
+HOSTNAMES_POLICY: dict[str, str] = {
+    "cert": "all",
+    "service": "all",
+    "ntlm": "all",
+}
+
+AXFR_ADD_HOSTS: bool = True
+
+
+def _normalize_dns_name(name: str | None) -> str | None:
+    # Normalize DNS labels for AXFR/CNAME processing.
+    if not name:
+        return None
+    return name.rstrip(".").lower()
+
+
+def axfr_records_to_hosts(
+    records: list[dict[str, Any]],
+) -> dict[str, set[tuple[str, str]]]:
+    # Build host assets from AXFR A/AAAA records and CNAME chains in the same zone.
+    hosts: dict[str, set[tuple[str, str]]] = {}
+    if not records:
+        return hosts
+    # Index direct A/AAAA answers and CNAME edges for in-zone resolution.
+    a_map: dict[str, list[tuple[str, str]]] = {}
+    cname_map: dict[str, set[str]] = {}
+    for record in records:
+        if record.get("class") != "IN":
+            continue
+        rtype = record.get("type")
+        name = _normalize_dns_name(record.get("name"))
+        data = record.get("data")
+        if not name or not data:
+            continue
+        if rtype in {"A", "AAAA"}:
+            a_map.setdefault(name, []).append((rtype, data))
+        elif rtype == "CNAME":
+            target = _normalize_dns_name(data)
+            if target:
+                cname_map.setdefault(name, set()).add(target)
+    for name, entries in a_map.items():
+        for rtype, addr in entries:
+            hosts.setdefault(addr, set()).add((rtype, name))
+
+    # Resolve CNAME chains to A/AAAA targets, stopping on loops.
+    def _resolve(name: str, seen: set[str]) -> list[tuple[str, str]]:
+        if name in seen:
+            return []
+        seen.add(name)
+        results = list(a_map.get(name, []))
+        for target in cname_map.get(name, set()):
+            results.extend(_resolve(target, seen))
+        return results
+
+    for cname in cname_map:
+        for rtype, addr in _resolve(cname, set()):
+            hosts.setdefault(addr, set()).add((rtype, cname))
+    # Preserve CNAME labels when mapping resolved addresses to hostnames.
+    return hosts
+
+
 def create_ssl_output(info: ParsedCertificate) -> list[str]:
     out = []
     for key, name in [("subject_text", "Subject"), ("issuer_text", "Issuer")]:
@@ -281,30 +342,56 @@ def merge_ssl_cert_scripts(
 def merge_axfr_scripts(
     curscript: NmapScript, script: NmapScript, script_id: str
 ) -> NmapScript:
+    def _normalize_axfr(
+        value: Any | None,
+    ) -> list[dict[str, Any]] | None:
+        # Only accept structured AXFR data (list of dicts).
+        if isinstance(value, list) and all(isinstance(item, dict) for item in value):
+            return value
+        return None
+
     # If one results has no structured output, keep the other
     # one. Prefer curscript over script.
-    if script_id not in script:
+    # Prefer structured AXFR data; fall back to raw output when missing.
+    cur_records = _normalize_axfr(curscript.get(script_id))
+    new_records = _normalize_axfr(script.get(script_id))
+    if script_id not in script or new_records is None:
+        if cur_records is None:
+            if script_id in script and script_id not in curscript:
+                curscript["output"] = script.get("output", "")
+                curscript[script_id] = script[script_id]
+                return script
+            return curscript
         return curscript
-    if script_id not in curscript:
-        curscript["output"] = script["output"]
-        curscript[script_id] = script[script_id]
-        return script
-    res: list[dict[str, Any]] = []
-    for data in chain(curscript[script_id], script[script_id]):
-        if any(data["domain"] == r["domain"] for r in res):
-            continue
-        res.append(data)
+    # Merge unique domains across current and new AXFR entries.
+    if cur_records is None:
+        res = list(new_records)
+    else:
+        res = list(cur_records)
+    if new_records is not None:
+        for data in new_records:
+            if any(data["domain"] == r["domain"] for r in res):
+                continue
+            res.append(data)
     res = sorted(res, key=lambda r: key_sort_dom(r["domain"]))
+    # Rebuild the output only when structured records are present.
+    records = [r for data in res for r in data.get("records", [])]
+    if not records:
+        curscript["output"] = ""
+        curscript[script_id] = res
+        return curscript
     line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-        max(len(r["name"]) for data in res for r in data["records"]),
-        max(len(r["type"]) for data in res for r in data["records"]),
+        max(len(r.get("name", "")) for r in records),
+        max(len(r.get("type", "")) for r in records),
     )
     curscript["output"] = "\n".join(
         "\nDomain: %s\n%s\n\\\n"
         % (
-            data["domain"],
+            data.get("domain", ""),
             "\n".join(
-                line_fmt % (r["name"], r["type"], r["data"]) for r in data["records"]
+                line_fmt
+                % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
+                for r in data.get("records", [])
             ),
         )
         for data in res
@@ -1032,8 +1119,43 @@ def create_elasticsearch_service(data: bytes) -> NmapServiceMatch | None:
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
 
 
+def _get_hostname_policy(source: str) -> str:
+    # Centralized hostname policy lookup for cert/service/ntlm sources.
+    return HOSTNAMES_POLICY.get(source, "all")
+
+
+def hostname_from_source_allowed(source: str, name: str | None = None) -> bool:
+    # Enforce per-source hostname storage policy.
+    policy = _get_hostname_policy(source)
+    if policy == "all":
+        return True
+    if policy == "none":
+        return False
+    if policy == "no-wildcard":
+        if name is None:
+            return True
+        # Used by cert/service hostname filters to drop wildcard names.
+        return "*" not in name
+    return True
+
+
+def _hostname_source_for_type(name_type: str) -> str | None:
+    # Map hostname types to their policy source buckets.
+    if name_type.startswith("cert-"):
+        return "cert"
+    if name_type == "service":
+        return "service"
+    if name_type in {"ntlm", "smb"}:
+        return "ntlm"
+    return None
+
+
 def add_hostname(name: str, name_type: str, hostnames: list[NmapHostname]) -> None:
     name = name.rstrip(".").lower()
+    source = _hostname_source_for_type(name_type)
+    # Enforce hostname source policy (cert/service/ntlm) before storing.
+    if source is not None and not hostname_from_source_allowed(source, name):
+        return
     if not _HOSTNAME.search(name):
         return
     # exclude IPv4 addresses

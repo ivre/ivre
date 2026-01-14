@@ -53,6 +53,7 @@ except ImportError:
 
 
 from ivre import config, flow, nmapout, passive, utils, xmlnmap
+from ivre.active.data import AXFR_ADD_HOSTS
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_hostname,
@@ -2976,6 +2977,9 @@ class DBNmap(DBActive):
                         },
                     ],
                 }
+            # Honor --axfr-hosts policy for extra host assets from AXFR data.
+            if not AXFR_ADD_HOSTS:
+                continue
             hosts: dict[str, set[tuple[str, str]]] = {}
             for r in records:
                 if r.rclass != "IN":
@@ -3458,6 +3462,7 @@ class DBNmap(DBActive):
                 }
                 hostname = urlparse(rec["url"]).hostname
                 if hostname != host["addr"]:
+                    # httpx uses user-supplied hostnames; keep regardless of policy.
                     add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec.get("scheme") == "https":
                     port["service_tunnel"] = "ssl"

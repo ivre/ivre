@@ -30,12 +30,15 @@ from xml.sax.handler import ContentHandler, EntityResolver
 
 from ivre import utils
 from ivre.active.cpe import cpe2dict
+import ivre.active.data as active_data
 from ivre.active.data import (
     add_cert_hostnames,
     add_hostname,
+    axfr_records_to_hosts,
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
+    hostname_from_source_allowed,
 )
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.analyzer import dicom, ike, ja3
@@ -866,7 +869,10 @@ def post_smb_os_discovery(script, port, host):
     data = script["smb-os-discovery"]
     if "DNS_Computer_Name" not in data:
         return
-    add_hostname(data["DNS_Computer_Name"], "smb", host.setdefault("hostnames", []))
+    # Apply NTLM hostname policy before adding extracted hostname.
+    if not hostname_from_source_allowed("ntlm", data["DNS_Computer_Name"]):
+        return
+    add_hostname(data["DNS_Computer_Name"], "ntlm", host.setdefault("hostnames", []))
 
 
 def post_ssl_cert(script, port, host):
@@ -893,6 +899,9 @@ def post_ntlm_info(script, port, host):
         return
     data = script["ntlm-info"]
     if "DNS_Computer_Name" not in data:
+        return
+    # Apply NTLM hostname policy before adding extracted hostname.
+    if not hostname_from_source_allowed("ntlm", data["DNS_Computer_Name"]):
         return
     add_hostname(data["DNS_Computer_Name"], "ntlm", host.setdefault("hostnames", []))
 
@@ -928,7 +937,46 @@ def post_snmp_info(script, _, host):
         cur_macs.append(mac)
 
 
+def post_dns_zone_transfer(script, _, __):
+    # Rebuild output from structured AXFR data so views always show full records.
+    if "dns-zone-transfer" not in script:
+        return
+    data = script["dns-zone-transfer"]
+    if not isinstance(data, list):
+        return
+    res = [entry for entry in data if isinstance(entry, dict)]
+    if not res:
+        return
+    res = sorted(res, key=lambda r: utils.key_sort_dom(r.get("domain", "")))
+    records = [
+        record
+        for entry in res
+        for record in entry.get("records", [])
+        if isinstance(record, dict)
+    ]
+    if not records:
+        script["output"] = ""
+        return
+    line_fmt = "| %%-%ds  %%-%ds  %%s" % (
+        max(len(r.get("name", "")) for r in records),
+        max(len(r.get("type", "")) for r in records),
+    )
+    script["output"] = "\n".join(
+        "\nDomain: %s\n%s\n\\\n"
+        % (
+            entry.get("domain", ""),
+            "\n".join(
+                line_fmt
+                % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
+                for r in entry.get("records", [])
+            ),
+        )
+        for entry in res
+    )
+
+
 POST_PROCESS = {
+    "dns-zone-transfer": post_dns_zone_transfer,
     "http-headers": post_http_headers,
     "ntlm-info": post_ntlm_info,
     "smb-os-discovery": post_smb_os_discovery,
@@ -1496,6 +1544,9 @@ def add_service_hostname(service_info, hostnames):
             if data.startswith("domain:"):
                 name += "." + data[7:].strip()
                 break
+    # Apply service-hostname policy (all/no-wildcard/none) before adding.
+    if not hostname_from_source_allowed("service", name):
+        return
     add_hostname(name, "service", hostnames)
 
 
@@ -1574,14 +1625,72 @@ class NmapHandler(ContentHandler):
             if not self._curhost["cpes"]:
                 del self._curhost["cpes"]
 
+    # Apply scan-level metadata to a host record before storage.
+    def _apply_host_metadata(self, host):
+        if self.categories:
+            host["categories"] = self.categories[:]
+        if self.tags:
+            add_tags(host, self.tags)
+        if self.source:
+            host["source"] = self.source
+
+    def _get_axfr_hosts(self, host):
+        # Respect --axfr-hosts policy; expand A/AAAA and CNAME chains only when enabled.
+        if not active_data.AXFR_ADD_HOSTS:
+            return []
+        records = []
+        for port in host.get("ports", []):
+            for script in port.get("scripts", []):
+                if script.get("id") != "dns-zone-transfer":
+                    continue
+                data = script.get("dns-zone-transfer")
+                if not isinstance(data, list):
+                    continue
+                for zone in data:
+                    if not isinstance(zone, dict):
+                        continue
+                    zone_records = zone.get("records", [])
+                    if not isinstance(zone_records, list):
+                        continue
+                    records.extend(
+                        record
+                        for record in zone_records
+                        if isinstance(record, dict)
+                    )
+        # Turn AXFR records into extra host assets with resolved CNAME chains.
+        hosts = axfr_records_to_hosts(records)
+        if not hosts:
+            return []
+        starttime = host.get("starttime") or host.get("endtime")
+        endtime = host.get("endtime") or host.get("starttime")
+        results = []
+        for addr, names in hosts.items():
+            extra_host = {
+                "addr": addr,
+                "hostnames": [
+                    {
+                        "name": hostname,
+                        "type": rtype,
+                        "domains": list(utils.get_domains(hostname)),
+                    }
+                    for rtype, hostname in names
+                ],
+                "schema_version": SCHEMA_VERSION,
+            }
+            if starttime is not None:
+                extra_host["starttime"] = starttime
+            if endtime is not None:
+                extra_host["endtime"] = endtime
+            results.append(extra_host)
+        return results
+
     def _addhost(self):
         """Subclasses may store self._curhost here."""
-        if self.categories:
-            self._curhost["categories"] = self.categories[:]
-        if self.tags:
-            add_tags(self._curhost, self.tags)
-        if self.source:
-            self._curhost["source"] = self.source
+        self._apply_host_metadata(self._curhost)
+        # Compute and tag extra AXFR-derived hosts before storage.
+        self._extra_hosts = self._get_axfr_hosts(self._curhost)
+        for host in self._extra_hosts:
+            self._apply_host_metadata(host)
 
     def startElement(self, name, attrs):
         if name == "nmaprun":
@@ -1873,11 +1982,14 @@ class NmapHandler(ContentHandler):
                                     )
                                 )
                     if "DNS_Computer_Name" in ntlm_info:
-                        add_hostname(
-                            ntlm_info["DNS_Computer_Name"],
-                            "smb",
-                            self._curhost.setdefault("hostnames", []),
-                        )
+                        hostname = ntlm_info["DNS_Computer_Name"]
+                        # Apply NTLM hostname policy before adding extracted hostname.
+                        if hostname_from_source_allowed("ntlm", hostname):
+                            add_hostname(
+                                hostname,
+                                "ntlm",
+                                self._curhost.setdefault("hostnames", []),
+                            )
                     scripts = self._curport.setdefault("scripts", [])
                     if "time" in data:
                         smb2_time = {}
@@ -2690,6 +2802,8 @@ class Nmap2Txt(NmapHandler):
     def _addhost(self):
         super()._addhost()
         self._db.append(self._curhost)
+        # Include AXFR-derived hosts in text/JSON output.
+        self._db.extend(self._extra_hosts)
 
 
 class Nmap2DB(NmapHandler):
@@ -2717,3 +2831,8 @@ class Nmap2DB(NmapHandler):
         self._db.nmap.store_or_merge_host(self._curhost)
         if self.callback is not None:
             self.callback(self._curhost)
+        # Store and propagate AXFR-derived hosts as independent assets.
+        for host in self._extra_hosts:
+            self._db.nmap.store_or_merge_host(host)
+            if self.callback is not None:
+                self.callback(host)
