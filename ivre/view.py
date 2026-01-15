@@ -32,6 +32,7 @@ from ivre.active.data import (
     add_hostname,
     create_ssl_output,
     merge_host_docs,
+    hostname_from_source_allowed,
 )
 from ivre.data import scanners
 from ivre.db import db
@@ -624,7 +625,10 @@ def _extract_passive_NTLM(rec, service=None):
         port["protocol"] = proto
     hostnames = []
     if "DNS_Computer_Name" in script["ntlm-info"]:
-        add_hostname(script["ntlm-info"]["DNS_Computer_Name"], "ntlm", hostnames)
+        hostname = script["ntlm-info"]["DNS_Computer_Name"]
+        # Apply NTLM hostname policy before adding extracted hostname.
+        if hostname_from_source_allowed("ntlm", hostname):
+            add_hostname(hostname, "ntlm", hostnames)
     return {"ports": [port], "hostnames": hostnames}
 
 

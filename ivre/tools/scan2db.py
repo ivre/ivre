@@ -24,6 +24,7 @@ import os
 import sys
 from argparse import ArgumentParser
 
+import ivre.active.data
 import ivre.db
 import ivre.utils
 import ivre.xmlnmap
@@ -87,7 +88,40 @@ def main() -> None:
         action="store_true",
         help="Do not merge hosts in current view (default)",
     )
+    parser.add_argument(
+        "--cert-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default="all",
+        help="Control storing hostnames extracted from certificates (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--service-hostnames",
+        choices=["all", "no-wildcard", "none"],
+        default="all",
+        help="Control storing hostnames extracted from service banners (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--ntlm-hostnames",
+        choices=["all", "none"],
+        default="all",
+        help="Control storing hostnames extracted from NTLM information (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--axfr-hosts",
+        choices=["add", "skip"],
+        default="add",
+        help="Control adding hosts discovered through AXFR results (default: %(default)s).",
+    )
     args = parser.parse_args()
+    # Map CLI hostname filters and AXFR expansion policy to shared settings.
+    ivre.active.data.HOSTNAMES_POLICY.update(
+        {
+            "cert": args.cert_hostnames,
+            "service": args.service_hostnames,
+            "ntlm": args.ntlm_hostnames,
+        }
+    )
+    ivre.active.data.AXFR_ADD_HOSTS = args.axfr_hosts == "add"
     database = ivre.db.db.nmap
     categories = sorted(set(args.categories.split(","))) if args.categories else []
     tags = [

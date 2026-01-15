@@ -22,6 +22,15 @@ You can use network scanners directly:
 IVRE can insert XML output files for Nmap and Masscan, and JSON output
 files for the other tools, using the command line tool ``ivre
 scan2db``.
+You can control which hostnames are stored during import with the
+``--cert-hostnames``, ``--service-hostnames``, and ``--ntlm-hostnames``
+options. For NTLM, the accepted values are ``all`` and ``none`` (wildcard
+filtering is not supported).
+If your scans include DNS zone transfers, ``--axfr-hosts`` controls
+whether A/AAAA (and CNAME-resolved) records from ``dns-zone-transfer``
+are turned into extra host assets (``add``) or kept only as raw script
+data on the DNS server host (``skip``). The ``dns-zone-transfer`` script
+output itself is always stored when present.
 
 You can insert scan results from different tools, then use ``ivre
 db2view nmap`` to merge results from different scans and create a view

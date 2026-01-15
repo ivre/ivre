@@ -32,6 +32,7 @@ from ivre.active.data import (
     create_ssl_cert,
     handle_http_content,
     handle_http_headers,
+    hostname_from_source_allowed,
 )
 from ivre.analyzer import ntlm
 from ivre.data.microsoft.exchange import EXCHANGE_BUILDS
@@ -326,6 +327,11 @@ def zgrap_parser_http(
                         }
                     )
                     if "DNS_Computer_Name" in infos:
+                        # Honor NTLM hostname policy (e.g., none/no-wildcard).
+                        if not hostname_from_source_allowed(
+                            "ntlm", infos["DNS_Computer_Name"]
+                        ):
+                            continue
                         add_hostname(
                             infos["DNS_Computer_Name"],
                             "ntlm",

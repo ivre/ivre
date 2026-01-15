@@ -28,6 +28,7 @@ from collections.abc import Generator, Sequence
 from datetime import datetime
 from itertools import chain
 
+from ivre.active.data import AXFR_ADD_HOSTS, axfr_records_to_hosts
 from ivre.types.active import NmapHost
 from ivre.utils import LOGGER, get_domains, key_sort_dom
 from ivre.xmlnmap import SCHEMA_VERSION
@@ -221,7 +222,7 @@ class AXFRChecker(Checker):
                 if r.rtype in ["A", "AAAA"]:
                     name = r.name.rstrip(".").lower()
                     hosts.setdefault(r.data, set()).add((r.rtype, name))
-            for host, records in hosts.items():
+            for host, host_records in hosts.items():
                 yield {
                     "addr": host,
                     "hostnames": [
@@ -230,7 +231,7 @@ class AXFRChecker(Checker):
                             "type": rec[0],
                             "domains": list(get_domains(rec[1])),
                         }
-                        for rec in records
+                        for rec in host_records
                     ],
                     "schema_version": SCHEMA_VERSION,
                     "starttime": start,
