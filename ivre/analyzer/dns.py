@@ -215,20 +215,14 @@ class AXFRChecker(Checker):
                     },
                 ],
             }
-            if not AXFR_ADD_HOSTS:
-                start = datetime.now()
-                continue
-            records = [
-                {
-                    "name": r.name,
-                    "class": r.rclass,
-                    "type": r.rtype,
-                    "data": r.data,
-                }
-                for r in res
-            ]
-            hosts = axfr_records_to_hosts(records)
-            for host, records in hosts.items():
+            hosts: dict[str, set[tuple[str, str]]] = {}
+            for r in res:
+                if r.rclass != "IN":
+                    continue
+                if r.rtype in ["A", "AAAA"]:
+                    name = r.name.rstrip(".").lower()
+                    hosts.setdefault(r.data, set()).add((r.rtype, name))
+            for host, host_records in hosts.items():
                 yield {
                     "addr": host,
                     "hostnames": [
@@ -237,7 +231,7 @@ class AXFRChecker(Checker):
                             "type": rec[0],
                             "domains": list(get_domains(rec[1])),
                         }
-                        for rec in records
+                        for rec in host_records
                     ],
                     "schema_version": SCHEMA_VERSION,
                     "starttime": start,
