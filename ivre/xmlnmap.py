@@ -966,8 +966,7 @@ def post_dns_zone_transfer(script, _, __):
         % (
             entry.get("domain", ""),
             "\n".join(
-                line_fmt
-                % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
+                line_fmt % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
                 for r in entry.get("records", [])
             ),
         )
@@ -1653,9 +1652,7 @@ class NmapHandler(ContentHandler):
                     if not isinstance(zone_records, list):
                         continue
                     records.extend(
-                        record
-                        for record in zone_records
-                        if isinstance(record, dict)
+                        record for record in zone_records if isinstance(record, dict)
                     )
         # Turn AXFR records into extra host assets with resolved CNAME chains.
         hosts = axfr_records_to_hosts(records)

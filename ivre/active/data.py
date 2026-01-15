@@ -389,8 +389,7 @@ def merge_axfr_scripts(
         % (
             data.get("domain", ""),
             "\n".join(
-                line_fmt
-                % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
+                line_fmt % (r.get("name", ""), r.get("type", ""), r.get("data", ""))
                 for r in data.get("records", [])
             ),
         )
