@@ -5531,7 +5531,7 @@ class DBRir(DB):
                 current["_type"] = key
             current.setdefault(key, []).append(value)
         if current:
-            if current.pop("_type", None) in {"inetnum", "inet6num"}:
+            if current.pop("_type", None) in {"inetnum", "inet6num", "aut-num"}:
                 yield {key: "\n".join(value) for key, value in current.items()}
 
     def fetch_and_import_all(self):

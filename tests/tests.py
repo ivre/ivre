@@ -3702,7 +3702,7 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(err)
         self.assertNotEqual(res, 0)
 
-    # This test have to be done first.
+    # This test has to be done first.
     def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
@@ -4024,12 +4024,12 @@ class IvreTests(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
-        res, out, err = RUN(["ivre", "rirlookup", "--search", '"SGDSN"', "--json"])
+        res, out, err = RUN(["ivre", "rirlookup", "--search", '"SGDSN"', "--short"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
         found = False
         for line in out.decode().splitlines():
-            if json.loads(line).get("start") == "185.50.64.0":
+            if line.startswith("185.50.64.0/22: "):
                 found = True
         self.assertTrue(found)
 

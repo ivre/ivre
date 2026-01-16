@@ -132,7 +132,7 @@ def main() -> None:
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
-                "This will remove any scan result in your database. Process ? [y/N] "
+                "This will remove all existing RIR data from your database. Proceed? [y/N] "
             )
             ans = input()
             if ans.lower() != "y":

@@ -6040,7 +6040,7 @@ class MongoDBRir(MongoDB, DBRir):
         return {"source_file": src}
 
     @staticmethod
-    def searchfileid(fileid: bytes, neg: bool = False) -> Filter:
+    def searchfileid(fileid: str, neg: bool = False) -> Filter:
         """Filters (if `neg` == True, filters out) one particular
         file id.
 
@@ -6127,6 +6127,8 @@ class MongoDBRir(MongoDB, DBRir):
                         [rec.pop(f"{fld}_0"), rec.pop(f"{fld}_1")]
                     )
                 except (KeyError, socket.error):
+                    # If the expected internal IP components are missing or invalid,
+                    # leave the record as-is and continue with the next field.
                     pass
             yield rec
 
