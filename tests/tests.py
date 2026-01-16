@@ -3989,9 +3989,17 @@ class IvreTests(unittest.TestCase):
     def test_15_rir(self):
         """rirlookup functions"""
 
-        # Download
-        res = RUN(["ivre", "rirlookup", "--download", "--insert"])[0]
+        # Init DB
+        res, out, err = RUN(["ivre", "rirlookup", "--init"], stdin=subprocess.DEVNULL)
         self.assertEqual(res, 0)
+        self.assertFalse(out)
+        self.assertFalse(err)
+        # Download
+        res, out, err = RUN(["ivre", "rirlookup", "--download", "--insert"])[0]
+        print("rirlookup out:", repr(out))
+        print("rirlookup err:", repr(err))
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
 
         res, out, err = RUN(
             ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM"]
