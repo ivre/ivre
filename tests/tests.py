@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3993,7 +3993,45 @@ class IvreTests(unittest.TestCase):
         res = RUN(["ivre", "rirlookup", "--download", "--insert"])[0]
         self.assertEqual(res, 0)
 
-        res, out, err = RUN(["ivre", "rirlookup", "--search", "XXXXXX"])
+        res, out, err = RUN(
+            ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out.strip().decode(), "GDOHCAXWRQWFGTZBEXZDIZGOCM")
+        self.assertFalse(err)
+
+        res, out, err = RUN(
+            ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM", "--json"]
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(out)
+        self.assertFalse(err)
+
+        res, out, err = RUN(
+            [
+                "ivre",
+                "rirlookup",
+                "--search",
+                '"Commissariat" "Energie" "Atomique"',
+                "--json",
+            ]
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        found = False
+        for line in out.decode().splitlines():
+            if json.loads(line).get("start") == "132.165.0.0":
+                found = True
+        self.assertTrue(found)
+
+        res, out, err = RUN(["ivre", "rirlookup", "--search", '"SGDSN"', "--json"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        found = False
+        for line in out.decode().splitlines():
+            if json.loads(line).get("start") == "185.50.64.0":
+                found = True
+        self.assertTrue(found)
 
     def test_utils(self):
         """Functions that have not yet been tested"""
