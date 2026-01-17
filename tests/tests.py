@@ -3994,13 +3994,19 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertFalse(out)
         self.assertFalse(err)
-        # Download
-        res, out, err = RUN(["ivre", "rirlookup", "--download", "--insert"])[0]
-        print("rirlookup out:", repr(out))
-        print("rirlookup err:", repr(err))
+        # Download - limited to RIPE IPv4
+        ivre.db.db.rir.urls = [
+            "https://ftp.ripe.net/ripe/dbase/split/ripe.db.inetnum.gz"
+        ]
+        ivre.db.db.rir.fetch()
+        # Insert
+        res, out, err = RUN(["ivre", "rirlookup", "--insert"])
+        print("rirlookup insert out:", repr(out))
+        print("rirlookup insert err:", repr(err))
         self.assertEqual(res, 0)
         self.assertFalse(err)
 
+        # Searches
         res, out, err = RUN(
             ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM"]
         )
@@ -4021,6 +4027,8 @@ class IvreTests(unittest.TestCase):
                 "rirlookup",
                 "--search",
                 '"Commissariat" "Energie" "Atomique"',
+                "--country",
+                "FR",
                 "--json",
             ]
         )
