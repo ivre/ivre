@@ -40,7 +40,11 @@
 @load policy/protocols/modbus/known-masters-slaves
 
 # Not sure about these ones
+@if(Version::number >= 80000)
+@load policy/frameworks/analyzer/detect-protocols
+@else
 @load policy/frameworks/dpd/detect-protocols
+@endif
 @load policy/frameworks/intel/do_notice
 @load policy/frameworks/intel/seen
 @load policy/frameworks/software/windows-version-detection

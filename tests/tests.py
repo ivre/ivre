@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3702,7 +3702,7 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(err)
         self.assertNotEqual(res, 0)
 
-    # This test have to be done first.
+    # This test has to be done first.
     def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
@@ -3730,10 +3730,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertFalse(out, 0)
 
-        # CSV creation -- disabled on Travis CI: this is way too slow.
-        # Files are obtained from https://github.com/ivre/ivre-test-samples
-        # instead, and "touched" here to make sure they are newer than the
-        # .mmdb files. Only the Country file is created.
+        # CSV creation -- disabled on GitHub actions: this is way too
+        # slow.  Files are obtained from
+        # https://github.com/ivre/ivre-test-samples instead, and
+        # "touched" here to make sure they are newer than the .mmdb
+        # files. Only the Country file is created.
         for sub in ["ASN", "City", "RegisteredCountry"]:
             fname = os.path.join(
                 ivre.config.GEOIP_PATH, "GeoLite2-%s.dump-IPv4.csv" % sub
@@ -3983,6 +3984,70 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(res, 0)
             self.assertEqual(out1, out2)
         # END Using the HTTP server as a database
+
+    # This test have to be done first.
+    def test_15_rir(self):
+        """rirlookup functions"""
+
+        # Init DB
+        res, out, err = RUN(["ivre", "rirlookup", "--init"], stdin=subprocess.DEVNULL)
+        self.assertEqual(res, 0)
+        self.assertFalse(out)
+        self.assertFalse(err)
+        # Download - limited to RIPE IPv4
+        ivre.db.db.rir.urls = [
+            "https://ftp.ripe.net/ripe/dbase/split/ripe.db.inetnum.gz"
+        ]
+        ivre.db.db.rir.fetch()
+        # Insert
+        res, out, err = RUN(["ivre", "rirlookup", "--insert"])
+        print("rirlookup insert out:", repr(out))
+        print("rirlookup insert err:", repr(err))
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+
+        # Searches
+        res, out, err = RUN(
+            ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out.strip().decode(), "GDOHCAXWRQWFGTZBEXZDIZGOCM")
+        self.assertFalse(err)
+
+        res, out, err = RUN(
+            ["ivre", "rirlookup", "--search", "GDOHCAXWRQWFGTZBEXZDIZGOCM", "--json"]
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(out)
+        self.assertFalse(err)
+
+        res, out, err = RUN(
+            [
+                "ivre",
+                "rirlookup",
+                "--search",
+                '"Commissariat" "Energie" "Atomique"',
+                "--country",
+                "FR",
+                "--json",
+            ]
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        found = False
+        for line in out.decode().splitlines():
+            if json.loads(line).get("start") == "132.165.0.0":
+                found = True
+        self.assertTrue(found)
+
+        res, out, err = RUN(["ivre", "rirlookup", "--search", '"SGDSN"', "--short"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        found = False
+        for line in out.decode().splitlines():
+            if line.startswith("185.50.64.0/22: "):
+                found = True
+        self.assertTrue(found)
 
     def test_utils(self):
         """Functions that have not yet been tested"""
@@ -6004,8 +6069,9 @@ TESTS = set(
 DATABASES = {
     # **excluded** tests
     "mongo": ["utils"],
-    "postgres": ["60_flow", "scans", "utils"],
+    "postgres": ["15_rir", "60_flow", "scans", "utils"],
     "sqlite": [
+        "15_rir",
         "30_nmap",
         "50_view",
         "53_nmap_delete",
@@ -6015,6 +6081,7 @@ DATABASES = {
         "utils",
     ],
     "elastic": [
+        "15_rir",
         "30_nmap",
         "40_passive",
         "53_nmap_delete",
@@ -6025,6 +6092,7 @@ DATABASES = {
         "utils",
     ],
     "maxmind": [
+        "15_rir",
         "30_nmap",
         "40_passive",
         "50_view",
@@ -6035,7 +6103,7 @@ DATABASES = {
         "90_cleanup",
         "scans",
     ],
-    "tinydb": ["utils"],
+    "tinydb": ["15_rir", "utils"],
 }
 
 

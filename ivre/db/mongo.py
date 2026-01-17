@@ -60,6 +60,7 @@ from ivre.db import (
     DBFlowMeta,
     DBNmap,
     DBPassive,
+    DBRir,
     DBView,
     LockError,
 )
@@ -211,12 +212,13 @@ class MongoDB(DB):
             cur.max_time_ms(self.maxtime)
         return cur
 
-    def get_hint(self, spec):
+    @classmethod
+    def get_hint(cls, spec, column):
         """Given a query spec, return an appropriate index in a form
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in self.hint_indexes[self.column_passive].items():
+        for fieldname, hint in cls.hint_indexes[column].items():
             if fieldname in spec:
                 return hint
         return None
@@ -2583,10 +2585,9 @@ class MongoDBActive(MongoDB, DBActive):
                     return {"source": {"$nin": src}}
             return {"source": {"$ne": src}}
         if isinstance(src, list):
-            if len(src) == 1:
-                src = src[0]
-            else:
+            if len(src) != 1:
                 return {"source": {"$in": src}}
+            src = src[0]
         return {"source": src}
 
     @staticmethod
@@ -5073,7 +5074,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             del spec["infos"]
         except KeyError:
             pass
-        hint = self.get_hint(spec)
+        hint = self.get_hint(spec, self.column_passive)
         current = self.get(spec, hint=hint, fields=[])
         try:
             current = next(current)
@@ -5979,6 +5980,231 @@ class MongoDBAgent(MongoDB, DBAgent):
                 self.db[self.columns[self.column_masters]].find(projection=["_id"])
             )
         )
+
+
+class MongoDBRir(MongoDB, DBRir):
+    column_rir = 0
+    schema_latest_versions = [
+        # rir
+        1,
+    ]
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
+        # rir
+        [
+            (
+                [
+                    ("start_0", pymongo.ASCENDING),
+                    ("stop_0", pymongo.DESCENDING),
+                    ("start_1", pymongo.ASCENDING),
+                    ("stop_1", pymongo.DESCENDING),
+                ],
+                {"sparse": True},
+            ),
+            ([("aut-num", pymongo.ASCENDING)], {"sparse": True}),
+            ([("country", pymongo.ASCENDING)], {}),
+            ([("source", pymongo.ASCENDING)], {}),
+            ([("source_file", pymongo.ASCENDING)], {}),
+            ([("source_hash", pymongo.ASCENDING)], {}),
+            ([("schema_version", pymongo.ASCENDING)], {}),
+            ([(fld, "text") for fld in DBRir.text_fields], {"name": "text"}),
+        ],
+    ]
+
+    def __init__(self, url):
+        super().__init__(url)
+        self.columns = ["rir"]
+
+    def remove_many(self, flt):
+        """Removes hosts from the RIR column, based on the filter `flt`."""
+        self.db[self.columns[self.column_rir]].delete_many(flt)
+
+    @staticmethod
+    def searchsourcefile(src, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        source.
+
+        """
+        if neg:
+            if isinstance(src, utils.REGEXP_T):
+                return {"source_file": {"$not": src}}
+            if isinstance(src, list):
+                if len(src) != 1:
+                    return {"source_file": {"$nin": src}}
+                src = src[0]
+            return {"source_file": {"$ne": src}}
+        if isinstance(src, list):
+            if len(src) == 1:
+                src = src[0]
+            else:
+                return {"source_file": {"$in": src}}
+        return {"source_file": src}
+
+    @staticmethod
+    def searchfileid(fileid: str, neg: bool = False) -> Filter:
+        """Filters (if `neg` == True, filters out) one particular
+        file id.
+
+        """
+        if neg:
+            return {"source_hash": {"$ne": fileid}}
+        return {"source_hash": fileid}
+
+    @classmethod
+    def searchhost(cls, addr, neg=False):
+        """Filters one particular host (IP address)."""
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        addr_0, addr_1 = cls.ip2internal(addr)
+        return {
+            "$and": [
+                {
+                    "$or": [
+                        {"start_0": {"$lt": addr_0}},
+                        {"$and": [{"start_0": addr_0}, {"start_1": {"$lte": addr_1}}]},
+                    ],
+                },
+                {
+                    "$or": [
+                        {"stop_0": {"$gt": addr_0}},
+                        {"$and": [{"stop_0": addr_0}, {"stop_1": {"$gte": addr_1}}]},
+                    ],
+                },
+            ],
+        }
+        # This query is equivalent but slower with our indexes
+        # return {
+        #     "$and": [
+        #         {"start_0": {"$lte": addr_0}},
+        #         {"stop_0": {"$gte": addr_0}},
+        #         {"$or": [
+        #             {"start_0": {"$ne": addr_0}},
+        #             {"start_1": {"$lte": addr_1}},
+        #         ]},
+        #         {"$or": [
+        #             {"stop_0": {"$ne": addr_0}},
+        #             {"stop_1": {"$gte": addr_1}},
+        #         ]},
+        #     ]
+        # }
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            return {"country": {"$nin" if neg else "$in": country}}
+        return {"country": {"$ne": country} if neg else country}
+
+    def _get(self, flt, **kargs):
+        """Like .get(), but returns a MongoDB cursor (suitable for use with
+        e.g.  .explain()).
+
+        """
+        return self._get_cursor(self.columns[self.column_rir], flt, **kargs)
+
+    def get(self, spec, **kargs):
+        """Queries the RIR column with the provided filter "spec",
+        and returns a MongoDB cursor.
+
+        This should be very fast, as no operation is done (the cursor
+        is only returned). Next operations (e.g., enumeration) might
+        take a long time, depending on both the operations and the
+        filter.
+
+        Any keyword argument is passed to the .find() method of the Mongodb
+        column object, without any validation (and might have no effect if
+        it is not expected).
+
+        """
+        # Convert IP addresses to internal DB format
+        for rec in self._get(spec, **kargs):
+            for fld in self.ipaddr_fields:
+                try:
+                    rec[fld] = self.internal2ip(
+                        [rec.pop(f"{fld}_0"), rec.pop(f"{fld}_1")]
+                    )
+                except (KeyError, socket.error):
+                    # If the expected internal IP components are missing or invalid,
+                    # leave the record as-is and continue with the next field.
+                    pass
+            yield rec
+
+    def count(self, flt):
+        """Count documents in RIR column."""
+        if not flt:
+            return self.db[self.columns[self.column_rir]].estimated_document_count()
+        return self.db[self.columns[self.column_rir]].count_documents(flt)
+
+    def get_best(self, addr, spec=None):
+        if spec is None:
+            spec = self.flt_empty
+        addr_0, addr_1 = self.ip2internal(addr)
+        # First try with start_0 == stop_0 == addr_0.
+        # Rationale: if one result exists, it is the best, and this query should be faster
+        spec_addr = {
+            "start_0": addr_0,
+            "stop_0": addr_0,
+            "start_1": {"$lte": addr_1},
+            "stop_1": {"$gte": addr_1},
+        }
+        try:
+            return next(
+                iter(
+                    self.get(
+                        self.flt_and(spec_addr, spec), sort=[("start", -1), ("stop", 1)]
+                    )
+                )
+            )
+        except StopIteration:
+            pass
+        try:
+            return next(
+                iter(
+                    self.get(
+                        self.flt_and(self.searchhost(addr), spec),
+                        sort=[("start", -1), ("stop", 1)],
+                    )
+                )
+            )
+        except StopIteration:
+            return None
+
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
+        """This method makes use of the aggregation framework to
+        produce distinct values for a given field.
+
+        """
+        return self._distinct(
+            self.columns[self.column_rir],
+            field,
+            flt=flt,
+            sort=sort,
+            limit=limit,
+            skip=skip,
+        )
+
+    @staticmethod
+    def start_bulk():
+        return []
+
+    def stop_bulk(self, bulk):
+        if bulk:
+            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(bulk))
+            self.db[self.columns[self.column_rir]].bulk_write(bulk, ordered=False)
+
+    def insert_bulk(self, bulk, rec):
+        for fld in self.ipaddr_fields:
+            if fld in rec:
+                rec[f"{fld}_0"], rec[f"{fld}_1"] = self.ip2internal(rec.pop(fld))
+        bulk.append(pymongo.InsertOne(rec))
+        if len(bulk) >= config.MONGODB_BATCH_SIZE:
+            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(bulk))
+            self.db[self.columns[self.column_rir]].bulk_write(bulk, ordered=False)
+            return []
+        return bulk
 
 
 class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
