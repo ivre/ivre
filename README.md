@@ -134,7 +134,7 @@ If you are using IVRE in you research, please cite it as follows:
 
 IVRE contributors. *IVRE, a network recon framework*.
 [https://github.com/ivre/ivre](https://github.com/ivre/ivre),
-2011-2022.
+2011-2026.
 
 Here is the appropriate bibtex entry:
 
@@ -143,7 +143,7 @@ Here is the appropriate bibtex entry:
         author={IVRE contributors},
         url = {https://ivre.rocks/},
         howpublished = {\url{https://github.com/ivre/ivre/}},
-        year = {2011--2022},
+        year = {2011--2026},
     }
 
 ### Technical documents & blog posts ###

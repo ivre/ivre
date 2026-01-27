@@ -245,7 +245,6 @@ following files are downloaded:
    GeoLite2-ASN.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz
    GeoLite2-ASN-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip
    GeoLite2-dumps.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz
-   iso3166.csv: https://dev.maxmind.com/static/csv/codes/iso3166.csv
    BGP.raw: https://thyme.apnic.net/current/data-raw-table
 
 
