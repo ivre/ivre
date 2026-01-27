@@ -21,7 +21,6 @@ results as they are stored in the database (JSON).
 
 """
 
-
 import json
 import os
 import sys

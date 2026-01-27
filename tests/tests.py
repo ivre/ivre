@@ -3803,11 +3803,9 @@ class IvreTests(unittest.TestCase):
         out = sorted(out.splitlines())
         self.assertEqual(
             out,
-            sorted(
-                b"""10.0.0.1
+            sorted(b"""10.0.0.1
     Reserved address: Address type Private
-""".splitlines()
-            ),
+""".splitlines()),
         )
 
         res, out, _ = RUN(["ivre", "ipdata", "--json", "10.0.0.1"])

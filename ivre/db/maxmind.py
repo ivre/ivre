@@ -21,7 +21,6 @@ files.
 
 """
 
-
 import codecs
 import os
 import struct

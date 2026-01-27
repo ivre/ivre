@@ -21,7 +21,6 @@
 Specific type definitions for IVRE (flows)
 """
 
-
 from typing import Any
 
 Clause = dict[str, bool | str | None]

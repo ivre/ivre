@@ -42,14 +42,12 @@ HONEYD_SSL_CMD = "honeydssl --cert-subject %(subject)s -- %(command)s"
 
 
 def _display_honeyd_preamble(out: TextIO = sys.stdout) -> None:
-    out.write(
-        """create default
+    out.write("""create default
 set default default tcp action block
 set default default udp action block
 set default default icmp action block
 
-"""
-    )
+""")
 
 
 def _getscript(port: NmapPort, sname: str) -> NmapScript | None:

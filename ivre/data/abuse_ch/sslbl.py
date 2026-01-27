@@ -21,7 +21,6 @@
 This sub-module contains data from <https://sslbl.abuse.ch/>
 """
 
-
 SSLBL_CERTIFICATES = {
     # GENERATED_DATA_SSLBL_CERTIFICATES
     "0009a66eab25c81f940e1c8324d848286d91e015": "Quakbot C&C",

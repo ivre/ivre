@@ -18,7 +18,6 @@
 
 """Update the flow database from log files"""
 
-
 from argparse import ArgumentParser
 
 from ivre import config, utils

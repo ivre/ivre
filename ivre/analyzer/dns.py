@@ -19,7 +19,6 @@
 
 """Sub-module to run DNS checks."""
 
-
 import re
 import subprocess
 from ast import literal_eval

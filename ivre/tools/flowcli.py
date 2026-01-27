@@ -22,7 +22,6 @@ Access and query the flows database.
 See doc/FLOW.md for more information.
 """
 
-
 import datetime
 import os
 import sys

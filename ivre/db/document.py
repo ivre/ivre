@@ -21,7 +21,6 @@ DocumentDB databases.
 
 """
 
-
 from ivre.db.mongo import (
     MongoDBActive,
     MongoDBAgent,

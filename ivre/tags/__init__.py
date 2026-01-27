@@ -18,7 +18,6 @@
 
 """This submodule contains functions to handle tags."""
 
-
 import os
 from bisect import bisect_left
 from collections.abc import Callable, Generator, Iterable

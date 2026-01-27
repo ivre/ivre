@@ -19,7 +19,6 @@
 
 """Create views from nmap and passive databases."""
 
-
 import argparse
 from collections.abc import Generator
 from functools import reduce

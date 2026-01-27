@@ -40,7 +40,6 @@ data files to add tags to scan results. For now, the following lists are used:
   - Scanners operated by Rapid7, from <https://opendata.rapid7.com/about/>
 """
 
-
 import argparse
 import functools
 import json

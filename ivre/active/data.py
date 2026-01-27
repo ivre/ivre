@@ -21,7 +21,6 @@ active (nmap & view) purposes.
 
 """
 
-
 import json
 import os
 import re

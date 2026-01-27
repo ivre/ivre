@@ -18,7 +18,6 @@
 
 """Support for Zeek log files"""
 
-
 from __future__ import annotations  # needed for flake8
 
 import datetime

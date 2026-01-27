@@ -19,7 +19,6 @@
 
 """Put selected results in views."""
 
-
 import argparse
 import os
 import sys

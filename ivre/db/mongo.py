@@ -21,7 +21,6 @@ databases.
 
 """
 
-
 from __future__ import annotations  # needed for flake8
 
 import datetime
@@ -1756,7 +1755,7 @@ class MongoDBActive(MongoDB, DBActive):
                     pass
                 else:
                     del port["state_reason_ip"]
-                    (port["state_reason_ip_0"], port["state_reason_ip_1"]) = ipaddr
+                    port["state_reason_ip_0"], port["state_reason_ip_1"] = ipaddr
                     updated = True
             for script in port.get("scripts", []):
                 if script["id"] == "ssl-cert":

@@ -24,7 +24,6 @@ For the sake of code "simplicity", this sub-module also handles the
 
 """
 
-
 import re
 from collections import Counter
 from collections.abc import Callable, Generator

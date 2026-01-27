@@ -19,7 +19,6 @@
 
 """Query the passive & scans databases to perform DNS resolutions (passive DNS)."""
 
-
 import json
 from argparse import ArgumentParser
 from collections.abc import Callable

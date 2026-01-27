@@ -25,7 +25,6 @@ Widespread Weak Keys in Network Devices"
 To do so, you need to strip the output from the information after the
 moduli. A simple sed with 's# .*##' will do the trick."""
 
-
 import getopt
 import sys
 from typing import Type

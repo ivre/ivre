@@ -21,7 +21,6 @@ databases.
 
 """
 
-
 # Tests like "expr == None" should be used for QueryInstance instances
 # pylint: disable=singleton-comparison
 

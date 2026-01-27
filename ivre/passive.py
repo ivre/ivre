@@ -18,7 +18,6 @@
 
 """This sub-module contains functions used for passive recon."""
 
-
 import binascii
 import hashlib
 import re

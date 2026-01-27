@@ -19,7 +19,6 @@
 
 """Tools to handle IVRE plugins."""
 
-
 from typing import Any
 
 try:

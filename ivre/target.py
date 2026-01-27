@@ -21,7 +21,6 @@ lists.
 
 """
 
-
 import os
 import random
 import re

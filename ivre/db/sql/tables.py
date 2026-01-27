@@ -18,7 +18,6 @@
 
 """This sub-module contains SQL tables and columns definition."""
 
-
 import json
 import re
 import sqlite3

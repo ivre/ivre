@@ -21,7 +21,6 @@ database.
 
 """
 
-
 import re
 import subprocess
 from collections import namedtuple

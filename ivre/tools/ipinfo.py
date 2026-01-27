@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 
 
 "Access and query the passive database."
-
 
 import argparse
 import functools
@@ -197,7 +196,7 @@ def _disp_recs_tailf(dbase: DBPassive, flt: Filter, field: str) -> None:
     for r in firstrecs:
         if "addr" in r:
             print(utils.force_int2ip(r["addr"]), end=" ")
-        else:
+        elif "targetval" in r:
             print(r["targetval"], end=" ")
         disp_rec(r)
         sys.stdout.flush()

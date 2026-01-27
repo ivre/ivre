@@ -18,7 +18,6 @@
 
 """This sub-module contains the parser for nmap's XML output files."""
 
-
 import datetime
 import hashlib
 import os
@@ -393,7 +392,7 @@ def add_afp_ls_data(script):
                         "Skip file entry outside a volume [%r]", line[4:]
                     )
                 else:
-                    (permission, uid, gid, size, date, time, fname) = line[4:].split(
+                    permission, uid, gid, size, date, time, fname = line[4:].split(
                         None, 6
                     )
                     if size.isdigit():

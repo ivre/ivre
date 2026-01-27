@@ -19,7 +19,6 @@
 
 """This sub-module is responsible for generating Nmap options."""
 
-
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from shlex import quote

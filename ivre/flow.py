@@ -19,7 +19,6 @@
 
 """This sub-module contains functions used for flow."""
 
-
 import re
 from collections.abc import Generator
 

@@ -21,7 +21,6 @@ documents from the active (nmap & view) purposes.
 
 """
 
-
 from typing import Any
 
 from ivre.types import CpeDict

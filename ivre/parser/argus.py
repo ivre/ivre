@@ -18,7 +18,6 @@
 
 """Support for Argus log files"""
 
-
 import datetime
 from typing import Any, BinaryIO
 
