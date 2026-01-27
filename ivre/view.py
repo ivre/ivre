@@ -19,7 +19,6 @@
 
 """Put selected results in views."""
 
-
 import struct
 from datetime import datetime
 from functools import reduce

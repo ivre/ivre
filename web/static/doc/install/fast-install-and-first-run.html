@@ -7,16 +7,16 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fast install &amp; first run &mdash; IVRE  documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -136,11 +136,8 @@ $ sudo pip3 install . --break-system-packages
 # cd /var/www/html ## or depending on your version /var/www
 # rm index.html
 # ln -s /usr/local/share/ivre/web/static/* .
-# cd /var/lib/dokuwiki/data/pages
-# ln -s /usr/local/share/ivre/dokuwiki/doc
 # cd /var/lib/dokuwiki/data/media
 # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
-# ln -s /usr/local/share/ivre/dokuwiki/media/doc
 # cd /usr/share/dokuwiki
 # patch -p0 &lt; /usr/local/share/ivre/patches/dokuwiki/backlinks-20230404a.patch
 # cd /etc/apache2/mods-enabled
@@ -226,7 +223,7 @@ and the <code class="docutils literal notranslate"><span class="pre">ivre</span>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2011 - 2025, Pierre LALET.</p>
+    <p>&#169; Copyright 2011 - 2026, Pierre LALET.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

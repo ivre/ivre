@@ -21,7 +21,6 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 
 """
 
-
 from __future__ import annotations  # needed for flake8
 
 import codecs

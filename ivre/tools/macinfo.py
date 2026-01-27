@@ -19,7 +19,6 @@
 
 "Query the passive database to perform ARP resolutions."
 
-
 import argparse
 import re
 

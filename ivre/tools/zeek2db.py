@@ -18,7 +18,6 @@
 
 """Update the flow database from Zeek logs"""
 
-
 import os
 from argparse import ArgumentParser
 from collections.abc import Callable, Iterable

@@ -18,7 +18,6 @@
 
 """This submodule contains data needed for Nmap results manipulation."""
 
-
 ALIASES_TABLE_ELEMS = {
     # Use the same structured output for both ssl-cert and ssl-cacert
     "ssl-cacert": "ssl-cert",

@@ -20,7 +20,6 @@
 """Audit a DNS domain to produce an XML or JSON result similar to an
 Nmap script result."""
 
-
 import argparse
 import json
 import sys

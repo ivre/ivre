@@ -19,7 +19,6 @@
 
 """This sub-module contains functions to handle JSON output from zgrab."""
 
-
 import binascii
 import re
 from typing import Any, cast

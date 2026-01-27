@@ -19,7 +19,6 @@
 
 """This sub-module is responsible for handling scanning agents."""
 
-
 import glob
 import os
 import random

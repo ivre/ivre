@@ -19,7 +19,6 @@
 
 """IVRE command line"""
 
-
 import logging
 import os
 import sys

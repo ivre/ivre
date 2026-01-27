@@ -19,7 +19,6 @@
 
 """Parse NMAP scan results and add them in DB."""
 
-
 import os
 import sys
 from argparse import ArgumentParser

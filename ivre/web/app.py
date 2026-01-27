@@ -25,7 +25,6 @@ It is used by the integrated web server (ivre httpd) and by the WSGI
 application.
 """
 
-
 import datetime
 import json
 import os

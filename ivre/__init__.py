@@ -21,7 +21,6 @@
 IVRE is a network recon framework. See https://ivre.rocks/
 """
 
-
 import os
 import re
 import subprocess

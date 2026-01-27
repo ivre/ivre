@@ -19,7 +19,6 @@
 
 """This sub-module builds graphs of traceroute results."""
 
-
 # to build graphs with rtgraph3d
 try:
     import dbus  # type: ignore

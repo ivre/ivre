@@ -22,7 +22,6 @@ sub-module or script.
 
 """
 
-
 from __future__ import annotations  # needed for flake8
 
 import argparse

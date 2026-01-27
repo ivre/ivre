@@ -18,7 +18,6 @@
 
 """Parsers for file formats / tool outputs"""
 
-
 from __future__ import annotations  # needed for flake8
 
 import subprocess

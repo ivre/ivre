@@ -18,7 +18,6 @@
 
 """Support for p0f log files"""
 
-
 import datetime
 import re
 from typing import Any

@@ -18,7 +18,6 @@
 
 """Support for http server log files"""
 
-
 import datetime
 import re
 from typing import Any

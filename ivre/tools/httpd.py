@@ -26,7 +26,6 @@ deployments should use "real" web servers (IVRE has been successfully
 tested with both Apache and Nginx).
 """
 
-
 import os
 from argparse import ArgumentParser, Namespace
 

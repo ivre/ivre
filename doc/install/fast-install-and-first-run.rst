@@ -40,11 +40,8 @@ Setup
    # cd /var/www/html ## or depending on your version /var/www
    # rm index.html
    # ln -s /usr/local/share/ivre/web/static/* .
-   # cd /var/lib/dokuwiki/data/pages
-   # ln -s /usr/local/share/ivre/dokuwiki/doc
    # cd /var/lib/dokuwiki/data/media
    # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
-   # ln -s /usr/local/share/ivre/dokuwiki/media/doc
    # cd /usr/share/dokuwiki
    # patch -p0 < /usr/local/share/ivre/patches/dokuwiki/backlinks-20230404a.patch
    # cd /etc/apache2/mods-enabled

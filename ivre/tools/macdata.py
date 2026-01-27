@@ -19,7 +19,6 @@
 
 """This tool can be used to query manufacturers for MAC addresses."""
 
-
 import json
 from argparse import ArgumentParser
 from sys import stdout

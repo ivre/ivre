@@ -19,7 +19,6 @@
 
 """Update the database from output of the Zeek script 'passiverecon'"""
 
-
 import functools
 import json
 import os

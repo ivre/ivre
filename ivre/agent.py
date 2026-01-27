@@ -18,7 +18,6 @@
 
 """This sub-module is responsible for generating Nmap agents."""
 
-
 from ivre import nmapopt
 
 AGENT_TEMPLATE = """#! /bin/sh

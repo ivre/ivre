@@ -18,7 +18,6 @@
 
 """This module contains functions to interact with *ANY* SQL database."""
 
-
 # Tests like "expr == None" should be used for BinaryExpression instances
 # pylint: disable=singleton-comparison
 

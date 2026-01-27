@@ -19,7 +19,6 @@
 
 """Handle ivre passiverecon2db files."""
 
-
 import os
 import re
 import shlex

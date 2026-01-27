@@ -19,7 +19,6 @@
 
 """Display IVRE's version"""
 
-
 import os
 import sys
 

@@ -18,7 +18,6 @@
 
 """Update the flow database from ARP requests in PCAP files"""
 
-
 import subprocess
 from argparse import ArgumentParser
 from collections.abc import Iterable

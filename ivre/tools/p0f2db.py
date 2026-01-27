@@ -19,7 +19,6 @@
 
 """Update the passive database from p0f log files"""
 
-
 from argparse import ArgumentParser
 from collections.abc import Generator, Iterable
 from functools import partial

@@ -19,7 +19,6 @@
 
 """Manage scans run on remote agents."""
 
-
 import argparse
 import os
 import signal

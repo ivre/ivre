@@ -22,7 +22,6 @@ AS number and country information.
 
 """
 
-
 import json
 import sys
 from argparse import ArgumentParser

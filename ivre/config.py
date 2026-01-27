@@ -235,7 +235,6 @@ IPDATA_URLS = {
     # GeoLite2-* files using `ivre ipdata --import-all`. You should do
     # that if you get your files from Maxmind.
     "GeoLite2-dumps.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz",
-    "iso3166.csv": "https://dev.maxmind.com/static/csv/codes/iso3166.csv",
     # This one is not from maxmind -- see https://thyme.apnic.net/
     "BGP.raw": "https://thyme.apnic.net/current/data-raw-table",
 }

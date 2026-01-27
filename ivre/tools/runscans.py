@@ -21,7 +21,6 @@ This program runs scans and produces output files importable with
 ivre scan2db.
 """
 
-
 import argparse
 import atexit
 import fcntl

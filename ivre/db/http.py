@@ -21,7 +21,6 @@ instance via an HTTP server.
 
 """
 
-
 import json
 import re
 from datetime import datetime

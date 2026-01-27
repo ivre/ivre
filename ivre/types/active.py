@@ -21,7 +21,6 @@
 Specific type definitions for IVRE (active)
 """
 
-
 from typing import Any
 
 try:
