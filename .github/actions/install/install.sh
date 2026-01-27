@@ -29,10 +29,11 @@ if [ "${USE_PYOPENSSL}" = "0" ]; then
     pip uninstall -y pyOpenSSL
 fi
 
-wget -q https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2
-tar jxf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs
+# 404 from GitHub runners...
+# wget -q https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 -O - | tar jxf - phantomjs-2.1.1-linux-x86_64/bin/phantomjs
+wget -q https://ivre.rocks/data/tests/phantomjs-2.1.1-linux-x86_64.tar.bz2 -O - | tar jxf - phantomjs-2.1.1-linux-x86_64/bin/phantomjs
 sudo mv phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
-rm -rf phantomjs-2.1.1-linux-x86_64*
+rm -rf phantomjs-2.1.1-linux-x86_64
 
 wget -q https://nmap.org/dist/nmap-7.95-3.x86_64.rpm -O nmap.rpm
 sudo apt-get -q update && \
