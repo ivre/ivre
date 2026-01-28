@@ -20,7 +20,7 @@ services:
     image: mongo
     container_name: ivredb
     volumes:
-      - ./var_lib_mongodb:/data/db
+      - ${IVRE_MONGODB_PATH:-/var_lib_mongodb}:/data/db
     restart: always
   ivreuwsgi:
     image: ivre/web-uwsgi
@@ -29,13 +29,13 @@ services:
     depends_on:
       - ivredb
     volumes:
-      - ./dokuwiki_data:/var/www/dokuwiki/data
+      - ${IVRE_DOKUWIKI_PATH:-./dokuwiki_data}:/var/www/dokuwiki/data
   ivredoku:
     image: ivre/web-doku
     container_name: ivredoku
     restart: always
     volumes:
-      - ./dokuwiki_data:/var/www/dokuwiki/data
+      - ${IVRE_DOKUWIKI_PATH-./dokuwiki_data}:/var/www/dokuwiki/data
   ivreweb:
     image: ivre/web
     container_name: ivreweb
@@ -46,12 +46,12 @@ services:
       - ivreuwsgi
       - ivredoku
     volumes:
-      - ./dokuwiki_data:/var/www/dokuwiki/data
+      - ${IVRE_DOKUWIKI_PATH:-./dokuwiki_data}:/var/www/dokuwiki/data
   ivreclient:
     image: ivre/client
     container_name: ivreclient
     volumes:
-      - ./ivre-share:/ivre-share
+      - ${IVRE_SHARE_PATH:-./ivre-share}:/ivre-share
     depends_on:
       - ivredb
     stdin_open: true
