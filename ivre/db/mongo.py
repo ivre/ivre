@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -135,7 +135,7 @@ class MongoDBConnection:
     def close(self):
         try:
             # We do not use .client to avoid a useless connection.
-            self._client.close()  # pylint: disable=access-member-before-definition
+            self._client.close()
         except AttributeError:
             pass
 
