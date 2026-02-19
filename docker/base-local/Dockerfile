@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM debian:12 AS builder
+FROM debian:trixie-slim AS builder
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -25,7 +25,7 @@ RUN apt-get -q update && \
     pip3 install --break-system-packages /ivre
 
 
-FROM debian:12
+FROM debian:trixie-slim
 LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -36,7 +36,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/etc/bash_completion.d/ivre /usr/local/etc/bash_completion.d/ivre
-COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
+COPY --from=builder /usr/local/lib/python3.13 /usr/local/lib/python3.13
 COPY --from=builder /usr/local/bin/ivre /usr/local/bin/ivre
 COPY --from=builder /usr/local/share/doc/ivre /usr/local/share/doc/ivre
 COPY --from=builder /usr/local/share/ivre /usr/local/share/ivre

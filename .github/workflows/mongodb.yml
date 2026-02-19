@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Start MongoDB
-      uses: supercharge/mongodb-github-action@1.6.0
+      uses: supercharge/mongodb-github-action@1.12.1
       with:
         mongodb-version: ${{ matrix.mongodb-version }}
 
