@@ -4981,7 +4981,8 @@ class IvreTests(unittest.TestCase):
         with tarfile.open(data_files[0]) as data_archive:
             data_archive = tarfile.open(data_files[0])
             data_archive.extractall(
-                members=[m for m in data_archive.getmembers() if "/" not in m.name]
+                members=[m for m in data_archive.getmembers() if "/" not in m.name],
+                filter="data",
             )
         self.assertTrue(os.path.exists("screenshot-%s-80.jpg" % ipaddr))
         res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)

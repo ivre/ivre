@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
-        python-version: ['3.11', '3.12']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
         mongodb-version: ['5.0', '6.0', '7.0', '8.0']
 
     steps:
