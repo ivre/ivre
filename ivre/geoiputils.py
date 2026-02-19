@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 
 from __future__ import annotations  # needed for flake8
 
-import codecs
 import csv
 import os.path
 import sys
@@ -263,7 +262,7 @@ def download_all(verbose: bool = False) -> None:
 
 def locids_by_country(country_code: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    with codecs.open(
+    with open(
         os.path.join(
             config.GEOIP_PATH,
             "GeoLite2-Country-Locations-%s.csv" % config.GEOIP_LANG,
@@ -278,7 +277,7 @@ def locids_by_country(country_code: str) -> Generator[int, None, None]:
 
 def locids_by_city(country_code: str, city_name: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    with codecs.open(
+    with open(
         os.path.join(
             config.GEOIP_PATH,
             "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
@@ -297,7 +296,7 @@ def locids_by_city(country_code: str, city_name: str) -> Generator[int, None, No
 
 def locids_by_region(country_code: str, reg_code: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    with codecs.open(
+    with open(
         os.path.join(
             config.GEOIP_PATH,
             "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,

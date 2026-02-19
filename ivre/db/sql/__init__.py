@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
 # pylint: disable=singleton-comparison
 
 
-import codecs
 import csv
 import datetime
 import json
@@ -97,7 +96,7 @@ class CSVFile:
 
     def __init__(self, fname, skip=0, limit=None):
         # pylint: disable=consider-using-with
-        self.fdesc = codecs.open(fname, encoding="latin-1")
+        self.fdesc = open(fname, encoding="latin-1")
         for _ in range(skip):
             self.fdesc.readline()
         self.limit = limit

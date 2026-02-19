@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2023 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@ files.
 
 """
 
-import codecs
 import os
 import struct
 import sys
@@ -544,5 +543,5 @@ class MaxMindDBData(DBData):
         utils.LOGGER.info(
             "Dumping %r to %r", os.path.basename(subdb.path), os.path.basename(csv_file)
         )
-        with codecs.open(csv_file, mode="w", encoding="utf-8") as fdesc:
+        with open(csv_file, mode="w", encoding="utf-8") as fdesc:
             dumper(fdesc)
