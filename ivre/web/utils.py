@@ -889,24 +889,26 @@ def flt_from_query(dbase, query, base_flt=None):
 
 
 def parse_arg(data):
+    if isinstance(data, list):
+        return [parse_arg(item) for item in data]
     if not isinstance(data, dict):
         return data
     if "f" not in data or not isinstance(data["f"], str):
-        return data
+        return {k: parse_arg(v) for k, v in data.items()}
     if "a" not in data or not isinstance(data["a"], list):
-        return data
+        return {k: parse_arg(v) for k, v in data.items()}
     args = data["a"]
     if len(args) != 1:
-        return data
+        return {k: parse_arg(v) for k, v in data.items()}
     if any(k not in "af" for k in data):
-        return data
+        return {k: parse_arg(v) for k, v in data.items()}
     try:
         func = {
             "regexp": utils.str2regexp,
             "datetime": datetime.datetime.fromtimestamp,
         }[data["f"]]
     except KeyError:
-        return data
+        return {k: parse_arg(v) for k, v in data.items()}
     return func(*args)
 
 
