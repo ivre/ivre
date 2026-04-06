@@ -62,6 +62,7 @@ from ivre import VERSION, config, flow, nmapout, passive, utils, xmlnmap
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import (
     add_hostname,
+    format_nuclei_output,
     handle_http_content,
     handle_http_headers,
     handle_tlsx_result,
@@ -3256,6 +3257,7 @@ class DBNmap(DBActive):
                     name += " (%s)" % rec["matcher_name"]
                     nuclei_data["matcher-name"] = rec["matcher_name"]
                 nuclei_data["name"] = name
+                extracted_results = None
                 for key in [
                     "curl-command",
                     "extracted-results",
@@ -3266,8 +3268,12 @@ class DBNmap(DBActive):
                 ]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
+                        if key == "extracted-results":
+                            extracted_results = rec[key]
                     elif (alt_key := key.replace("-", "_")) in rec:
                         nuclei_data[key] = rec[alt_key]
+                        if key == "extracted-results":
+                            extracted_results = rec[alt_key]
                 for key in [
                     "classification",
                     "description",
@@ -3281,10 +3287,17 @@ class DBNmap(DBActive):
                 ]:
                     if key in rec:
                         nuclei_data[key] = rec[key]
+                if rec.get("template") == "favicon-detect" and extracted_results:
+                    if isinstance(extracted_results, (list, tuple)):
+                        favhash = extracted_results[0] if extracted_results else None
+                    else:
+                        favhash = extracted_results
+                    if favhash:
+                        nuclei_data["favicon-hash"] = favhash
                 scripts = [
                     {
                         "id": "%s-nuclei" % (rec["type"]),
-                        "output": "[%s] %s found at %s" % (rec["severity"], name, url),
+                        "output": format_nuclei_output(nuclei_data),
                         "nuclei": [nuclei_data],
                     },
                 ]
