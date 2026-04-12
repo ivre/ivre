@@ -84,7 +84,7 @@ def main() -> None:
             try:
                 for subinfo in [dbase.as_byip(addr), dbase.location_byip(addr)]:
                     for key, value in (subinfo or {}).items():
-                        print("    %s %s" % (key, value))
+                        print(f"    {key} {value}")
             except utils.InvalidIPAddress as exc:
                 utils.LOGGER.error("Invalid IP address [%r]!", exc.value)
                 continue

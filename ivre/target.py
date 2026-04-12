@@ -57,13 +57,7 @@ class Target:
             self.maxnbr = maxnbr
         self.state = state
         self.name = name or (
-            "%d address%s from %d range%s"
-            % (
-                self.maxnbr,
-                "es" if self.maxnbr > 1 else "",
-                len(targets),
-                "s" if len(targets) > 1 else "",
-            )
+            f"{self.maxnbr} address{'es' if self.maxnbr > 1 else ''} from {len(targets)} range{'s' if len(targets) > 1 else ''}"
         )
         if categories is None:
             self.categories = [self.name]
@@ -78,7 +72,7 @@ class Target:
         return IterTarget(self, rand=self.rand, state=self.state)
 
     def __repr__(self):
-        return "<Target %s>" % self.name
+        return f"<Target {self.name}>"
 
     def union(self, *others):
         others = tuple(o for o in others if o)
@@ -159,7 +153,7 @@ class TargetTest(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="TEST-%d" % count,
+            name=f"TEST-{count}",
             categories=categories,
         )
 
@@ -176,7 +170,7 @@ class TargetRegisteredCountry(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="REGISTERED_COUNTRY-%s" % country,
+            name=f"REGISTERED_COUNTRY-{country}",
             categories=categories,
         )
 
@@ -193,7 +187,7 @@ class TargetCountry(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="COUNTRY-%s" % country,
+            name=f"COUNTRY-{country}",
             categories=categories,
         )
 
@@ -212,7 +206,7 @@ class TargetRegion(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="REGION-%s-%s" % (country, region),
+            name=f"REGION-{country}-{region}",
             categories=categories,
         )
 
@@ -231,7 +225,7 @@ class TargetCity(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="CITY-%s-%s" % (country_code, city),
+            name=f"CITY-{country_code}-{city}",
             categories=categories,
         )
 
@@ -252,7 +246,7 @@ class TargetAS(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="AS-%d" % asnum,
+            name=f"AS-{asnum}",
             categories=categories,
         )
 
@@ -295,7 +289,7 @@ class TargetRange(Target):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name=name or "RANGE-%s-%s" % (start, stop),
+            name=name or f"RANGE-{start}-{stop}",
             categories=categories,
         )
 
@@ -312,7 +306,7 @@ class TargetNetwork(TargetRange):
             rand=rand,
             maxnbr=maxnbr,
             state=state,
-            name="NET-%s" % net.replace("/", "-"),
+            name=f"NET-{net.replace('/', '-')}",
             categories=categories,
         )
 
@@ -337,7 +331,7 @@ class TargetFile(Target):
 
     def __init__(self, filename, categories=None, maxnbr=None, state=None):
         self.filename = filename
-        self.name = "FILE-%s" % filename
+        self.name = f"FILE-{filename}"
         if categories is None:
             categories = [self.name]
         else:
@@ -419,7 +413,7 @@ class TargetZMapPreScan(TargetFile):
         with tempfile.NamedTemporaryFile(delete=False, mode="w") as self.tmpfile:
             for start, count in target.targets.ranges.values():
                 for net in utils.range2nets((start, start + count - 1)):
-                    self.tmpfile.write("%s\n" % net)
+                    self.tmpfile.write(f"{net}\n")
         zmap_opts += ["-w", self.tmpfile.name]
         # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(zmap_opts, stdout=subprocess.PIPE)
@@ -463,7 +457,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         ports = ",".join(str(p) for p in ports)
         if nmap_opts is None:
             nmap_opts = []
-        nmap_opts += ["-n", "-PS%s" % ports, "-sS", "--open", "-p", ports]
+        nmap_opts += ["-n", f"-PS{ports}", "-sS", "--open", "-p", ports]
         self.infos["nmap_pre_scan"] = nmap_opts[:]
         # TODO: use -iL and feed target randomly when needed, w/o
         # using a temporary file
@@ -471,7 +465,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
             nmap_opts = [nmap, "-iL", self.tmpfile.name, "-oG", "-"] + nmap_opts
             for start, count in target.targets.ranges.values():
                 for net in utils.range2nets((start, start + count - 1)):
-                    self.tmpfile.write("%s\n" % net)
+                    self.tmpfile.write(f"{net}\n")
         # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(nmap_opts, stdout=subprocess.PIPE)
         self.targetsfd = self.proc.stdout

@@ -58,7 +58,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - run: pip install -r requirements-postgres.txt
+    - run: pip install '.[postgres]'
 
     - name: Install IVRE
       uses: ./.github/actions/install

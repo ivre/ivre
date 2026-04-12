@@ -303,20 +303,30 @@ for fname in get_config_file():
         exec(compile(fdesc.read(), fname, "exec"))
 
 
-def guess_prefix(directory: str | None = None) -> str | None:
+def guess_prefix(directory: str) -> str | None:
     """Attempts to find the base directory where IVRE components are
     installed.
 
     """
 
-    def check_candidate(path: str, directory: str | None = None) -> str | None:
+    # Source tree / editable install: check repo root
+    repo_root = os.path.dirname(os.path.dirname(__file__))
+    if directory == "dokuwiki":
+        test = os.path.join(repo_root, "web", directory)
+    else:
+        test = os.path.join(repo_root, directory)
+    try:
+        if stat.S_ISDIR(os.stat(test).st_mode):
+            return test
+    except OSError:
+        pass
+
+    def check_candidate(path: str, directory: str) -> str | None:
         """Auxiliary function that checks whether a particular path is a good
         candidate.
 
         """
-        candidate = os.path.join(path, "share", "ivre")
-        if directory is not None:
-            candidate = os.path.join(candidate, directory)
+        candidate = os.path.join(path, "share", "ivre", directory)
         try:
             if stat.S_ISDIR(os.stat(candidate).st_mode):
                 return candidate
@@ -324,15 +334,14 @@ def guess_prefix(directory: str | None = None) -> str | None:
             pass
         return None
 
-    if __file__.startswith("/"):
-        path = "/"
-        # absolute path
-        for elt in __file__.split(os.path.sep)[1:]:
-            if elt in ["lib", "lib32", "lib64"]:
-                candidate = check_candidate(path, directory=directory)
-                if candidate is not None:
-                    return candidate
-            path = os.path.join(path, elt)
+    base_file = os.path.abspath(__file__)
+    path = "/"
+    # absolute path
+    for elt in base_file.split(os.path.sep)[1:]:
+        if elt in {"lib", "lib32", "lib64"}:
+            if (candidate := check_candidate(path, directory=directory)) is not None:
+                return candidate
+        path = os.path.join(path, elt)
     for path in ["/usr", "/usr/local", "/opt", "/opt/ivre"]:
         candidate = check_candidate(path, directory=directory)
         if candidate is not None:
@@ -342,9 +351,9 @@ def guess_prefix(directory: str | None = None) -> str | None:
 
 def guess_share(soft: str) -> str | None:
     for path in [
-        "/usr/local/share/%s" % soft,
-        "/opt/%s/share/%s" % (soft, soft),
-        "/usr/share/%s" % soft,
+        f"/usr/local/share/{soft}",
+        f"/opt/{soft}/share/{soft}",
+        f"/usr/share/{soft}",
     ]:
         if os.path.isdir(path):
             return path
@@ -360,7 +369,7 @@ if RIR_PATH is None:
 
 
 if DB_DATA is None and GEOIP_PATH is not None:
-    DB_DATA = "maxmind:///%s" % GEOIP_PATH
+    DB_DATA = f"maxmind:///{GEOIP_PATH}"
 
 
 if DATA_PATH is None:

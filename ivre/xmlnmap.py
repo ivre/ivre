@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=consider-using-f-string
+
 """This sub-module contains the parser for nmap's XML output files."""
 
 import datetime
@@ -101,7 +103,7 @@ def _parse_mongodb_databases_kv(
     if key == "$err":
         key = "errmsg"
     if prefix is not None:
-        key = "%s_%s" % (prefix, key)
+        key = f"{prefix}_{key}"
 
     if force_type is not None:
         value = force_type(value)
@@ -226,7 +228,7 @@ def add_mongodb_databases_data(script):
             continue
 
         else:
-            raise ValueError("Unable to parse %s" % line)
+            raise ValueError(f"Unable to parse {line}")
 
         # Handle a "key = value" line
         _parse_mongodb_databases_kv(line, cur_dict)
@@ -292,7 +294,7 @@ def add_smb_ls_data(script):
                     size = int(size)
                     result["total"]["bytes"] += size
                 cur_vol["files"].append(
-                    {"size": size, "filename": fname, "time": "%s %s" % (date, time)}
+                    {"size": size, "filename": fname, "time": f"{date} {time}"}
                 )
                 result["total"]["files"] += 1
         elif state == 2:  # total values
@@ -405,7 +407,7 @@ def add_afp_ls_data(script):
                             "gid": gid,
                             "size": size,
                             "filename": fname,
-                            "time": "%s %s" % (date, time),
+                            "time": f"{date} {time}",
                         }
                     )
                     result["total"]["files"] += 1
@@ -548,7 +550,7 @@ def _smb_enum_shares_fix_share_name(name):
         utils.LOGGER.warning("Incorrect share name [%r]", name)
         return name
     server, share = name[2:].split("\\", 1)
-    return "\\\\%s\\%s" % (server.replace("_", "."), share)
+    return f"\\\\{server.replace('_', '.')}\\{share}"
 
 
 def change_smb_enum_shares(table):
@@ -734,7 +736,7 @@ def change_http_git(table):
     for key, value in table.items():
         if isinstance(value.get("files-found"), dict):
             value["files-found"] = [
-                ".git%s" % k[4:] if k.startswith("_git") else k
+                f".git{k[4:]}" if k.startswith("_git") else k
                 for k, v in value["files-found"].items()
                 if v == "true"
             ]

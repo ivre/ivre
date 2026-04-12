@@ -50,8 +50,6 @@ jobs:
       with:
         mongodb-version: ${{ matrix.mongodb-version }}
 
-    - run: pip install -r requirements-mongo.txt
-
     - name: Install MongoDB tools (mongodump)
       if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
       run: |

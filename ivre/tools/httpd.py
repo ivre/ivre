@@ -54,7 +54,7 @@ def server_doc_index() -> None:
 @get("/doc/<subdir:re:dev|install|usage>")
 def server_doc_subindex(subdir: str) -> None:
     """Needed to redirect / to index.html"""
-    redirect("%s/index.html" % subdir)
+    redirect(f"{subdir}/index.html")
 
 
 @get("/doc/")

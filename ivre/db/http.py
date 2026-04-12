@@ -59,18 +59,14 @@ def serialize(obj):
         return {
             "f": "regexp",
             "a": [
-                "/%s/%s"
-                % (
-                    obj.pattern,
-                    "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
-                ),
+                f"/{obj.pattern}/{''.join((x.lower() for x in 'ILMSXU' if getattr(re, x) & obj.flags))}",
             ],
         }
     if isinstance(obj, datetime):
         return {"f": "datetime", "a": [obj.timestamp()]}
     if isinstance(obj, bytes):
         return {"f": "bytes", "a": [utils.encode_b64(obj).decode()]}
-    raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
+    raise TypeError(f"Don't know what to do with {obj!r} ({type(obj)!r})")
 
 
 class HttpFetcher:
@@ -130,6 +126,7 @@ if HAS_CURL:
         def __init__(self, url):
             super().__init__(url)
             self.headers = [
+                # pylint: disable=consider-using-f-string
                 "%s: %s" % (tuple(x.split("=", 1)) if "=" in x else (x, ""))
                 for x in url.fragment.split("&")
                 if x
@@ -147,7 +144,7 @@ if HAS_CURL:
             curl.perform()
             status_code = curl.getinfo(pycurl.HTTP_CODE)
             if status_code != 200:
-                raise Exception("HTTP Error %d" % status_code)
+                raise Exception(f"HTTP Error {status_code}")
             return FakeFdesc(fdesc)
 
     class HttpFetcherCurlGssapi(HttpFetcherCurl):
@@ -171,8 +168,7 @@ if HAS_CURL:
             curl.setopt(pycurl.SSLCERTTYPE, "eng")
             curl.setopt(
                 pycurl.SSLCERT,
-                "pkcs11:manufacturer=piv_II;token=%s;pin-value=%s"
-                % (self.username, self.pincode),
+                f"pkcs11:manufacturer=piv_II;token={self.username};pin-value={self.pincode}",
             )
 
         @property
@@ -207,28 +203,21 @@ class HttpDB(DB):
         )
 
     def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        url_l = [
-            "%s/%s?f=%s&q="
-            % (
-                self.db.baseurl,
-                self.route,
-                self._output_filter(spec),
-            )
-        ]
+        url_l = [f"{self.db.baseurl}/{self.route}?f={self._output_filter(spec)}&q="]
         for s_field, direction in sort or []:
-            url_l.append("%ssortby:%s%%20" % ("-" if direction < 0 else "", s_field))
+            url_l.append(f"{'-' if direction < 0 else ''}sortby:{s_field}%20")
         if fields is not None:
-            url_l.append("fields:%s%%20" % quote(",".join(fields)))
+            url_l.append(f"fields:{quote(','.join(fields))}%20")
         url_l.append("skip:")
         url = "".join(url_l)
         if skip is None:
             skip = 0
         while True:
-            cururl = "%s%d" % (url, skip)
+            cururl = f"{url}{skip}"
             if limit is not None:
-                cururl += "%%20limit:%d" % limit
+                cururl += f"%20limit:{limit}"
             else:
-                cururl += "%%20limit:%d" % RESULTS_COUNT
+                cururl += f"%20limit:{RESULTS_COUNT}"
             req = self.db.open(cururl)
             data = json.loads(req.read().decode())
             if not data:
@@ -283,29 +272,18 @@ class HttpDB(DB):
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         url_l = [
-            "%s/%s/distinct/%s?f=%s&format=ndjson&q=limit:%d"
-            % (
-                self.db.baseurl,
-                self.route,
-                field,
-                self._output_filter(flt or {}),
-                limit or 0,
-            )
+            f"{self.db.baseurl}/{self.route}/distinct/{field}?f={self._output_filter(flt or {})}&format=ndjson&q=limit:{limit or 0}"
         ]
         for s_field, direction in sort or []:
-            url_l.append("%%20%ssortby:%s" % ("-" if direction < 0 else "", s_field))
+            url_l.append(f"%20{'-' if direction < 0 else ''}sortby:{s_field}")
         if skip is not None:
-            url_l.append("%%20skip:%d" % skip)
+            url_l.append(f"%20skip:{skip}")
         url = "".join(url_l)
         for line in self.db.open(url):
             yield json.loads(line)
 
     def count(self, spec, **kargs):
-        url = "%s/%s/count?f=%s" % (
-            self.db.baseurl,
-            self.route,
-            self._output_filter(spec),
-        )
+        url = f"{self.db.baseurl}/{self.route}/count?f={self._output_filter(spec)}"
         req = self.db.open(url)
         return int(req.read().rstrip(b"\n"))
 
@@ -319,19 +297,10 @@ class HttpDB(DB):
         skip=None,
         least=False,
     ):
-        url = "%s/%s/top/%s%s:%d?f=%s" % (
-            self.db.baseurl,
-            self.route,
-            "-" if least else "",
-            quote(field),
-            topnbr,
-            self._output_filter(flt or self.flt_empty),
-        )
+        url = f"{self.db.baseurl}/{self.route}/top/{'-' if least else ''}{quote(field)}:{int(topnbr)}?f={self._output_filter(flt or self.flt_empty)}"
         for param in ["sort", "limit", "skip"]:
             if locals()[param] is not None:
-                raise ValueError(
-                    "Parameter %s is not supported in HTTP backend" % param
-                )
+                raise ValueError(f"Parameter {param} is not supported in HTTP backend")
 
         def output(x):
             return {"_id": outputproc(x["label"]), "count": x["value"]}
@@ -455,7 +424,7 @@ class HttpDBData(HttpDB, DBData):
     route = "ipdata"
 
     def infos_byip(self, addr):
-        url = "%s/%s/%s" % (self.db.baseurl, self.route, addr)
+        url = f"{self.db.baseurl}/{self.route}/{addr}"
         req = self.db.open(url)
         return {
             k: tuple(v) if isinstance(v, list) else v

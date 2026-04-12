@@ -51,23 +51,23 @@ def get_addr_argument(field: str, value: str) -> tuple[str, str]:
     op = "="
     if "/" in value:
         op = "=~"
-    return (addr_field["type"], "%s %s %s" % (addr_field["field"], op, value))
+    return (addr_field["type"], f"{addr_field['field']} {op} {value}")
 
 
 def print_fields() -> None:
     equals = "=" * 7
     title = "General"
-    sys.stdout.write("{0} {1:^10} {0}\n".format(equals, title))
+    sys.stdout.write(f"{equals} {title:^10} {equals}\n")
     sys.stdout.writelines(
-        ("%-12s: %s\n" % (field, name) for field, name in ivre.flow.FIELDS.items())
+        (f"{field:12}: {name}\n" for field, name in ivre.flow.FIELDS.items())
     )
     for proto, configs in ivre.flow.META_DESC.items():
-        sys.stdout.write("{0} {1:^10} {0}\n".format(equals, proto))
+        sys.stdout.write(f"{equals} {proto:^10} {equals}\n")
         sys.stdout.writelines(
-            ("meta.%s.%s (list)\n" % (proto, name) for name in configs["keys"])
+            (f"meta.{proto}.{name} (list)\n" for name in configs["keys"])
         )
         sys.stdout.writelines(
-            ("meta.%s.%s\n" % (proto, name) for name in configs.get("counters", []))
+            (f"meta.{proto}.{name}\n" for name in configs.get("counters", []))
         )
 
 
@@ -158,9 +158,7 @@ def main() -> None:
     parser.add_argument(
         "--flow-daily",
         action="store_true",
-        help="Flow count per times of the day. If --precision "
-        "is absent, it will be based on FLOW_TIME_PRECISION "
-        "(%d)" % config.FLOW_TIME_PRECISION,
+        help=f"Flow count per times of the day. If --precision is absent, it will be based on FLOW_TIME_PRECISION ({config.FLOW_TIME_PRECISION})",
     )
     parser.add_argument(
         "--plot",
@@ -287,7 +285,7 @@ def main() -> None:
     # pylint: disable=use-implicit-booleaness-not-comparison-to-zero
     if args.precision == 0:
         # Get precisions list
-        out.writelines("%d\n" % precision for precision in db.flow.list_precisions())
+        out.writelines(f"{int(precision)}\n" for precision in db.flow.list_precisions())
         sys.exit(0)
 
     filters = {"nodes": args.node_filters or [], "edges": args.flow_filters or []}
@@ -300,17 +298,17 @@ def main() -> None:
             filters[flt_t].append(flt_v)
 
     if args.proto is not None:
-        filters["edges"].append("proto = %s" % args.proto)
+        filters["edges"].append(f"proto = {args.proto}")
     for key in ["tcp", "udp"]:
         if args_dict[key]:
-            filters["edges"].append("proto = %s" % key)
+            filters["edges"].append(f"proto = {key}")
 
     for key in ["port", "dport"]:
         if args_dict[key] is not None:
-            filters["edges"].append("dport = %d" % args_dict[key])
+            filters["edges"].append(f"dport = {args_dict[key]}")
 
     if args.sport is not None:
-        filters["edges"].append("ANY sports = %d" % args.sport)
+        filters["edges"].append(f"ANY sports = {args.sport}")
 
     time_args = ["before", "after"]
     time_values = {}
@@ -357,7 +355,9 @@ def main() -> None:
     coma2 = "," if args.separator else ", "
     if args.count:
         count = db.flow.count(query)
-        out.write("%(clients)d clients\n%(servers)d servers\n%(flows)d flows\n" % count)
+        out.write(
+            f"{int(count['clients'])} clients\n{int(count['servers'])} servers\n{int(count['flows'])} flows\n"
+        )
 
     elif args.top:
         top = db.flow.topvalues(
@@ -371,21 +371,7 @@ def main() -> None:
         )
         for rec in top:
             sys.stdout.write(
-                "%s%s%s%s%s\n"
-                % (
-                    "(" + coma2.join(str(val) for val in rec["fields"]) + ")",
-                    sep,
-                    rec["count"],
-                    sep,
-                    (
-                        coma.join(
-                            str("(" + coma2.join(str(val) for val in collected) + ")")
-                            for collected in rec["collected"]
-                        )
-                        if rec["collected"]
-                        else ""
-                    ),
-                )
+                f"{f"({coma2.join((str(val) for val in rec['fields']))})"}{sep}{rec['count']}{sep}{coma.join((str(f"({coma2.join((str(val) for val in collected))})") for collected in rec['collected'])) if rec['collected'] else ''}\n"
             )
 
     elif args.flow_daily:
@@ -400,9 +386,7 @@ def main() -> None:
                 sep.join(
                     [
                         rec["time_in_day"].strftime("%T.%f"),
-                        " ; ".join(
-                            ["(" + x[0] + ", " + str(x[1]) + ")" for x in rec["flows"]]
-                        ),
+                        " ; ".join([f"({x[0]}, {x[1]!s})" for x in rec["flows"]]),
                     ]
                 )
             )
@@ -435,7 +419,7 @@ def main() -> None:
             plt.show()
 
     else:
-        fmt = "%%s%s%%s%s%%s" % (sep, sep)
+        fmt = f"%s{sep}%s{sep}%s"
         node_width = len("XXXX:XXXX:XXXX:XXXX:XXXX:XXXX")
         flow_width = len("tcp/XXXXX")
         for res in db.flow.to_iter(
@@ -447,31 +431,20 @@ def main() -> None:
             timeline=args.timeline,
         ):
             if args.json:
-                out.write("%s\n" % res)
+                out.write(f"{res}\n")
             else:
                 elts = {}
                 for elt in ["src", "flow", "dst"]:
                     elts[elt] = res[elt]["label"]
                     if args.fields:
-                        elts[elt] = "%s%s%s" % (
-                            elts[elt],
-                            coma,
-                            coma.join(
-                                str(res[elt]["data"].get(field, ""))
-                                for field in args.fields
-                            ),
+                        elts[elt] = (
+                            f"{elts[elt]}{coma}{coma.join((str(res[elt]['data'].get(field, '')) for field in args.fields))}"
                         )
                 src, flow, dst = elts["src"], elts["flow"], elts["dst"]
                 node_width = max(node_width, len(src), len(dst))
                 flow_width = max(flow_width, len(flow))
                 if not args.separator:
-                    fmt = "%%-%ds%s%%-%ds%s%%-%ds" % (
-                        node_width,
-                        sep,
-                        flow_width,
-                        sep,
-                        node_width,
-                    )
+                    fmt = f"%-{node_width}s{sep}%-{flow_width}s{sep}%-{node_width}s"
                 out.write(fmt % (src, flow, dst))
                 if args.timeline:
                     out.write(sep)

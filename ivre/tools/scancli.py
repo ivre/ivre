@@ -69,10 +69,7 @@ def main() -> None:
     parser.add_argument(
         "--graphroute",
         choices=["dot", "rtgraph3d"] if graphroute.HAVE_DBUS else ["dot"],
-        help="Create a graph from traceroute results. "
-        'dot: output result as Graphviz "dot" format to stdout.'
-        "%s"
-        % (" rtgraph3d: send results to rtgraph3d." if graphroute.HAVE_DBUS else ""),
+        help=f"Create a graph from traceroute results. dot: output result as Graphviz \"dot\" format to stdout.{' rtgraph3d: send results to rtgraph3d.' if graphroute.HAVE_DBUS else ''}",
     )
     parser.add_argument(
         "--graphroute-cluster",
@@ -248,7 +245,7 @@ def main() -> None:
     if args.update_schema:
         dbase.migrate_schema(args.version)
     elif args.count:
-        out.write(str(dbase.count(hostfilter)) + "\n")
+        out.write(f"{dbase.count(hostfilter)!s}\n")
     else:
         kargs = {}
         if args.limit is not None:

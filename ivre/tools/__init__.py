@@ -78,13 +78,13 @@ def get_command(name: str) -> Callable[[], None] | None:
     if name in __all__:
         return cast(
             Callable[[], None],
-            getattr(__import__("%s.%s" % (__name__, name)).tools, name).main,
+            getattr(__import__(f"{__name__}.{name}").tools, name).main,
         )
     if name in ALIASES:
         name = ALIASES[name]
         return cast(
             Callable[[], None],
-            getattr(__import__("%s.%s" % (__name__, name)).tools, name).main,
+            getattr(__import__(f"{__name__}.{name}").tools, name).main,
         )
     if name in PLUGINS:
         return PLUGINS[name]

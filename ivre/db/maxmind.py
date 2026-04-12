@@ -145,7 +145,7 @@ class MaxMindFile:
         return reduce(
             lambda x, y: (x << 8) + y,
             struct.unpack(
-                "%dB" % size,
+                f"{size}B",
                 self.data[pos : pos + size],
             ),
             0,
@@ -227,7 +227,7 @@ class MaxMindFile:
             val = bool(size)
         else:
             # unknown
-            raise Exception("TODO type == %d (unknown)" % type_)
+            raise Exception(f"TODO type == {type_} (unknown)")
         return pos, val
 
     def read_record(self, node_no, flag):
@@ -245,7 +245,7 @@ class MaxMindFile:
         return val
 
     def __repr__(self):
-        return "<%s from %s>" % (self.__class__.__name__, self.path)
+        return f"<{self.__class__.__name__} from {self.path}>"
 
     def lookup(self, ip):
         node_no = 0
@@ -355,7 +355,7 @@ class MaxMindDBData(DBData):
                 name = subdb.metadata["database_type"].lower()
                 if name.startswith("geolite2-"):
                     name = name[9:]
-                setattr(self, "_db_%s" % name, subdb)
+                setattr(self, f"_db_{name}", subdb)
 
     def as_byip(self, addr):
         return {
@@ -434,7 +434,7 @@ class MaxMindDBData(DBData):
         ):
             if data[0] > 0xFFFFFFFF:  # only IPv4
                 break
-            fdesc.write("%d,%d,%d\n" % data)
+            fdesc.write(f"{data[0]},{data[1]},{data[2]}\n")
 
     def dump_country_ranges(self, fdesc):
         for data in self.db_country.get_ranges(
@@ -443,7 +443,7 @@ class MaxMindDBData(DBData):
         ):
             if data[0] > 0xFFFFFFFF:  # only IPv4
                 break
-            fdesc.write("%d,%d,%s\n" % data)
+            fdesc.write(f"{data[0]},{data[1]},{data[2]}\n")
 
     def dump_registered_country_ranges(self, fdesc):
         for data in self.db_country.get_ranges(
@@ -452,14 +452,14 @@ class MaxMindDBData(DBData):
         ):
             if data[0] > 0xFFFFFFFF:  # only IPv4
                 break
-            fdesc.write("%d,%d,%s\n" % data)
+            fdesc.write(f"{data[0]},{data[1]},{data[2]}\n")
 
     def dump_city_ranges(self, fdesc):
         for data in self.db_city.get_ranges(
             [
                 "country->iso_code",
                 "subdivisions->0->iso_code",
-                "city->names->%s" % config.GEOIP_LANG,
+                f"city->names->{config.GEOIP_LANG}",
                 "city->geoname_id",
             ],
             cond=lambda line: (
@@ -468,17 +468,11 @@ class MaxMindDBData(DBData):
         ):
             if data[0] > 0xFFFFFFFF:  # only IPv4
                 break
+            data_4_fixed = utils.encode_b64((data[4] or "").encode("utf-8")).decode(
+                "utf-8"
+            )
             fdesc.write(
-                "%d,%d,%s,%s,%s,%s\n"
-                % (
-                    data[:4]
-                    + (
-                        utils.encode_b64((data[4] or "").encode("utf-8")).decode(
-                            "utf-8"
-                        ),
-                    )
-                    + data[5:]
-                )
+                f"{data[0]},{data[1]},{data[2]},{data[3]},{data_4_fixed},{data[5]}\n"
             )
 
     def build_dumps(self, force=False):
@@ -517,7 +511,7 @@ class MaxMindDBData(DBData):
             return
         if not subdb.path.endswith(".mmdb"):
             return
-        csv_file = subdb.path[:-4] + "dump-IPv4.csv"
+        csv_file = f"{subdb.path[:-4]}dump-IPv4.csv"
         if attr == "db_registered_country":
             if "Country" not in csv_file:
                 utils.LOGGER.error(

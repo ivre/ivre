@@ -36,14 +36,14 @@ def main() -> None:
         idx = args.ips.index("-")
         args.ips = (
             args.ips[: idx - 1]
-            + ["%s-%s" % (args.ips[idx - 1], args.ips[idx + 1])]
+            + [f"{args.ips[idx - 1]}-{args.ips[idx + 1]}"]
             + args.ips[idx + 2 :]
         )
 
     for a in args.ips:
         if "/" in a:
             a = utils.net2range(a)
-            print("%s-%s" % (a[0], a[1]))
+            print(f"{a[0]}-{a[1]}")
         elif "-" in a:
             a = a.split("-", 1)
             if a[0].isdigit():

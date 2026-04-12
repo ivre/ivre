@@ -89,7 +89,7 @@ def _ntlm_negotiate_extract(negotiate: bytes) -> dict[str, Any] | None:
     value = {}
 
     flags = struct.unpack("I", negotiate[12:16])[0]
-    value["ntlm-fingerprint"] = "0x%08x" % flags
+    value["ntlm-fingerprint"] = f"0x{flags:08x}"
     uses_unicode = is_unicode(negotiate, flags)
     if len(negotiate) > 32:
         ln_dom, off_dom, ln_work, off_work = struct.unpack("H2xIH2xI", negotiate[16:32])
@@ -138,7 +138,7 @@ def _ntlm_challenge_extract(challenge: bytes) -> dict[str, Any] | None:
 
     value = {}
     flags = struct.unpack("I", challenge[20:24])[0]
-    value["ntlm-fingerprint"] = "0x%08x" % flags
+    value["ntlm-fingerprint"] = f"0x{flags:08x}"
     uses_unicode = is_unicode(challenge, flags)
 
     # Get target name
@@ -173,7 +173,7 @@ def _ntlm_challenge_extract(challenge: bytes) -> dict[str, Any] | None:
 
         maj, minor, bld, ntlm_ver = struct.unpack("BBH3xB", challenge[48:56])
         try:
-            value["Product_Version"] = "{}.{}.{}".format(maj, minor, bld)
+            value["Product_Version"] = f"{maj}.{minor}.{bld}"
         except ValueError:
             pass
         try:
@@ -272,7 +272,7 @@ def _ntlm_authenticate_info(request: bytes) -> dict[str, Any] | None:
     if has_version and offset >= 72 and request[72:]:
         maj, minor, bld, ntlm_ver = struct.unpack("BBH3xB", request[64:72])
         try:
-            value["Product_Version"] = "{}.{}.{}".format(maj, minor, bld)
+            value["Product_Version"] = f"{maj}.{minor}.{bld}"
         except ValueError:
             pass
         try:
@@ -308,14 +308,7 @@ def _ntlm_dict2string(dic: dict[str, str]) -> str:
     of the given dict, in the format
     """
     return ",".join(
-        "{}:{}".format(
-            k,
-            (
-                v
-                if k in {"NTLM_Version", "ntlm-fingerprint"}
-                else utils.encode_b64(v.encode()).decode()
-            ),
-        )
+        f"{k}:{(v if k in {'NTLM_Version', 'ntlm-fingerprint'} else utils.encode_b64(v.encode()).decode())}"
         for k, v in dic.items()
     )
 

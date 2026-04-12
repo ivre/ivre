@@ -60,7 +60,7 @@ jobs:
         stack-version: ${{ matrix.elastic-version }}
         security-enabled: false
 
-    - run: pip install -r requirements-mongo.txt
+    - run: pip install '.[elasticsearch]'
 
     - name: Install MongoDB tools (mongorestore)
       run: |
@@ -68,8 +68,6 @@ jobs:
           echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
           sudo apt-get -q update
           sudo apt-get -qy install mongodb-org-tools
-
-    - run: pip install -r requirements-elastic.txt
 
     - name: Install IVRE
       uses: ./.github/actions/install

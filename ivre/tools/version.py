@@ -30,9 +30,9 @@ def main() -> None:
     """Display IVRE's version"""
     print("IVRE - Network recon framework")
     print("Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>")
-    print("Version %s" % VERSION)
+    print(f"Version {VERSION}")
     print()
-    print("Python %s" % sys.version)
+    print(f"Python {sys.version}")
     print()
     try:
         print(" ".join(str(elt) for elt in os.uname()))
@@ -48,7 +48,7 @@ def main() -> None:
         "bottle",
         "cryptography",
         "dbus",
-        "krbV",
+        "gssapi",
         "matplotlib",
         "psycopg2",
         "pycurl",

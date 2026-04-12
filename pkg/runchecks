@@ -16,33 +16,33 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-# pip install -U -r requirements-linting.txt
+# pip install -U '.[linting]'
 
-black -t py32 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
+black -t py312 --check ./doc/conf.py ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
 
-flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,E704,F821,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
+flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,E704,F821,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
 
-bandit --severity-level high -r ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "bandit OK"
+bandit --severity-level high -r ./doc/conf.py ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "bandit OK"
 
 # TODO: remove --follow-imports=skip
 MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tags,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,plugins,utils,zgrabout}.py && echo "mypy OK"
 # partial sub-modules
 MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/db/mongo.py && echo "mypy (partial) OK"
 
-git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$' | xargs -r codespell --ignore-words=pkg/codespell_ignore && echo "codespell OK"
+git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg|lock)$' | xargs -r codespell --ignore-words=pkg/codespell_ignore && echo "codespell OK"
 
-pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,broad-except,broad-exception-raised,duplicate-code,fixme,function-redefined,global-statement,import-error,invalid-name,locally-disabled,missing-docstring,no-member,protected-access,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-positional-arguments,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unused-argument,line-too-long,consider-using-f-string ivre ./doc/conf.py ./setup.py ./bin/ivre && echo "pylint OK"
+pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,broad-except,broad-exception-raised,duplicate-code,fixme,function-redefined,global-statement,import-error,invalid-name,locally-disabled,missing-docstring,no-member,protected-access,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-positional-arguments,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unused-argument,line-too-long ivre ./doc/conf.py && echo "pylint OK"
 
 pylint -e all -d unused-argument,too-many-arguments,too-many-positional-arguments,missing-function-docstring,missing-class-docstring,missing-module-docstring,multiple-statements,invalid-name,too-few-public-methods ./pkg/stubs/*.pyi && echo "pylint stubs OK"
 
-isort --profile black --check-only ivre ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./pkg/stubs/*.pyi && echo "isort OK"
+isort --profile black --check-only ivre ./doc/conf.py ./tests/tests.py ./pkg/stubs/*.pyi && echo "isort OK"
 
 rstcheck -r ./doc/ && echo "rstcheck OK"
 if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi
 
 sphinx-lint -e all -d line-too-long -d default-role ./doc/ && echo "sphinx-lint OK"
 
-shellcheck .github/actions/install/install*.sh pkg/builddockers pkg/builddocs pkg/buildrpm pkg/runchecks && echo "shellcheck OK"
+shellcheck .github/actions/install/install*.sh pkg/builddockers pkg/builddocs pkg/runchecks && echo "shellcheck OK"
 
 FNAME="$(mktemp)"
 ivre runscans --output Agent > "$FNAME"

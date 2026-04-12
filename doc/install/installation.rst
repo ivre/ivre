@@ -120,10 +120,6 @@ The installation of IVRE itself can be done:
   `instructions
   <https://copr.fedorainfracloud.org/coprs/pessoft/IVRE/>`_.
 
-- On other RPM-based Linux distributions, you can easily build RPM
-  packages (using the provided ``pkg/buildrpm`` script, or use the
-  ``setup.py`` script with your own options).
-
 - On `Arch Linux <https://www.archlinux.org/>`_, there are `AUR
   <https://aur.archlinux.org/>`__ packages that can be installed using
   `yay <https://aur.archlinux.org/packages/yay/>`_ for example. The
@@ -156,8 +152,7 @@ The installation of IVRE itself can be done:
   <https://pypi.org/project/ivre>`_ and its Python dependencies from
   PyPI, the Python Package Index).
 
-- From the source code, using the ``setup.py`` (classical ``./setup.py
-  build; sudo ./setup.py install``) script.
+- From the source code, using ``pip install .``.
 
 - Using :ref:`install/docker:docker` (in this case you do not need to
   follow the instructions in

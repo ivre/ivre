@@ -8,8 +8,8 @@ You need to run `Zeek <https://www.zeek.org/>`_ (formerly known as
 Bro), version 3.0 minimum (tested with 3.0 and 3.1) with the option
 ``-b`` and the location of the ``passiverecon/bare.zeek`` file. If you
 want to run it on the ``eth0`` interface, for example, run (replace
-``/usr/share/ivre`` by the appropriate location; use ``python -c
-'import ivre.config; print(ivre.config.guess_prefix())'`` if you
+``/usr/share/ivre/zeek`` by the appropriate location; use ``python -c
+'import ivre.config; print(ivre.config.guess_prefix("zeek"))'`` if you
 cannot find it):
 
 ::

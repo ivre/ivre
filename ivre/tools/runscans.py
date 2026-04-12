@@ -35,7 +35,7 @@ import sys
 import termios
 import time
 from multiprocessing import Pool
-from typing import Any, IO, Type
+from typing import IO, Any, Type
 
 import ivre.agent
 import ivre.geoiputils
@@ -97,13 +97,11 @@ class XmlProcessWritefile(XmlProcess):
         self.startinfo = b""
         ivre.utils.makedirs(self.path)
         # pylint: disable=consider-using-with
-        self.scaninfo = open("%sscaninfo.%d" % (self.path, self.starttime), "wb")
+        self.scaninfo = open(f"{self.path}scaninfo.{self.starttime}", "wb")
         if fulloutput:
             self.has_fulloutput = True
             # pylint: disable=consider-using-with
-            self.fulloutput = open(
-                "%sfulloutput.%d" % (self.path, self.starttime), "wb"
-            )
+            self.fulloutput = open(f"{self.path}fulloutput.{self.starttime}", "wb")
         else:
             self.has_fulloutput = False
 
@@ -148,9 +146,7 @@ class XmlProcessWritefile(XmlProcess):
                 status = "down"
             else:
                 status = "unknown"
-            outfile = (
-                self.path + status + "/" + addr.decode().replace(".", "/") + ".xml"
-            )
+            outfile = f"{self.path}{status}/{addr.decode().replace('.', '/')}.xml"
             ivre.utils.makedirs(os.path.dirname(outfile))
             with open(outfile, "wb") as out:
                 # out.write(b'<scaninfo starttime="%d" />\n' % starttime)
@@ -166,7 +162,7 @@ class XmlProcessWritefile(XmlProcess):
         for status, statuscode in self.status_paths.items():
             try:
                 os.stat(
-                    os.path.join(self.path, status, target.replace(".", "/") + ".xml")
+                    os.path.join(self.path, status, f"{target.replace('.', '/')}.xml")
                 )
                 return statuscode
             except OSError:
@@ -255,30 +251,31 @@ def _call_nmap_single(
     maincategory: str, options: list[str], accept_target_status: set[int], target: int
 ) -> None:
     target_str = ivre.utils.int2ip(target)
-    outfile = "scans/%s/%%s/%s.xml" % (maincategory, target_str.replace(".", "/"))
+    outfile = f"scans/{maincategory}/{{}}/{target_str.replace('.', '/')}.xml"
     if STATUS_DONE_UP not in accept_target_status:
         try:
-            os.stat(outfile % "up")
+            os.stat(outfile.format("up"))
             return
         except OSError:
             pass
     if STATUS_DONE_DOWN not in accept_target_status:
         try:
-            os.stat(outfile % "down")
+            os.stat(outfile.format("down"))
             return
         except OSError:
             pass
     if STATUS_DONE_UNKNOWN not in accept_target_status:
         try:
-            os.stat(outfile % "unknown")
+            os.stat(outfile.format("unknown"))
             return
         except OSError:
             pass
-    ivre.utils.makedirs(os.path.dirname(outfile % "current"))
+    ivre.utils.makedirs(os.path.dirname(outfile.format("current")))
     subprocess.call(
-        options + ["-oX", outfile % "current", target_str], preexec_fn=setnmaplimits
+        options + ["-oX", outfile.format("current"), target_str],
+        preexec_fn=setnmaplimits,
     )
-    with open(outfile % "current", "rb") as fdesc:
+    with open(outfile.format("current"), "rb") as fdesc:
         resdata = fdesc.read()
     if b'<status state="up"' in resdata:
         outdir = "up"
@@ -286,8 +283,8 @@ def _call_nmap_single(
         outdir = "down"
     else:
         outdir = "unknown"
-    ivre.utils.makedirs(os.path.dirname(outfile % outdir))
-    shutil.move(outfile % "current", outfile % outdir)
+    ivre.utils.makedirs(os.path.dirname(outfile.format(outdir)))
+    shutil.move(outfile.format("current"), outfile.format(outdir))
 
 
 def main() -> None:
@@ -348,13 +345,8 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.output == "CommandLine":
-        print("Command line to run a scan with template %s" % args.nmap_template)
-        print(
-            "    %s"
-            % ivre.nmapopt.build_nmap_commandline(
-                template=args.nmap_template,
-            )
-        )
+        print(f"Command line to run a scan with template {args.nmap_template}")
+        print(f"    {ivre.nmapopt.build_nmap_commandline(template=args.nmap_template)}")
         sys.exit(0)
     if args.output == "Agent":
         sys.stdout.write(ivre.agent.build_agent(template=args.nmap_template))
@@ -363,15 +355,14 @@ def main() -> None:
     if args.output in ["Count", "List", "ListAll", "ListCIDRs"]:
         if isinstance(targets, ivre.target.TargetFile):
             parser.error(
-                "argument --output: invalid choice: '%s' "
-                "(not available with this target selection)" % args.output
+                f"argument --output: invalid choice: '{args.output}' (not available with this target selection)"
             )
         if args.output == "Count":
             count = len(targets)
-            print("Target has %d IP address%s" % (count, "es" if count > 1 else ""))
+            print(f"Target has {count} IP address{'es' if count > 1 else ''}")
         elif args.output == "List":
             for start_stop in targets.targets.iter_ranges():
-                print("%s - %s" % start_stop)
+                print(f"{start_stop[0]} - {start_stop[1]}")
         else:
             for out in {
                 "ListAll": targets.targets.iter_addrs,
@@ -397,10 +388,10 @@ def main() -> None:
         )
         accept_target_status.add(STATUS_NEW)
     if args.zmap_prescan_port is not None:
-        args.nmap_ping_types = ["PS%d" % args.zmap_prescan_port]
+        args.nmap_ping_types = [f"PS{args.zmap_prescan_port}"]
     elif args.nmap_prescan_ports is not None:
         args.nmap_ping_types = [
-            "PS%s" % ",".join(str(p) for p in args.nmap_prescan_ports)
+            f"PS{','.join((str(p) for p in args.nmap_prescan_ports))}"
         ]
     options = ivre.nmapopt.build_nmap_options(template=args.nmap_template)
     if args.nmap_max_cpu is not None:
@@ -433,25 +424,23 @@ def main() -> None:
                 print(ivre.utils.int2ip(target))
         except KeyboardInterrupt:
             print(
-                'Interrupted.\nUse "--state %s" to resume.'
-                % " ".join(str(elt) for elt in targiter.getstate())
+                f"Interrupted.\nUse \"--state {' '.join((str(elt) for elt in targiter.getstate()))}\" to resume."
             )
         except Exception:
             ivre.utils.LOGGER.critical("Exception", exc_info=True)
             print(
-                'Use "--state %s" to resume.'
-                % " ".join(str(elt) for elt in targiter.getstate())
+                f"Use \"--state {' '.join((str(elt) for elt in targiter.getstate()))}\" to resume."
             )
         sys.exit(0)
     xmlprocess_choice: dict[str, tuple[Type[XmlProcess], list[str], dict[str, Any]]] = {
         "XML": (
             XmlProcessWritefile,
-            ["./scans/%s/" % targets.infos["categories"][0]],
+            [f"./scans/{targets.infos['categories'][0]}/"],
             {},
         ),
         "XMLFull": (
             XmlProcessWritefile,
-            ["./scans/%s/" % targets.infos["categories"][0]],
+            [f"./scans/{targets.infos['categories'][0]}/"],
             {"fulloutput": True},
         ),
         "Test": (XmlProcessTest, [], {}),

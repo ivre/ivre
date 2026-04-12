@@ -40,12 +40,12 @@ def cpe2dict(cpe_str: str) -> CpeDict:
     elif cpe_str.startswith("cpe:/"):
         cpe_body = cpe_str[5:]
     else:
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
+        raise ValueError(f"invalid cpe format ({cpe_str})\n")
     # Keep anything after the version field grouped together to avoid losing
     # update/edition components present in 2.2/2.3 strings.
     parts = cpe_body.split(":", 3)
     if len(parts) < 2:
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
+        raise ValueError(f"invalid cpe format ({cpe_str})\n")
     parts += [""] * (4 - len(parts))
     cpe_type, cpe_vend, cpe_prod, cpe_vers = parts[:4]
 

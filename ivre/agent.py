@@ -180,5 +180,5 @@ def build_agent(filtername: str = "none", template: str = "default") -> str:
     return AGENT_TEMPLATE % {
         "filter": FILTERS[filtername],
         "scan": nmapopt.build_nmap_commandline(template=template),
-        "scan6": nmapopt.build_nmap_commandline(template=template) + " -6",
+        "scan6": f"{nmapopt.build_nmap_commandline(template=template)} -6",
     }

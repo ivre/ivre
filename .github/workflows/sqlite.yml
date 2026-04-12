@@ -43,7 +43,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - run: pip install -r requirements-sqlite.txt
+    - run: pip install '.[sqlite]'
 
     - name: Install IVRE
       uses: ./.github/actions/install

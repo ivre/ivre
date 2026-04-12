@@ -527,15 +527,17 @@ def ports2nmapspec(portlist: Iterable[int]) -> str:
             current = (current[0], port)
         else:
             if current[0] is not None:
-                # pylint: disable=bad-string-format-type
                 result.append(
-                    str(current[0]) if current[0] == current[1] else "%d-%d" % current  # type: ignore
+                    str(current[0])
+                    if current[0] == current[1]
+                    else f"{current[0]}-{current[1]}"
                 )
             current = (port, port)
     if current[0] is not None:
-        # pylint: disable=bad-string-format-type
         result.append(
-            str(current[0]) if current[0] == current[1] else "%d-%d" % current  # type: ignore
+            str(current[0])
+            if current[0] == current[1]
+            else f"{current[0]}-{current[1]}"
         )
     return ",".join(result)
 
@@ -573,10 +575,10 @@ def all2datetime(arg: int | float | str | datetime.datetime) -> datetime.datetim
                 return datetime.datetime.strptime(arg, fmt)
             except ValueError:
                 pass
-        raise ValueError("time data %r does not match standard formats" % arg)
+        raise ValueError(f"time data {arg!r} does not match standard formats")
     if isinstance(arg, (int, float)):
         return datetime.datetime.fromtimestamp(arg)
-    raise TypeError("%s is of unknown type." % repr(arg))
+    raise TypeError(f"{arg!r} is of unknown type.")
 
 
 def makedirs(dirname: AnyStr) -> None:
@@ -661,7 +663,7 @@ def fields2csv_head(fields: dict[str, Any], prefix: str = "") -> list[str]:
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
-            line += fields2csv_head(subfields, prefix=prefix + field + ".")
+            line += fields2csv_head(subfields, prefix=f"{prefix}{field}.")
     return line
 
 
@@ -860,15 +862,12 @@ def serialize(obj: Any) -> str:
     """Return a JSON-compatible representation for `obj`"""
     regexp_types = (REGEXP_T, BsonRegex) if USE_BSON else REGEXP_T
     if isinstance(obj, regexp_types):
-        return "/%s/%s" % (
-            obj.pattern,
-            "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
-        )
+        return f"/{obj.pattern}/{''.join((x.lower() for x in 'ILMSXU' if getattr(re, x) & obj.flags))}"
     if isinstance(obj, datetime.datetime):
         return str(obj)
     if isinstance(obj, bytes):
         return obj.decode()
-    raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
+    raise TypeError(f"Don't know what to do with {obj!r} ({type(obj)!r})")
 
 
 CLI_ARGPARSER = argparse.ArgumentParser(add_help=False)
@@ -1365,7 +1364,7 @@ def match_nmap_svc_fp(
                     if elt in fingerprint:
                         if elt == "cpe":
                             data_cpe = [
-                                "cpe:/%s" % nmap_svc_fp_format_data(value, match)
+                                f"cpe:/{nmap_svc_fp_format_data(value, match)}"
                                 for value in fingerprint[elt]
                             ]
                             if data_cpe:
@@ -1390,7 +1389,7 @@ def match_nmap_svc_fp(
                 # exceptions so far are DNSStatusRequestTCP (fallback
                 # DNSStatusRequest) and DNSVersionBindReqTCP (fallback
                 # DNSVersionBindReq)
-                if proto == "tcp" and fallback + "TCP" == probe:
+                if proto == "tcp" and f"{fallback}TCP" == probe:
                     fallback_result = match_nmap_svc_fp(
                         output, proto="udp", probe=fallback, soft=soft
                     )
@@ -1630,7 +1629,7 @@ _RAWS = {"r": b"\r", "n": b"\n", "t": b"\t", "\\": b"\\", "0": b"\x00", '"': b'"
 def nmap_encode_data(data: bytes) -> str:
     """Encode binary data (bytes) to a string (str) as Nmap would encode it."""
     return "".join(
-        _REPRS[d] if d in _REPRS else chr(d) if 32 <= d <= 126 else "\\x%02x" % d
+        _REPRS[d] if d in _REPRS else chr(d) if 32 <= d <= 126 else f"\\x{d:02x}"
         for d in data
     )
 
@@ -1638,7 +1637,7 @@ def nmap_encode_data(data: bytes) -> str:
 def zeek_encode_data(data: bytes) -> str:
     """Encode binary data (bytes) to a string (str) as Zeek would encode it."""
     return "".join(
-        "\\\\" if d == 92 else chr(d) if 32 <= d <= 126 else "\\x%02x" % d for d in data
+        "\\\\" if d == 92 else chr(d) if 32 <= d <= 126 else f"\\x{d:02x}" for d in data
     )
 
 
@@ -1690,9 +1689,9 @@ def _nmap_decode_data(
                 value = bytes([first_byte * 16 + int(char, 16)])
             except ValueError:
                 LOGGER.warning(
-                    "nmap_decode_data: cannot decode %r", "\\x%x%s" % (first_byte, char)
+                    "nmap_decode_data: cannot decode %r", f"\\x{first_byte:x}{char}"
                 )
-                yield ("\\x%x%s" % (first_byte, char)).encode()
+                yield (f"\\x{first_byte:x}{char}").encode()
                 status = 0
                 continue
             yield value
@@ -1708,26 +1707,26 @@ def nmap_decode_data(data: str, arbitrary_escapes: bool = False) -> bytes:
 
 
 def _nmap_command_match_subst(match_num: int) -> re.Pattern[str]:
-    return re.compile('\\$SUBST\\(%d,"([^"]*)","([^"]*)"\\)' % match_num)
+    return re.compile(f'\\$SUBST\\({match_num},"([^"]*)","([^"]*)"\\)')
 
 
 def _nmap_command_match_i(match_num: int) -> re.Pattern[str]:
-    return re.compile('\\$I\\(%d,"([<>])"\\)' % match_num)
+    return re.compile(f'\\$I\\({match_num},"([<>])"\\)')
 
 
 def nmap_svc_fp_format_data(data: str, match: re.Match) -> str | None:
     for i, value in enumerate(match.groups()):
         if value is None:
             if (
-                "$%d" % (i + 1) in data
-                or "$P(%d)" % (i + 1) in data
-                or "$I(%d," % (i + 1) in data
-                or "$SUBST(%d," % (i + 1) in data
+                f"${i + 1}" in data
+                or f"$P({i + 1})" in data
+                or f"$I({i + 1}," in data
+                or f"$SUBST({i + 1}," in data
             ):
                 return None
             continue
-        data = data.replace("$%d" % (i + 1), nmap_encode_data(value))
-        data = data.replace("$P(%d)" % (i + 1), nmap_encode_data(only_printable(value)))
+        data = data.replace(f"${i + 1}", nmap_encode_data(value))
+        data = data.replace(f"$P({i + 1})", nmap_encode_data(only_printable(value)))
         # pylint: disable=cell-var-from-loop
         data = _nmap_command_match_subst(i + 1).sub(
             # we know m.groups() is a tuple[str, str]
@@ -1737,7 +1736,7 @@ def nmap_svc_fp_format_data(data: str, match: re.Match) -> str | None:
         if len(value) == 2:
             # $I(x,"<") or $I(x,">") may exist
             data = _nmap_command_match_i(i + 1).sub(
-                lambda m: str(struct.unpack("%sH" % m.groups()[0], value)[0]),
+                lambda m: str(struct.unpack(f"{m.groups()[0]}H", value)[0]),
                 data,
             )
     return data
@@ -1795,8 +1794,8 @@ def num2readable(value: int | float) -> str:
     else:
         idx = 1000**idx
     if isinstance(value, float):
-        return "%.3f%s" % (value / float(idx), unit)
-    return "%d%s" % (value / float(idx), unit)
+        return f"{value / float(idx):.3f}{unit}"
+    return f"{int(value / float(idx))}{unit}"
 
 
 def decode_hex(value: AnyStr) -> bytes:
@@ -2004,7 +2003,7 @@ def get_addr_type(addr: str) -> str | None:
     """
 
     if ":" not in addr:
-        addr = "::ffff:" + addr
+        addr = f"::ffff:{addr}"
     try:
         data = ip2int(addr)
     except (TypeError, socket.error):
@@ -2188,7 +2187,7 @@ if USE_PYOPENSSL:
             v = printable(v).decode()
             k = _CERTKEYS.get(k, k)
             components.append((k, v))
-        return "/".join("%s=%s" % kv for kv in components), dict(components)
+        return "/".join(f"{kv[0]}={kv[1]}" for kv in components), dict(components)
 
     def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
@@ -2324,7 +2323,7 @@ else:
                         key.replace(".", "_"): value for key, value in flddata
                     }
                     result[f"{field}_text"] = "/".join(
-                        "%s=%s" % item for item in flddata
+                        f"{item[0]}={item[1]}" for item in flddata
                     )
                 elif field in ["bits", "exponent"]:
                     result[field] = int(fdata_str)
@@ -2500,13 +2499,13 @@ def key_sort_dom_addr(value: str) -> list[str]:
         if ":" in value:
             return [encode_hex(ip2bin(value)).decode()]
         # IPv4 addresses before IPv6
-        return ["00000000000000000000000000000000%08x" % ip2int(value)]
+        return [f"00000000000000000000000000000000{ip2int(value):08x}"]
     if NETADDR.search(value):
         addr, mask = value.split("/", 1)
         if ":" in addr:
             return [encode_hex(ip2bin(addr)).decode(), mask]
         # IPv4 addresses before IPv6
-        return ["00000000000000000000000000000000%08x" % ip2int(addr), mask]
+        return [f"00000000000000000000000000000000{ip2int(addr):08x}", mask]
     return value.strip().split(".")[::-1]
 
 
@@ -2525,7 +2524,7 @@ def download_if_newer(
         processor = shutil.copyfileobj
     assert processor is not None
     opener = build_opener()
-    opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
+    opener.addheaders = [("User-Agent", f"IVRE/{VERSION} +https://ivre.rocks/")]
     try:
         outstat = os.stat(outfile)
     except FileNotFoundError:
