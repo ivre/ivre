@@ -40,12 +40,12 @@ def _scriptoutput(record):
             if not scriptout:
                 scriptout = ""
             elif len(scriptout) == 1:
-                scriptout = " " + scriptout[0]
+                scriptout = f" {scriptout[0]}"
             else:
-                scriptout = "\n\t\t\t%s" % "\n\t\t\t".join(scriptout)
+                scriptout = f"\n\t\t\t{'\n\t\t\t'.join(scriptout)}"
         else:
             scriptout = ""
-        out.append("\t\t%s:%s\n" % (script["id"], scriptout))
+        out.append(f"\t\t{script['id']}:{scriptout}\n")
     return out
 
 
@@ -56,41 +56,32 @@ def displayhost(
     result contained in `record`.
 
     """
-    line = "Host %s" % utils.force_int2ip(record["addr"])
+    line = f"Host {utils.force_int2ip(record['addr'])}"
     if record.get("hostnames"):
-        line += " (%s)" % "/".join(x["name"] for x in record["hostnames"])
+        line += f" ({'/'.join((x['name'] for x in record['hostnames']))})"
     if "source" in record:
-        line += " from %s" % (
-            "/".join(record["source"])
-            if isinstance(record["source"], list)
-            else record["source"]
-        )
+        line += f" from {'/'.join(record['source']) if isinstance(record['source'], list) else record['source']}"
     if record.get("categories"):
-        line += " (%s)" % ", ".join(
-            cat for cat in record["categories"] if not cat.startswith("_")
-        )
+        line += f" ({', '.join((cat for cat in record['categories'] if not cat.startswith('_')))})"
     if "state" in record:
-        line += " (%s" % record["state"]
+        line += f" ({record['state']}"
         if "state_reason" in record:
-            line += ": %s" % record["state_reason"]
+            line += f": {record['state_reason']}"
         line += ")\n"
     out.write(line)
     if "infos" in record:
         infos = record["infos"]
         if "country_code" in infos or "country_name" in infos:
             out.write(
-                "\t%s - %s"
-                % (infos.get("country_code", "?"), infos.get("country_name", "?"))
+                f"\t{infos.get('country_code', '?')} - {infos.get('country_name', '?')}"
             )
             if "city" in infos:
-                out.write(" - %s" % infos["city"])
+                out.write(f" - {infos['city']}")
             out.write("\n")
         if "as_num" in infos or "as_name" in infos:
-            out.write(
-                "\tAS%s - %s\n" % (infos.get("as_num", "?"), infos.get("as_name", "?"))
-            )
+            out.write(f"\tAS{infos.get('as_num', '?')} - {infos.get('as_name', '?')}\n")
     if "starttime" in record and "endtime" in record:
-        out.write("\tscan %s - %s\n" % (record["starttime"], record["endtime"]))
+        out.write(f"\tscan {record['starttime']} - {record['endtime']}\n")
     for tag in record.get("tags", []):
         line = f"\t{tag['value']}"
         if "info" in tag:
@@ -99,16 +90,7 @@ def displayhost(
         out.write(line)
     for state, counts in record.get("extraports", {}).items():
         out.write(
-            "\t%d ports %s (%s)\n"
-            % (
-                counts["total"],
-                state,
-                ", ".join(
-                    "%d %s" % (count, reason)
-                    for reason, count in counts["reasons"].items()
-                    if reason != "total"
-                ),
-            )
+            f"\t{counts['total']} ports {state} ({', '.join(f'{count} {reason}' for reason, count in counts['reasons'].items() if reason != 'total')})\n"
         )
     ports = record.get("ports", [])
     ports.sort(key=lambda x: (utils.key_sort_none(x.get("protocol")), x["port"]))
@@ -118,10 +100,11 @@ def displayhost(
                 record["scripts"] = port["scripts"]
             continue
         if "state_reason" in port:
+            # pylint: disable=consider-using-f-string
             reason = " (%s)" % ", ".join(
                 [port["state_reason"]]
                 + [
-                    "%s=%s" % (field[13:], value)
+                    f"{field[13:]}={value}"
                     for field, value in port.items()
                     if field.startswith("state_reason_")
                 ]
@@ -132,11 +115,11 @@ def displayhost(
         if "service_name" in port:
             srv.append("")
             if "service_tunnel" in port:
-                srv.append("%s/%s" % (port["service_name"], port["service_tunnel"]))
+                srv.append(f"{port['service_name']}/{port['service_tunnel']}")
             else:
                 srv.append(port["service_name"])
             if "service_method" in port:
-                srv.append("(%s)" % port["service_method"])
+                srv.append(f"({port['service_method']})")
             for field in [
                 "service_product",
                 "service_version",
@@ -147,9 +130,10 @@ def displayhost(
                 if field in port:
                     srv.append(port[field])
         out.write(
+            # pylint: disable=consider-using-f-string
             "\t%-10s%-8s%-22s%s\n"
             % (
-                "%s/%d" % (port.get("protocol"), port["port"]),
+                f"{port.get('protocol')}/{port['port']}",
                 port.get("state_state", ""),
                 reason,
                 " ".join(srv),
@@ -165,27 +149,22 @@ def displayhost(
     mac_addrs = record.get("addresses", {}).get("mac")
     if mac_addrs:
         for addr in mac_addrs:
-            out.write("\tMAC Address: %s" % addr)
+            out.write(f"\tMAC Address: {addr}")
             manuf = utils.mac2manuf(addr)
             if manuf and manuf[0]:
-                out.write(" (%s)" % manuf[0])
+                out.write(f" ({manuf[0]})")
             out.write("\n")
     if showtraceroute and record.get("traces"):
         for trace in record["traces"]:
             proto = trace["protocol"]
             if proto in ["tcp", "udp"]:
-                proto += "/%d" % trace["port"]
-            out.write("\tTraceroute (using %s)\n" % proto)
+                proto += f"/{trace['port']}"
+            out.write(f"\tTraceroute (using {proto})\n")
             hops = trace["hops"]
             hops.sort(key=lambda hop: hop["ttl"])
             for hop in hops:
                 out.write(
-                    "\t\t%3s %15s %7s\n"
-                    % (
-                        hop["ttl"],
-                        utils.force_int2ip(hop["ipaddr"]),
-                        hop["rtt"],
-                    )
+                    f"\t\t{hop['ttl']:>3} {utils.force_int2ip(hop['ipaddr']):>15} {hop['rtt']:>7}\n"
                 )
     if showos and record.get("os", {}).get("osclass"):
         osclasses = record["os"]["osclass"]
@@ -194,8 +173,7 @@ def displayhost(
         out.write("\tOS fingerprint\n")
         for osclass in osclasses:
             out.write(
-                "\t\t%(osfamily)s / %(type)s / %(vendor)s / "
-                "accuracy = %(accuracy)s\n" % osclass
+                f"\t\t{osclass['osfamily']} / {osclass['type']} / {osclass['vendor']} / accuracy = {osclass['accuracy']}\n"
             )
 
 

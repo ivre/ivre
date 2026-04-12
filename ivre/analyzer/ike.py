@@ -30,7 +30,7 @@ class Values(dict[int, str]):
         try:
             return super().__getitem__(item)
         except KeyError:
-            return "UNKNOWN-%d" % item
+            return f"UNKNOWN-{item}"
 
 
 class NumValues:
@@ -227,7 +227,7 @@ def info_from_notification(
     payload_len = len(payload)
     if payload_len < 12:
         output.setdefault("protocol", []).append(
-            "ISAKMP: Notification payload to short (%d bytes)" % payload_len
+            f"ISAKMP: Notification payload to short ({payload_len} bytes)"
         )
         return
     output.update(
@@ -344,7 +344,7 @@ def info_from_sa(payload: bytes, _: NmapServiceMatch, output: dict[str, Any]) ->
     payload_len = len(payload)
     if payload_len < 20:
         output.setdefault("protocol", []).append(
-            "ISAKMP: SA payload to short (%d bytes)" % payload_len
+            f"ISAKMP: SA payload to short ({payload_len} bytes)"
         )
         return
     output.update(
@@ -369,7 +369,7 @@ def info_from_sa(payload: bytes, _: NmapServiceMatch, output: dict[str, Any]) ->
                 value_length = value
                 if value_length > len(data):
                     output.setdefault("protocol", []).append(
-                        "invalid transform length: %d" % value_length
+                        f"invalid transform length: {value_length}"
                     )
                     break
                 value = 0
@@ -378,7 +378,7 @@ def info_from_sa(payload: bytes, _: NmapServiceMatch, output: dict[str, Any]) ->
             try:
                 transf_type, value_decoder = TRANSFORM_VALUES[transf_type]
             except KeyError:
-                transf_type = "UNKNOWN-%d" % transf_type
+                transf_type = f"UNKNOWN-{transf_type}"
             else:
                 value = value_decoder[value]
             transform[transf_type] = value
@@ -386,7 +386,7 @@ def info_from_sa(payload: bytes, _: NmapServiceMatch, output: dict[str, Any]) ->
             output.setdefault("transforms", []).append(transform)
     if payload:
         output.setdefault("protocol", []).append(
-            "unexpected payload in transforms: %r" % payload
+            f"unexpected payload in transforms: {payload!r}"
         )
 
 
@@ -433,17 +433,14 @@ def analyze_ike_payload(payload: bytes, probe: str = "ike") -> NmapPort:
         txtoutput.append("Transforms:")
         for tr in output["transforms"]:
             txtoutput.append(
-                "  - %s"
-                % ", ".join(
-                    "%s: %s" % (key, value) for key, value in sorted(tr.items())
-                )
+                f"  - {', '.join(f'{key}: {value}' for key, value in sorted(tr.items()))}"
             )
     if "vendor_ids" in output:
         txtoutput.append("Vendor IDs:")
         for vid in output["vendor_ids"]:
-            txtoutput.append("  - %s" % vid.get("name", vid["value"]))
+            txtoutput.append(f"  - {vid.get('name', vid['value'])}")
     if "notification_type" in output:
-        txtoutput.append("Notification: %s" % output["notification_type"])
+        txtoutput.append(f"Notification: {output['notification_type']}")
     # sth identified, let's assume it was correct
     result: NmapPort = {
         "service_name": "isakmp",

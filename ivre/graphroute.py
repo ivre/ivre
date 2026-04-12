@@ -101,7 +101,7 @@ def writedotgraph(
         def _add_node(node: str) -> None:
             if node not in nodes:
                 nodes.add(node)
-                out.write('\t"%s" [label="%s"];\n' % (label(node), node))
+                out.write(f'\t"{label(node)}" [label="{node}"];\n')
 
     else:
         clusters: dict[str | tuple[int | str, str] | None, set[str]] = {}
@@ -117,12 +117,12 @@ def writedotgraph(
         for destnode in node_edges:
             _add_node(destnode)
             if (node, destnode) not in edges:
-                out.write('\t"%s" -> "%s";\n' % (label(node), label(destnode)))
+                out.write(f'\t"{label(node)}" -> "{label(destnode)}";\n')
                 edges.add((node, destnode))
     if cluster is not None:
         if None in clusters:
             for node in clusters.pop(None):
-                out.write('\t"%s" [label="%s"];\n' % (label(node), node))
+                out.write(f'\t"{label(node)}" [label="{node}"];\n')
         for clu, nodes in clusters.items():
             clu_data: tuple[int | str, str]
             if isinstance(clu, str):
@@ -130,10 +130,10 @@ def writedotgraph(
             else:
                 assert clu is not None  # None value has been .pop()ed
                 clu_data = clu
-            out.write("\tsubgraph cluster_%s {\n" % clu_data[0])
-            out.write('\t\tlabel = "%s";\n' % clu_data[1])
+            out.write(f"\tsubgraph cluster_{clu_data[0]} {{\n")
+            out.write(f'\t\tlabel = "{clu_data[1]}";\n')
             for node in nodes:
-                out.write('\t\t"%s" [label="%s"];\n' % (label(node), node))
+                out.write(f'\t\t"{label(node)}" [label="{node}"];\n')
             out.write("\t}\n")
     out.write("}\n")
 

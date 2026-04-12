@@ -36,65 +36,63 @@ def display_scan(scan: dict[str, Any], verbose: bool = True) -> None:
     scan["target"] = ivre.db.db.agent.get_scan_target(scan["_id"])
     print("scan:")
     if verbose:
-        print("  - id: %s" % scan["_id"])
+        print(f"  - id: {scan['_id']}")
     print("  - categories:")
     for category in scan["target"].target.infos["categories"]:
-        print("    - %s" % category)
-    print("  - targets added: %d" % scan["target"].nextcount)
-    print("  - results fetched: %d" % scan["results"])
-    print("  - total targets to add: %d" % scan["target"].target.maxnbr)
-    print("  - available targets: %d" % scan["target"].target.targetscount)
+        print(f"    - {category}")
+    print(f"  - targets added: {scan['target'].nextcount}")
+    print(f"  - results fetched: {scan['results']}")
+    print(f"  - total targets to add: {scan['target'].target.maxnbr}")
+    print(f"  - available targets: {scan['target'].target.targetscount}")
     if scan["target"].nextcount == scan["target"].target.maxnbr:
         print("    - all targets have been added")
     if scan["results"] == scan["target"].target.maxnbr:
         print("    - all results have been retrieved")
     if verbose:
-        print("  - internal state: %r" % (scan["target"].getstate(),))
+        print(f"  - internal state: {scan['target'].getstate()!r}")
     if scan.get("lock") is not None:
         print("  - locked", end="")
         if scan.get("pid") is not None:
-            print(" (by %d)" % scan["pid"])
+            print(f" (by {scan['pid']})")
         else:
             print()
     print("  - agents:")
     for agent in scan["agents"]:
-        print("    - %s" % agent)
+        print(f"    - {agent}")
 
 
 def display_agent(agent: dict[str, Any], verbose: bool = True) -> None:
     print("agent:")
     if verbose:
-        print("  - id: %s" % agent["_id"])
-    print("  - source name: %s" % agent["source"])
+        print(f"  - id: {agent['_id']}")
+    print(f"  - source name: {agent['source']}")
     if agent["host"] is None:
         print("  - local")
     else:
-        print("  - remote host: %s" % agent["host"])
-    print("  - remote path: %s" % agent["path"]["remote"])
-    print("  - master: %s" % agent["master"])
+        print(f"  - remote host: {agent['host']}")
+    print(f"  - remote path: {agent['path']['remote']}")
+    print(f"  - master: {agent['master']}")
     if verbose:
-        print("  - local path: %s" % agent["path"]["local"])
-        print("  - rsync command: %s" % " ".join(agent["rsync"]))
-    print("  - current scan: %s" % agent["scan"])
-    print("  - currently synced: %s" % agent["sync"])
-    print("  - max waiting targets: %d" % agent["maxwaiting"])
+        print(f"  - local path: {agent['path']['local']}")
+        print(f"  - rsync command: {' '.join(agent['rsync'])}")
+    print(f"  - current scan: {agent['scan']}")
+    print(f"  - currently synced: {agent['sync']}")
+    print(f"  - max waiting targets: {agent['maxwaiting']}")
     print(
-        "  - waiting targets: %d"
-        % (ivre.db.db.agent.count_waiting_targets(agent["_id"]))
+        f"  - waiting targets: {ivre.db.db.agent.count_waiting_targets(agent['_id'])}"
     )
     print(
-        "  - current targets: %d"
-        % (ivre.db.db.agent.count_current_targets(agent["_id"]))
+        f"  - current targets: {ivre.db.db.agent.count_current_targets(agent['_id'])}"
     )
-    print("  - can receive: %d" % (ivre.db.db.agent.may_receive(agent["_id"])))
+    print(f"  - can receive: {ivre.db.db.agent.may_receive(agent['_id'])}")
 
 
 def display_master(master: dict[str, Any], verbose: bool = True) -> None:
     print("master:")
     if verbose:
-        print("  - id: %s" % master["_id"])
-    print("  - hostname %s" % master["hostname"])
-    print("  - path %s" % master["path"])
+        print(f"  - id: {master['_id']}")
+    print(f"  - hostname {master['hostname']}")
+    print(f"  - path {master['path']}")
 
 
 WANT_DOWN = False

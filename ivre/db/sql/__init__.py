@@ -248,7 +248,7 @@ class PassiveCSVFile(CSVFile):
                 except Exception:
                     pass
                 line[key] = "".join(
-                    chr(c) if 32 <= c <= 126 else "\\x%02x" % c for c in value
+                    chr(c) if 32 <= c <= 126 else f"\\x{c:02x}" for c in value
                 ).replace("\\", "\\\\")
         line["info"] = json.dumps(
             {key: line.pop(key) for key in list(line) if key in self.info_fields}
@@ -434,7 +434,7 @@ class SQLDB(DB):
                 field = fld
                 break
             else:
-                raise ValueError("Unknown field %r" % field)
+                raise ValueError(f"Unknown field {field!r}")
         if flt is None:
             flt = self.flt_empty
         sort = [
@@ -697,8 +697,7 @@ class ActiveFilter(Filter):
     def __and__(self, other):
         if self.tables != other.tables:
             raise ValueError(
-                "Cannot 'AND' two filters on separate tables (%s / %s)"
-                % (self.tables, other.tables)
+                f"Cannot 'AND' two filters on separate tables ({self.tables} / {other.tables})"
             )
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -2017,7 +2016,7 @@ class SQLDBActive(SQLDB, DBActive):
                         unwind
                         for subkey in values
                         for unwind in cls.needunwind_script(
-                            "%s.%s" % (basekey, subkey),
+                            f"{basekey}.{subkey}",
                         )
                     )
                 )
@@ -2079,7 +2078,7 @@ class SQLDBActive(SQLDB, DBActive):
                         req = and_(
                             req,
                             cls.tables.script.data.contains(
-                                _to_json("%s.%s" % (basekey, key), value)
+                                _to_json(f"{basekey}.{key}", value)
                             ),
                         )
                 elif subkey[1] is None:
@@ -2886,7 +2885,7 @@ class SQLDBPassive(SQLDB, DBPassive):
                 flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
 
                 def more_filter(base):
-                    return base.field.op("~")("\\.%s$" % re.escape(subfield))
+                    return base.field.op("~")(f"\\.{re.escape(subfield)}$")
 
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
@@ -2905,7 +2904,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             elif field == "hassh":
                 flt = self.flt_and(flt, self.searchhassh())
             else:
-                raise ValueError("Unknown field %s" % field)
+                raise ValueError(f"Unknown field {field}")
             if subfield == "md5":
                 field = self.tables.passive.value
             else:
@@ -3190,7 +3189,7 @@ class SQLDBPassive(SQLDB, DBPassive):
                 )
             )
         if dnstype is not None:
-            cnd &= cls.tables.passive.source.op("~")("^%s-" % dnstype.upper())
+            cnd &= cls.tables.passive.source.op("~")(f"^{dnstype.upper()}-")
         return PassiveFilter(main=cnd)
 
     @classmethod
@@ -3354,7 +3353,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == "md5":
             return PassiveFilter(
-                main=(base & (cls.tables.passive.source == "ja3-%s" % value))
+                main=(base & (cls.tables.passive.source == f"ja3-{value}"))
             )
         base &= cls.tables.passive.source.op("~")("^ja3-")
         if key in ["sha1", "sha256"]:
@@ -3391,7 +3390,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         if key is not None:
             cnd &= cls._searchstring_re(cls.tables.passive.value, key)
         if keytype is not None:
-            cnd &= cls.tables.passive.moreinfo.op("->>")("algo") == "ssh-" + keytype
+            cnd &= cls.tables.passive.moreinfo.op("->>")("algo") == f"ssh-{keytype}"
         if bits is not None:
             cnd &= cls.tables.passive.moreinfo.op("->>")("bits") == bits
         return PassiveFilter(main=cnd)

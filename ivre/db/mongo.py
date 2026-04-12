@@ -266,7 +266,7 @@ class MongoDB(DB):
         sort = []
         for fld, way in kargs.pop("sort", []) or []:
             if fld in self.ipaddr_fields:
-                sort.extend([("%s_0" % fld, way), ("%s_1" % fld, way)])
+                sort.extend([(f"{fld}_0", way), (f"{fld}_1", way)])
             elif fld == "text":
                 if isinstance(kargs.get("projection"), list):
                     kargs = dict.fromkeys(kargs["projection"], 1)
@@ -393,7 +393,7 @@ class MongoDB(DB):
             ):
                 if action == "ensure":
                     continue
-                function = getattr(self.db[self.columns[colnum]], "%s_index" % action)
+                function = getattr(self.db[self.columns[colnum]], f"{action}_index")
                 for idx in indexes:
                     try:
                         function(idx[0], **idx[1])
@@ -466,12 +466,12 @@ class MongoDB(DB):
         for i in range(field.count("."), -1, -1):
             subfield = field.rsplit(".", i)[0]
             if subfield in self.list_fields:
-                pipeline += [{"$unwind": "$" + subfield}]
+                pipeline += [{"$unwind": f"${subfield}"}]
         pipeline += specialflt
         # next step for previous hack
-        project = {"field": "$%s" % field}
+        project = {"field": f"${field}"}
         if countfield is not None:
-            project["count"] = "$%s" % countfield
+            project["count"] = f"${countfield}"
         pipeline += [{"$project": project}]
         if aggrflt:
             pipeline += [{"$match": aggrflt}]
@@ -516,10 +516,10 @@ class MongoDB(DB):
         for i in range(field.count("."), -1, -1):
             subfield = field.rsplit(".", i)[0]
             if subfield in self.list_fields:
-                pipeline += [{"$unwind": "$" + subfield}]
+                pipeline += [{"$unwind": f"${subfield}"}]
         if is_ipfield:
-            pipeline.append({"$project": {field: ["$%s_0" % field, "$%s_1" % field]}})
-        pipeline.append({"$group": {"_id": "$%s" % field}})
+            pipeline.append({"$project": {field: [f"${field}_0", f"${field}_1"]}})
+        pipeline.append({"$group": {"_id": f"${field}"}})
         return pipeline
 
     def _distinct(self, column, field, flt=None, sort=None, limit=None, skip=None):
@@ -549,11 +549,11 @@ class MongoDB(DB):
         )
         project = [port]
         if use_service:
-            project.append("%s.service_name" % service_base)
+            project.append(f"{service_base}.service_name")
             if use_product:
-                project.append("%s.service_product" % service_base)
+                project.append(f"{service_base}.service_product")
                 if use_version:
-                    project.append("%s.service_version" % service_base)
+                    project.append(f"{service_base}.service_version")
         project = {"field": project}
         pipeline.extend(
             [
@@ -670,8 +670,8 @@ class MongoDB(DB):
         fieldname is the internal name of the addr field
         """
         addr = cls.ip2internal(addr)
-        addr_0 = "%s_0" % fieldname
-        addr_1 = "%s_1" % fieldname
+        addr_0 = f"{fieldname}_0"
+        addr_1 = f"{fieldname}_1"
         if neg:
             return {"$or": [{addr_0: {"$ne": addr[0]}}, {addr_1: {"$ne": addr[1]}}]}
         return {addr_0: addr[0], addr_1: addr[1]}
@@ -704,8 +704,8 @@ class MongoDB(DB):
         """
         start = cls.ip2internal(start)
         stop = cls.ip2internal(stop)
-        addr_0 = "%s_0" % fieldname
-        addr_1 = "%s_1" % fieldname
+        addr_0 = f"{fieldname}_0"
+        addr_1 = f"{fieldname}_1"
         if neg:
             return {
                 "$or": [
@@ -2162,7 +2162,7 @@ class MongoDBActive(MongoDB, DBActive):
                 if p["port"] == port and p["protocol"] == protocol
             ][0]
         except IndexError as exc:
-            raise KeyError("Port %s/%d does not exist" % (protocol, port)) from exc
+            raise KeyError(f"Port {protocol}/{port} does not exist") from exc
         if "screenshot" in port and not overwrite:
             return
         trim_result = utils.trim_image(data)
@@ -2602,7 +2602,7 @@ class MongoDBActive(MongoDB, DBActive):
         if port == "host":
             return {"ports.port": {"$gte": 0} if neg else -1}
         if state == "open":
-            return {"openports.%s.ports" % protocol: {"$ne": port} if neg else port}
+            return {f"openports.{protocol}.ports": {"$ne": port} if neg else port}
         if neg:
             return {
                 "$or": [
@@ -2748,7 +2748,7 @@ class MongoDBActive(MongoDB, DBActive):
         if protocol is not None:
             flt["protocol"] = protocol
         if len(flt) == 1:
-            return {"ports.%s" % key: value for key, value in flt.items()}
+            return {f"ports.{key}": value for key, value in flt.items()}
         return {"ports": {"$elemMatch": flt}}
 
     @classmethod
@@ -2778,18 +2778,18 @@ class MongoDBActive(MongoDB, DBActive):
             if isinstance(values, (str, utils.REGEXP_T)):
                 req[key] = values
             else:
-                if len(values) >= 2 and "ports.scripts.%s" % key in cls.list_fields:
+                if len(values) >= 2 and f"ports.scripts.{key}" in cls.list_fields:
                     req[key] = {"$elemMatch": values}
                 else:
                     for field, value in values.items():
-                        req["%s.%s" % (key, field)] = value
+                        req[f"{key}.{field}"] = value
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
             field, value = next(iter(req.items()))
             if neg:
-                return {"ports.scripts.%s" % field: {"$ne": value}}
-            return {"ports.scripts.%s" % field: value}
+                return {f"ports.scripts.{field}": {"$ne": value}}
+            return {f"ports.scripts.{field}": value}
         if neg:
             return {"ports.scripts": {"$not": {"$elemMatch": req}}}
         return {"ports.scripts": {"$elemMatch": req}}
@@ -2879,7 +2879,7 @@ class MongoDBActive(MongoDB, DBActive):
                 "shares": {
                     "$elemMatch": {
                         "$or": [
-                            {"%s access" % user: access}
+                            {f"{user} access": access}
                             for user in ["Anonymous", "Current user"]
                         ],
                         "Type": share_type,
@@ -3152,7 +3152,7 @@ class MongoDBActive(MongoDB, DBActive):
             return {"cpes": {"$exists": True}}
         if nflt == 1:
             field, value = flt.popitem()
-            return {"cpes.%s" % field: value}
+            return {f"cpes.{field}": value}
         return {"cpes": {"$elemMatch": flt}}
 
     @classmethod
@@ -3323,11 +3323,7 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {
                     "count": x["count"],
-                    "_id": "%s/%d"
-                    % (
-                        utils.int2ip(int(x["_id"]) * 2 ** (32 - mask)),
-                        mask,
-                    ),
+                    "_id": f"{utils.int2ip(int(x['_id']) * 2 ** (32 - mask))}/{int(mask)}",
                 }
 
         elif field == "port" or field.startswith("port:"):
@@ -3336,11 +3332,7 @@ class MongoDBActive(MongoDB, DBActive):
                 flt_field = "ports.state_state"
             else:
                 info = field.split(":", 1)[1]
-                flt_field = "ports.%s" % (
-                    "state_state"
-                    if info in ["open", "filtered", "closed"]
-                    else "service_name"
-                )
+                flt_field = f"ports.{'state_state' if info in ['open', 'filtered', 'closed'] else 'service_name'}"
             field = "ports.port"
             flt = self.flt_and(flt, {flt_field: info})
             specialproj = {"_id": 0, flt_field: 1, field: 1, "ports.protocol": 1}
@@ -3645,17 +3637,17 @@ class MongoDBActive(MongoDB, DBActive):
             # *and* for our filter
             fields = fields[: max(fields.index(field), len(cpeflt2)) + 1]
             flt = self.flt_and(flt, cpeflt1)
-            specialproj = dict((("cpes.%s" % fname, 1) for fname in fields), _id=0)
-            concat = ["$cpes.%s" % fields[0]]
+            specialproj = dict(((f"cpes.{fname}", 1) for fname in fields), _id=0)
+            concat = [f"$cpes.{fields[0]}"]
             # Now we only keep what the user wanted
             for fname in fields[1 : fields.index(field) + 1]:
                 concat.append(":")
-                concat.append("$cpes.%s" % fname)
+                concat.append(f"$cpes.{fname}")
             specialflt = []
             if cpeflt2:
                 specialflt.append({"$match": cpeflt2})
-            specialflt.append({"$project": {"cpes.%s" % field: {"$concat": concat}}})
-            field = "cpes.%s" % field
+            specialflt.append({"$project": {f"cpes.{field}": {"$concat": concat}}})
+            field = f"cpes.{field}"
 
             def outputproc(x):
                 return {"count": x["count"], "_id": tuple(x["_id"].split(":", 3))}
@@ -3673,7 +3665,7 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.service_devicetype"
         elif field.startswith("smb."):
             flt = self.flt_and(flt, self.searchsmb())
-            field = "ports.scripts.smb-os-discovery." + field[4:]
+            field = f"ports.scripts.smb-os-discovery.{field[4:]}"
         elif field == "ntlm":
             flt = self.flt_and(flt, self.searchntlm())
             field = "ports.scripts.ntlm-info"
@@ -3691,7 +3683,7 @@ class MongoDBActive(MongoDB, DBActive):
                 "version": "NTLM_Version",
             }.get(arg, arg)
             flt = self.flt_and(flt, self.searchntlm())
-            field = "ports.scripts.ntlm-info." + arg
+            field = f"ports.scripts.ntlm-info.{arg}"
         elif field == "script":
             flt = self.flt_and(flt, self.searchscript())
             field = "ports.scripts.id"
@@ -3743,17 +3735,17 @@ class MongoDBActive(MongoDB, DBActive):
                 }
             else:
                 flt = self.flt_and(flt, self.searchdomain(subfield))
-                aggrflt = {"field": re.compile("\\.%s$" % re.escape(subfield))}
+                aggrflt = {"field": re.compile(f"\\.{re.escape(subfield)}$")}
         elif field.startswith("cert."):
             flt = self.flt_and(flt, self.searchcert())
-            field = "ports.scripts.ssl-cert." + field[5:]
+            field = f"ports.scripts.ssl-cert.{field[5:]}"
             specialproj = {"_id": 0, "ports.scripts.id": 1, field: 1}
             specialflt = [
                 {"$match": {"ports.scripts.id": "ssl-cert"}},
             ]
         elif field.startswith("cacert."):
             flt = self.flt_and(flt, self.searchcert(cacert=True))
-            field = "ports.scripts.ssl-cert." + field[7:]
+            field = f"ports.scripts.ssl-cert.{field[7:]}"
             specialproj = {"_id": 0, "ports.scripts.id": 1, field: 1}
             specialflt = [
                 {"$match": {"ports.scripts.id": "ssl-cacert"}},
@@ -3777,7 +3769,7 @@ class MongoDBActive(MongoDB, DBActive):
                 specialflt = [
                     {
                         "$match": {
-                            "ports.scripts.ssl-ja3-client.%s" % subkey: value,
+                            f"ports.scripts.ssl-ja3-client.{subkey}": value,
                         }
                     },
                 ]
@@ -3791,11 +3783,11 @@ class MongoDBActive(MongoDB, DBActive):
             if subkey is not None and subkey != subfield:
                 specialproj = {
                     "_id": 0,
-                    "ports.scripts.ssl-ja3-client.%s" % subkey: 1,
-                    "ports.scripts.ssl-ja3-client.%s" % subfield: 1,
+                    f"ports.scripts.ssl-ja3-client.{subkey}": 1,
+                    f"ports.scripts.ssl-ja3-client.{subfield}": 1,
                 }
             flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
-            field = "ports.scripts.ssl-ja3-client.%s" % subfield
+            field = f"ports.scripts.ssl-ja3-client.{subfield}"
         elif field == "ja3-server" or (
             field.startswith("ja3-server") and field[10] in ":."
         ):
@@ -3830,21 +3822,21 @@ class MongoDBActive(MongoDB, DBActive):
             )
             specialproj = {
                 "_id": 0,
-                "ports.scripts.ssl-ja3-server.%s" % subfield: 1,
-                "ports.scripts.ssl-ja3-server.client.%s" % subfield: 1,
+                f"ports.scripts.ssl-ja3-server.{subfield}": 1,
+                f"ports.scripts.ssl-ja3-server.client.{subfield}": 1,
             }
             if subkey1 is not None and subkey1 != subfield:
-                specialproj["ports.scripts.ssl-ja3-server.%s" % subkey1] = 1
+                specialproj[f"ports.scripts.ssl-ja3-server.{subkey1}"] = 1
             if subkey2 is not None and subkey2 != subfield:
-                specialproj["ports.scripts.ssl-ja3-server.client.%s" % subkey2] = 1
+                specialproj[f"ports.scripts.ssl-ja3-server.client.{subkey2}"] = 1
             field = "ports.scripts.ssl-ja3-server"
             specialflt.append(
                 {
                     "$project": {
                         "_id": 0,
                         field: [
-                            "$ports.scripts.ssl-ja3-server.%s" % subfield,
-                            "$ports.scripts.ssl-ja3-server.client.%s" % subfield,
+                            f"$ports.scripts.ssl-ja3-server.{subfield}",
+                            f"$ports.scripts.ssl-ja3-server.client.{subfield}",
                         ],
                     }
                 }
@@ -3872,7 +3864,7 @@ class MongoDBActive(MongoDB, DBActive):
             else:
                 subfield = "ja4"
             flt = self.flt_and(flt, self.searchja4client(value=value))
-            field = "ports.scripts.ssl-ja4-client.%s" % subfield
+            field = f"ports.scripts.ssl-ja4-client.{subfield}"
         elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
             if "." in field:
                 field, subfield = field.split(".", 1)
@@ -3938,7 +3930,7 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.scripts.ssh-hostkey.bits"
         elif field.startswith("sshkey."):
             flt = self.flt_and(flt, self.searchsshkey())
-            field = "ports.scripts.ssh-hostkey." + field[7:]
+            field = f"ports.scripts.ssh-hostkey.{field[7:]}"
         elif field == "ike.vendor_ids":
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             specialproj = {
@@ -4008,7 +4000,7 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.scripts.ike-info.notification_type"
         elif field.startswith("ike."):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
-            field = "ports.scripts.ike-info." + field[4:]
+            field = f"ports.scripts.ike-info.{field[4:]}"
         elif field == "httphdr":
             flt = self.flt_and(flt, self.searchhttphdr())
             specialproj = {
@@ -4034,7 +4026,7 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.scripts.http-headers"
         elif field.startswith("httphdr."):
             flt = self.flt_and(flt, self.searchhttphdr())
-            field = "ports.scripts.http-headers.%s" % field[8:]
+            field = f"ports.scripts.http-headers.{field[8:]}"
         elif field.startswith("httphdr:"):
             subfield = field[8:].lower()
             flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
@@ -4080,10 +4072,10 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.scripts.http-app.version"
         elif field.startswith("modbus."):
             flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
-            field = "ports.scripts.modbus-discover." + field[7:]
+            field = f"ports.scripts.modbus-discover.{field[7:]}"
         elif field.startswith("s7."):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
-            field = "ports.scripts.s7-info." + field[3:]
+            field = f"ports.scripts.s7-info.{field[3:]}"
         elif field.startswith("enip."):
             flt = self.flt_and(flt, self.searchscript(name="enip-info"))
             subfield = field[5:]
@@ -4096,17 +4088,17 @@ class MongoDBActive(MongoDB, DBActive):
                 "rev": "Revision",
                 "ip": "Device IP",
             }.get(subfield, subfield)
-            field = "ports.scripts.enip-info." + subfield
+            field = f"ports.scripts.enip-info.{subfield}"
         elif field.startswith("mongo.dbs."):
             flt = self.flt_and(flt, self.searchscript(name="mongodb-databases"))
-            field = "ports.scripts.mongodb-databases." + field[10:]
+            field = f"ports.scripts.mongodb-databases.{field[10:]}"
         elif field.startswith("vulns."):
             flt = self.flt_and(flt, self.searchvuln())
             subfield = field[6:]
             if subfield == "id":
                 field = "ports.scripts.vulns.id"
             else:
-                field = "ports.scripts.vulns." + subfield
+                field = f"ports.scripts.vulns.{subfield}"
                 specialproj = {
                     "_id": 0,
                     "ports.scripts.vulns.id": 1,
@@ -4118,7 +4110,7 @@ class MongoDBActive(MongoDB, DBActive):
                             "_id": 0,
                             field: [
                                 "$ports.scripts.vulns.id",
-                                "$" + field,
+                                f"${field}",
                             ],
                         },
                     }
@@ -4139,7 +4131,7 @@ class MongoDBActive(MongoDB, DBActive):
                 field = field[5:] or "filename"
                 scripts = None
             flt = self.flt_and(flt, self.searchfile(scripts=scripts))
-            field = "ports.scripts.ls.volumes.files.%s" % field
+            field = f"ports.scripts.ls.volumes.files.{field}"
             if scripts is not None:
                 specialproj = {"_id": 0, field: 1, "ports.scripts.id": 1}
                 # We need two different filters here (see `cpeflt`
@@ -4150,12 +4142,12 @@ class MongoDBActive(MongoDB, DBActive):
                             "ports.scripts.id": flt["ports.scripts"]["$elemMatch"]["id"]
                         }
                     },
-                    {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
+                    {"$project": {field: {"$ifNull": [f"${field}", ""]}}},
                     # {"$project": {field: 1}},
                 ]
             else:
                 specialflt = [
-                    {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
+                    {"$project": {field: {"$ifNull": [f"${field}", ""]}}},
                 ]
 
             def outputproc(x):
@@ -4217,7 +4209,7 @@ class MongoDBActive(MongoDB, DBActive):
             field = "traces.hops.ipaddr"
         elif field.startswith("scanner.port:"):
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
-            field = "ports.scripts.scanner.ports.%s.ports" % field[13:]
+            field = f"ports.scripts.scanner.ports.{field[13:]}.ports"
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
@@ -4967,8 +4959,8 @@ class MongoDBPassive(MongoDB, DBPassive):
         except (KeyError, socket.error):
             pass
         for key in ["value", "targetval"]:
-            if "full" + key in rec:
-                rec[key] = rec.pop("full" + key)
+            if f"full{key}" in rec:
+                rec[key] = rec.pop(f"full{key}")
         if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
             "source"
         ) in {"cert", "cacert"}:
@@ -5031,7 +5023,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         # original value in full[original column name].
         for key in ["value", "targetval"]:
             if len(spec.get(key) or "") > utils.MAXVALLEN:
-                spec["full" + key] = spec[key]
+                spec[f"full{key}"] = spec[key]
                 value = spec[key]
                 if not isinstance(value, bytes):
                     value = value.encode()
@@ -5284,11 +5276,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             def outputproc(x):
                 return {
                     "count": x["count"],
-                    "_id": "%s/%d"
-                    % (
-                        utils.int2ip(int(x["_id"]) * 2 ** (32 - mask)),
-                        mask,
-                    ),
+                    "_id": f"{utils.int2ip(int(x['_id']) * 2 ** (32 - mask))}/{int(mask)}",
                 }
 
         elif field == "domains":
@@ -5315,7 +5303,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 }
             else:
                 flt = self.flt_and(flt, self.searchdns(subfield, subdomains=True))
-                aggrflt = {"field": re.compile("\\.%s$" % re.escape(subfield))}
+                aggrflt = {"field": re.compile(f"\\.{re.escape(subfield)}$")}
         elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
             if "." in field:
                 field, subfield = field.split(".", 1)
@@ -5328,11 +5316,11 @@ class MongoDBPassive(MongoDB, DBPassive):
             elif field == "hassh":
                 flt = self.flt_and(flt, self.searchhassh())
             else:
-                raise ValueError("Unknown field %s" % field)
+                raise ValueError(f"Unknown field {field}")
             if subfield == "md5":
                 field = "value"
             else:
-                field = "infos.%s" % subfield
+                field = f"infos.{subfield}"
         elif field == "sshkey.bits":
             flt = self.flt_and(flt, self.searchsshkey())
             specialproj = {"infos.algo": 1, "infos.bits": 1}
@@ -5597,7 +5585,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 )
             ] = name
         if dnstype is not None:
-            res["source"] = re.compile("^%s-" % dnstype.upper())
+            res["source"] = re.compile(f"^{dnstype.upper()}-")
         return res
 
     @classmethod
@@ -5635,7 +5623,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if not value_or_hash:
             return {}
         key, value = cls._ja3keyvalue(value_or_hash)
-        return {"value" if key == "md5" else "infos.%s" % key: value}
+        return {"value" if key == "md5" else f"infos.{key}": value}
 
     @classmethod
     def searchja3client(cls, value_or_hash=None):
@@ -5648,11 +5636,11 @@ class MongoDBPassive(MongoDB, DBPassive):
             return dict(base, source=re.compile("^ja3-"))
         key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == "md5":
-            return dict(base, source="ja3-%s" % value)
+            return dict(base, source=f"ja3-{value}")
         return dict(
             base,
             source=re.compile("^ja3-"),
-            **{"infos.client.%s" % key: client_value_or_hash},
+            **{f"infos.client.{key}": client_value_or_hash},
         )
 
     @classmethod
@@ -5729,7 +5717,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         if key is not None:
             res["value"] = key
         if keytype is not None:
-            res["infos.algo"] = "ssh-" + keytype
+            res["infos.algo"] = f"ssh-{keytype}"
         if bits is not None:
             res["infos.bits"] = bits
         return res
@@ -5928,12 +5916,11 @@ class MongoDBAgent(MongoDB, DBAgent):
         )
         if scan is None:
             if oldlockid is None:
-                raise LockError("Cannot acquire lock for %r" % scanid)
+                raise LockError(f"Cannot acquire lock for {scanid!r}")
             if newlockid is None:
-                raise LockError("Cannot release lock for %r" % scanid)
+                raise LockError(f"Cannot release lock for {scanid!r}")
             raise LockError(
-                "Cannot change lock for %r from "
-                "%r to %r" % (scanid, oldlockid, newlockid)
+                f"Cannot change lock for {scanid!r} from {oldlockid!r} to {newlockid!r}"
             )
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
@@ -6313,7 +6300,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         updatespec = {
             "$min": {"firstseen": rec["start_time"]},
             "$max": {"lastseen": rec["end_time"]},
-            "$inc": {"meta.%s.count" % name: 1},
+            "$inc": {f"meta.{name}.count": 1},
         }
 
         # metadata storage can be disabled.
@@ -6322,11 +6309,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 for key, value in cls.meta_desc[name].get(kind, {}).items():
                     if not rec.get(value):
                         continue
-                    if "%s.%s.%s" % (name, kind, key) in flow.META_DESC_ARRAYS:
+                    if f"{name}.{kind}.{key}" in flow.META_DESC_ARRAYS:
                         rec[value] = {"$each": rec[value]}
-                    updatespec.setdefault(op, {})["meta.%s.%s" % (name, key)] = rec[
-                        value
-                    ]
+                    updatespec.setdefault(op, {})[f"meta.{name}.{key}"] = rec[value]
 
         cls._update_timeslots(updatespec, rec)
         bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))
@@ -6585,7 +6570,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             for i in range(field.count("."), -1, -1):
                 subfield = field.rsplit(".", i)[0]
                 if subfield in self.list_fields:
-                    pipeline += [{"$unwind": "$" + subfield}]
+                    pipeline += [{"$unwind": f"${subfield}"}]
 
         # It is important to match the query after the unwind stages
         # because the query could target one of the aggregated fields
@@ -6602,15 +6587,15 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         index = 0  # each new field will be indexed
         for i, elt in enumerate(group_fields):
             for field in internal_fields[i]:
-                cur_field = "$%s" % field
+                cur_field = f"${field}"
                 field_name = None
                 if cur_field in reverse_project_fields:
                     field_name = reverse_project_fields[cur_field]
                 else:
-                    field_name = "field%s" % index
+                    field_name = f"field{index}"
                     project_fields[field_name] = cur_field
                     reverse_project_fields[cur_field] = field_name
-                new_field_name = "$%s" % field_name
+                new_field_name = f"${field_name}"
                 # _id group
                 if not i:
                     elt[field_name] = new_field_name
@@ -6621,7 +6606,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         # Add sum projection if sum_fields are provided
         if sum_fields:
             project_fields["_sum"] = {
-                "$add": ["$%s" % field for field in internal_fields[2]]
+                "$add": [f"${field}" for field in internal_fields[2]]
             }
 
         pipeline.append({"$project": project_fields})
@@ -6658,8 +6643,8 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     ext_entry["_id"][key] = value
             # apply internal2ip to addr results
             for addr_field in ["src_addr", "dst_addr"]:
-                addr0, addr1 = (addr_field + "_0", addr_field + "_1")
-                addr = addr_field[:3] + ".addr"
+                addr0, addr1 = (f"{addr_field}_0", f"{addr_field}_1")
+                addr = f"{addr_field[:3]}.addr"
                 # Apply in aggregate fields
                 if addr0 in ext_entry["_id"] and addr1 in ext_entry["_id"]:
                     ext_entry["_id"][addr] = self.internal2ip(
@@ -6715,7 +6700,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             ]
             op = "$and" if neg else "$or"
             return {op: res}
-        return cls._searchnet(net, neg=neg, fieldname=fieldname + "_addr")
+        return cls._searchnet(net, neg=neg, fieldname=f"{fieldname}_addr")
 
     @classmethod
     def search_flow_host(cls, addr, neg=False, prefix=""):
@@ -6731,7 +6716,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             ]
             op = "$and" if neg else "$or"
             return {op: res}
-        return cls._searchhost(addr, neg=neg, fieldname=prefix + "_addr")
+        return cls._searchhost(addr, neg=neg, fieldname=f"{prefix}_addr")
 
     @classmethod
     def _flt_from_clause_addr(cls, clause):
@@ -6880,9 +6865,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 attr = clause["attr"]
                 array_attr, value_attr = cls._get_longest_array_attr(clause["attr"])
                 if array_attr is None:
-                    raise ValueError(
-                        "%s is not a valid array attribute" % clause["attr"]
-                    )
+                    raise ValueError(f"{clause['attr']} is not a valid array attribute")
                 clause["operator"] = operators[clause["operator"]]
                 clause["neg"] = not clause["neg"]
                 clause["attr"] = value_attr if value_attr else array_attr
@@ -6937,8 +6920,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             "$gte": (-1, True),
         }
         return {
-            "%s.%d"
-            % (clause["attr"], clause["value"] + op_values[op][0]): {
+            f"{clause['attr']}.{int(clause['value'] + op_values[op][0])}": {
                 "$exists": op_values[op][1]
             },
             clause["attr"]: {"$exists": True},
@@ -7153,9 +7135,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             flows = {}
             for fields in entry["fields"]:
                 if fields.get("proto") in ["tcp", "udp"]:
-                    entry_name = "%(proto)s/%(dport)d" % fields
+                    entry_name = f"{fields['proto']}/{int(fields['dport'])}"
                 elif fields.get("type") is not None:
-                    entry_name = "%(proto)s/%(type)d" % fields
+                    entry_name = f"{fields['proto']}/{int(fields['type'])}"
                 else:
                     entry_name = fields["proto"]
                 flows.setdefault(entry_name, 0)
@@ -7180,8 +7162,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         if current_duration is not None:
             if base % current_duration:
                 raise ValueError(
-                    "Base %d must be a multiple of current "
-                    "precision." % config.FLOW_TIME_BASE
+                    f"Base {config.FLOW_TIME_BASE} must be a multiple of current precision."
                 )
             base %= new_duration
             # validate new duration
@@ -7362,13 +7343,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                     updatespec["$addToSet"]["times"] = {"$each": rec["times"]}
 
                 if config.DEBUG:
-                    f_str = "%s (%d) -- %s --> %s (%s)" % (
-                        rec["_id"]["src_addr"],
-                        rec["_id"]["sport"],
-                        rec["_id"]["proto"],
-                        rec["_id"]["dst_addr"],
-                        ",".join([str(elt) for elt in rec["dports"]]),
-                    )
+                    f_str = f"{rec['_id']['src_addr']} ({int(rec['_id']['sport'])}) -- {rec['_id']['proto']} --> {rec['_id']['dst_addr']} ({','.join([str(elt) for elt in rec['dports']])})"
                     utils.LOGGER.debug("Switch flow hosts: %s", f_str)
 
                 bulk.append(pymongo.UpdateOne(findspec, updatespec, upsert=True))

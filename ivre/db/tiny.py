@@ -81,7 +81,7 @@ class TinyDB(DB):
         try:
             return self._db
         except AttributeError:
-            self._db = TDB(os.path.join(self.basepath, "%s.json" % self.dbname))
+            self._db = TDB(os.path.join(self.basepath, f"{self.dbname}.json"))
             return self._db
 
     def invalidate_cache(self):
@@ -133,7 +133,7 @@ class TinyDB(DB):
                         res[fld] = rec[fld]
                         continue
                     if base:
-                        fullfld = "%s.%s" % (base, fld)
+                        fullfld = f"{base}.{fld}"
                     else:
                         fullfld = fld
                     if fullfld in self.list_fields:
@@ -213,7 +213,7 @@ class TinyDB(DB):
             if field not in record:
                 return
             if base:
-                fullfield = "%s.%s" % (base, field)
+                fullfield = f"{base}.{field}"
             else:
                 fullfield = field
             if fullfield in cls.list_fields:
@@ -234,14 +234,14 @@ class TinyDB(DB):
         if cur not in record:
             return
         if countfield is not None:
-            if countfield.startswith("%s." % cur):
+            if countfield.startswith(f"{cur}."):
                 countfield = countfield.split(".", 1)[1]
             else:
                 countval = record.get(countfield, 1)
                 countfield = None
         record = record[cur]
         if base:
-            base = "%s.%s" % (base, cur)
+            base = f"{base}.{cur}"
         else:
             base = cur
         if base in cls.list_fields:
@@ -262,7 +262,7 @@ class TinyDB(DB):
             return getattr(baseq, field).exists()
         field, nextfields = field.split(".", 1)
         if base:
-            fullfield = "%s.%s" % (base, field)
+            fullfield = f"{base}.{field}"
         else:
             fullfield = field
         if fullfield in cls.list_fields:
@@ -418,14 +418,7 @@ class TinyDB(DB):
             return q > val
         if cmpop == ">=":
             return q >= val
-        raise Exception(
-            "Unknown operator %r (for key %r and val %r)"
-            % (
-                cmpop,
-                key,
-                val,
-            )
-        )
+        raise Exception(f"Unknown operator {cmpop!r} (for key {key!r} and val {val!r})")
 
     @classmethod
     def _searchcert(
@@ -771,7 +764,7 @@ class TinyDBActive(TinyDB, DBActive):
                 key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, dict):
                 for field, value in values.items():
-                    if "ports.scripts.%s" % key in cls.list_fields:
+                    if f"ports.scripts.{key}" in cls.list_fields:
                         base = q
                         for subfld in field.split("."):
                             base = getattr(base, subfld)
@@ -782,7 +775,7 @@ class TinyDBActive(TinyDB, DBActive):
                             base = getattr(base, subfld)
                         list_field = False
                     if isinstance(value, utils.REGEXP_T):
-                        if "ports.scripts.%s.%s" % (key, field) in cls.list_fields:
+                        if f"ports.scripts.{key}.{field}" in cls.list_fields:
                             # pylint reports "Cell variable value
                             # defined in loop" - see
                             # https://stackoverflow.com/a/25314665
@@ -793,7 +786,7 @@ class TinyDBActive(TinyDB, DBActive):
                             )
                         else:
                             base = base.search(value.pattern, flags=value.flags)
-                    elif "ports.scripts.%s.%s" % (key, field) in cls.list_fields:
+                    elif f"ports.scripts.{key}.{field}" in cls.list_fields:
                         base = base.any([value])
                     else:
                         base = base == value
@@ -801,7 +794,7 @@ class TinyDBActive(TinyDB, DBActive):
                         res.append(getattr(q, key).any(base))
                     else:
                         res.append(base)
-            elif "ports.scripts.%s" % key in cls.list_fields:
+            elif f"ports.scripts.{key}" in cls.list_fields:
                 res.append(cls._searchstring_re_inarray(getattr(q, key), values))
             else:
                 res.append(cls._searchstring_re(getattr(q, key), values))
@@ -1251,10 +1244,7 @@ class TinyDBActive(TinyDB, DBActive):
                 for rec in self._get(
                     flt, sort=sort, limit=limit, skip=skip, fields=[field]
                 ):
-                    yield "%s/%s" % (
-                        utils.int2ip(utils.ip2int(rec["addr"]) & mask),
-                        maskval,
-                    )
+                    yield f"{utils.int2ip(utils.ip2int(rec['addr']) & mask)}/{maskval}"
 
         elif field == "port" or field.startswith("port:"):
 
@@ -1648,7 +1638,7 @@ class TinyDBActive(TinyDB, DBActive):
             def _newflt(field):
                 return self.searchscript(name="smb-os-discovery")
 
-            field = "ports.scripts.smb-os-discovery." + field[4:]
+            field = f"ports.scripts.smb-os-discovery.{field[4:]}"
         elif field.startswith("ntlm."):
 
             def _newflt(field):
@@ -1666,7 +1656,7 @@ class TinyDBActive(TinyDB, DBActive):
                 "os": "Product_Version",
                 "version": "NTLM_Version",
             }.get(arg, arg)
-            field = "ports.scripts.ntlm-info." + arg
+            field = f"ports.scripts.ntlm-info.{arg}"
         elif field.startswith("script:"):
             scriptid = field.split(":", 1)[1]
             if ":" in scriptid:
@@ -1736,7 +1726,7 @@ class TinyDBActive(TinyDB, DBActive):
             elif ":" in subfield:
                 subfield, level = subfield.split(":", 1)
                 flt = self.flt_and(flt, self.searchdomain(subfield))
-                subfield = ".%s" % subfield
+                subfield = f".{subfield}"
 
                 def _extractor(flt, field):
                     for rec in self._get(
@@ -1756,7 +1746,7 @@ class TinyDBActive(TinyDB, DBActive):
 
             else:
                 flt = self.flt_and(flt, self.searchdomain(subfield))
-                subfield = ".%s" % subfield
+                subfield = f".{subfield}"
 
                 def _extractor(flt, field):
                     for rec in self._get(
@@ -1773,7 +1763,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         elif field.startswith("cert."):
             subfld = field[5:]
-            field = "ports.scripts.ssl-cert." + subfld
+            field = f"ports.scripts.ssl-cert.{subfld}"
 
             def _newflt(field):
                 return self.searchcert()
@@ -1810,7 +1800,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         elif field.startswith("cacert."):
             subfld = field[7:]
-            field = "ports.scripts.ssl-cert." + subfld
+            field = f"ports.scripts.ssl-cert.{subfld}"
 
             def _newflt(field):
                 return self.searchcert(cacert=True)
@@ -2099,7 +2089,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         elif field.startswith("sshkey."):
             flt = self.flt_and(flt, self.searchsshkey())
-            field = "ports.scripts.ssh-hostkey." + field[7:]
+            field = f"ports.scripts.ssh-hostkey.{field[7:]}"
         elif field == "ike.vendor_ids":
 
             def _newflt(field):
@@ -2148,7 +2138,7 @@ class TinyDBActive(TinyDB, DBActive):
         elif field == "ike.notification":
             field = "ports.scripts.ike-info.notification_type"
         elif field.startswith("ike."):
-            field = "ports.scripts.ike-info." + field[4:]
+            field = f"ports.scripts.ike-info.{field[4:]}"
         elif field == "httphdr":
 
             def _newflt(field):
@@ -2168,7 +2158,7 @@ class TinyDBActive(TinyDB, DBActive):
                                 yield (hdr.get("name"), hdr.get("value"))
 
         elif field.startswith("httphdr."):
-            field = "ports.scripts.http-headers.%s" % field[8:]
+            field = f"ports.scripts.http-headers.{field[8:]}"
 
             def _newflt(field):
                 return self.searchhttphdr()
@@ -2232,9 +2222,9 @@ class TinyDBActive(TinyDB, DBActive):
                                     yield app.get("version")
 
         elif field.startswith("modbus."):
-            field = "ports.scripts.modbus-discover." + field[7:]
+            field = f"ports.scripts.modbus-discover.{field[7:]}"
         elif field.startswith("s7."):
-            field = "ports.scripts.s7-info." + field[3:]
+            field = f"ports.scripts.s7-info.{field[3:]}"
         elif field.startswith("enip."):
             subfield = field[5:]
             subfield = {
@@ -2246,15 +2236,15 @@ class TinyDBActive(TinyDB, DBActive):
                 "rev": "Revision",
                 "ip": "Device IP",
             }.get(subfield, subfield)
-            field = "ports.scripts.enip-info." + subfield
+            field = f"ports.scripts.enip-info.{subfield}"
         elif field.startswith("mongo.dbs."):
-            field = "ports.scripts.mongodb-databases." + field[10:]
+            field = f"ports.scripts.mongodb-databases.{field[10:]}"
         elif field.startswith("vulns."):
             subfield = field[6:]
             if subfield == "id":
                 field = "ports.scripts.vulns.id"
             else:
-                field = "ports.scripts.vulns." + subfield
+                field = f"ports.scripts.vulns.{subfield}"
 
                 def _extractor(flt, field):
                     for rec in self._get(
@@ -2333,7 +2323,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         elif field.startswith("scanner.port:"):
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
-            field = "ports.scripts.scanner.ports.%s.ports" % field[13:]
+            field = f"ports.scripts.scanner.ports.{field[13:]}.ports"
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = "ports.scripts.scanner.scanners.name"
@@ -2893,10 +2883,7 @@ class TinyDBPassive(TinyDB, DBPassive):
                 for rec in self._get(
                     flt, sort=sort, limit=limit, skip=skip, fields=[field]
                 ):
-                    val = "%s/%s" % (
-                        utils.int2ip(utils.ip2int(rec["addr"]) & mask),
-                        maskval,
-                    )
+                    val = f"{utils.int2ip(utils.ip2int(rec['addr']) & mask)}/{maskval}"
                     if distinct:
                         yield val
                     else:
@@ -2945,7 +2932,7 @@ class TinyDBPassive(TinyDB, DBPassive):
 
             elif ":" in subfield:
                 subfield, level = subfield.split(":", 1)
-                dot_subfield = ".%s" % subfield
+                dot_subfield = f".{subfield}"
 
                 def _newflt(field):  # noqa: F811
                     return self.searchdns(subfield, subdomains=True)
@@ -2976,7 +2963,7 @@ class TinyDBPassive(TinyDB, DBPassive):
                             break
 
             else:
-                dot_subfield = ".%s" % subfield
+                dot_subfield = f".{subfield}"
 
                 def _newflt(field):  # noqa: F811
                     return self.searchdns(subfield, subdomains=True)
@@ -3024,11 +3011,11 @@ class TinyDBPassive(TinyDB, DBPassive):
                     return self.flt_and(flt, self.searchhassh())
 
             else:
-                raise ValueError("Unknown field %s" % field)
+                raise ValueError(f"Unknown field {field}")
             if subfield == "md5":
                 field = "value"
             else:
-                field = "infos.%s" % subfield
+                field = f"infos.{subfield}"
             if distinct:
                 fields = [field]
             else:
@@ -3304,7 +3291,7 @@ class TinyDBPassive(TinyDB, DBPassive):
             else:
                 res &= cls._searchstring_re(req, name)
         if dnstype is not None:
-            res &= q.source.search("^%s-" % dnstype.upper())
+            res &= q.source.search(f"^{dnstype.upper()}-")
         return res
 
     @classmethod
@@ -3371,7 +3358,7 @@ class TinyDBPassive(TinyDB, DBPassive):
             return base & q.source.search("^ja3-")
         key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == "md5":
-            return base & (q.source == ("ja3-%s" % value))
+            return base & (q.source == f"ja3-{value}")
         return (
             base
             & q.source.search("^ja3-")
@@ -3389,7 +3376,7 @@ class TinyDBPassive(TinyDB, DBPassive):
         if key is not None:
             res &= cls._searchstring_re(q.value, key)
         if keytype is not None:
-            res &= q.infos.algo == "ssh-" + keytype
+            res &= q.infos.algo == f"ssh-{keytype}"
         if bits is not None:
             res &= q.infos.bits == bits
         return res
@@ -3461,7 +3448,7 @@ class TinyDBAgent(TinyDB, DBAgent):
             return self._db_scans
         except AttributeError:
             self._db_scans = TDB(
-                os.path.join(self.basepath, "%s.json" % self.dbname_scans)
+                os.path.join(self.basepath, f"{self.dbname_scans}.json")
             )
             return self._db_scans
 
@@ -3474,7 +3461,7 @@ class TinyDBAgent(TinyDB, DBAgent):
             self._db_masters = TDB(
                 os.path.join(
                     self.basepath,
-                    "%s.json" % self.dbname_masters,
+                    f"{self.dbname_masters}.json",
                 )
             )
             return self._db_masters
@@ -3603,12 +3590,11 @@ class TinyDBAgent(TinyDB, DBAgent):
                 scan = None
         if scan is None:
             if oldlockid is None:
-                raise LockError("Cannot acquire lock for %r" % scanid)
+                raise LockError(f"Cannot acquire lock for {scanid!r}")
             if newlockid is None:
-                raise LockError("Cannot release lock for %r" % scanid)
+                raise LockError(f"Cannot release lock for {scanid!r}")
             raise LockError(
-                "Cannot change lock for %r from "
-                "%r to %r" % (scanid, oldlockid, newlockid)
+                f"Cannot change lock for {scanid!r} from {oldlockid!r} to {newlockid!r}"
             )
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
@@ -3804,13 +3790,13 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
         updatespec = [
             min_op("firstseen", rec["start_time"].timestamp()),
             max_op("lastseen", rec["end_time"].timestamp()),
-            inc_op("meta.%s.count" % name),
+            inc_op(f"meta.{name}.count"),
         ]
         insertspec.update(
             {
                 "firstseen": rec["start_time"].timestamp(),
                 "lastseen": rec["end_time"].timestamp(),
-                "meta.%s.count" % name: 1,
+                f"meta.{name}.count": 1,
             }
         )
 
@@ -3820,9 +3806,9 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                 for key, value in self.meta_desc[name].get(kind, {}).items():
                     if not rec.get(value):
                         continue
-                    if "%s.%s.%s" % (name, kind, key) in flow.META_DESC_ARRAYS:
+                    if f"{name}.{kind}.{key}" in flow.META_DESC_ARRAYS:
                         for val in rec[value]:
-                            updatespec.append(op("meta.%s.%s" % (name, key), val))
+                            updatespec.append(op(f"meta.{name}.{key}", val))
                             if op is add_to_set_op:
                                 lst = (
                                     insertspec.setdefault("meta", {})
@@ -3841,7 +3827,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                             else:
                                 raise ValueError(f"Operation not supported [{op!r}]")
                     else:
-                        updatespec.append(op("meta.%s.%s" % (name, key), rec[value]))
+                        updatespec.append(op(f"meta.{name}.{key}", rec[value]))
                         if op is add_to_set_op:
                             lst = (
                                 insertspec.setdefault("meta", {})
@@ -4370,9 +4356,9 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
             flows = {}
             for field in fields:
                 if field.get("proto") in ["tcp", "udp"]:
-                    entry_name = "%(proto)s/%(dport)d" % field
+                    entry_name = f"{field['proto']}/{int(field['dport'])}"
                 elif field.get("type") is not None:
-                    entry_name = "%(proto)s/%(type)d" % field
+                    entry_name = f"{field['proto']}/{int(field['type'])}"
                 else:
                     entry_name = field["proto"]
                 flows[entry_name] = flows.get(entry_name, 0) + 1

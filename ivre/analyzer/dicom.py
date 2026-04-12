@@ -89,7 +89,7 @@ def _parse_items(data: bytes) -> dict[str, int | str]:
             utils.LOGGER.warning(
                 "Unknown item type in User Info %02x [%r]", itype, ivalue
             )
-            itype_parsed = "unknown_%02x" % itype
+            itype_parsed = f"unknown_{itype:02x}"
         res[itype_parsed] = ivalue_parsed
     return res
 
@@ -140,14 +140,14 @@ def parse_message(data: bytes) -> NmapPort:
         script_output = [
             "",
             "dicom: DICOM Service Provider discovered!",
-            "config: %s" % msg,
+            f"config: {msg}",
         ]
         script_data: dict[str, int | str] = {
             "dicom": "DICOM Service Provider discovered!",
             "config": msg,
         }
         for key, value in extra_info.items():
-            script_output.append("%s: %s" % (key, value))
+            script_output.append(f"{key}: {value}")
             script_data[key] = value
         res["scripts"] = [
             {

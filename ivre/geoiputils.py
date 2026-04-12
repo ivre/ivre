@@ -68,10 +68,10 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
                 if stop == cur[0] + 1:
                     cur = (start, cur[1])
                     continue
-                out.write("%d,%d\n" % cur)
+                out.write(f"{cur[0]},{cur[1]}\n")
             cur = (start, stop)
         if cur:
-            out.write("%d,%d\n" % cur)
+            out.write(f"{cur[0]},{cur[1]}\n")
 
 
 def unzip_all(
@@ -195,22 +195,14 @@ def download_all(verbose: bool = False) -> None:
     opener = build_opener()
     new_files = set()
     for fname, url in config.IPDATA_URLS.items():
-        opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
+        opener.addheaders = [("User-Agent", f"IVRE/{VERSION} +https://ivre.rocks/")]
         if url is None:
             if not fname.startswith("GeoLite2-"):
                 continue
             if fname.startswith("GeoLite2-dumps."):
                 continue
             basename, ext = fname.split(".", 1)
-            url = (
-                "https://download.maxmind.com/app/geoip_download?"
-                "edition_id=%s&suffix=%s&license_key=%s"
-                % (
-                    basename,
-                    ext,
-                    config.MAXMIND_LICENSE_KEY,
-                )
-            )
+            url = f"https://download.maxmind.com/app/geoip_download?edition_id={basename}&suffix={ext}&license_key={config.MAXMIND_LICENSE_KEY}"
         outfile = os.path.join(config.GEOIP_PATH, fname)
         try:
             outstat = os.stat(outfile)
@@ -226,7 +218,7 @@ def download_all(verbose: bool = False) -> None:
                 )
             )
         if verbose:
-            sys.stdout.write("Downloading %s to %s: " % (url, outfile))
+            sys.stdout.write(f"Downloading {url} to {outfile}: ")
             sys.stdout.flush()
         try:
             with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
@@ -245,7 +237,7 @@ def download_all(verbose: bool = False) -> None:
         sys.stdout.flush()
     for fname in new_files:
         for func, args, kargs in PARSERS.get(fname, []):
-            print("%r(*%r, **%r)" % (func, args, kargs))
+            print(f"{func!r}(*{args!r}, **{kargs!r})")
             try:
                 func(*args, **kargs)
             except Exception:
@@ -253,7 +245,7 @@ def download_all(verbose: bool = False) -> None:
                     "A parser failed: %s(%s, %s)",
                     func.__name__,
                     ", ".join(args),
-                    ", ".join("%s=%r" % k_v for k_v in kargs.items()),
+                    ", ".join(f"{k}={v!r}" for k, v in kargs.items()),
                     exc_info=True,
                 )
     if verbose:
@@ -265,7 +257,7 @@ def locids_by_country(country_code: str) -> Generator[int, None, None]:
     with open(
         os.path.join(
             config.GEOIP_PATH,
-            "GeoLite2-Country-Locations-%s.csv" % config.GEOIP_LANG,
+            f"GeoLite2-Country-Locations-{config.GEOIP_LANG}.csv",
         ),
         encoding="utf-8",
     ) as fdesc:
@@ -280,7 +272,7 @@ def locids_by_city(country_code: str, city_name: str) -> Generator[int, None, No
     with open(
         os.path.join(
             config.GEOIP_PATH,
-            "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
+            f"GeoLite2-City-Locations-{config.GEOIP_LANG}.csv",
         ),
         encoding="utf-8",
     ) as fdesc:
@@ -299,7 +291,7 @@ def locids_by_region(country_code: str, reg_code: str) -> Generator[int, None, N
     with open(
         os.path.join(
             config.GEOIP_PATH,
-            "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
+            f"GeoLite2-City-Locations-{config.GEOIP_LANG}.csv",
         ),
         encoding="utf-8",
     ) as fdesc:

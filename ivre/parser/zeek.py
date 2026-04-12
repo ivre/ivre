@@ -138,7 +138,7 @@ class ZeekFile(Parser):
     def __str__(self) -> str:
         return "\n".join(
             [
-                "%s = %r" % (k, getattr(self, k))
+                f"{k} = {getattr(self, k)!r}"
                 for k in [
                     "sep",
                     "set_sep",

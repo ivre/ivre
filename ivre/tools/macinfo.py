@@ -92,11 +92,10 @@ def main() -> None:
             except (TypeError, ValueError, AssertionError):
                 pass
             else:
-                rec["value"] = "%s (%s)" % (rec["value"], manuf)
+                rec["value"] = f"{rec['value']} ({manuf})"
         if "addr" in rec:
             print(
-                "%(value)s %(source)s %(addr)s on %(sensor)s (%(recontype)s %(count)s "
-                "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec
+                f"{rec['value']} {rec['source']} {rec['addr']} on {rec['sensor']} ({rec['recontype']} {rec['count']} time{rec['times']}, {rec['firstseen']} - {rec['lastseen']})"
             )
             continue
         if rec["source"] == "WLAN_ASSOCIATED" and args.resolve:
@@ -107,8 +106,7 @@ def main() -> None:
             except (TypeError, ValueError, AssertionError):
                 pass
             else:
-                rec["targetval"] = "%s (%s)" % (rec["targetval"], manuf)
+                rec["targetval"] = f"{rec['targetval']} ({manuf})"
         print(
-            "%(value)s %(source)s %(targetval)s on %(sensor)s (%(recontype)s %(count)s "
-            "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec
+            f"{rec['value']} {rec['source']} {rec['targetval']} on {rec['sensor']} ({rec['recontype']} {rec['count']} time{rec['times']}, {rec['firstseen']} - {rec['lastseen']})"
         )

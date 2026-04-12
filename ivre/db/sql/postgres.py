@@ -99,7 +99,7 @@ class PostgresDB(SQLDB):
         if extracols is not None:
             cols.extend(extracols)
         t = Table(
-            "tmp_%s" % table.__tablename__,
+            f"tmp_{table.__tablename__}",
             table.__table__.metadata,
             *cols,
             prefixes=["TEMPORARY"],
@@ -115,7 +115,7 @@ class PostgresDB(SQLDB):
         arg_dic = {}
         for k in req_comp.params:
             arg_dic[k] = repr(req_comp.params[k])
-        req_cur = self.db.execute(text("EXPLAIN " + req_comp.string % arg_dic))
+        req_cur = self.db.execute(text(f"EXPLAIN {req_comp.string % arg_dic}"))
         return "\n".join(map(" ".join, req_cur.fetchall()))
 
 
@@ -977,7 +977,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 {"count": result[1], "_id": result[0]}
                 for result in self.db.execute(
                     select([base1.c.domains, func.count().label("count")])
-                    .where(base1.c.domains.op("~")("\\.%s$" % re.escape(subfield)))
+                    .where(base1.c.domains.op("~")(f"\\.{re.escape(subfield)}$"))
                     .group_by(base1.c.domains)
                     .order_by(order)
                     .limit(topnbr)
@@ -1360,7 +1360,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 )
             )
         ):
-            print("ADDING RECORD FOR %r" % addr)
+            print(f"ADDING RECORD FOR {addr!r}")
             yield (addr, [0] * n_features)
 
 

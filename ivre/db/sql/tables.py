@@ -214,7 +214,7 @@ class Point(UserDefinedType):
         def process(value):
             if value is None:
                 return None
-            return "%f,%f" % value
+            return f"{value[0]:f},{value[1]:f}"
 
         return process
 

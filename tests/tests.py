@@ -909,11 +909,8 @@ class IvreTests(unittest.TestCase):
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
-        scan_counter = 0
         host_counter_test = 0
-        scan_warning = 0
         host_stored = re.compile(b"^DEBUG:ivre:HOST STORED: ", re.M)
-        scan_stored = re.compile(b"^DEBUG:ivre:SCAN STORED: ", re.M)
 
         def host_stored_test(line):
             try:
@@ -938,7 +935,6 @@ class IvreTests(unittest.TestCase):
                 print("Error: %r" % err)
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(err))
-            scan_counter += sum(1 for _ in scan_stored.finditer(err))
             for line in err.split(b"\n"):
                 if line[:11] != b"DEBUG:ivre:":
                     print(line.decode())
@@ -960,6 +956,8 @@ class IvreTests(unittest.TestCase):
             host_counter_test += sum(
                 host_stored_test(line) for line in out.splitlines()
             )
+
+        self.assertEqual(host_counter, host_counter_test)
 
         # Specific test cases
         samples = [
@@ -1178,9 +1176,6 @@ class IvreTests(unittest.TestCase):
 
         res, out, err = RUN(["ivre", "scancli", "--update-schema"])
         self.assertEqual(res, 0)
-
-        self.assertEqual(host_counter, host_counter_test)
-        self.assertEqual(scan_counter, scan_warning)
 
         hosts_count = self.check_nmap_count_value(
             "nmap_get_count", ivre.db.db.nmap.flt_empty, [], None

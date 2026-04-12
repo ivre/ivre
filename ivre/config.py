@@ -351,9 +351,9 @@ def guess_prefix(directory: str) -> str | None:
 
 def guess_share(soft: str) -> str | None:
     for path in [
-        "/usr/local/share/%s" % soft,
-        "/opt/%s/share/%s" % (soft, soft),
-        "/usr/share/%s" % soft,
+        f"/usr/local/share/{soft}",
+        f"/opt/{soft}/share/{soft}",
+        f"/usr/share/{soft}",
     ]:
         if os.path.isdir(path):
             return path
@@ -369,7 +369,7 @@ if RIR_PATH is None:
 
 
 if DB_DATA is None and GEOIP_PATH is not None:
-    DB_DATA = "maxmind:///%s" % GEOIP_PATH
+    DB_DATA = f"maxmind:///{GEOIP_PATH}"
 
 
 if DATA_PATH is None:

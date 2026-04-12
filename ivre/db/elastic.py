@@ -63,7 +63,7 @@ class ElasticDB(DB):
             self.hosts = [f"http{'s' if self.tls else ''}://{url.netloc}"]
         index_prefix = url.path.lstrip("/")
         if index_prefix:
-            self.index_prefix = index_prefix + "-"
+            self.index_prefix = f"{index_prefix}-"
         else:
             self.index_prefix = "ivre-"
         self.params = dict(
@@ -196,7 +196,7 @@ def _create_mappings(nested, all_mappings):
         curkey = None
         for subkey in fld.split(".")[:-1]:
             if curkey is not None:
-                subkey = "%s.%s" % (curkey, subkey)
+                subkey = f"{curkey}.{subkey}"
             if cur.get(subkey, {}).get("type") == "nested":
                 cur = cur[subkey].setdefault("properties", {})
                 curkey = None
@@ -204,7 +204,7 @@ def _create_mappings(nested, all_mappings):
                 curkey = subkey
         subkey = fld.rsplit(".", 1)[-1]
         if curkey is not None:
-            subkey = "%s.%s" % (curkey, subkey)
+            subkey = f"{curkey}.{subkey}"
         cur[subkey] = {
             "type": "nested",
             # This is needed to use the nested fields in
@@ -217,7 +217,7 @@ def _create_mappings(nested, all_mappings):
             curkey = None
             for subkey in fld.split(".")[:-1]:
                 if curkey is not None:
-                    subkey = "%s.%s" % (curkey, subkey)
+                    subkey = f"{curkey}.{subkey}"
                 if cur.get(subkey, {}).get("type") == "nested":
                     cur = cur[subkey].setdefault("properties", {})
                     curkey = None
@@ -225,7 +225,7 @@ def _create_mappings(nested, all_mappings):
                     curkey = subkey
             subkey = fld.rsplit(".", 1)[-1]
             if curkey is not None:
-                subkey = "%s.%s" % (curkey, subkey)
+                subkey = f"{curkey}.{subkey}"
             cur.setdefault(subkey, {})["type"] = fldtype
     return res
 
@@ -479,9 +479,7 @@ class ElasticDBActive(ElasticDB, DBActive):
                         "patterns": {
                             "filter": {
                                 "bool": {
-                                    "must": [
-                                        {"match": {"ports.%s" % matchfield: info}}
-                                    ],
+                                    "must": [{"match": {f"ports.{matchfield}": info}}],
                                     "must_not": [{"match": {"ports.port": -1}}],
                                 }
                             },
@@ -604,7 +602,7 @@ return result;
                             "bool": {
                                 "must": [
                                     {"match": {"ports.state_state": "open"}},
-                                    {"match": {"ports.%s" % matchfield: info}},
+                                    {"match": {f"ports.{matchfield}": info}},
                                 ]
                             }
                         },
@@ -756,7 +754,7 @@ return result;
             }
         elif field.startswith("httphdr."):
             flt = self.flt_and(flt, self.searchhttphdr())
-            field = "ports.scripts.http-headers.%s" % field[8:]
+            field = f"ports.scripts.http-headers.{field[8:]}"
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {
@@ -926,14 +924,14 @@ return result;
                     include_value = self._get_pattern(value)
                     filter_value = {
                         "regexp": {
-                            "ports.scripts.ssl-ja3-client.%s" % subkey: include_value,
+                            f"ports.scripts.ssl-ja3-client.{subkey}": include_value,
                         }
                     }
                 else:
                     include_value = re.escape(value)
                     filter_value = {
                         "match": {
-                            "ports.scripts.ssl-ja3-client.%s" % subkey: value,
+                            f"ports.scripts.ssl-ja3-client.{subkey}": value,
                         }
                     }
             else:
@@ -946,7 +944,7 @@ return result;
             base = {
                 "terms": dict(
                     baseterms,
-                    field="ports.scripts.ssl-ja3-client.%s" % subfield,
+                    field=f"ports.scripts.ssl-ja3-client.{subfield}",
                 ),
             }
             if subkey is not None:
@@ -989,14 +987,15 @@ return result;
                         if isinstance(value1, utils.REGEXP_T):
                             filter_value1 = {
                                 "regexp": {
-                                    "ports.scripts.ssl-ja3-server.%s"
-                                    % subkey1: self._get_pattern(value1),
+                                    f"ports.scripts.ssl-ja3-server.{subkey1}": self._get_pattern(
+                                        value1
+                                    ),
                                 }
                             }
                         else:
                             filter_value1 = {
                                 "match": {
-                                    "ports.scripts.ssl-ja3-server.%s" % subkey1: value1,
+                                    f"ports.scripts.ssl-ja3-server.{subkey1}": value1,
                                 }
                             }
                     else:
@@ -1006,15 +1005,15 @@ return result;
                         if isinstance(value2, utils.REGEXP_T):
                             filter_value2 = {
                                 "regexp": {
-                                    "ports.scripts.ssl-ja3-server.client.%s"
-                                    % subkey2: self._get_pattern(value2),
+                                    f"ports.scripts.ssl-ja3-server.client.{subkey2}": self._get_pattern(
+                                        value2
+                                    ),
                                 }
                             }
                         else:
                             filter_value2 = {
                                 "match": {
-                                    "ports.scripts.ssl-ja3-server.client.%s"
-                                    % subkey2: value2,
+                                    f"ports.scripts.ssl-ja3-server.client.{subkey2}": value2,
                                 }
                             }
                     else:
@@ -1024,14 +1023,15 @@ return result;
                     if isinstance(value1, utils.REGEXP_T):
                         filter_value1 = {
                             "regexp": {
-                                "ports.scripts.ssl-ja3-server.%s"
-                                % subkey1: self._get_pattern(value1),
+                                f"ports.scripts.ssl-ja3-server.{subkey1}": self._get_pattern(
+                                    value1
+                                ),
                             }
                         }
                     else:
                         filter_value1 = {
                             "match": {
-                                "ports.scripts.ssl-ja3-server.%s" % subkey1: value1,
+                                f"ports.scripts.ssl-ja3-server.{subkey1}": value1,
                             }
                         }
                     subkey2, value2 = None, None
@@ -1054,9 +1054,7 @@ return result;
                     baseterms,
                     script={
                         "lang": "painless",
-                        "source": "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
-                        "doc['ports.scripts.ssl-ja3-server.client.%s'].value"
-                        % (subfield, subfield),
+                        "source": f"doc['ports.scripts.ssl-ja3-server.{subfield}'].value + '/' + doc['ports.scripts.ssl-ja3-server.client.{subfield}'].value",
                     },
                 ),
             }
@@ -1112,7 +1110,7 @@ return result;
             base = {
                 "terms": dict(
                     baseterms,
-                    field="ports.scripts.ssl-ja4-client.%s" % subfield,
+                    field=f"ports.scripts.ssl-ja4-client.{subfield}",
                 ),
             }
             if include_value is not None:
@@ -1176,10 +1174,10 @@ return result;
         elif field.startswith("s7."):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
-            field = {"field": "ports.scripts.s7-info." + subfield}
+            field = {"field": f"ports.scripts.s7-info.{subfield}"}
         elif field.startswith("scanner.port:"):
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
-            field = {"field": "ports.scripts.scanner.ports.%s.ports" % field[13:]}
+            field = {"field": f"ports.scripts.scanner.ports.{field[13:]}.ports"}
         elif field == "scanner.name":
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = {"field": "ports.scripts.scanner.scanners.name"}
@@ -1329,7 +1327,7 @@ return result;
         if port == "host":
             res = Q("nested", path="ports", query=Q("match", ports__port=-1))
         elif state == "open":
-            res = Q("match", **{"openports.%s.ports" % protocol: port})
+            res = Q("match", **{f"openports.{protocol}.ports": port})
         else:
             res = Q(
                 "nested",
@@ -1378,12 +1376,12 @@ return result;
             if isinstance(values, Query):
                 req.append(values)
             elif isinstance(values, str):
-                req.append(Q("match", **{"ports.scripts.%s" % key: values}))
+                req.append(Q("match", **{f"ports.scripts.{key}": values}))
             elif isinstance(values, utils.REGEXP_T):
                 req.append(
                     Q(
                         "regexp",
-                        **{"ports.scripts.%s" % key: cls._get_pattern(values)},
+                        **{f"ports.scripts.{key}": cls._get_pattern(values)},
                     )
                 )
             else:
@@ -1393,8 +1391,9 @@ return result;
                             Q(
                                 "regexp",
                                 **{
-                                    "ports.scripts.%s.%s"
-                                    % (key, field): cls._get_pattern(value)
+                                    f"ports.scripts.{key}.{field}": cls._get_pattern(
+                                        value
+                                    )
                                 },
                             )
                         )
@@ -1402,7 +1401,7 @@ return result;
                         req.append(
                             Q(
                                 "match",
-                                **{"ports.scripts.%s.%s" % (key, field): value},
+                                **{f"ports.scripts.{key}.{field}": value},
                             )
                         )
         if not req:
@@ -1638,7 +1637,7 @@ class ElasticDBView(ElasticDBActive, DBView):
     def __init__(self, url):
         super().__init__(url)
         self.indexes = [
-            "%s%s" % (self.index_prefix, self.params.pop("indexname_hosts", "views"))
+            f"{self.index_prefix}{self.params.pop('indexname_hosts', 'views')}"
         ]
 
     def store_or_merge_host(self, host):

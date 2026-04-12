@@ -130,7 +130,7 @@ def zgrap_parser_http(
                     add_cert_hostnames(cert, hostrec.setdefault("hostnames", []))
     if url:
         try:
-            _, guessed_port = utils.url2hostport("%(scheme)s://%(host)s" % url)
+            _, guessed_port = utils.url2hostport(f"{url['scheme']}://{url['host']}")
         except ValueError:
             utils.LOGGER.warning("Cannot guess port from url %r", url)
             guessed_port = 80  # because reasons
@@ -155,12 +155,12 @@ def zgrap_parser_http(
             # Due to an issue with ZGrab2 output, we cannot, for now,
             # process the content of the file. See
             # <https://github.com/zmap/zgrab2/issues/263>.
-            repository = "%s:%d%s" % (hostrec["addr"], port, url["path"][:-5])
+            repository = f"{hostrec['addr']}:{int(port)}{url['path'][:-5]}"
             res["port"] = port
             res.setdefault("scripts", []).append(
                 {
                     "id": "http-git",
-                    "output": "\n  %s\n    Git repository found!\n" % repository,
+                    "output": f"\n  {repository}\n    Git repository found!\n",
                     "http-git": [
                         {"repository": repository, "files-found": [".git/index"]},
                     ],
@@ -186,20 +186,12 @@ def zgrap_parser_http(
                 )
                 if len(version_list) > 1:
                     version_list = [
-                        "%s (%s)"
-                        % (vers, EXCHANGE_BUILDS.get(vers, "unknown build number"))
+                        f"{vers} ({EXCHANGE_BUILDS.get(vers, 'unknown build number')})"
                         for vers in version_list
                     ]
-                    output = "OWA: path %s, version %s (multiple versions found!)" % (
-                        path,
-                        " / ".join(version_list),
-                    )
+                    output = f"OWA: path {path}, version {' / '.join(version_list)} (multiple versions found!)"
                 else:
-                    output = "OWA: path %s, version %s (%s)" % (
-                        path,
-                        version_list[0],
-                        parsed_version,
-                    )
+                    output = f"OWA: path {path}, version {version_list[0]} ({parsed_version})"
                 res.setdefault("scripts", []).append(
                     {
                         "id": "http-app",
@@ -234,23 +226,25 @@ def zgrap_parser_http(
                 version = None
             else:
                 version = match.group(1) or match.group(2)
-            res.setdefault("scripts", []).append(
-                {
+            if version is None:
+                script: NmapScript = {
                     "id": "http-app",
-                    "output": "Centreon: path %s%s"
-                    % (
-                        path,
-                        "" if version is None else (", version %s" % version),
-                    ),
+                    "output": f"Centreon: path {path}",
+                    "http-app": [{"path": path, "application": "Centreon"}],
+                }
+            else:
+                script = {
+                    "id": "http-app",
+                    "output": f"Centreon: path {path}, version {version}",
                     "http-app": [
                         {
                             "path": path,
                             "application": "Centreon",
-                            **({} if version is None else {"version": version}),
-                        }
+                            "version": version,
+                        },
                     ],
                 }
-            )
+            res.setdefault("scripts", []).append(script)
             return res
         if url.get("path", "").endswith("/.well-known/security.txt"):
             if resp.get("status_code") != 200:
@@ -316,7 +310,7 @@ def zgrap_parser_http(
                     if not infos:
                         continue
                     keyvals = zip(ntlm_values, [infos.get(k) for k in ntlm_values])
-                    output = "\n".join("{}: {}".format(k, v) for k, v in keyvals if v)
+                    output = "\n".join(f"{k}: {v}" for k, v in keyvals if v)
                     res.setdefault("scripts", []).append(
                         {
                             "id": "ntlm-info",
@@ -378,7 +372,7 @@ def zgrap_parser_http(
                 + utils.nmap_decode_data(resp["status_line"])
                 + b"\r\n"
             )
-            line = "%s %s" % (resp["protocol"]["name"], resp["status_line"])
+            line = f"{resp['protocol']['name']} {resp['status_line']}"
             http_hdrs = [{"name": "_status", "value": line}]
             output_list = [line]
             for unk in headers.pop("unknown", []):
@@ -387,7 +381,7 @@ def zgrap_parser_http(
                 hdr = hdr.replace("_", "-")
                 for val in values:
                     http_hdrs.append({"name": hdr, "value": val})
-                    output_list.append("%s: %s" % (hdr, val))
+                    output_list.append(f"{hdr}: {val}")
             if headers.get("server"):
                 banner += (
                     b"Server: "
@@ -398,8 +392,8 @@ def zgrap_parser_http(
             method = req.get("method")
             if method:
                 output_list.append("")
-                output_list.append("(Request type: %s)" % method)
-            script: NmapScript = {
+                output_list.append(f"(Request type: {method})")
+            script = {
                 "id": "http-headers",
                 "output": "\n".join(output_list),
                 "http-headers": http_hdrs,
@@ -414,7 +408,7 @@ def zgrap_parser_http(
         else utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
     )
     if info:
-        add_cpe_values(hostrec, "ports.port:%s" % port, info.pop("cpe", []))
+        add_cpe_values(hostrec, f"ports.port:{port}", info.pop("cpe", []))
         res.update(cast(NmapPort, info))
         add_service_hostname(info, hostrec.setdefault("hostnames", []))
     if resp.get("body"):

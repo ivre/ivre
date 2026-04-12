@@ -43,7 +43,7 @@ class NetFlow(CmdParser):
         ("flags", "%flg"),
     ]
     field_idx = {fld: idx for idx, (fld, _) in enumerate(fields)}
-    fmt = "fmt:" + ",".join(fmt for _, fmt in fields)
+    fmt = f"fmt:{','.join((fmt for _, fmt in fields))}"
     units = {
         "K": 1000,
         "M": 1000000,
@@ -118,19 +118,19 @@ class NetFlow(CmdParser):
                 else 2
             )
         cli_idx = 1 if srv_idx == 2 else 2
-        fields["src"] = fields.pop("addr%d" % cli_idx)
-        fields["dst"] = fields.pop("addr%d" % srv_idx)
-        if "port%s" % cli_idx in fields:
-            fields["sport"] = fields.pop("port%d" % cli_idx)
-        if "port%s" % srv_idx in fields:
-            fields["dport"] = fields.pop("port%d" % srv_idx)
-            fields["flow_name"] = "%(proto)s %(dport)s" % fields
+        fields["src"] = fields.pop(f"addr{cli_idx}")
+        fields["dst"] = fields.pop(f"addr{srv_idx}")
+        if f"port{cli_idx}" in fields:
+            fields["sport"] = fields.pop(f"port{cli_idx}")
+        if f"port{srv_idx}" in fields:
+            fields["dport"] = fields.pop(f"port{srv_idx}")
+            fields["flow_name"] = f"{fields['proto']} {fields['dport']}"
         elif "type" in fields:
-            fields["flow_name"] = "%(proto)s %(type)s" % fields
+            fields["flow_name"] = f"{fields['proto']} {fields['type']}"
         else:
             fields["flow_name"] = fields["proto"]
-        fields["scbytes"] = cls.str2int(fields.pop("bytes%d" % cli_idx))
-        fields["scpkts"] = cls.str2int(fields.pop("pkts%d" % cli_idx))
-        fields["csbytes"] = cls.str2int(fields.pop("bytes%d" % srv_idx))
-        fields["cspkts"] = cls.str2int(fields.pop("pkts%d" % srv_idx))
+        fields["scbytes"] = cls.str2int(fields.pop(f"bytes{cli_idx}"))
+        fields["scpkts"] = cls.str2int(fields.pop(f"pkts{cli_idx}"))
+        fields["csbytes"] = cls.str2int(fields.pop(f"bytes{srv_idx}"))
+        fields["cspkts"] = cls.str2int(fields.pop(f"pkts{srv_idx}"))
         return fields

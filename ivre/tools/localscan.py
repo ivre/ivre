@@ -87,8 +87,7 @@ class LocalPorts:
                     port["scripts"] = [
                         {
                             "id": "localscan",
-                            "output": "Program%s: %s"
-                            % ("s" if len(progs) > 1 else "", ", ".join(sorted(progs))),
+                            "output": f"Program{'s' if len(progs) > 1 else ''}: {', '.join(sorted(progs))}",
                             "localscan": {"programs": sorted(progs)},
                         },
                     ]

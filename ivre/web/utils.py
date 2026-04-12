@@ -47,16 +47,10 @@ def js_alert(ident, level, message):
     generate an alert message.
 
     """
+    message = message.replace('"', '\\"')
     return (
-        'try {add_message("%(ident)s", "%(level)s", "%(message)s");}\n'
-        'catch(err) {alert("%(levelup)s: %(message)s");}\n'
-        ""
-        % {
-            "ident": ident,
-            "level": level,
-            "levelup": level.upper(),
-            "message": message.replace('"', '\\"'),
-        }
+        f'try {{add_message("{ident}", "{level}", "{message}");}}\n'
+        f'catch(err) {{alert("{level.upper()}: {message}");}}\n'
     )
 
 
@@ -95,7 +89,7 @@ if HAVE_MYSQL:
         cur = MySQLdb.Connect(server, username, password, dbname).cursor()
         cur.execute(
             "SELECT `page_title` FROM `wiki_page` WHERE `page_title` REGEXP %s",
-            ("^" + re.escape(base) + "\\/\\d+\\.\\d+\\.\\d+\\.\\d+$",),
+            (f"^{re.escape(base)}" + "\\/\\d+\\.\\d+\\.\\d+\\.\\d+$",),
         )
         return [page[0][len(base) + 1 :] for page in cur]
 
@@ -252,11 +246,7 @@ def flt_from_query(dbase, query, base_flt=None):
 
         """
         unused.append(
-            "%s%s"
-            % (
-                "-" if neg else "",
-                "%s=%s" % (param, value) if value is not None else param,
-            )
+            f"{'-' if neg else ''}{f'{param}={value}' if value is not None else param}"
         )
 
     for neg, param, value in query:
@@ -517,7 +507,7 @@ def flt_from_query(dbase, query, base_flt=None):
                         cacert=cacert,
                         neg=neg,
                         **{
-                            "pk%s" % subfield[7:]: utils.str2regexp(value),
+                            f"pk{subfield[7:]}": utils.str2regexp(value),
                         },
                     ),
                 )
@@ -685,7 +675,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt,
                 dbase.searchscript(
                     name="ike-info",
-                    values={"vendor_ids.%s" % param[14:]: utils.str2regexp(value)},
+                    values={f"vendor_ids.{param[14:]}": utils.str2regexp(value)},
                 ),
             )
         elif not neg and param == "ike.notification":
@@ -927,7 +917,7 @@ def parse_filter(dbase, data):
         pass
     else:
         return func(*(parse_filter(dbase, a) for a in args))
-    func = "search%s" % func
+    func = f"search{func}"
     kargs = data.pop("k", {})
     if data:
         raise ValueError("Unsupported filter")

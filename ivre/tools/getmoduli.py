@@ -45,7 +45,7 @@ def main() -> None:
             ["passive-ssl", "active-ssl", "passive-ssh", "active-ssh", "help"],
         )
     except getopt.GetoptError as err:
-        sys.stderr.write(str(err) + "\n")
+        sys.stderr.write(f"{err!s}\n")
         sys.exit(-1)
     for o, a in opts:
         if o == "--passive-ssl":
@@ -58,16 +58,13 @@ def main() -> None:
             bases.add(ivre.keys.SSHRsaNmapKey)
         elif o in ["-h", "--help"]:
             sys.stdout.write(
-                "usage: %s [-h] [--passive-ssl] [--active-ssl] "
-                "[--passive-ssh] [--active-ssh]\n\n" % sys.argv[0]
+                f"usage: {sys.argv[0]} [-h] [--passive-ssl] [--active-ssl] [--passive-ssh] [--active-ssh]\n\n"
             )
             sys.stdout.write(__doc__)
             sys.stdout.write("\n\n")
             sys.exit(0)
         else:
-            sys.stderr.write(
-                "%r %r not understood (this is probably a bug).\n" % (o, a)
-            )
+            sys.stderr.write(f"{o!r} {a!r} not understood (this is probably a bug).\n")
             sys.exit(-1)
     moduli: dict[int, set[tuple[str, int, str]]] = {}
     if not bases:
@@ -84,10 +81,5 @@ def main() -> None:
             )
     for mod, used in moduli.items():
         sys.stdout.write(
-            "%x %d %s\n"
-            % (
-                mod,
-                len(used),
-                ",".join("%s:%d" % (rec[0], rec[1]) for rec in used),
-            )
+            f"{mod:x} {len(used)} {','.join(f'{rec[0]}:{rec[1]}' for rec in used)}\n"
         )

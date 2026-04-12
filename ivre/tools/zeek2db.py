@@ -165,10 +165,7 @@ def main() -> None:
             utils.LOGGER.debug(
                 "Parsing %s\n\t%s",
                 fname,
-                "Fields:\n%s\n"
-                % "\n".join(
-                    "%s: %s" % (f.decode(), t.decode()) for f, t in zeekf.field_types
-                ),
+                f"Fields:\n{'\n'.join(f'{f.decode()}: {t.decode()}' for f, t in zeekf.field_types)}\n",
             )
             if zeekf.path in FUNCTIONS:
                 func = FUNCTIONS[zeekf.path]

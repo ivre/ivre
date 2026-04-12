@@ -45,13 +45,13 @@ def main() -> None:
             curprogress = None
             continue
         if curtask is None:
-            raise Exception("curtask is None, task is  %r" % line["task"])
+            raise Exception(f"curtask is None, task is  {line['task']!r}")
         if curtask[0] != line["task"]:
-            raise Exception("curtask != task (%r != %r)" % (curtask, line["task"]))
+            raise Exception(f"curtask != task ({curtask!r} != {line['task']!r})")
         if line["status"] == "progress":
             progress_m = progressinfo.search(line["otherinfo"])
             if progress_m is None:
-                raise Exception("progress line not understood [%r]" % line["otherinfo"])
+                raise Exception(f"progress line not understood [{line['otherinfo']!r}]")
             progress = progress_m.groupdict()
             curprogress = (
                 int(line["time"]),
@@ -64,10 +64,9 @@ def main() -> None:
             if end_m is None:
                 end = ""
             else:
-                end = " " + end_m.group("extrainfo") + "."
+                end = f" {end_m.group('extrainfo')}."
             print(
-                "task %s completed in %d seconds.%s"
-                % (curtask[0], int(line["time"]) - curtask[1], end)
+                f"task {curtask[0]} completed in {int(line['time']) - curtask[1]} seconds.{end}"
             )
             curtask = None
             curprogress = None
@@ -77,17 +76,7 @@ def main() -> None:
         if curprogress is None:
             progress_str = ""
         else:
-            progress_str = (
-                "\n     %d seconds ago: %.2f %% done, "
-                "remaining %d seconds.\n     ETC %s."
-                % (
-                    now - curprogress[0],
-                    curprogress[1],
-                    curprogress[2],
-                    datetime.datetime.fromtimestamp(curprogress[3]),
-                )
-            )
+            progress_str = f"\n     {now - curprogress[0]} seconds ago: {curprogress[1]:.2f} % done, remaining {curprogress[2]} seconds.\n     ETC {datetime.datetime.fromtimestamp(curprogress[3])}."
         print(
-            "task %s running for %d seconds.%s"
-            % (curtask[0], now - curtask[1], progress_str)
+            f"task {curtask[0]} running for {now - curtask[1]} seconds.{progress_str}"
         )

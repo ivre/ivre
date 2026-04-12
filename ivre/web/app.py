@@ -85,7 +85,7 @@ def check_referer(func):
         if not referer:
             return _die(referer)
         if config.WEB_ALLOWED_REFERERS is None:
-            base_url = "/".join(request.url.split("/", 3)[:3]) + "/"
+            base_url = f"{'/'.join(request.url.split('/', 3)[:3])}/"
             if referer.startswith(base_url):
                 return func(*args, **kargs)
         elif (
@@ -124,8 +124,8 @@ def get_config():
         ("flow_time_precision", config.FLOW_TIME_PRECISION),
         ("version", VERSION),
     ]:
-        yield "config.%s = %s;\n" % (key, json.dumps(value))
-    yield '$.ajax({url:"https://ivre.rocks/version?%s",success:function(data){config.curver=data;}});\n' % VERSION
+        yield f"config.{key} = {json.dumps(value)};\n"
+    yield f'fetch("https://ivre.rocks/version?{VERSION}").then(r=>r.text()).then(d=>config.curver=d).catch(()=>{{}});\n'
 
 
 #
@@ -179,7 +179,7 @@ def get_base(dbase):
         response.set_header("Content-Type", "application/javascript")
     if callback is None:
         response.set_header(
-            "Content-Disposition", 'attachment; filename="IVRE-results.%s"' % fmt
+            "Content-Disposition", f'attachment; filename="IVRE-results.{fmt}"'
         )
     return FilterParams(
         flt,
@@ -351,12 +351,12 @@ def get_nmap_action(subdb, action):
     if flt_params.fmt == "txt":
         for rec in result:
             # pylint: disable=possibly-used-before-assignment
-            yield "%s\n" % r2res(rec)
+            yield f"{r2res(rec)}\n"
         return
 
     if flt_params.fmt == "ndjson":
         for rec in result:
-            yield "%s\n" % json.dumps(r2res(rec))
+            yield f"{json.dumps(r2res(rec))}\n"
         return
 
     if flt_params.callback is not None:
@@ -366,7 +366,7 @@ def get_nmap_action(subdb, action):
                 "dots, which is a lot and might slow down, freeze or crash "
                 'your browser. Do you want to continue?")) {\n' % count
             )
-        yield "%s(\n" % flt_params.callback
+        yield f"{flt_params.callback}(\n"
     yield preamble
 
     # hack to avoid a trailing comma
@@ -378,7 +378,7 @@ def get_nmap_action(subdb, action):
     else:
         yield json.dumps(r2res(rec))
         for rec in result:
-            yield ",\n" + json.dumps(r2res(rec))
+            yield f",\n{json.dumps(r2res(rec))}"
         yield "\n"
 
     yield postamble
@@ -408,8 +408,8 @@ def get_nmap_count(subdb):
     flt_params = get_base(subdb)
     count = subdb.count(flt_params.flt)
     if flt_params.callback is None:
-        return "%d\n" % count
-    return "%s(%d);\n" % (flt_params.callback, count)
+        return f"{count}\n"
+    return f"{flt_params.callback}({count});\n"
 
 
 @application.get("/<subdb:re:scans|view|passive>/top/<field:path>")
@@ -450,7 +450,7 @@ def get_top(subdb, field):
         try:
             topnbr = int(topnbr)
         except ValueError:
-            field = "%s:%s" % (field, topnbr)
+            field = f"{field}:{topnbr}"
             topnbr = 15
     cursor = subdb.topvalues(
         field,
@@ -465,7 +465,7 @@ def get_top(subdb, field):
     if flt_params.callback is None:
         yield "[\n"
     else:
-        yield "%s([\n" % flt_params.callback
+        yield f"{flt_params.callback}([\n"
     # hack to avoid a trailing comma
     cursor = iter(cursor)
     try:
@@ -475,7 +475,7 @@ def get_top(subdb, field):
     else:
         yield json.dumps({"label": rec["_id"], "value": rec["count"]})
         for rec in cursor:
-            yield ",\n%s" % json.dumps({"label": rec["_id"], "value": rec["count"]})
+            yield f",\n{json.dumps({'label': rec['_id'], 'value': rec['count']})}"
     if flt_params.callback is None:
         yield "\n]\n"
     else:
@@ -518,12 +518,12 @@ def get_distinct(subdb, field):
     )
     if flt_params.fmt == "ndjson":
         for rec in cursor:
-            yield "%s\n" % json.dumps(rec)
+            yield f"{json.dumps(rec)}\n"
         return
     if flt_params.callback is None:
         yield "[\n"
     else:
-        yield "%s([\n" % flt_params.callback
+        yield f"{flt_params.callback}([\n"
     # hack to avoid a trailing comma
     cursor = iter(cursor)
     try:
@@ -533,7 +533,7 @@ def get_distinct(subdb, field):
     else:
         yield json.dumps(rec)
         for rec in cursor:
-            yield ",\n%s" % json.dumps(rec)
+            yield f",\n{json.dumps(rec)}"
     if flt_params.callback is None:
         yield "\n]\n"
     else:
@@ -602,10 +602,7 @@ def get_nmap(subdb):
     )
 
     if flt_params.unused:
-        msg = "Option%s not understood: %s" % (
-            "s" if len(flt_params.unused) > 1 else "",
-            ", ".join(flt_params.unused),
-        )
+        msg = f"Option{'s' if len(flt_params.unused) > 1 else ''} not understood: {', '.join(flt_params.unused)}"
         if flt_params.callback is not None:
             yield webutils.js_alert("param-unused", "warning", msg)
         utils.LOGGER.warning(msg)
@@ -613,8 +610,8 @@ def get_nmap(subdb):
         yield webutils.js_del_alert("param-unused")
 
     if config.DEBUG:
-        msg1 = "filter: %r" % subdb.flt2str(flt_params.flt)
-        msg2 = "user: %r" % webutils.get_user()
+        msg1 = f"filter: {subdb.flt2str(flt_params.flt)!r}"
+        msg2 = f"user: {webutils.get_user()!r}"
         utils.LOGGER.debug(msg1)
         utils.LOGGER.debug(msg2)
         if flt_params.callback is not None:
@@ -626,7 +623,7 @@ def get_nmap(subdb):
         if flt_params.fmt == "json":
             yield "[\n"
     else:
-        yield "%s([\n" % flt_params.callback
+        yield f"{flt_params.callback}([\n"
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
@@ -665,7 +662,7 @@ def get_nmap(subdb):
                     newaddresses.append({"addr": addr})
             rec["addresses"]["mac"] = newaddresses
         if flt_params.fmt == "ndjson":
-            yield "%s\n" % json.dumps(rec, default=utils.serialize)
+            yield f"{json.dumps(rec, default=utils.serialize)}\n"
         else:
             yield "%s\t%s" % (
                 ",\n" if i else "",
@@ -685,27 +682,17 @@ def get_nmap(subdb):
 
     messages = {
         1: lambda count: (
-            "%d document%s displayed %s out-of-date. Please run "
-            "the following command: 'ivre %s "
-            "--update-schema;"
-            % (
-                count,
-                "s" if count > 1 else "",
-                "are" if count > 1 else "is",
-                subdb_tool,
-            )
+            f"{count} document{'s' if count > 1 else ''} displayed {'are' if count > 1 else 'is'} out-of-date. Please run the following command: 'ivre {subdb_tool} --update-schema;"
         ),
         -1: lambda count: (
-            "%d document%s displayed ha%s been inserted by "
-            "a more recent version of IVRE. Please update "
-            "IVRE!" % (count, "s" if count > 1 else "", "ve" if count > 1 else "s")
+            f"{count} document{'s' if count > 1 else ''} displayed ha{'ve' if count > 1 else 's'} been inserted by a more recent version of IVRE. Please update IVRE!"
         ),
     }
     for mismatch, count in version_mismatch.items():
         message = messages[mismatch](count)
         if flt_params.callback is not None:
             yield webutils.js_alert(
-                "version-mismatch-%d" % ((mismatch + 1) // 2), "warning", message
+                f"version-mismatch-{(mismatch + 1) // 2}", "warning", message
             )
         utils.LOGGER.warning(message)
 
@@ -731,7 +718,7 @@ def parse_form():
             categories.add("Shared")
         user = webutils.get_anonymized_user()
         categories.add(user)
-        source = "%s-%s" % (user, source)
+        source = f"{user}-{source}"
     return (request.forms.get("referer"), source, categories, files)
 
 
@@ -791,18 +778,15 @@ def post_nmap(subdb):
     referer, source, categories, files = parse_form()
     count = import_files(subdb, source, categories, files)
     if request.params.get("output") == "html":
-        response.set_header("Refresh", "5;url=%s" % referer)
-        return """<html>
+        response.set_header("Refresh", f"5;url={referer}")
+        return f"""<html>
   <head>
     <title>IVRE Web UI</title>
   </head>
-  <body style="padding-top: 2%%; padding-left: 2%%">
-    <h1>%d result%s uploaded</h1>
+  <body style="padding-top: 2%; padding-left: 2%">
+    <h1>{int(count)} result{'s' if count > 1 else ''} uploaded</h1>
   </body>
-</html>""" % (
-            count,
-            "s" if count > 1 else "",
-        )
+</html>"""
     return {"count": count}
 
 
@@ -831,7 +815,7 @@ def get_flow():
             "Content-Disposition", 'attachment; filename="IVRE-results.json"'
         )
     else:
-        yield callback + "(\n"
+        yield f"{callback}(\n"
     utils.LOGGER.debug("Params: %r", dict(request.params))
     query = json.loads(request.params.get("q", "{}"))
     limit = query.get("limit", config.WEB_GRAPH_LIMIT)
@@ -913,8 +897,8 @@ def get_ipdata(addr):
     callback = request.params.get("callback")
     result = json.dumps(db.data.infos_byip(addr))
     if callback is None:
-        return result + "\n"
-    return "%s(%s);\n" % (callback, result)
+        return f"{result}\n"
+    return f"{callback}({result});\n"
 
 
 #
@@ -991,10 +975,10 @@ def get_passivedns(query):
             rec["rdata"] = rec.pop("targetval")
         for k in ["first", "last"]:
             try:
-                rec["time_%s" % k] = rec.pop("%sseen" % k)
+                rec[f"time_{k}"] = rec.pop(f"{k}seen")
             except KeyError:
                 pass
-        yield "%s\n" % json.dumps(rec, default=utils.serialize)
+        yield f"{json.dumps(rec, default=utils.serialize)}\n"
 
 
 @application.get("/passive")
@@ -1031,7 +1015,7 @@ def get_passive():
         if flt_params.fmt == "json":
             yield "[\n"
     else:
-        yield "%s([\n" % flt_params.callback
+        yield f"{flt_params.callback}([\n"
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
@@ -1050,7 +1034,7 @@ def get_passive():
         }:
             rec["value"] = utils.encode_b64(rec["value"]).decode()
         if flt_params.fmt == "ndjson":
-            yield "%s\n" % json.dumps(rec, default=utils.serialize)
+            yield f"{json.dumps(rec, default=utils.serialize)}\n"
         else:
             yield "%s\t%s" % (
                 ",\n" if i else "",
@@ -1081,5 +1065,5 @@ def get_passive_count():
     flt_params = get_base(db.passive)
     count = db.passive.count(flt_params.flt)
     if flt_params.callback is None:
-        return "%d\n" % count
-    return "%s(%d);\n" % (flt_params.callback, count)
+        return f"{count}\n"
+    return f"{flt_params.callback}({count});\n"

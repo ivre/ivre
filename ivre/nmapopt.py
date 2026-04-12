@@ -113,18 +113,12 @@ class Scan:
             scripts = " or ".join(self.scripts_categories)
         if self.scripts_exclude:
             if scripts:
-                scripts = "(%s) and not (%s)" % (
-                    scripts if scripts else "",
-                    " or ".join(self.scripts_exclude),
-                )
+                scripts = f"({scripts if scripts else ''}) and not ({' or '.join(self.scripts_exclude)})"
             else:
-                scripts = "not (%s)" % " or ".join(self.scripts_exclude)
+                scripts = f"not ({' or '.join(self.scripts_exclude)})"
         if self.scripts_force:
             if scripts:
-                scripts = "(%s) or %s" % (
-                    scripts if scripts else "",
-                    " or ".join(self.scripts_force),
-                )
+                scripts = f"({scripts if scripts else ''}) or {' or '.join(self.scripts_force)}"
             else:
                 scripts = " or ".join(self.scripts_force)
         # remove unnecessary options
@@ -134,8 +128,8 @@ class Scan:
                 self.scans.add("C")
         elif scripts and "C" in self.scans:
             self.scans.remove("C")
-        options.extend("-P%s" % x for x in self.pings)
-        options.extend("-s%s" % x for x in self.scans)
+        options.extend(f"-P{x}" for x in self.pings)
+        options.extend(f"-s{x}" for x in self.scans)
         if self.osdetect:
             options.append("-O")
         if self.traceroute:
@@ -145,7 +139,7 @@ class Scan:
         elif self.resolve == 2:
             options.append("-R")
         if self.verbosity:
-            options.append("-%s" % ("v" * self.verbosity))
+            options.append(f"-{'v' * self.verbosity}")
         options.extend(NMAP_OPT_PORTS.get(self.ports, ["-p", self.ports]))  # type: ignore
         if self.top_ports is not None:
             options.extend(["--top-ports", str(self.top_ports)])

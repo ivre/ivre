@@ -53,7 +53,7 @@ def _dns_do_query(
         cmd.extend(["-t", rtype])
     cmd.append(name)
     if srv:
-        cmd.append("@%s" % srv)
+        cmd.append(f"@{srv}")
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         assert proc.stdout is not None
         for line_bytes in proc.stdout:
@@ -160,10 +160,7 @@ class AXFRChecker(Checker):
                 # CNAME only: no transfer actually performed
                 continue
             LOGGER.info("AXFR success for %r on %r", self.domain, addr)
-            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-                max(len(r.name) for r in res),
-                max(len(r.rtype) for r in res),
-            )
+            line_fmt = f"| %-{max(len(r.name) for r in res)}s  %-{max(len(r.rtype) for r in res)}s  %s"
             yield {
                 "addr": addr,
                 "hostnames": [
@@ -185,14 +182,7 @@ class AXFRChecker(Checker):
                         "scripts": [
                             {
                                 "id": "dns-zone-transfer",
-                                "output": "\nDomain: %s\n%s\n\\\n"
-                                % (
-                                    self.domain,
-                                    "\n".join(
-                                        line_fmt % (r.name, r.rtype, r.data)
-                                        for r in res
-                                    ),
-                                ),
+                                "output": f"\nDomain: {self.domain}\n{'\n'.join(line_fmt % (r.name, r.rtype, r.data) for r in res)}\n\\\n",
                                 "dns-zone-transfer": [
                                     {
                                         "domain": self.domain,
@@ -269,7 +259,7 @@ class SameValueChecker(Checker):
             return
         self.stop = datetime.now()
         good_value = max(results, key=lambda val: len(results[val]))
-        good_value_repr = "\n".join("  %r" % r for r in sorted(good_value))
+        good_value_repr = "\n".join(f"  {r!r}" for r in sorted(good_value))
         good_value_sorted = sorted(good_value)
         for val, servers in results.items():
             if val == good_value:
@@ -301,7 +291,7 @@ class SameValueChecker(Checker):
                                     % (
                                         self.name,
                                         self.rtype,
-                                        "\n".join("  %r" % r for r in sorted(val)),
+                                        "\n".join(f"  {r!r}" for r in sorted(val)),
                                         good_value_repr,
                                     ),
                                     "dns-check-consistency": [
@@ -352,8 +342,7 @@ class DNSSRVChecker(SameValueChecker):
                         "scripts": [
                             {
                                 "id": "dns-domains",
-                                "output": "Server is authoritative for %s"
-                                % self.domain,
+                                "output": f"Server is authoritative for {self.domain}",
                                 "dns-domains": [
                                     {
                                         "domain": self.domain,
@@ -439,7 +428,7 @@ class TLSRPTChecker(SameValueChecker):
 
     def __init__(self, domain: str) -> None:
         super().__init__(domain)
-        self.name = "_smtp._tls.%s" % domain
+        self.name = f"_smtp._tls.{domain}"
 
     def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
         yield from super().test(v4=v4, v6=v6)
@@ -447,15 +436,13 @@ class TLSRPTChecker(SameValueChecker):
             srvname = srvname.rstrip(".")
             res = [literal_eval(r) for r in sorted(raw_res)]
             if not res:
-                output = "Domain %s has no TLS-RPT configuration" % self.domain
+                output = f"Domain {self.domain} has no TLS-RPT configuration"
                 structured = {
                     "domain": self.domain,
                     "warnings": ["Domain has no TLS-RPT configuration"],
                 }
             elif len(res) > 1:
-                output = (
-                    "Domain %s has more than one TLS-RPT configuration" % self.domain
-                )
+                output = f"Domain {self.domain} has more than one TLS-RPT configuration"
                 structured = {
                     "domain": self.domain,
                     "value": " / ".join(res),
@@ -487,29 +474,24 @@ class TLSRPTChecker(SameValueChecker):
                         if rua_val.startswith("https://"):
                             if HTTPS_REGEXP.search(rua_val[8:]) is None:
                                 warnings.append(
-                                    "TLS-RPT contains an invalid HTTPS URL: %r"
-                                    % rua_val
+                                    f"TLS-RPT contains an invalid HTTPS URL: {rua_val!r}"
                                 )
                         elif rua_val.startswith("mailto:"):
                             if MAIL_REGEXP.search(rua_val[7:]) is None:
                                 warnings.append(
-                                    "TLS-RPT contains an invalid e-mail URL: %r"
-                                    % rua_val
+                                    f"TLS-RPT contains an invalid e-mail URL: {rua_val!r}"
                                 )
                         else:
                             warnings.append(
-                                "TLS-RPT contains an invalid URL: %r" % rua_val
+                                f"TLS-RPT contains an invalid URL: {rua_val!r}"
                             )
                 else:
-                    warnings.append("TLS-RPT does not contain an rua entry: %r" % value)
+                    warnings.append(f"TLS-RPT does not contain an rua entry: {value!r}")
                 if warnings:
                     structured["warnings"] = warnings
-                    output = (
-                        "Domain %s has a TLS-RPT configuration with warnings:\n%s"
-                        % (self.domain, "\n".join(warnings))
-                    )
+                    output = f"Domain {self.domain} has a TLS-RPT configuration with warnings:\n{'\n'.join(warnings)}"
                 else:
-                    output = "Domain %s has a valid TLS-RPT configuration" % self.domain
+                    output = f"Domain {self.domain} has a valid TLS-RPT configuration"
             yield {
                 "addr": addr,
                 "hostnames": [

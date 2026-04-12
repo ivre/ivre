@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=consider-using-f-string
 
 """Put selected results in views."""
 
@@ -89,15 +90,15 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
         version = rec["value"].split(":", 1)[0]
         add_cpe_values(
             host,
-            "ports.port:%s" % port["port"],
-            ["cpe:/a:microsoft:sharepoint_server:%s" % version],
+            f"ports.port:{port['port']}",
+            [f"cpe:/a:microsoft:sharepoint_server:{version}"],
         )
         host["cpes"] = list(host["cpes"].values())
         # Let's pretend the application is on '/UNKNOWN/'
         port["scripts"] = [
             {
                 "id": "http-app",
-                "output": "SharePoint: path /UNKNOWN/, version %s" % (version),
+                "output": f"SharePoint: path /UNKNOWN/, version {version}",
                 "http-app": [
                     {
                         "path": "/UNKNOWN/",
@@ -120,7 +121,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
     nmap_info = utils.match_nmap_svc_fp(
         output=banner, proto=rec.get("protocol", "tcp"), probe="GetRequest"
     )
-    add_cpe_values(host, "ports.port:%s" % port, nmap_info.pop("cpe", []))
+    add_cpe_values(host, f"ports.port:{port}", nmap_info.pop("cpe", []))
     host["cpes"] = list(host["cpes"].values())
     for cpe in host["cpes"]:
         cpe["origins"] = sorted(cpe["origins"])
@@ -163,8 +164,7 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
         scripts.append(
             {
                 "id": "scanner",
-                "output": "Scanner: \n - %s [%s]"
-                % (scanner, "http" if probe is None else f"{probe}/http"),
+                "output": f"Scanner: \n - {scanner} [{('http' if probe is None else f'{probe}/http')}]",
                 "scanner": structured_output,
             }
         )
@@ -190,7 +190,7 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
         proto=rec.get("protocol", "tcp"),
         probe="NULL",
     )
-    add_cpe_values(host, "ports.port:%s" % port, nmap_info.pop("cpe", []))
+    add_cpe_values(host, f"ports.port:{port}", nmap_info.pop("cpe", []))
     host["cpes"] = list(host["cpes"].values())
     for cpe in host["cpes"]:
         cpe["origins"] = sorted(cpe["origins"])
@@ -209,7 +209,7 @@ def _extract_passive_HONEYPOT_HIT(rec):
         utils.LOGGER.warning("Unknown source in record [%r]", rec)
         return {}
     scanned_port = int(scanned_port)
-    output = "Scanned port: %s" % rec["source"].replace("/", ": ")
+    output = f"Scanned port: {rec['source'].replace('/', ': ')}"
     structured_output = {
         "ports": {"count": 1, scanned_proto: {"count": 1, "ports": [scanned_port]}}
     }
@@ -222,11 +222,7 @@ def _extract_passive_HONEYPOT_HIT(rec):
                 ],
             }
         ]
-        output += "\nScanner:\n - %s [%s/%s]" % (
-            rec["infos"]["service_product"],
-            rec["infos"]["service_extrainfo"],
-            scanned_proto,
-        )
+        output += f"\nScanner:\n - {rec['infos']['service_product']} [{rec['infos']['service_extrainfo']}/{scanned_proto}]"
     if rec.get("value"):
         structured_output["probes"] = [{"proto": scanned_proto, "value": rec["value"]}]
     return {
@@ -255,13 +251,7 @@ def _extract_passive_HTTP_HONEYPOT_REQUEST(rec):
         utils.LOGGER.warning("Cannot parse record [%r]", rec)
         return {}
     port = int(port)
-    output = "Scanned port: %s: %d\nScanned HTTP URI: %s (%s %s)" % (
-        proto,
-        port,
-        rec["value"],
-        method,
-        version,
-    )
+    output = f"Scanned port: {proto}: {port}\nScanned HTTP URI: {rec['value']} ({method} {version})"
     structured_output = {
         "ports": {"count": 1, proto: {"count": 1, "ports": [port]}},
         "http_uris": [{"method": method, "version": version, "uri": rec["value"]}],
@@ -355,8 +345,8 @@ def _extract_passive_SSH_HASSH(rec):
     ]:
         if key in script_structured:
             value = script_structured[key]
-            script_output.append("  %s (%d)" % (key, len(value)))
-            script_output.extend("      %s" % v for v in value)
+            script_output.append(f"  {key} ({len(value)})")
+            script_output.extend(f"      {v}" for v in value)
     script_structured["hassh"] = {
         "version": "1.1",
         "raw": rec["infos"]["raw"],
@@ -369,10 +359,10 @@ def _extract_passive_SSH_HASSH(rec):
             "",
             "  HASSH",
             "    version: 1.1",
-            "    raw: %s" % rec["infos"]["raw"],
-            "    md5: %s" % rec["value"],
-            "    sha1: %s" % rec["infos"]["sha1"],
-            "    sha256: %s" % rec["infos"]["sha256"],
+            f"    raw: {rec['infos']['raw']}",
+            f"    md5: {rec['value']}",
+            f"    sha1: {rec['infos']['sha1']}",
+            f"    sha256: {rec['infos']['sha256']}",
         ]
     )
     script["output"] = "\n".join(script_output)
@@ -459,7 +449,7 @@ def _extract_passive_SSL_SERVER_ja3(rec):
         "port": rec["port"],
         "protocol": rec.get("protocol", "tcp"),
     }
-    script["output"] = rec["value"] + " - " + rec["source"][4:]
+    script["output"] = f"{rec['value']} - {rec['source'][4:]}"
     info = {"md5": rec["value"], "client": {"md5": rec["source"][4:]}}
     if "infos" in rec:
         for k in ["raw", "sha256", "sha1"]:
@@ -494,13 +484,7 @@ def _extract_passive_DNS_HONEYPOT_QUERY(rec):
     except ValueError:
         utils.LOGGER.warning("Cannot parse record [%r]", rec)
         return {}
-    output = "Scanned port: %s: %d\nDNS query: %s (type: %s, class: %s)" % (
-        proto,
-        port,
-        rec["value"],
-        qtype,
-        qclass,
-    )
+    output = f"Scanned port: {proto}: {port}\nDNS query: {rec['value']} (type: {qtype}, class: {qclass})"
     structured_output = {
         "ports": {"count": 1, proto: {"count": 1, "ports": [port]}},
         "dns_queries": [{"qtype": qtype, "qclass": qclass, "query": rec["value"]}],
@@ -543,7 +527,7 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
         port["scripts"].append(
             {
                 "id": "scanner",
-                "output": "Scanner:\n - %s [%s/tls]" % (scanner, rec["value"]),
+                "output": f"Scanner:\n - {scanner} [{rec['value']}/tls]",
                 "scanner": structured_output,
             }
         )
@@ -568,7 +552,7 @@ def _extract_passive_SSL_CLIENT_ja4(rec):
         port["scripts"].append(
             {
                 "id": "scanner",
-                "output": "Scanner:\n - %s [%s/tls]" % (scanner, rec["value"]),
+                "output": f"Scanner:\n - {scanner} [{rec['value']}/tls]",
                 "scanner": structured_output,
             }
         )
@@ -596,7 +580,7 @@ def _extract_passive_NTLM(rec, service=None):
     script = {}
     script["id"] = "ntlm-info"
     script["ntlm-info"] = rec["infos"]
-    script["output"] = "\n".join("{}: {}".format(k, v) for k, v in rec["infos"].items())
+    script["output"] = "\n".join(f"{k}: {v}" for k, v in rec["infos"].items())
 
     port = {}
     if "port" in rec:
@@ -638,9 +622,7 @@ def _extract_passive_SMB_SESSION_SETUP(rec):
     )
     script = {"id": "smb-os-discovery"}
     script["smb-os-discovery"] = rec["infos"]
-    script["output"] = "\n".join(
-        ("{}: {}".format(k, v) if v else "") for k, v in keyvals
-    )
+    script["output"] = "\n".join((f"{k}: {v}" if v else "") for k, v in keyvals)
     port = {}
     if "port" in rec:
         port["state_state"] = "open"
@@ -663,7 +645,7 @@ def _extract_passive_STUN_HONEYPOT_REQUEST(rec):
         utils.LOGGER.warning("Cannot parse record [%r]", rec)
         return {}
     # store TID as string
-    tid = "%016x%016x" % (tid_hi, tid_lo)
+    tid = f"{tid_hi:016x}{tid_lo:016x}"
     # special case when first int of tid is magic
     if tid_hi >> 32 == 0x2112A442:
         magic = 0x2112A442
@@ -715,8 +697,7 @@ def _extract_passive_P0FV3_SYN(rec):
                 "scripts": [
                     {
                         "id": "scanner",
-                        "output": "Scanner: \n - %s [%s]"
-                        % (scanner, "TCP SYN" if probe is None else f"{probe}/TCP SYN"),
+                        "output": f"Scanner: \n - {scanner} [{('TCP SYN' if probe is None else f'{probe}/TCP SYN')}]",
                         "scanner": structured_output,
                     }
                 ],

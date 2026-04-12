@@ -34,7 +34,7 @@ AZURE_URL = re.compile(b'<a href="(https://download.microsoft.com/download/[^"]*
 
 def get_azure_url() -> str:
     opener = build_opener()
-    opener.addheaders = [("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
+    opener.addheaders = [("User-Agent", f"IVRE/{VERSION} +https://ivre.rocks/")]
     with opener.open(
         "https://www.microsoft.com/en-us/download/details.aspx?id=57063"
     ) as udesc:

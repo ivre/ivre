@@ -321,7 +321,7 @@ class DB:
         if args.cert:
             fingerprint = args.cert.lower().replace(":", "").replace(" ", "")
             if not utils.HEX.search(fingerprint):
-                raise ValueError("Expected hash value, got %r" % args.cert)
+                raise ValueError(f"Expected hash value, got {args.cert!r}")
             try:
                 key = {
                     32: "md5",
@@ -329,7 +329,7 @@ class DB:
                     64: "sha256",
                 }[len(fingerprint)]
             except KeyError as exc:
-                raise ValueError("Expected hash value, got %r" % args.cert) from exc
+                raise ValueError(f"Expected hash value, got {args.cert!r}") from exc
             flt = self.flt_and(flt, self.searchcert(**{key: fingerprint}))
         if args.torcert:
             flt = self.flt_and(flt, self.searchtorcert())
@@ -379,7 +379,7 @@ class DB:
             )
             return None
         try:
-            module = import_module("ivre.db.%s" % modulename)
+            module = import_module(f"ivre.db.{modulename}")
         except ImportError:
             utils.LOGGER.error(
                 "Cannot import ivre.db.%s for %s",
@@ -477,7 +477,7 @@ class DB:
         result = ["asnum"] if use_asnum else []
         if use_single_int:
             return result + ["addr"]
-        return result + ["addr_%d" % d for d in range(16 if use_ipv6 else 4)]
+        return result + [f"addr_{d}" for d in range(16 if use_ipv6 else 4)]
 
     def features_addr_get(self, addr, use_asnum, use_ipv6, use_single_int):
         """Returns a list of feature values (for ML algorithms) for an IP address.
@@ -492,7 +492,7 @@ class DB:
         if use_single_int:
             if use_ipv6:
                 return result + [
-                    utils.ip2int(addr if ":" in addr else ("::ffff:%s" % addr))
+                    utils.ip2int(addr if ":" in addr else (f"::ffff:{addr}"))
                 ]
             return result + [utils.ip2int(addr)]
         addrbin = utils.ip2bin(addr)
@@ -921,7 +921,7 @@ class DB:
                 entry["_id"] = json.dumps(entry["_id"], default=utils.serialize)
             elif not entry["_id"]:
                 entry["_id"] = "None"
-            yield "%(_id)s: %(count)d\n" % entry
+            yield f"{entry['_id']}: {int(entry['count'])}\n"
 
 
 class DBActive(DB):
@@ -1776,7 +1776,7 @@ class DBActive(DB):
         if key is not None:
             params.setdefault("values", {})["key"] = key
         if keytype is not None:
-            params.setdefault("values", {})["type"] = "ssh-%s" % keytype
+            params.setdefault("values", {})["type"] = f"ssh-{keytype}"
         if bits is not None:
             params.setdefault("values", {})["bits"] = bits
         if output is not None:
@@ -1808,7 +1808,7 @@ class DBActive(DB):
         return self.searchscript(
             name="http-headers",
             output=re.compile(
-                "^ *Set-Cookie: %s=" % re.escape(name), flags=re.MULTILINE | re.I
+                f"^ *Set-Cookie: {re.escape(name)}=", flags=re.MULTILINE | re.I
             ),
         )
 
@@ -2829,25 +2829,26 @@ class DBNmap(DBActive):
                 }
                 if rec.get("status") == "NOERROR" and "answers" in data:
                     # the DNS server **did** answer our request
-                    script = {
-                        "id": "dns-recursion",
-                        "output": "Recursion appears to be enabled",
-                    }
+                    output = "Recursion appears to be enabled"
+                    script = {"id": "dns-recursion"}
                     cur_answers = [
                         ans
                         for ans in data["answers"]
                         if all(fld in ans for fld in ["answer", "name", "type"])
                     ]
                     if (
-                        set("%(name)s:%(type)s:%(answer)s" % ans for ans in cur_answers)
+                        set(
+                            f"{ans['name']}:{ans['type']}:{ans['answer']}"
+                            for ans in cur_answers
+                        )
                         != answers
                     ):
-                        script["output"] += "\nAnswer may be incorrect!\n%s" % (
-                            "\n".join(
-                                "%(name)s    %(type)s    %(answer)s" % ans
-                                for ans in cur_answers
-                            )
+                        output.append("Answer may be incorrect!")
+                        output.extend(
+                            f"{ans['name']}    {ans['type']}    {ans['answer']}"
+                            for ans in cur_answers
                         )
+                    script["output"] = "\n".join(output)
                     port["scripts"] = [script]
                 if categories:
                     host["categories"] = categories
@@ -2923,10 +2924,7 @@ class DBNmap(DBActive):
                 # SOA only: transfer failed
                 # CNAME only: no transfer actually performed
                 continue
-            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-                max(len(r.name) for r in records),
-                max(len(r.rtype) for r in records),
-            )
+            line_fmt = f"| %-{max(len(r.name) for r in records)}s  %-{max(len(r.rtype) for r in records)}s  %s"
             for resolver in axfr.get("resolver", []):
                 try:
                     addr, port_s = resolver.rsplit(":", 1)
@@ -3250,10 +3248,10 @@ class DBNmap(DBActive):
                     "severity": rec["severity"],
                 }
                 if "matcher-name" in rec:
-                    name += " (%s)" % rec["matcher-name"]
+                    name += f" ({rec['matcher-name']})"
                     nuclei_data["matcher-name"] = rec["matcher-name"]
                 elif "matcher_name" in rec:
-                    name += " (%s)" % rec["matcher_name"]
+                    name += f" ({rec['matcher_name']})"
                     nuclei_data["matcher-name"] = rec["matcher_name"]
                 nuclei_data["name"] = name
                 for key in [
@@ -3283,8 +3281,8 @@ class DBNmap(DBActive):
                         nuclei_data[key] = rec[key]
                 scripts = [
                     {
-                        "id": "%s-nuclei" % (rec["type"]),
-                        "output": "[%s] %s found at %s" % (rec["severity"], name, url),
+                        "id": f"{rec['type']}-nuclei",
+                        "output": f"[{rec['severity']}] {name} found at {url}",
                         "nuclei": [nuclei_data],
                     },
                 ]
@@ -3298,12 +3296,11 @@ class DBNmap(DBActive):
                 if hostname is not None:
                     add_hostname(hostname, "user", host.setdefault("hostnames", []))
                 if rec["template"] == "git-config":
-                    repository = "%s:%d%s" % (addr, port, urlparse(url).path[:-6])
+                    repository = f"{addr}:{port}{urlparse(url).path[:-6]}"
                     scripts.append(
                         {
                             "id": "http-git",
-                            "output": "\n  %s\n    Git repository found!\n"
-                            % repository,
+                            "output": f"\n  {repository}\n    Git repository found!\n",
                             "http-git": [
                                 {
                                     "repository": repository,
@@ -3325,26 +3322,12 @@ class DBNmap(DBActive):
                         )
                         if len(version_list) > 1:
                             version_list = [
-                                "%s (%s)"
-                                % (
-                                    vers,
-                                    EXCHANGE_BUILDS.get(vers, "unknown build number"),
-                                )
+                                f"{vers} ({EXCHANGE_BUILDS.get(vers, 'unknown build number')})"
                                 for vers in version_list
                             ]
-                            output = (
-                                "OWA: path %s, version %s (multiple versions found!)"
-                                % (
-                                    path,
-                                    " / ".join(version_list),
-                                )
-                            )
+                            output = f"OWA: path {path}, version {' / '.join(version_list)} (multiple versions found!)"
                         else:
-                            output = "OWA: path %s, version %s (%s)" % (
-                                path,
-                                version_list[0],
-                                parsed_version,
-                            )
+                            output = f"OWA: path {path}, version {version_list[0]} ({parsed_version})"
                         structured["version"] = version_list[0]
                         structured["parsed_version"] = parsed_version
                     else:
@@ -3863,7 +3846,7 @@ class DBNmap(DBActive):
                             (
                                 chr(d)
                                 if 32 <= d <= 126 or d in {9, 10, 13}
-                                else "\\x%02x" % d
+                                else f"\\x{d:02x}"
                             )
                             for d in raw_output
                         )
@@ -4075,7 +4058,7 @@ class DBNmap(DBActive):
                             (
                                 chr(d)
                                 if 32 <= d <= 126 or d in {9, 10, 13}
-                                else "\\x%02x" % d
+                                else f"\\x{d:02x}"
                             )
                             for d in raw_output
                         )
@@ -4402,7 +4385,7 @@ class DBView(DBActive):
         if not client_value_or_hash:
             return cls._searchja3(value_or_hash, script_id, neg=neg)
         key_client, value_client = cls._ja3keyvalue(client_value_or_hash)
-        values = {"client.%s" % (key_client): value_client}
+        values = {f"client.{key_client}": value_client}
         if value_or_hash:
             key_srv, value_srv = cls._ja3keyvalue(value_or_hash)
             values[key_srv] = value_srv
@@ -4929,7 +4912,7 @@ class DBPassive(DB):
         return {
             "recontype": "DNS_BLACKLIST",
             "value": old_spec["addr"],
-            "source": "%s-%s" % (dnsbl_val.split(".", 4)[4], old_spec["source"]),
+            "source": f"{dnsbl_val.split('.', 4)[4]}-{old_spec['source']}",
             "addr": ".".join(dnsbl_val.split(".")[3::-1]),
             "count": old_spec["count"],
             "schema_version": passive.SCHEMA_VERSION,
@@ -5070,7 +5053,7 @@ class DBAgent(DB):
         if not remotepath.endswith("/"):
             remotepath += "/"
         if source is None:
-            source = remotepath if host is None else "%s:%s" % (host, remotepath)
+            source = remotepath if host is None else f"{host}:{remotepath}"
         master = self.get_master(masterid)
         localpath = tempfile.mkdtemp(prefix="", dir=master["path"])
         for dirname in ["input"] + [
@@ -5166,10 +5149,8 @@ class DBAgent(DB):
     def get_remote_path(agent, dirname):
         if dirname and not dirname.endswith("/"):
             dirname += "/"
-        return "%s%s" % (
-            "" if agent["host"] is None else "%s:" % agent["host"],
-            os.path.join(agent["path"]["remote"], dirname),
-        )
+        host_prefix = "" if agent["host"] is None else f"{agent['host']}:"
+        return f"{host_prefix}{os.path.join(agent['path']['remote'], dirname)}"
 
     def sync_all(self, masterid):
         for agentid in self.get_agents_by_master(masterid):
@@ -5271,12 +5252,12 @@ class DBAgent(DB):
         except (ValueError, TypeError, struct.error):
             pass
         with tempfile.NamedTemporaryFile(
-            prefix=str(scanid) + "-",
+            prefix=f"{scanid!s}-",
             dir=self.get_local_path(agent, "input"),
             delete=False,
             mode="w",
         ) as fdesc:
-            fdesc.write("%s\n" % addr)
+            fdesc.write(f"{addr}\n")
             return True
         return False
 
@@ -5541,9 +5522,7 @@ class DBRir(DB):
         opener = build_opener()
         new_files = set()
         for url in self.urls:
-            opener.addheaders = [
-                ("User-Agent", "IVRE/%s +https://ivre.rocks/" % VERSION)
-            ]
+            opener.addheaders = [("User-Agent", f"IVRE/{VERSION} +https://ivre.rocks/")]
             outfile = os.path.join(config.RIR_PATH, os.path.basename(url))
             try:
                 outstat = os.stat(outfile)
@@ -5683,7 +5662,7 @@ class DBFlowMeta(type):
             for kind, values in kinds.items():
                 if kind == "keys":
                     for name in values:
-                        list_fields.append("meta.%s.%s" % (proto, name))
+                        list_fields.append(f"meta.{proto}.{name}")
         return list_fields
 
 
@@ -5727,7 +5706,7 @@ class DBFlow(DB):
         """
         query = flow.Query()
         for flt_type in ["node", "edge"]:
-            for flt in filters.get("%ss" % flt_type, []):
+            for flt in filters.get(f"{flt_type}s", []):
                 query.add_clause_from_filter(flt)
         return query
 
@@ -5848,9 +5827,9 @@ class DBFlow(DB):
         row must be a flow entry.
         """
         label = (
-            row.get("proto") + "/" + str(row.get("dport"))
+            f"{row.get('proto')}/{row.get('dport')!s}"
             if row.get("proto") in ["tcp", "udp"]
-            else row.get("proto") + "/" + str(row.get("type"))
+            else f"{row.get('proto')}/{row.get('type')!s}"
         )
         res = {
             "id": str(row.get("_id")),

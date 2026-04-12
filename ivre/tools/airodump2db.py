@@ -96,7 +96,7 @@ def rec_iter(
                         ignore_rules,
                         dict(
                             baserec,
-                            source="WLAN_AP_%s" % fld.upper().replace(" ", "_"),
+                            source=f"WLAN_AP_{fld.upper().replace(' ', '_')}",
                             # count=line["# beacons"],
                             **{
                                 "addr" if fld == "LAN IP" else "targetval": str(
@@ -110,7 +110,7 @@ def rec_iter(
                 privacy = line["Privacy"].replace(" ", "_")
                 for fld in ["Cipher", "Authentication"]:
                     if line.get(fld):
-                        privacy = "%s-%s" % (privacy, line[fld])
+                        privacy = f"{privacy}-{line[fld]}"
                 yield from _handle_rec(
                     ignore_rules,
                     dict(

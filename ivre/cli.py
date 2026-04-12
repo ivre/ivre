@@ -73,10 +73,10 @@ def _main():
         command = "help"
     else:
         command = tools.ALIASES.get(sys.argv[1], sys.argv[1])
-        sys.argv = ["%s %s" % (executable, sys.argv[1])] + sys.argv[2:]
+        sys.argv = [f"{executable} {sys.argv[1]}"] + sys.argv[2:]
     if command.lower() in HELP_COMMANDS and len(sys.argv) > 1:
         command = sys.argv[1]
-        sys.argv = ["%s %s" % (executable, sys.argv[1]), "--help"] + sys.argv[2:]
+        sys.argv = [f"{executable} {sys.argv[1]}", "--help"] + sys.argv[2:]
     possible_commands = tools.guess_command(command)
     if len(possible_commands) == 1:
         tools.get_command(next(iter(possible_commands)))()
@@ -91,19 +91,16 @@ def _main():
         else:
             output = sys.stderr
             output.write(
-                "%s command: %s\n\n"
-                % ("Ambiguous" if possible_commands else "Unknown", command)
+                f"{'Ambiguous' if possible_commands else 'Unknown'} command: {command}\n\n"
             )
             retcode = 1
         version()
-        output.write("usage: %s [COMMAND]\n\n" % executable)
-        output.write(
-            "%s commands:\n" % ("matching" if possible_commands else "available")
-        )
+        output.write(f"usage: {executable} [COMMAND]\n\n")
+        output.write(f"{'matching' if possible_commands else 'available'} commands:\n")
         for availcmd in sorted(
             possible_commands if possible_commands else tools.guess_command("")
         ):
-            output.write("  %s\n" % availcmd)
+            output.write(f"  {availcmd}\n")
         output.write("\n")
-        output.write("Try %s help [COMMAND]\n\n" % executable)
+        output.write(f"Try {executable} help [COMMAND]\n\n")
         sys.exit(retcode)

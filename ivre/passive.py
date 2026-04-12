@@ -202,9 +202,8 @@ def _prepare_rec_ntlm(spec, new_recontype):
             "_prepare_rec_ntlm(): cannot decode %r", spec["value"], exc_info=True
         )
         return
-    spec["value"] = "%s %s" % (
-        spec["value"].split(None, 1)[0],
-        ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)),
+    spec["value"] = (
+        f"{spec['value'].split(None, 1)[0]} {ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))}"
     )
     # Separate the NTLM flags from the rest of the message's info
     # for NTLMSSP_NEGOTIAGE and NTLMSSP_CHALLENGE messages
@@ -216,7 +215,7 @@ def _prepare_rec_ntlm(spec, new_recontype):
         except ValueError:
             spec["value"] = ""
         else:
-            spec["value"] = "NTLM %s" % spec["value"]
+            spec["value"] = f"NTLM {spec['value']}"
         fingerprint["value"] = fingerprint["value"][5:]
         yield fingerprint
     yield spec
@@ -242,6 +241,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
         else:
             match = SYMANTEC_SEP_UA.match(spec["value"])
             if match is not None:
+                # pylint: disable=consider-using-f-string
                 spec["value"] = "%s%s" % match.groups()
     # Change any Digest authorization header to remove non-constant
     # information. On one hand we loose the necessary information to
@@ -258,13 +258,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if authtype.lower() == "digest":
                 try:
                     # we only keep relevant info
-                    spec["value"] = "%s %s" % (
-                        authtype,
-                        ",".join(
-                            val
-                            for val in _split_digest_auth(value[6:].strip())
-                            if DIGEST_AUTH_INFOS.match(val)
-                        ),
+                    spec["value"] = (
+                        f"{authtype} {','.join((val for val in _split_digest_auth(value[6:].strip()) if DIGEST_AUTH_INFOS.match(val)))}"
                     )
                 except Exception:
                     utils.LOGGER.warning(
@@ -286,13 +281,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if authtype.lower() == "digest":
                 try:
                     # we only keep relevant info
-                    spec["value"] = "%s %s" % (
-                        authtype,
-                        ",".join(
-                            val
-                            for val in _split_digest_auth(value[6:].strip())
-                            if DIGEST_AUTH_INFOS.match(val)
-                        ),
+                    spec["value"] = (
+                        f"{authtype} {','.join((val for val in _split_digest_auth(value[6:].strip()) if DIGEST_AUTH_INFOS.match(val)))}"
                     )
                 except Exception:
                     utils.LOGGER.warning(
@@ -322,7 +312,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                     "service_product": scanner,
                 }
                 if probe is not None:
-                    info["service_extrainfo"] = "TCP probe %s" % probe
+                    info["service_extrainfo"] = f"TCP probe {probe}"
                 spec.setdefault("infos", {}).update(info)
             else:
                 probe = utils.get_nmap_probes("tcp").get(data)
@@ -331,7 +321,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                         {
                             "service_name": "scanner",
                             "service_product": "Nmap",
-                            "service_extrainfo": "TCP probe %s" % probe,
+                            "service_extrainfo": f"TCP probe {probe}",
                         }
                     )
     elif spec["recontype"] == "UDP_HONEYPOT_HIT":
@@ -343,7 +333,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 "service_product": scanner,
             }
             if probe is not None:
-                info["service_extrainfo"] = "UDP probe %s" % probe
+                info["service_extrainfo"] = f"UDP probe {probe}"
             spec.setdefault("infos", {}).update(info)
         else:
             probe = utils.get_nmap_probes("udp").get(data)
@@ -352,7 +342,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                     {
                         "service_name": "scanner",
                         "service_product": "Nmap",
-                        "service_extrainfo": "UDP probe %s" % probe,
+                        "service_extrainfo": f"UDP probe {probe}",
                     }
                 )
             else:
@@ -362,7 +352,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                         {
                             "service_name": "scanner",
                             "service_product": "Nmap",
-                            "service_extrainfo": "UDP payload %s" % payload,
+                            "service_extrainfo": f"UDP payload {payload}",
                         }
                     )
     elif spec["recontype"] == "STUN_HONEYPOT_REQUEST":
@@ -382,12 +372,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if MD5.search(clientvalue) is None:
                 spec["infos"].setdefault("client", {})["raw"] = clientvalue
                 spec["source"] = (
-                    "ja3-%s"
-                    % hashlib.new(
-                        "md5",
-                        data=clientvalue.encode(),
-                        usedforsecurity=False,
-                    ).hexdigest()
+                    f"ja3-{hashlib.new('md5', data=clientvalue.encode(), usedforsecurity=False).hexdigest()}"
                 )
             else:
                 spec["source"] = f"ja3-{clientvalue}"
@@ -437,7 +422,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if match is not None:
                 spec["recontype"] = "DNS_BLACKLIST"
                 spec["value"] = spec.get("addr")
-                spec["source"] = "%s-%s" % (dnsbl_val[match.end() :], spec["source"])
+                spec["source"] = f"{dnsbl_val[match.end():]}-{spec['source']}"
                 addr = match.group()
                 # IPv4
                 if addr.count(".") == 4:

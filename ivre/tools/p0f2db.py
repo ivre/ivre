@@ -82,7 +82,7 @@ def rec_iter(
                     # srvport
                     srvport=port,
                     # recon_type
-                    recon_type="P0FV3_%s" % line["mod"].upper(),
+                    recon_type=f"P0FV3_{line['mod'].upper()}",
                     # source
                     source="P0FV3",
                     # value

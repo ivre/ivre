@@ -131,9 +131,9 @@ def banner2ja34c(banner: bytes, protocol: str) -> tuple[str, str, str, str, str]
         output_ja3.append("-".join(str(v) for v in ecsg))
         output_ja3.append("-".join(str(v) for v in ecpf))
         output_ja4_a = f"{protocol}{JA4_VERSIONS.get(version, '??')}{sni}{min(len(ciphers), 99)}{min(len(exts), 99)}{'00' if alpn == '--' else alpn}"
-        output_ja4_b = ",".join("%04x" % c for c in sorted(ciphers))
-        output_ja4_c1 = ",".join("%04x" % c for c in sorted(exts) if c not in {0, 16})
-        output_ja4_c2 = ",".join("%04x" % c for c in signatures)
+        output_ja4_b = ",".join(f"{c:04x}" for c in sorted(ciphers))
+        output_ja4_c1 = ",".join(f"{c:04x}" for c in sorted(exts) if c not in {0, 16})
+        output_ja4_c2 = ",".join(f"{c:04x}" for c in signatures)
         break
     if not output_ja3:
         return None
