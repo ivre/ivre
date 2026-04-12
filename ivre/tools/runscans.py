@@ -35,7 +35,7 @@ import sys
 import termios
 import time
 from multiprocessing import Pool
-from typing import Any, IO, Type
+from typing import IO, Any, Type
 
 import ivre.agent
 import ivre.geoiputils

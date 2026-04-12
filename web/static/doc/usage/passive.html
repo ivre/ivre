@@ -112,8 +112,8 @@
 Bro), version 3.0 minimum (tested with 3.0 and 3.1) with the option
 <code class="docutils literal notranslate"><span class="pre">-b</span></code> and the location of the <code class="docutils literal notranslate"><span class="pre">passiverecon/bare.zeek</span></code> file. If you
 want to run it on the <code class="docutils literal notranslate"><span class="pre">eth0</span></code> interface, for example, run (replace
-<code class="docutils literal notranslate"><span class="pre">/usr/share/ivre</span></code> by the appropriate location; use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span>
-<span class="pre">'import</span> <span class="pre">ivre.config;</span> <span class="pre">print(ivre.config.guess_prefix())'</span></code> if you
+<code class="docutils literal notranslate"><span class="pre">/usr/share/ivre/zeek</span></code> by the appropriate location; use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span>
+<span class="pre">'import</span> <span class="pre">ivre.config;</span> <span class="pre">print(ivre.config.guess_prefix(&quot;zeek&quot;))'</span></code> if you
 cannot find it):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir logs
 $ sudo LOG_PATH=logs/passiverecon \

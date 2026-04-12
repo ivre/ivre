@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of IVRE.
 # Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
@@ -16,180 +14,26 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+"""Residual setup.py for data_files (dynamic os.listdir() calls
+require Python, which pyproject.toml cannot express).
+"""
 
 import os
 
-# pylint: disable=deprecated-module
-from distutils.command.install_data import install_data
-from distutils.command.install_lib import install_lib
-from distutils.core import setup
-from distutils.dist import DistributionMetadata
-from tempfile import TemporaryFile
-
-VERSION = __import__("ivre").VERSION
+from setuptools import setup
 
 
-class smart_install_data(install_data):
-    """Replacement for distutils.command.install_data to handle
-    configuration files location.
-
-    """
-
-    def run(self):
-        # install files to /etc when target was /usr(/local)/etc
-        if self.install_dir.endswith("/usr") or self.install_dir.endswith("/usr/local"):
-            self.data_files = [
-                ("/%s" % path if path.startswith("etc/") else path, files)
-                for path, files in self.data_files
-                if path  # skip README.md or any file with an empty path
-            ]
-        else:
-            self.data_files = [
-                (path, files)
-                for path, files in self.data_files
-                if path  # skip README.md or any file with an empty path
-            ]
-        return super().run()
-
-
-class smart_install_lib(install_lib):
-    """Replacement for distutils.command.install_lib to handle
-    version file.
-
-    """
-
-    def run(self):
-        super().run()
-        fullfname = os.path.join(self.install_dir, "ivre", "__init__.py")
-        tmpfname = "%s.tmp" % fullfname
-        stat = os.stat(fullfname)
-        os.rename(fullfname, tmpfname)
-        with open(fullfname, "w", encoding="utf8") as newf:
-            with open(tmpfname, encoding="utf8") as oldf:
-                for line in oldf:
-                    if line.startswith("import "):
-                        newf.write(f"__version__ = VERSION = {VERSION!r}\n")
-                        break
-                    newf.write(line)
-        os.chown(fullfname, stat.st_uid, stat.st_gid)
-        os.chmod(fullfname, stat.st_mode)
-        os.unlink(tmpfname)
-
-
-with open(
-    os.path.join(os.path.abspath(os.path.dirname("__file__")), "README.md"),
-    encoding="utf8",
-) as fdesc:
-    long_description = fdesc.read()
-long_description_content_type = "text/markdown"
-
-
-# Monkey patching (distutils does not handle Description-Content-Type
-# from long_description_content_type parameter in setup()).
-_write_pkg_file_orig = DistributionMetadata.write_pkg_file
-
-
-def _write_pkg_file(self, file):
-    with TemporaryFile(mode="w+") as tmpfd:
-        _write_pkg_file_orig(self, tmpfd)
-        tmpfd.seek(0)
-        for line in tmpfd:
-            if line.startswith("Metadata-Version: "):
-                file.write("Metadata-Version: 2.1\n")
-            elif line.startswith("Description: "):
-                file.write(
-                    "Description-Content-Type: %s; charset=UTF-8\n"
-                    % long_description_content_type
-                )
-                file.write(line)
-            else:
-                file.write(line)
-
-
-DistributionMetadata.write_pkg_file = _write_pkg_file
+def collect_files(directory, extensions):
+    """Collect files from directory matching given extensions."""
+    return [
+        os.path.join(directory, f)
+        for f in sorted(os.listdir(directory))
+        if any(f.endswith(ext) for ext in extensions)
+    ]
 
 
 setup(
-    name="ivre",
-    version=VERSION,
-    author="Pierre LALET",
-    author_email="pierre@droids-corp.org",
-    url="https://ivre.rocks/",
-    download_url="https://github.com/ivre/ivre/tarball/master",
-    license="GPL-3.0-or-later",
-    description="Network recon framework",
-    long_description=long_description,
-    long_description_content_type=long_description_content_type,
-    keywords=[
-        "network",
-        "network recon",
-        "network cartography",
-        "nmap",
-        "masscan",
-        "zmap",
-        "zgrab",
-        "zdns",
-        "bro",
-        "zeek",
-    ],
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Environment :: Console",
-        "Environment :: Web Environment",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Information Technology",
-        "Intended Audience :: Science/Research",
-        "Intended Audience :: System Administrators",
-        "Intended Audience :: Telecommunications Industry",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: 3.14",
-        "Topic :: Scientific/Engineering :: Information Analysis",
-        "Topic :: Security",
-        "Topic :: System :: Networking",
-        "Topic :: System :: Networking :: Monitoring",
-        "Topic :: System :: Software Distribution",
-    ],
-    python_requires=">=3.11, <4",
-    install_requires=[
-        "cryptography",
-        "pymongo>=3.7",
-        "pyOpenSSL>=16.1.0",
-        "bottle",
-    ],
-    extras_require={
-        "MongoDB mongo+srv URIs": ["pymongo[srv]"],
-        "TinyDB (experimental)": ["tinydb"],
-        "PostgreSQL (experimental)": ["sqlalchemy", "psycopg2"],
-        "Elasticsearch (experimental)": ["elasticsearch", "elasticsearch-dsl"],
-        "GSSAPI authentication for MongoDB": ["python-krbV"],
-        "GSSAPI authentication for HTTP": ["pycurl"],
-        "Screenshots": ["PIL"],
-        "MediaWiki integration": ["MySQL-python"],
-        "3D traceroute graphs": ["dbus-python"],
-        "Plots": ["matplotlib"],
-        "JA3 fingerprints from reverse-ssl services": ["scapy"],
-    },
-    packages=[
-        "ivre",
-        "ivre/active",
-        "ivre/analyzer",
-        "ivre/data",
-        "ivre/data/abuse_ch",
-        "ivre/data/microsoft",
-        "ivre/db",
-        "ivre/db/sql",
-        "ivre/parser",
-        "ivre/tags",
-        "ivre/tools",
-        "ivre/types",
-        "ivre/web",
-    ],
-    scripts=["bin/ivre"],
     data_files=[
-        ("", ["README.md"]),  # needed for the package description
         ("share/ivre/zeek", ["zeek/passiverecon2db-ignore.example"]),
         ("share/ivre/zeek/ivre", ["zeek/ivre/__load__.zeek"]),
         ("share/ivre/zeek/ivre/arp", ["zeek/ivre/arp/__load__.zeek"]),
@@ -246,176 +90,73 @@ setup(
         ),
         (
             "share/ivre/web/static",
-            [
-                "web/static/index.html",
-                "web/static/compare.html",
-                "web/static/flow.html",
-                "web/static/report.html",
-                "web/static/upload.html",
-                "web/static/favicon-loading.gif",
-                "web/static/favicon.png",
-                "web/static/loading.gif",
-                "web/static/logo.png",
-                "web/static/droids.png",
-                "web/static/world-110m.json",
-            ],
+            collect_files("web/static", [".gif", ".html", ".json", ".png"]),
         ),
         (
             "share/ivre/web/static/templates",
-            [
-                "web/static/templates/filters.html",
-                "web/static/templates/graph-right-click.html",
-                "web/static/templates/menu.html",
-                "web/static/templates/messages.html",
-                "web/static/templates/progressbar.html",
-                "web/static/templates/query-builder.html",
-                "web/static/templates/view-cpes-only.html",
-                "web/static/templates/view-hosts.html",
-                "web/static/templates/view-screenshots-only.html",
-                "web/static/templates/view-scripts-only.html",
-                "web/static/templates/view-ports-only.html",
-                "web/static/templates/view-services-only.html",
-                "web/static/templates/view-vulnerabilities-only.html",
-                "web/static/templates/subview-cpes.html",
-                "web/static/templates/subview-graph-elt-details.html",
-                "web/static/templates/subview-host-summary.html",
-                "web/static/templates/subview-port-summary.html",
-                "web/static/templates/subview-ports-summary.html",
-                "web/static/templates/subview-service-summary.html",
-                "web/static/templates/topvalues.html",
-            ],
+            collect_files("web/static/templates", [".html"]),
         ),
         # Doc (Web)
         (
             "share/ivre/web/static/doc",
-            [
-                os.path.join("web/static/doc", x)
-                for x in os.listdir("web/static/doc")
-                if x.endswith(".html") or x.endswith(".js")
-            ],
+            collect_files("web/static/doc", [".html", ".js"]),
         ),
         (
             "share/ivre/web/static/doc/dev",
-            [
-                os.path.join("web/static/doc/dev", x)
-                for x in os.listdir("web/static/doc/dev")
-                if x.endswith(".html")
-            ],
+            collect_files("web/static/doc/dev", [".html"]),
         ),
         (
             "share/ivre/web/static/doc/install",
-            [
-                os.path.join("web/static/doc/install", x)
-                for x in os.listdir("web/static/doc/install")
-                if x.endswith(".html")
-            ],
+            collect_files("web/static/doc/install", [".html"]),
         ),
         (
             "share/ivre/web/static/doc/overview",
-            [
-                os.path.join("web/static/doc/overview", x)
-                for x in os.listdir("web/static/doc/overview")
-                if x.endswith(".html")
-            ],
+            collect_files("web/static/doc/overview", [".html"]),
         ),
         (
             "share/ivre/web/static/doc/usage",
-            [
-                os.path.join("web/static/doc/usage", x)
-                for x in os.listdir("web/static/doc/usage")
-                if x.endswith(".html")
-            ],
+            collect_files("web/static/doc/usage", [".html"]),
         ),
         (
             "share/ivre/web/static/doc/_images",
-            [
-                os.path.join("web/static/doc/_images", x)
-                for x in os.listdir("web/static/doc/_images")
-                if x.endswith(".png") or x.endswith(".png.map") or x.endswith(".svg")
-            ],
+            collect_files("web/static/doc/_images", [".png", ".png.map", ".svg"]),
         ),
         (
             "share/ivre/web/static/doc/_static",
-            [
-                os.path.join("web/static/doc/_static", x)
-                for x in os.listdir("web/static/doc/_static")
-                if x.endswith(".css") or x.endswith(".js") or x.endswith(".png")
-            ],
+            collect_files("web/static/doc/_static", [".css", ".js", ".png"]),
         ),
         (
             "share/ivre/web/static/doc/_static/css",
-            [
-                os.path.join("web/static/doc/_static/css", x)
-                for x in os.listdir("web/static/doc/_static/css")
-                if x.endswith(".css")
-            ],
+            collect_files("web/static/doc/_static/css", [".css"]),
         ),
         (
             "share/ivre/web/static/doc/_static/js",
-            [
-                os.path.join("web/static/doc/_static/js", x)
-                for x in os.listdir("web/static/doc/_static/js")
-                if x.endswith(".js")
-            ],
+            collect_files("web/static/doc/_static/js", [".js"]),
         ),
         (
             "share/ivre/web/static/doc/_sources",
-            [
-                os.path.join("web/static/doc/_sources", x)
-                for x in os.listdir("web/static/doc/_sources")
-                if x.endswith(".rst.txt")
-            ],
+            collect_files("web/static/doc/_sources", [".rst.txt"]),
         ),
         (
             "share/ivre/web/static/doc/_sources/dev",
-            [
-                os.path.join("web/static/doc/_sources/dev", x)
-                for x in os.listdir("web/static/doc/_sources/dev")
-                if x.endswith(".rst.txt")
-            ],
+            collect_files("web/static/doc/_sources/dev", [".rst.txt"]),
         ),
         (
             "share/ivre/web/static/doc/_sources/install",
-            [
-                os.path.join("web/static/doc/_sources/install", x)
-                for x in os.listdir("web/static/doc/_sources/install")
-                if x.endswith(".rst.txt")
-            ],
+            collect_files("web/static/doc/_sources/install", [".rst.txt"]),
         ),
         (
             "share/ivre/web/static/doc/_sources/overview",
-            [
-                os.path.join("web/static/doc/_sources/overview", x)
-                for x in os.listdir("web/static/doc/_sources/overview")
-                if x.endswith(".rst.txt")
-            ],
+            collect_files("web/static/doc/_sources/overview", [".rst.txt"]),
         ),
         (
             "share/ivre/web/static/doc/_sources/usage",
-            [
-                os.path.join("web/static/doc/_sources/usage", x)
-                for x in os.listdir("web/static/doc/_sources/usage")
-                if x.endswith(".rst.txt")
-            ],
+            collect_files("web/static/doc/_sources/usage", [".rst.txt"]),
         ),
         # IVRE
         (
             "share/ivre/web/static/ivre",
-            [
-                "web/static/ivre/flow.css",
-                "web/static/ivre/ivre.css",
-                "web/static/ivre/ivre-dark.css",
-                "web/static/ivre/compare.js",
-                "web/static/ivre/controllers.js",
-                "web/static/ivre/filters.js",
-                "web/static/ivre/form-helpers.js",
-                "web/static/ivre/graph.js",
-                "web/static/ivre/ivre.js",
-                "web/static/ivre/params.js",
-                "web/static/ivre/tooltip.js",
-                "web/static/ivre/utils.js",
-                "web/static/ivre/content.js",
-            ],
+            collect_files("web/static/ivre", [".css", ".js"]),
         ),
         ("share/ivre/web/static/ivre/flow", ["web/static/ivre/flow/controllers.js"]),
         # Bootstrap
@@ -456,7 +197,7 @@ setup(
             "share/ivre/web/static/fi/flags/4x3",
             [
                 os.path.join("web/static/fi/flags/4x3/", x)
-                for x in os.listdir("web/static/fi/flags/4x3/")
+                for x in sorted(os.listdir("web/static/fi/flags/4x3/"))
             ],
         ),
         # WSGI application
@@ -482,75 +223,33 @@ setup(
         ),
         (
             "share/ivre/patches/nmap/scripts",
-            [
-                "patches/nmap/scripts/http-screenshot.nse",
-                "patches/nmap/scripts/mainframe-banner.nse",
-                "patches/nmap/scripts/mainframe-screenshot.nse",
-                "patches/nmap/scripts/rdp-screenshot.nse",
-                "patches/nmap/scripts/rtsp-screenshot.nse",
-                "patches/nmap/scripts/vnc-screenshot.nse",
-                "patches/nmap/scripts/x11-screenshot.nse",
-            ],
+            collect_files("patches/nmap/scripts", [".nse"]),
         ),
         ("share/ivre/patches/p0f", ["patches/p0f/p0f.fp.patch"]),
         (
             "share/doc/ivre/rst",
-            [os.path.join("doc/", x) for x in os.listdir("doc/") if x.endswith(".rst")],
+            collect_files("doc", [".rst"]),
         ),
         (
             "share/doc/ivre/rst/dev",
-            [
-                os.path.join("doc/dev", x)
-                for x in os.listdir("doc/dev")
-                if x.endswith(".rst")
-            ],
+            collect_files("doc/dev", [".rst"]),
         ),
         (
             "share/doc/ivre/rst/install",
-            [
-                os.path.join("doc/install", x)
-                for x in os.listdir("doc/install")
-                if x.endswith(".rst")
-            ],
+            collect_files("doc/install", [".rst"]),
         ),
         (
             "share/doc/ivre/rst/overview",
-            [
-                os.path.join("doc/overview", x)
-                for x in os.listdir("doc/overview")
-                if x.endswith(".rst")
-            ],
+            collect_files("doc/overview", [".rst"]),
         ),
         (
             "share/doc/ivre/rst/usage",
-            [
-                os.path.join("doc/usage", x)
-                for x in os.listdir("doc/usage")
-                if x.endswith(".rst")
-            ],
+            collect_files("doc/usage", [".rst"]),
         ),
         (
             "share/doc/ivre/rst/screenshots",
-            [
-                "doc/screenshots/passive-cli.cast",
-                "doc/screenshots/passive-cli.svg",
-                "doc/screenshots/passive-view-cli.cast",
-                "doc/screenshots/passive-view-cli.svg",
-                "doc/screenshots/webui-details-heatmapzoom.png",
-                "doc/screenshots/webui-flow-details-flow.png",
-                "doc/screenshots/webui-flow-details-host.png",
-                "doc/screenshots/webui-flow-dns-halo.png",
-                "doc/screenshots/webui-flow-flow-map.png",
-                "doc/screenshots/webui-home-heatmap.png",
-                "doc/screenshots/webui-screenshots-solar-world.png",
-                "doc/screenshots/webui-tooltip-topenipvendors.png",
-                "doc/screenshots/webui-topproducts-80.png",
-            ],
+            collect_files("doc/screenshots", [".cast", ".png", ".svg"]),
         ),
-        ("etc/bash_completion.d", ["bash_completion/ivre"]),
+        ("share/bash-completion/completions", ["bash_completion/ivre"]),
     ],
-    package_data={
-        "ivre": ["VERSION"],
-    },
-    cmdclass={"install_data": smart_install_data, "install_lib": smart_install_lib},
 )

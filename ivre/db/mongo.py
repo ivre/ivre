@@ -42,11 +42,11 @@ import pymongo
 from pymongo.errors import BulkWriteError, CursorNotFound
 
 try:
-    import krbV  # type: ignore
+    import gssapi  # type: ignore
 except ImportError:
-    HAS_KRBV = False
+    HAS_GSSAPI = False
 else:
-    HAS_KRBV = True
+    HAS_GSSAPI = True
 
 
 from ivre import config, flow, passive, utils, xmlnmap
@@ -119,8 +119,8 @@ class MongoDBConnection:
                 self.params["password"] = password
             else:
                 username = unquote(auth)
-                if HAS_KRBV and username == "GSSAPI":
-                    username = krbV.default_context().default_ccache().principal().name
+                if HAS_GSSAPI and username == "GSSAPI":
+                    username = str(gssapi.Credentials(usage="initiate").name)
                     self.params["username"] = username
                     self.params["authMechanism"] = "GSSAPI"
                 elif "@" in username:

@@ -27,7 +27,7 @@ RUN apt-get -q update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Fix version
-RUN sed -ri 's#$#-docker#' /usr/local/lib/python*/dist-packages/ivre/VERSION && \
-    sed -ri 's#(VERSION = .*)(['\''"])$#\1-docker\2#' /usr/local/lib/python*/dist-packages/ivre/__init__.py
+RUN sed -ri 's#(version = .*)(['\''"])$#\1-docker\2#' \
+    /usr/local/lib/python*/dist-packages/ivre/_version.py
 
 RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

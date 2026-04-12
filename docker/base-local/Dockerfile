@@ -35,14 +35,14 @@ RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install python3 ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/local/etc/bash_completion.d/ivre /usr/local/etc/bash_completion.d/ivre
+COPY --from=builder /usr/local/share/bash-completion/completions/ivre /usr/local/share/bash-completion/completions/ivre
 COPY --from=builder /usr/local/lib/python3.13 /usr/local/lib/python3.13
 COPY --from=builder /usr/local/bin/ivre /usr/local/bin/ivre
 COPY --from=builder /usr/local/share/doc/ivre /usr/local/share/doc/ivre
 COPY --from=builder /usr/local/share/ivre /usr/local/share/ivre
 
 # Fix version
-RUN sed -ri 's#$#-docker#' /usr/local/lib/python*/dist-packages/ivre/VERSION && \
-    sed -ri 's#(VERSION = .*)(['\''"])$#\1-docker\2#' /usr/local/lib/python*/dist-packages/ivre/__init__.py
+RUN sed -ri 's#(version = .*)(['\''"])$#\1-docker\2#' \
+    /usr/local/lib/python*/dist-packages/ivre/_version.py
 
 RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

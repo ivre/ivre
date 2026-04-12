@@ -1,5 +1,0 @@
-elasticsearch
-elasticsearch-dsl
-cryptography
-pyOpenSSL>=16.1.0
-bottle

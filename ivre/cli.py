@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -46,6 +46,18 @@ VERSION_COMMANDS = ["-v", "--version"]
 
 
 def main():
+    logging.basicConfig()
+    try:
+        _main()
+    except KeyboardInterrupt:
+        # Gracefully exit on Ctrl+C without a traceback; 130 = 128 + SIGINT
+        sys.exit(130)
+    except IOError as exc:
+        if exc.errno != EPIPE:
+            raise
+
+
+def _main():
     executable = os.path.basename(sys.argv[0])
     if executable.startswith("ivre-"):
         # hack for blackarch package
@@ -95,15 +107,3 @@ def main():
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)
         sys.exit(retcode)
-
-
-if __name__ == "__main__":
-    logging.basicConfig()
-    try:
-        main()
-    except KeyboardInterrupt:
-        # Gracefully exit on Ctrl+C without a traceback; 130 = 128 + SIGINT
-        sys.exit(130)
-    except IOError as exc:
-        if exc.errno != EPIPE:
-            raise

@@ -4050,7 +4050,7 @@ class IvreTests(unittest.TestCase):
     def test_utils(self):
         """Functions that have not yet been tested"""
 
-        self.assertIsNotNone(ivre.config.guess_prefix())
+        self.assertIsNotNone(ivre.config.guess_prefix("zeek"))
         self.assertIsNone(ivre.config.guess_prefix("inexistent"))
 
         # Version / help

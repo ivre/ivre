@@ -1,0 +1,8 @@
+include README.md
+recursive-include zeek *.zeek *.example
+recursive-include data *
+recursive-include web *
+recursive-include docker *
+recursive-include patches *
+recursive-include doc *.rst *.cast *.svg *.png
+include bash_completion/ivre

@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-name: Maxmind tests
+name: Package builds
 
 on: [push, pull_request]
 
@@ -24,32 +24,24 @@ concurrency:
   cancel-in-progress: ${{ !contains(github.ref, 'master')}}
 
 jobs:
-  build:
+  arch:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.12', '3.13', '3.14']
-
+    container: archlinux:latest
     steps:
+
+    - name: Install dependencies
+      run: pacman -Syu --noconfirm base-devel git python python-build python-installer python-setuptools python-setuptools-scm
 
     - name: Git checkout
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
 
-    - name: Use Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install IVRE
-      uses: ./.github/actions/install
-
-    - run: cd tests && python tests.py
-      env:
-        CI: true
-        DB: maxmind
-
-    - run: cat /tmp/webserver.log
-      if: failure()
+    - name: Build packages
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git checkout -B ci-build
+        useradd -m builder
+        echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+        chown -R builder:builder .
+        su builder -c 'cd pkg/arch/ivre && makepkg -sf --noconfirm'

@@ -43,7 +43,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - run: pip install -r requirements-tinydb.txt
+    - run: pip install '.[tinydb]'
 
     - name: Install IVRE
       uses: ./.github/actions/install

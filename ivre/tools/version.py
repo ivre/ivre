@@ -48,7 +48,7 @@ def main() -> None:
         "bottle",
         "cryptography",
         "dbus",
-        "krbV",
+        "gssapi",
         "matplotlib",
         "psycopg2",
         "pycurl",
