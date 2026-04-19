@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>IVRE - Login</title>
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="stylesheet" href="bs/css/bootstrap.css">
+  <style>
+    body { background: #f5f5f5; }
+    .login-container {
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 30px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .login-container h2 { text-align: center; margin-bottom: 25px; }
+    .login-container img { display: block; margin: 0 auto 20px; height: 60px; }
+    .btn-provider { width: 100%; margin-bottom: 10px; text-align: left; padding: 10px 15px; }
+    .divider { text-align: center; margin: 20px 0; color: #999; }
+    .divider hr { margin-top: -12px; }
+    .status-msg { text-align: center; margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <img src="logo.png" alt="IVRE">
+    <h2>Sign in</h2>
+    <div id="providers"></div>
+    <div id="magic-link-section" style="display:none">
+      <div class="divider"><span>or</span></div>
+      <form id="magic-link-form">
+        <div class="form-group">
+          <input type="email" class="form-control" id="email"
+                 placeholder="Email address" required>
+        </div>
+        <button type="submit" class="btn btn-default btn-provider">
+          <i class="glyphicon glyphicon-envelope"></i> Send login link
+        </button>
+      </form>
+      <div id="magic-link-status" class="status-msg" style="display:none"></div>
+    </div>
+    <div id="error-msg" class="alert alert-danger" style="display:none"></div>
+  </div>
+  <script>
+    var providerLabels = {
+      google: "Sign in with Google",
+      microsoft: "Sign in with Microsoft",
+      github: "Sign in with GitHub",
+      oidc: "Sign in with SSO"
+    };
+    var providerClasses = {
+      google: "btn-danger",
+      microsoft: "btn-primary",
+      github: "btn-default",
+      oidc: "btn-info"
+    };
+    var providerIcons = {
+      google: "globe",
+      microsoft: "cloud",
+      github: "console",
+      oidc: "log-in"
+    };
+
+    fetch("cgi/auth/config").then(function(r) { return r.json(); }).then(function(authConfig) {
+      if (!authConfig.enabled) {
+        document.getElementById("error-msg").style.display = "block";
+        document.getElementById("error-msg").textContent = "Authentication is not enabled on this instance.";
+        return;
+      }
+      // Override default labels with server-configured ones
+      var serverLabels = authConfig.provider_labels || {};
+      for (var key in serverLabels) {
+        providerLabels[key] = "Sign in with " + serverLabels[key];
+      }
+      var container = document.getElementById("providers");
+      authConfig.providers.forEach(function(provider) {
+        var btn = document.createElement("a");
+        btn.href = "cgi/auth/login/" + provider;
+        btn.className = "btn " + (providerClasses[provider] || "btn-default") + " btn-provider";
+        btn.innerHTML = '<i class="glyphicon glyphicon-' + (providerIcons[provider] || "log-in") + '"></i> ' + (providerLabels[provider] || provider);
+        container.appendChild(btn);
+      });
+      if (authConfig.magic_link) {
+        document.getElementById("magic-link-section").style.display = "block";
+      }
+    });
+
+    document.getElementById("magic-link-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      var email = document.getElementById("email").value;
+      var status = document.getElementById("magic-link-status");
+      fetch("cgi/auth/magic-link", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({email: email})
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        status.style.display = "block";
+        status.className = "status-msg text-success";
+        status.textContent = data.message || "Check your email for a login link.";
+      }).catch(function() {
+        status.style.display = "block";
+        status.className = "status-msg text-danger";
+        status.textContent = "An error occurred. Please try again.";
+      });
+    });
+
+    // Check URL params for error messages
+    var params = new URLSearchParams(window.location.search);
+    if (params.get("error")) {
+      var msg = document.getElementById("error-msg");
+      msg.style.display = "block";
+      msg.textContent = params.get("error");
+    }
+  </script>
+</body>
+</html>

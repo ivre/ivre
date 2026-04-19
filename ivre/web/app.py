@@ -30,74 +30,15 @@ import json
 import os
 import tempfile
 from collections import namedtuple
-from functools import wraps
 
-from bottle import Bottle, abort, request, response
+from bottle import abort, request, response
 
 from ivre import VERSION, config, utils
 from ivre.db import db
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
-
-application = Bottle()
-
-
-#
-# Utils
-#
-
-
-def check_referer(func):
-    """Wrapper for route functions to implement a basic anti-CSRF check
-    based on the Referer: header.
-
-        It will abort (status code 400) if the referer is invalid.
-
-    """
-
-    if config.WEB_ALLOWED_REFERERS is False:
-        return func
-
-    def _die(referer):
-        utils.LOGGER.critical("Invalid Referer header [%r]", referer)
-        response.set_header("Content-Type", "application/javascript")
-        response.status = "400 Bad Request"
-        return webutils.js_alert(
-            "referer", "error", "Invalid Referer header. Check your configuration."
-        )
-
-    @wraps(func)
-    def _newfunc(*args, **kargs):
-        # Header with an existing X-API-Key header or an
-        # Authorization: Bearer XXX are OK. Note: IVRE does not check
-        # those values, they only serve as anti-CSRF protections.
-        if request.headers.get("X-API-Key") or (
-            request.headers.get("Authorization")
-            and (
-                request.headers.get("Authorization", "").split(None, 1)[0].lower()
-                == "bearer"
-            )
-        ):
-            return func(*args, **kargs)
-
-        referer = request.headers.get("Referer")
-        if not referer:
-            return _die(referer)
-        if config.WEB_ALLOWED_REFERERS is None:
-            base_url = f"{'/'.join(request.url.split('/', 3)[:3])}/"
-            if referer.startswith(base_url):
-                return func(*args, **kargs)
-        elif (
-            # pylint: disable=unsupported-membership-test
-            referer
-            in config.WEB_ALLOWED_REFERERS
-        ):
-            return func(*args, **kargs)
-        return _die(referer)
-
-    return _newfunc
-
+from ivre.web.base import application, check_referer
 
 #
 # Configuration
@@ -119,10 +60,10 @@ def get_config():
         ("notesbase", config.WEB_NOTES_BASE),
         ("dflt_limit", config.WEB_LIMIT),
         ("warn_dots_count", config.WEB_WARN_DOTS_COUNT),
-        ("publicsrv", config.WEB_PUBLIC_SRV),
         ("uploadok", config.WEB_UPLOAD_OK),
         ("flow_time_precision", config.FLOW_TIME_PRECISION),
         ("version", VERSION),
+        ("auth_enabled", config.WEB_AUTH_ENABLED),
     ]:
         yield f"config.{key} = {json.dumps(value)};\n"
     yield f'fetch("https://ivre.rocks/version?{VERSION}").then(r=>r.text()).then(d=>config.curver=d).catch(()=>{{}});\n'
@@ -710,15 +651,6 @@ def parse_form():
         utils.LOGGER.critical("source is mandatory")
         abort(400, "ERROR: source is mandatory\n")
     files = request.files.getall("result")
-    if config.WEB_PUBLIC_SRV:
-        if webutils.get_user() is None:
-            utils.LOGGER.critical("username is mandatory on public instances")
-            abort(400, "ERROR: username is mandatory on public instances")
-        if request.forms.get("public") == "on":
-            categories.add("Shared")
-        user = webutils.get_anonymized_user()
-        categories.add(user)
-        source = f"{user}-{source}"
     return (request.forms.get("referer"), source, categories, files)
 
 
@@ -1067,3 +999,19 @@ def get_passive_count():
     if flt_params.callback is None:
         return f"{count}\n"
     return f"{flt_params.callback}({count});\n"
+
+
+# Auth check route for nginx auth_request — always registered so that
+# Dokuwiki (and other auth_request-protected locations) work even when
+# authentication is disabled.
+if config.WEB_AUTH_ENABLED:
+    from ivre.web import auth as _auth  # noqa: F401
+else:
+
+    @application.get("/auth/check")
+    def auth_check() -> str:
+        """When auth is disabled, allow all requests."""
+        user = request.environ.get("REMOTE_USER")
+        if user:
+            response.set_header("X-Auth-User", user)
+        return ""

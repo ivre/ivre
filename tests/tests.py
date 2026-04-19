@@ -5034,10 +5034,10 @@ class IvreTests(unittest.TestCase):
             "notesbase": ivre.config.WEB_NOTES_BASE,
             "dflt_limit": ivre.config.WEB_LIMIT,
             "warn_dots_count": ivre.config.WEB_WARN_DOTS_COUNT,
-            "publicsrv": ivre.config.WEB_PUBLIC_SRV,
             "uploadok": ivre.config.WEB_UPLOAD_OK,
             "flow_time_precision": ivre.config.FLOW_TIME_PRECISION,
             "version": ivre.VERSION,
+            "auth_enabled": ivre.config.WEB_AUTH_ENABLED,
         }
         for line in udesc:
             if not line.startswith(b"config."):

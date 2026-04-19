@@ -470,9 +470,15 @@ the IVRE application; for example:</p>
 </section>
 <section id="authentication-and-acls">
 <h3>Authentication and ACLs<a class="headerlink" href="#authentication-and-acls" title="Link to this heading"></a></h3>
-<p>If you want to use an authentication in IVRE, you have to configure
-your Web server (e.g., Apache or Nginx) to do so and set the
-environment variable <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> to the username.</p>
+<p>If you want to use an authentication in IVRE, you have two options:</p>
+<ul class="simple">
+<li><p>configure your Web server (e.g., Apache or Nginx) to handle the
+authentication and set the environment variable <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> to
+the username.</p></li>
+<li><p>use one (or more) OAuth providers for authentication, Magic Links
+(via email) and API keys. See <a class="reference internal" href="../usage/web-auth.html"><span class="doc">Web Authentication</span></a> for the
+complete authentication documentation.</p></li>
+</ul>
 <p>If you want to do some authorization based on the authentication, you
 can do so by setting a couple of variables; by default, ACL is
 disabled, and everyone (that can access the <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> URLs) can access

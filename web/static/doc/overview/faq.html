@@ -149,13 +149,20 @@ Web server error logs.</p>
 <section id="how-can-i-restrict-access-to-ivre-s-web-interface">
 <h3>How can I restrict access to IVRE’s Web interface<a class="headerlink" href="#how-can-i-restrict-access-to-ivre-s-web-interface" title="Link to this heading"></a></h3>
 <p><strong>I want to prevent unauthorized access to IVRE’s results.</strong></p>
-<p>First, you have to configure your web server to authenticate remote
-users. The most important, of course, is to protect access to CGI files
-(the static files are publicly available and do not contain any result).</p>
-<p>In an AD or Kerberos environment for example, Apache can be configured
-to provide SSO authentication.</p>
-<p>Then, if you want to restrict access to the results based on the user
-login or domain, you can add the following lines to <code class="docutils literal notranslate"><span class="pre">/etc/ivre.conf</span></code>:</p>
+<p>There are two ways to handle authentication:</p>
+<ul class="simple">
+<li><p><strong>Built-in authentication</strong>: IVRE supports OAuth providers (GitHub,
+Google, Microsoft, Generic OIDC), magic links (via email), and API
+keys. See <a class="reference internal" href="../usage/web-auth.html"><span class="doc">Web Authentication</span></a> for the complete documentation.</p></li>
+<li><p><strong>Web server authentication</strong>: configure your web server (Apache,
+nginx, etc.) to handle the authentication (HTTP Basic, LDAP, AD,
+Kerberos, SAML, client certificates, etc.) and set the
+<code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> environment variable. See
+<a class="reference internal" href="../usage/web-auth.html"><span class="doc">Web Authentication</span></a> for how IVRE uses <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code>.</p></li>
+</ul>
+<p>Both options can be combined (see <a class="reference internal" href="../usage/web-auth.html"><span class="doc">Web Authentication</span></a>).</p>
+<p>To restrict access to the results based on the user login or domain,
+add the following lines to <code class="docutils literal notranslate"><span class="pre">/etc/ivre.conf</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s1">&#39;admin@SUBNETWORK.NETWORK.AD&#39;</span><span class="p">:</span> <span class="s1">&#39;category:SubNetwork&#39;</span><span class="p">,</span>

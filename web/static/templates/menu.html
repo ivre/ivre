@@ -98,13 +98,92 @@
 
   </ul>
 
-  <ul class="nav navbar-nav col-lg-1 col-md-2 visible-lg visible-md">
-    <a title="Droids Corporation"
-       href="https://www.droids-corp.org/"
-       target="_blank"
-       class="navbar-link"
-       style="margin-right: 15%;">
-      <img alt="Droids Corporation" src="droids.png" class="logo"/>
-    </a>
+  <ul ng-if="auth_user" class="nav navbar-nav col-lg-1 col-md-2">
+    <!-- User menu -->
+    <li class="dropdown">
+      <a class="dropdown-toggle clickable" data-toggle="dropdown">
+        <i class="glyphicon glyphicon-user white"></i>
+        <span class="hidden-sm hidden-md">{{auth_user.display_name || auth_user.email}}</span>
+        <b class="caret"></b>
+      </a>
+      <ul class="dropdown-menu dropdown-menu-right">
+        <li class="dropdown-header">{{auth_user.email}}</li>
+        <li class="divider"></li>
+        <li><a class="clickable" ng-click="manage_api_keys()">
+          <i class="glyphicon glyphicon-lock"></i> API Keys
+        </a></li>
+        <li ng-if="auth_user.is_admin"><a ng-href="{{get_href('admin.html', true)}}">
+          <i class="glyphicon glyphicon-cog"></i> Admin
+        </a></li>
+        <li class="divider"></li>
+        <li><a class="clickable" ng-click="logout()">
+          <i class="glyphicon glyphicon-log-out"></i> Sign out
+        </a></li>
+      </ul>
+    </li>
   </ul>
+</div>
+
+<!-- API Keys panel (shown when toggled from user menu) -->
+<div ng-if="show_api_keys" class="container-fluid no-export"
+     style="margin-top: 55px; padding: 15px; background: #f9f9f9; border-bottom: 1px solid #ddd;">
+  <div class="row">
+    <div class="col-md-8 col-md-offset-2">
+      <h4>API Keys
+        <button class="btn btn-sm btn-success pull-right" ng-click="create_api_key()">
+          <i class="glyphicon glyphicon-plus"></i> New key
+        </button>
+        <button class="btn btn-sm btn-default pull-right" style="margin-right: 5px;" ng-click="manage_api_keys()">
+          <i class="glyphicon glyphicon-remove"></i> Close
+        </button>
+      </h4>
+      <table class="table table-condensed" ng-if="api_keys.length">
+        <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+        <tbody>
+          <tr ng-repeat="key in api_keys">
+            <td>{{key.name}}</td>
+            <td><code>{{key.key_prefix}}...</code></td>
+            <td>{{key.created_at | date:'short'}}</td>
+            <td>{{key.last_used ? (key.last_used | date:'short') : 'Never'}}</td>
+            <td><button class="btn btn-xs btn-danger" ng-click="delete_api_key(key.key_hash)">Revoke</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <p ng-if="!api_keys.length" class="text-muted">No API keys yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: show newly created API key -->
+<div class="modal fade" id="apiKeyModal" tabindex="-1" role="dialog"
+     aria-labelledby="apiKeyModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"
+                aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="apiKeyModalLabel">API Key Created</h4>
+      </div>
+      <div class="modal-body">
+        <p>Copy your API key now &mdash; it won't be shown again.</p>
+        <div class="input-group">
+          <input type="text" class="form-control" id="apiKeyValue"
+                 ng-model="new_api_key" readonly />
+          <span class="input-group-btn">
+            <button class="btn btn-default" type="button"
+                    ng-click="copy_api_key()">
+              <i class="glyphicon glyphicon-copy"></i> Copy
+            </button>
+          </span>
+        </div>
+        <p ng-if="api_key_copied" class="text-success" style="margin-top: 8px;">
+          <i class="glyphicon glyphicon-ok"></i> Copied!
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary"
+                data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
