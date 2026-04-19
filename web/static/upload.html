@@ -33,6 +33,7 @@
       var config = {};
     </script>
     <script type="text/javascript" src="cgi/config"></script>
+    <script type="text/javascript" src="ivre/ivre.js"></script>
     <script type="text/javascript" src="ivre/form-helpers.js"></script>
     <script type="text/javascript" src="ivre/controllers.js"></script>
     <title>IVRE Web UI</title>
@@ -74,15 +75,6 @@
 		scan, etc.).</p>
 	      <p class="help-block">Example: <code>Country-XX,Standard</code>,
 		or <code>AS-12345,Fast</code>.</p>
-	      <p class="help-block" ng-class="{hidden: !publicsrv}">If
-		you are authenticated, your username will be set as a
-		category in addition to those specified. If you decide
-		to share those results with other users of this
-		instance (see below), the category "Shared" will be
-		set in addition to those specified (and if you include
-		a category "Shared", the results will be available to
-		other users of this instance, regardless of "Make the
-		results public").</p>
 	    </div>
 	  </div>
 	  <div class="form-group"
@@ -100,35 +92,6 @@
 		scan (Network, etc.).<b> This field is mandatory.</b></p>
 	      <p class="help-block">Example: <code>Provider-Scanner0</code>,
 		or <code>ISP-192.168.0.1</code>.</p>
-	    </div>
-	  </div>
-	  <div class="form-group"  ng-class="{hidden: !publicsrv}">
-	    <div class="col-sm-10 col-sm-offset-2">
-	      <div class="checkbox">
-		<label>
-		  <input type="checkbox" name="public" id="uploadPublic"> Share these results
-		</label>
-		<p class="help-block">By checking this, you will make the
-		  uploaded scan results available to other users <b>of this
-		    instance</b>.</p>
-	      </div>
-	    </div>
-	  </div>
-	  <div class="form-group"
-	       ng-class="{hidden: !publicsrv, 'has-error': error_agreed}">
-	    <div class="col-sm-10 col-sm-offset-2">
-	      <div class="checkbox">
-		<p>This is a public instance. If you have not checked
-		  "Share these results", we will do our best to keep
-		  your results safe, <b>but we can offer no
-		  guarantee. For this reason, you should only upload
-		  non-sensitive results.</b></p>
-		<label>
-		  <input type="checkbox" id="uploadAgreed"
-			 ng-model="agreed"><b>I have
-		  read and I agree.</b>
-		</label>
-	      </div>
 	    </div>
 	  </div>
 	  <div class="form-group">

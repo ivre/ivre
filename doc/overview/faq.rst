@@ -51,15 +51,22 @@ How can I restrict access to IVRE's Web interface
 
 **I want to prevent unauthorized access to IVRE's results.**
 
-First, you have to configure your web server to authenticate remote
-users. The most important, of course, is to protect access to CGI files
-(the static files are publicly available and do not contain any result).
+There are two ways to handle authentication:
 
-In an AD or Kerberos environment for example, Apache can be configured
-to provide SSO authentication.
+- **Built-in authentication**: IVRE supports OAuth providers (GitHub,
+  Google, Microsoft, Generic OIDC), magic links (via email), and API
+  keys. See :doc:`/usage/web-auth` for the complete documentation.
 
-Then, if you want to restrict access to the results based on the user
-login or domain, you can add the following lines to ``/etc/ivre.conf``:
+- **Web server authentication**: configure your web server (Apache,
+  nginx, etc.) to handle the authentication (HTTP Basic, LDAP, AD,
+  Kerberos, SAML, client certificates, etc.) and set the
+  ``REMOTE_USER`` environment variable. See
+  :doc:`/usage/web-auth` for how IVRE uses ``REMOTE_USER``.
+
+Both options can be combined (see :doc:`/usage/web-auth`).
+
+To restrict access to the results based on the user login or domain,
+add the following lines to ``/etc/ivre.conf``:
 
 ::
 

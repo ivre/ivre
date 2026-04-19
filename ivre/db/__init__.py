@@ -6089,6 +6089,98 @@ class DBFlow(DB):
         raise NotImplementedError
 
 
+class DBAuth(DB):
+    """Backend-independent code to handle authentication"""
+
+    backends = {
+        "mongodb": ("mongo", "MongoDBAuth"),
+    }
+
+    def get_user_by_email(self, email):
+        raise NotImplementedError
+
+    def create_user(
+        self, email, display_name=None, is_admin=False, is_active=False, groups=None
+    ):
+        raise NotImplementedError
+
+    def update_user(self, email, **updates):
+        raise NotImplementedError
+
+    def delete_user(self, email):
+        """Delete a user and all associated sessions, API keys, and tokens."""
+        raise NotImplementedError
+
+    def add_user_group(self, email, group):
+        """Add a group to a user."""
+        raise NotImplementedError
+
+    def remove_user_group(self, email, group):
+        """Remove a group from a user."""
+        raise NotImplementedError
+
+    def create_session(self, user_email, lifetime=None):
+        raise NotImplementedError
+
+    def validate_session(self, token):
+        raise NotImplementedError
+
+    def delete_session(self, token):
+        raise NotImplementedError
+
+    def create_api_key(self, user_email, name):
+        raise NotImplementedError
+
+    def validate_api_key(self, key):
+        raise NotImplementedError
+
+    def list_api_keys(self, user_email):
+        raise NotImplementedError
+
+    def delete_api_key(self, key_hash):
+        raise NotImplementedError
+
+    def ensure_remote_user(self, username):
+        raise NotImplementedError
+
+    def get_user_groups(self, email):
+        raise NotImplementedError
+
+    def list_users(self, **filters):
+        raise NotImplementedError
+
+    def create_magic_link_token(self, email: str, lifetime: int) -> str:
+        """Create an opaque magic link token for the given email.
+
+        Returns the raw token to include in the email URL.
+        """
+        raise NotImplementedError
+
+    def consume_magic_link_token(self, token: str) -> str | None:
+        """Validate and consume a magic link token (single-use).
+
+        Returns the email address, or None if invalid/expired.
+        """
+        raise NotImplementedError
+
+    def is_rate_limited(self, key: str, max_attempts: int, window: int) -> bool:
+        """Check whether the rate limit has been exceeded.
+
+        Args:
+            key: rate limit key (e.g. "magic:email" or "magic:ip")
+            max_attempts: maximum attempts allowed in the window
+            window: time window in seconds
+
+        Returns:
+            True if rate-limited (at or over the limit), False if allowed.
+        """
+        raise NotImplementedError
+
+    def record_rate_limit(self, key: str) -> None:
+        """Record an attempt against a rate limit key."""
+        raise NotImplementedError
+
+
 class MetaDB:
     db_types = {
         "nmap": DBNmap,
@@ -6098,6 +6190,7 @@ class MetaDB:
         "agent": DBAgent,
         "rir": DBRir,
         "flow": DBFlow,
+        "auth": DBAuth,
     }
 
     def __init__(self, url=None, urls=None):
@@ -6180,6 +6273,24 @@ class MetaDB:
             pass
         self._rir = self.get_class("rir")
         return self._rir
+
+    @property
+    def auth(self):
+        try:
+            # pylint: disable=access-member-before-definition
+            return self._auth
+        except AttributeError:
+            pass
+        if not config.WEB_AUTH_ENABLED:
+            self._auth = None
+            return None
+        if not config.WEB_SECRET or not isinstance(config.WEB_SECRET, str):
+            raise ValueError(
+                "WEB_SECRET must be set to a random string when "
+                "WEB_AUTH_ENABLED is True (e.g. `openssl rand -base64 42`)"
+            )
+        self._auth = self.get_class("auth")
+        return self._auth
 
     def get_class(self, purpose):
         url = self.urls.get(purpose, self.url)

@@ -140,8 +140,57 @@ ivreWebUi
 // The menu controller
 
 ivreWebUi
-    .controller('IvreMenuCtrl', function ($scope) {
+    .controller('IvreMenuCtrl', function ($scope, $http) {
 	$scope.version = config.version;
+	$scope.auth_user = null;
+	if (config.auth_enabled) {
+	    $http.get("cgi/auth/me").then(function(resp) {
+		if (resp.data.authenticated) {
+		    $scope.auth_user = resp.data;
+		}
+	    });
+	}
+	$scope.logout = function() {
+	    $http.post("cgi/auth/logout").then(function() {
+		window.location.href = "login.html";
+	    });
+	};
+	$scope.manage_api_keys = function() {
+	    $scope.show_api_keys = !$scope.show_api_keys;
+	    if ($scope.show_api_keys && !$scope.api_keys) {
+		$http.get("cgi/auth/api-keys").then(function(resp) {
+		    $scope.api_keys = resp.data;
+		});
+	    }
+	};
+	$scope.create_api_key = function() {
+	    var name = prompt("API key name:");
+	    if (!name) return;
+	    $http.post("cgi/auth/api-keys", {name: name}).then(function(resp) {
+		$scope.new_api_key = resp.data.key;
+		$scope.api_key_copied = false;
+		$("#apiKeyModal").modal("show");
+		$http.get("cgi/auth/api-keys").then(function(resp) {
+		    $scope.api_keys = resp.data;
+		});
+	    });
+	};
+	$scope.copy_api_key = function() {
+	    var input = document.getElementById("apiKeyValue");
+	    input.select();
+	    navigator.clipboard.writeText(input.value).then(function() {
+		$scope.api_key_copied = true;
+		$scope.$apply();
+	    });
+	};
+	$scope.delete_api_key = function(key_hash) {
+	    if (!confirm("Revoke this API key?")) return;
+	    $http.delete("cgi/auth/api-keys/" + key_hash).then(function() {
+		$scope.api_keys = $scope.api_keys.filter(function(k) {
+		    return k.key_hash !== key_hash;
+		});
+	    });
+	};
 	$scope.get_href = function(page, drop_hash) {
 	    if(page === undefined)
 		return document.location.href;
@@ -844,8 +893,71 @@ ivreWebUi
     });
 
 ivreWebUi
+    .controller('IvreAdminCtrl', function ($scope, $http) {
+	var cgi = "cgi";
+	$scope.users = [];
+	$scope.error_msg = null;
+	$scope.ready = false;
+	$scope.show_add_user = false;
+	$scope.new_user = {};
+
+	$http.get(cgi + "/auth/me").then(function(resp) {
+	    if (!resp.data.authenticated || !resp.data.is_admin) {
+		$scope.error_msg = "Admin access required.";
+		return;
+	    }
+	    $scope.current_user = resp.data;
+	    $scope.ready = true;
+	    $scope.load_users();
+	}, function() {
+	    $scope.error_msg = "Not authenticated.";
+	});
+
+	$scope.load_users = function() {
+	    $http.get(cgi + "/auth/admin/users").then(function(resp) {
+		$scope.users = resp.data;
+	    });
+	};
+	$scope.set_active = function(email, active) {
+	    $http.put(cgi + "/auth/admin/users/" + email, {is_active: active})
+		.then($scope.load_users);
+	};
+	$scope.set_admin = function(email, admin) {
+	    $http.put(cgi + "/auth/admin/users/" + email, {is_admin: admin})
+		.then($scope.load_users);
+	};
+	$scope.prompt_add_group = function(email) {
+	    var group = prompt("Group name:");
+	    if (!group) return;
+	    var user = $scope.users.find(function(u) { return u.email === email; });
+	    var groups = (user && user.groups) || [];
+	    if (groups.indexOf(group) === -1) groups = groups.concat([group]);
+	    $http.put(cgi + "/auth/admin/users/" + email, {groups: groups})
+		.then($scope.load_users);
+	};
+	$scope.remove_group = function(email, group) {
+	    var user = $scope.users.find(function(u) { return u.email === email; });
+	    var groups = ((user && user.groups) || []).filter(function(g) { return g !== group; });
+	    $http.put(cgi + "/auth/admin/users/" + email, {groups: groups})
+		.then($scope.load_users);
+	};
+	$scope.add_user = function() {
+	    var email = $scope.new_user.email;
+	    var groups = $scope.new_user.groups
+		? $scope.new_user.groups.split(",").map(function(s) { return s.trim(); }).filter(Boolean)
+		: [];
+	    var body = {is_active: true, is_admin: !!$scope.new_user.is_admin, display_name: email};
+	    if (groups.length) body.groups = groups;
+	    $http.put(cgi + "/auth/admin/users/" + email, body)
+		.then($scope.load_users)
+		.catch(function(e) { alert("Error: " + (e.data || e.statusText)); });
+	    $scope.show_add_user = false;
+	    $scope.new_user = {};
+	};
+    });
+
+ivreWebUi
     .controller('IvreUploadCtrl', function ($scope) {
-	$scope.publicsrv = config.publicsrv;
 	$scope.uploadok = config.uploadok;
 	$scope.files = undefined;
 	$scope.error_files = false;
@@ -857,16 +969,13 @@ ivreWebUi
 	    });
 	};
 	$scope.ready = function() {
-	    return ((!config.publicsrv || $scope.agreed) &&
-		    $scope.source && $scope.source.length > 0 &&
+	    return ($scope.source && $scope.source.length > 0 &&
 		    $scope.files && $scope.files.length > 0);
 	};
 	$scope.check = function() {
 	    $scope.error_files = !$scope.files || $scope.files.length === 0;
-	    $scope.error_agreed = config.publicsrv && !$scope.agreed;
 	    $scope.error_source = !$scope.source || $scope.source.length === 0;
-	    return (!($scope.error_files || $scope.error_agreed ||
-		     $scope.error_source));
+	    return !($scope.error_files || $scope.error_source);
 	};
 	$scope.upload = function() {
 	    if($scope.check()) {

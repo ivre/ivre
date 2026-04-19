@@ -270,16 +270,56 @@ WEB_INIT_QUERIES: dict[str, str] = {}
 WEB_DEFAULT_INIT_QUERY = None
 # upload disabled by default
 WEB_UPLOAD_OK = False
-# Is this a public server? This setting affects result uploading and
-# access control.
-# When this is set to True:
-#   1. The user will, by default, only access to results that are either
-#      in the "Shared" category or that he has uploaded.
-#   2. The upload page, if enabled, is modified to explain that
-WEB_PUBLIC_SRV = False
 # Feed with a random value, like `openssl rand -base64 42`.
-# *Mandatory* when WEB_PUBLIC_SRV == True
+# *Mandatory* when WEB_AUTH_ENABLED == True
 WEB_SECRET = None
+
+# --- Authentication ---
+# Set to True to enable built-in authentication
+WEB_AUTH_ENABLED = False
+# OAuth providers (set client_id + client_secret to enable each)
+WEB_AUTH_GOOGLE_CLIENT_ID = None
+WEB_AUTH_GOOGLE_CLIENT_SECRET = None
+WEB_AUTH_MICROSOFT_CLIENT_ID = None
+WEB_AUTH_MICROSOFT_CLIENT_SECRET = None
+WEB_AUTH_MICROSOFT_TENANT = "common"
+WEB_AUTH_GITHUB_CLIENT_ID = None
+WEB_AUTH_GITHUB_CLIENT_SECRET = None
+# Magic link email
+WEB_AUTH_MAGIC_LINK_ENABLED = False
+WEB_AUTH_SMTP_HOST = "localhost"
+WEB_AUTH_SMTP_PORT = 587
+WEB_AUTH_SMTP_USER = None
+WEB_AUTH_SMTP_PASSWORD = None
+WEB_AUTH_SMTP_FROM = "noreply@example.com"
+WEB_AUTH_SMTP_USE_TLS = True
+# Registration policy:
+#   "open" = anyone can register
+#   "domain:example.com,corp.net" = only these email domains
+#   "closed" = admin must create accounts
+WEB_AUTH_REGISTRATION = "closed"
+# Session lifetime in seconds
+WEB_AUTH_SESSION_LIFETIME = 86400 * 7  # 7 days
+# Magic link lifetime in seconds
+WEB_AUTH_MAGIC_LINK_LIFETIME = 900  # 15 minutes
+# Magic link rate limits (per 15-minute window)
+WEB_AUTH_MAGIC_LINK_RATE_PER_EMAIL = 3
+WEB_AUTH_MAGIC_LINK_RATE_PER_IP = 10
+# Base URL for OAuth callbacks (auto-detected from request if None)
+WEB_AUTH_BASE_URL = None
+# Generic OIDC provider
+WEB_AUTH_OIDC_CLIENT_ID = None
+WEB_AUTH_OIDC_CLIENT_SECRET = None
+# OIDC Discovery URL (e.g. "https://idp.example.com/.well-known/openid-configuration")
+# When set, authorize/token/userinfo URLs are auto-discovered.
+WEB_AUTH_OIDC_DISCOVERY_URL = None
+# Manual endpoint overrides (used when DISCOVERY_URL is not set)
+WEB_AUTH_OIDC_AUTHORIZE_URL = None
+WEB_AUTH_OIDC_TOKEN_URL = None
+WEB_AUTH_OIDC_USERINFO_URL = None
+WEB_AUTH_OIDC_SCOPES = "openid email profile"
+# Label shown on the login page button
+WEB_AUTH_OIDC_LABEL = "SSO"
 
 
 def get_config_file(paths: list[str] | None = None) -> Generator[str, None, None]:

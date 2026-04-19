@@ -10,4 +10,5 @@ Usage
   passive
   flow
   web-ui
+  web-auth
   kibana

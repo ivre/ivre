@@ -23,7 +23,6 @@ function setdefaultconfig() {
         "notesbase": "/dokuwiki/#IP#",
         "dflt_limit": 10,
         "warn_dots_count": 20000,
-        "publicsrv": false,
         "uploadok": false,
     };
 
@@ -35,6 +34,24 @@ function setdefaultconfig() {
 }
 
 setdefaultconfig();
+
+/* Redirect to login page if auth is enabled and user is not authenticated */
+if (config.auth_enabled && window.location.pathname.indexOf("login.html") === -1) {
+    (function() {
+        var cgibase = config.cgibase || "cgi";
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", cgibase + "/auth/me", false);
+        xhr.send();
+        if (xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (!data.authenticated) {
+                    window.location.href = "login.html";
+                }
+            } catch(e) {}
+        }
+    })();
+}
 
 /****** Global Variables *******/
 

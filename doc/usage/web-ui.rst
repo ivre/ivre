@@ -8,6 +8,9 @@ keywords (for some of them, shortcuts are available in the menus).
 Keep in mind that the information available in this interface highly
 depends on the options used to run Nmap.
 
+Access to the web interface can optionally require authentication;
+see :doc:`web-auth` for details.
+
 The interface
 ~~~~~~~~~~~~~
 

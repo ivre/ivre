@@ -252,9 +252,15 @@ the IVRE application; for example:
 Authentication and ACLs
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to use an authentication in IVRE, you have to configure
-your Web server (e.g., Apache or Nginx) to do so and set the
-environment variable ``REMOTE_USER`` to the username.
+If you want to use an authentication in IVRE, you have two options:
+
+- configure your Web server (e.g., Apache or Nginx) to handle the
+  authentication and set the environment variable ``REMOTE_USER`` to
+  the username.
+
+- use one (or more) OAuth providers for authentication, Magic Links
+  (via email) and API keys. See :doc:`/usage/web-auth` for the
+  complete authentication documentation.
 
 If you want to do some authorization based on the authentication, you
 can do so by setting a couple of variables; by default, ACL is

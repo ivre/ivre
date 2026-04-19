@@ -29,6 +29,7 @@ __all__ = [
     "airodump2db",
     "arp2db",
     "auditdom",
+    "authcli",
     "db2view",
     "flow2db",
     "flowcli",

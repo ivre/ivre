@@ -34,6 +34,7 @@ import time
 import uuid
 from collections import OrderedDict
 from copy import deepcopy
+from secrets import token_urlsafe
 from typing import Any
 from urllib.parse import unquote
 
@@ -55,6 +56,7 @@ from ivre.db import (
     DB,
     DBActive,
     DBAgent,
+    DBAuth,
     DBFlow,
     DBFlowMeta,
     DBNmap,
@@ -7352,6 +7354,238 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
 
         self.bulk_commit(bulk)
         utils.LOGGER.debug("%d flows switched.", counter)
+
+
+class MongoDBAuth(MongoDB, DBAuth):
+    """MongoDB-specific code to handle authentication"""
+
+    column_users = 0
+    column_sessions = 1
+    column_api_keys = 2
+    column_rate_limit = 3
+    column_magic_links = 4
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
+        # auth_user
+        [
+            ([("email", pymongo.ASCENDING)], {"unique": True}),
+        ],
+        # auth_session
+        [
+            ([("token_hash", pymongo.ASCENDING)], {"unique": True}),
+            ([("user_email", pymongo.ASCENDING)], {}),
+            ([("expires_at", pymongo.ASCENDING)], {"expireAfterSeconds": 0}),
+        ],
+        # auth_api_key
+        [
+            ([("key_hash", pymongo.ASCENDING)], {"unique": True}),
+            ([("user_email", pymongo.ASCENDING)], {}),
+        ],
+        # auth_rate_limit
+        [
+            ([("created_at", pymongo.ASCENDING)], {"expireAfterSeconds": 3600}),
+            ([("key", pymongo.ASCENDING), ("created_at", pymongo.ASCENDING)], {}),
+        ],
+        # auth_magic_link
+        [
+            ([("token_hash", pymongo.ASCENDING)], {"unique": True}),
+            ([("expires_at", pymongo.ASCENDING)], {"expireAfterSeconds": 0}),
+        ],
+    ]
+
+    def __init__(self, url):
+        super().__init__(url)
+        self.columns = [
+            self.params.pop("colname_auth_users", "auth_user"),
+            self.params.pop("colname_auth_sessions", "auth_session"),
+            self.params.pop("colname_auth_api_keys", "auth_api_key"),
+            self.params.pop("colname_auth_rate_limit", "auth_rate_limit"),
+            self.params.pop("colname_auth_magic_links", "auth_magic_link"),
+        ]
+
+    def get_user_by_email(self, email):
+        return self.db[self.columns[self.column_users]].find_one({"email": email})
+
+    def create_user(
+        self, email, display_name=None, is_admin=False, is_active=False, groups=None
+    ):
+        doc = {
+            "email": email,
+            "display_name": display_name or email,
+            "is_admin": is_admin,
+            "is_active": is_active,
+            "groups": groups or [],
+            "created_at": datetime.datetime.now(tz=datetime.timezone.utc),
+            "last_login": None,
+        }
+        self.db[self.columns[self.column_users]].insert_one(doc)
+        return doc
+
+    def update_user(self, email, **updates):
+        self.db[self.columns[self.column_users]].update_one(
+            {"email": email}, {"$set": updates}
+        )
+
+    def delete_user(self, email):
+        self.db[self.columns[self.column_sessions]].delete_many({"user_email": email})
+        self.db[self.columns[self.column_api_keys]].delete_many({"user_email": email})
+        self.db[self.columns[self.column_magic_links]].delete_many({"email": email})
+        self.db[self.columns[self.column_users]].delete_one({"email": email})
+
+    def add_user_group(self, email, group):
+        self.db[self.columns[self.column_users]].update_one(
+            {"email": email}, {"$addToSet": {"groups": group}}
+        )
+
+    def remove_user_group(self, email, group):
+        self.db[self.columns[self.column_users]].update_one(
+            {"email": email}, {"$pull": {"groups": group}}
+        )
+
+    def create_session(self, user_email, lifetime=None):
+        if lifetime is None:
+            lifetime = config.WEB_AUTH_SESSION_LIFETIME
+        token = token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        doc = {
+            "token_hash": token_hash,
+            "user_email": user_email,
+            "created_at": now,
+            "expires_at": now + datetime.timedelta(seconds=lifetime),
+            "last_used": now,
+        }
+        self.db[self.columns[self.column_sessions]].insert_one(doc)
+        # Update last_login on user
+        self.update_user(user_email, last_login=now)
+        return token
+
+    def validate_session(self, token):
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        session = self.db[self.columns[self.column_sessions]].find_one(
+            {"token_hash": token_hash, "expires_at": {"$gt": now}}
+        )
+        if session is None:
+            return None
+        # Update last_used
+        self.db[self.columns[self.column_sessions]].update_one(
+            {"_id": session["_id"]}, {"$set": {"last_used": now}}
+        )
+        return self.get_user_by_email(session["user_email"])
+
+    def delete_session(self, token):
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        self.db[self.columns[self.column_sessions]].delete_one(
+            {"token_hash": token_hash}
+        )
+
+    def create_api_key(self, user_email, name):
+        key = f"ivre_{token_urlsafe(32)}"
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        doc = {
+            "key_hash": key_hash,
+            "key_prefix": key[:12],
+            "user_email": user_email,
+            "name": name,
+            "created_at": now,
+            "expires_at": None,
+            "last_used": None,
+        }
+        self.db[self.columns[self.column_api_keys]].insert_one(doc)
+        return key
+
+    def validate_api_key(self, key):
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        api_key = self.db[self.columns[self.column_api_keys]].find_one(
+            {
+                "key_hash": key_hash,
+                "$or": [
+                    {"expires_at": None},
+                    {"expires_at": {"$gt": now}},
+                ],
+            }
+        )
+        if api_key is None:
+            return None
+        self.db[self.columns[self.column_api_keys]].update_one(
+            {"_id": api_key["_id"]}, {"$set": {"last_used": now}}
+        )
+        return self.get_user_by_email(api_key["user_email"])
+
+    def list_api_keys(self, user_email):
+        return list(
+            self.db[self.columns[self.column_api_keys]].find(
+                {"user_email": user_email},
+            )
+        )
+
+    def delete_api_key(self, key_hash, user_email=None):
+        flt = {"key_hash": key_hash}
+        if user_email is not None:
+            flt["user_email"] = user_email
+        return self.db[self.columns[self.column_api_keys]].delete_one(flt).deleted_count
+
+    def ensure_remote_user(self, username):
+        user = self.get_user_by_email(username)
+        if user is None:
+            self.create_user(username, is_active=True)
+        return self.get_user_by_email(username)
+
+    def get_user_groups(self, email):
+        user = self.get_user_by_email(email)
+        if user is None:
+            return []
+        return user.get("groups", [])
+
+    def list_users(self, **filters):
+        flt = {}
+        if "is_active" in filters:
+            flt["is_active"] = filters["is_active"]
+        if "is_admin" in filters:
+            flt["is_admin"] = filters["is_admin"]
+        if "group" in filters:
+            flt["groups"] = filters["group"]
+        return list(self.db[self.columns[self.column_users]].find(flt))
+
+    def create_magic_link_token(self, email, lifetime):
+        token = token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        col = self.db[self.columns[self.column_magic_links]]
+        col.insert_one(
+            {
+                "token_hash": token_hash,
+                "email": email,
+                "created_at": now,
+                "expires_at": now + datetime.timedelta(seconds=lifetime),
+            }
+        )
+        return token
+
+    def consume_magic_link_token(self, token):
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        col = self.db[self.columns[self.column_magic_links]]
+        doc = col.find_one_and_delete(
+            {"token_hash": token_hash, "expires_at": {"$gt": now}}
+        )
+        if doc is None:
+            return None
+        return doc["email"]
+
+    def is_rate_limited(self, key, max_attempts, window):
+        col = self.db[self.columns[self.column_rate_limit]]
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        cutoff = now - datetime.timedelta(seconds=window)
+        count = col.count_documents({"key": key, "created_at": {"$gt": cutoff}})
+        return count >= max_attempts
+
+    def record_rate_limit(self, key):
+        col = self.db[self.columns[self.column_rate_limit]]
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        col.insert_one({"key": key, "created_at": now})
 
 
 load_plugins("ivre.plugins.db.mongo", globals())

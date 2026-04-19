@@ -26,28 +26,59 @@ server {
         # First attempt to serve request as file, then
         # as directory, then fall back to displaying a 404.
         try_files $uri $uri/ =404;
+        # Clickjacking protection for static pages (login, admin, etc.)
+        add_header X-Frame-Options "DENY" always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    }
+
+    # Doc pages are displayed in an iframe within the app, so they
+    # must not have X-Frame-Options. This overrides location / for
+    # the /doc/ prefix.
+    location /doc/ {
+        try_files $uri $uri/ =404;
     }
 
     location /cgi/ {
         include uwsgi_params;
         uwsgi_pass ivreuwsgi:3031;
         uwsgi_param REMOTE_USER $remote_user;
-        uwsgi_param HTTP_Cookie "";
+        uwsgi_param HTTP_User_Agent "";
+    }
+
+    # Auth subrequest for nginx auth_request (internal only)
+    location = /cgi/auth/check {
+        internal;
+        include uwsgi_params;
+        uwsgi_pass ivreuwsgi:3031;
+        uwsgi_pass_request_body off;
+        uwsgi_param REQUEST_METHOD GET;
+        uwsgi_param CONTENT_LENGTH "";
         uwsgi_param HTTP_User_Agent "";
     }
 
     location ~ ^/dokuwiki/.*\.php$ {
+        auth_request /cgi/auth/check;
+        auth_request_set $auth_user $upstream_http_x_auth_user;
+        error_page 401 = @login_redirect;
+
         root /var/www/;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         fastcgi_pass ivredoku:8000;
         fastcgi_index index.php;
-        fastcgi_param PHP_AUTH_USER $remote_user;
+        fastcgi_param PHP_AUTH_USER $auth_user;
+        fastcgi_param REMOTE_USER $auth_user;
         include fastcgi.conf;
     }
 
     location /dokuwiki/ {
+        auth_request /cgi/auth/check;
+        error_page 401 = @login_redirect;
         root /var/www/;
         try_files $uri $uri/ @dokuwiki;
+    }
+
+    location @login_redirect {
+        return 302 /login.html;
     }
 
     location @dokuwiki {

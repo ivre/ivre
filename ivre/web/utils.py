@@ -23,7 +23,6 @@ script.
 
 import datetime
 import functools
-import hmac
 import os
 import re
 import shlex
@@ -159,23 +158,38 @@ def query_from_params(params):
         raise ValueError("Parameter parsing error") from exc
 
 
-def get_user() -> str:
+def get_user() -> str | None:
     """Return the connected user."""
-    return request.environ.get("REMOTE_USER")
+    if not config.WEB_AUTH_ENABLED:
+        return request.environ.get("REMOTE_USER")
 
+    from ivre.db import db  # pylint: disable=import-outside-toplevel
 
-def get_anonymized_user() -> str:
-    """Return the HMAC value of the current user authenticated with
-    the HMAC secret.
+    # 1. Check session cookie
+    session_token = request.get_cookie("_ivre_session", secret=config.WEB_SECRET)
+    if session_token and db.auth is not None:
+        user = db.auth.validate_session(session_token)
+        if user and user.get("is_active"):
+            return user["email"]
 
-    """
-    try:
-        secret = config.WEB_SECRET.encode()
-    except AttributeError:
-        secret = config.WEB_SECRET
-    return utils.encode_b64(
-        hmac.new(secret, msg=get_user().encode(), digestmod="sha256").digest()[:9]
-    ).decode()
+    # 2. Check API key
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            api_key = auth_header.split(None, 1)[1]
+    if api_key and db.auth is not None:
+        user = db.auth.validate_api_key(api_key)
+        if user and user.get("is_active"):
+            return user["email"]
+
+    # 3. Check REMOTE_USER (reverse proxy)
+    remote_user = request.environ.get("REMOTE_USER")
+    if remote_user and db.auth is not None:
+        db.auth.ensure_remote_user(remote_user)
+        return remote_user
+
+    return None
 
 
 def _parse_query(dbase, query):
@@ -200,19 +214,31 @@ def get_init_flt(dbase):
     privileges.
 
     """
+    user = get_user()
+    # When auth is enabled, deny access to unauthenticated users
+    if config.WEB_AUTH_ENABLED and user is None:
+        from bottle import abort  # pylint: disable=import-outside-toplevel
+
+        abort(401, "Authentication required")
     init_queries = {
         key: _parse_query(dbase, value)
         for key, value in config.WEB_INIT_QUERIES.items()
     }
-    user = get_user()
     if user in init_queries:
         return init_queries[user]
     if isinstance(user, str) and "@" in user:
         realm = user[user.index("@") :]
         if realm in init_queries:
             return init_queries[realm]
-    if config.WEB_PUBLIC_SRV:
-        return dbase.searchcategory(["Shared", get_anonymized_user()])
+    # Group-based access control (when auth is enabled)
+    if config.WEB_AUTH_ENABLED and user:
+        from ivre.db import db  # pylint: disable=import-outside-toplevel
+
+        if db.auth is not None:
+            for group in db.auth.get_user_groups(user):
+                key = f"group:{group}"
+                if key in init_queries:
+                    return init_queries[key]
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
 
 

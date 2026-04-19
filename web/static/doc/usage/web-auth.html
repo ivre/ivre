@@ -1,0 +1,711 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Authentication &mdash; IVRE  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="IVRE with Kibana" href="kibana.html" />
+    <link rel="prev" title="Web User Interface" href="web-ui.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IVRE
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Web Authentication</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick Start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configuration-reference">Configuration Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#general">General</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#registration-policy">Registration Policy</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#providers">Providers</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#github">GitHub</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#google">Google</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#microsoft-azure-ad-entra-id">Microsoft (Azure AD / Entra ID)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#generic-oidc">Generic OIDC</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#email-magic-link">Email (Magic Link)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#reverse-proxy-setup">Reverse Proxy Setup</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#nginx-uwsgi">nginx + uwsgi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cloudflare">Cloudflare</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#web-server-authentication">Web Server Authentication</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#how-it-works">How it works</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#without-built-in-auth">Without built-in auth</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#with-built-in-auth">With built-in auth</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#api-keys">API Keys</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#via-the-web-ui">Via the Web UI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#via-the-cli">Via the CLI</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#groups-and-access-control">Groups and Access Control</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#assigning-groups">Assigning Groups</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#group-based-filters">Group-Based Filters</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#admin-panel">Admin Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cli-reference">CLI Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="kibana.html">IVRE with Kibana</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Usage</a></li>
+      <li class="breadcrumb-item active">Web Authentication</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/usage/web-auth.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="web-authentication">
+<h1>Web Authentication<a class="headerlink" href="#web-authentication" title="Link to this heading"></a></h1>
+<p>IVRE supports optional built-in authentication for its web
+interface. When enabled, users must sign in before accessing scan
+results. Authentication is disabled by default.</p>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Add to your <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">&quot;generate-with: openssl rand -base64 42&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><p>Initialize the auth database:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli init
+</pre></div>
+</div>
+</li>
+<li><p>Configure at least one authentication provider (see below).</p></li>
+<li><p>Create the first admin user:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli add-user --admin your@email.com
+</pre></div>
+</div>
+<p>Or set <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_REGISTRATION</span> <span class="pre">=</span> <span class="pre">&quot;open&quot;</span></code> to let the first user
+sign in and then promote them:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli set-admin your@email.com
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="configuration-reference">
+<h2>Configuration Reference<a class="headerlink" href="#configuration-reference" title="Link to this heading"></a></h2>
+<p>All settings go in your <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> file (<code class="docutils literal notranslate"><span class="pre">/etc/ivre.conf</span></code> or
+<code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code>).</p>
+<section id="general">
+<h3>General<a class="headerlink" href="#general" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Setting</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Enable built-in authentication</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_SECRET</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Random secret for signing cookies and tokens. <strong>Mandatory</strong>
+when auth is enabled — IVRE will refuse to start without it.
+Generate with <code class="docutils literal notranslate"><span class="pre">openssl</span> <span class="pre">rand</span> <span class="pre">-base64</span> <span class="pre">42</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_REGISTRATION</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;closed&quot;</span></code></p></td>
+<td><p>Registration policy (see below)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SESSION_LIFETIME</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">604800</span></code></p></td>
+<td><p>Session duration in seconds (default: 7 days)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_BASE_URL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Base URL for callbacks (auto-detected if <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="registration-policy">
+<h3>Registration Policy<a class="headerlink" href="#registration-policy" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_REGISTRATION</span></code> controls who can create an account:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;open&quot;</span></code> – anyone can sign in and get an active account</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;domain:example.com,corp.net&quot;</span></code> – only users with email
+addresses in the listed domains can register</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;closed&quot;</span></code> (default) – users must be created by an admin
+(via <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">authcli</span> <span class="pre">add-user</span></code> or the admin panel)</p></li>
+</ul>
+<p>When a user signs in with a provider but is not yet in the
+database:</p>
+<ul class="simple">
+<li><p>If registration is allowed, an account is created (active for
+<code class="docutils literal notranslate"><span class="pre">&quot;open&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;domain:...&quot;</span></code>, pending for <code class="docutils literal notranslate"><span class="pre">&quot;closed&quot;</span></code>)</p></li>
+<li><p>If registration is closed, access is denied</p></li>
+</ul>
+</section>
+</section>
+<section id="providers">
+<h2>Providers<a class="headerlink" href="#providers" title="Link to this heading"></a></h2>
+<p>You can enable multiple providers simultaneously. Users see a
+button for each enabled provider on the login page.</p>
+<section id="github">
+<h3>GitHub<a class="headerlink" href="#github" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Go to <a class="reference external" href="https://github.com/settings/developers">https://github.com/settings/developers</a></p></li>
+<li><p>Click <strong>New OAuth App</strong></p></li>
+<li><p>Fill in:</p>
+<ul class="simple">
+<li><p><strong>Application name</strong>: e.g., “IVRE”</p></li>
+<li><p><strong>Homepage URL</strong>: your instance URL (e.g.,
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com</span></code>)</p></li>
+<li><p><strong>Authorization callback URL</strong>:
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com/cgi/auth/callback/github</span></code></p></li>
+</ul>
+</li>
+<li><p>Click <strong>Register application</strong></p></li>
+<li><p>Copy the <strong>Client ID</strong></p></li>
+<li><p>Click <strong>Generate a new client secret</strong> and copy it</p></li>
+</ol>
+<p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;Iv1.xxxxxxxxxx&quot;</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="google">
+<h3>Google<a class="headerlink" href="#google" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Go to <a class="reference external" href="https://console.cloud.google.com/apis/credentials">https://console.cloud.google.com/apis/credentials</a></p></li>
+<li><p>Create a project if you don’t have one</p></li>
+<li><p>Click <strong>Create Credentials</strong> &gt; <strong>OAuth client ID</strong></p></li>
+<li><p>Select <strong>Web application</strong></p></li>
+<li><p>Under <strong>Authorized redirect URIs</strong>, add:
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com/cgi/auth/callback/google</span></code></p></li>
+<li><p>Click <strong>Create</strong></p></li>
+<li><p>Copy the <strong>Client ID</strong> and <strong>Client secret</strong></p></li>
+</ol>
+<p>You may also need to configure the <strong>OAuth consent screen</strong>
+(under APIs &amp; Services &gt; OAuth consent screen):</p>
+<ul class="simple">
+<li><p>Choose <strong>External</strong> or <strong>Internal</strong> depending on your needs</p></li>
+<li><p>Add the <code class="docutils literal notranslate"><span class="pre">email</span></code>, <code class="docutils literal notranslate"><span class="pre">profile</span></code>, and <code class="docutils literal notranslate"><span class="pre">openid</span></code> scopes</p></li>
+</ul>
+<p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxx-xxx.apps.googleusercontent.com&quot;</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="microsoft-azure-ad-entra-id">
+<h3>Microsoft (Azure AD / Entra ID)<a class="headerlink" href="#microsoft-azure-ad-entra-id" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Go to the <a class="reference external" href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade">Azure portal App registrations</a></p></li>
+<li><p>Click <strong>New registration</strong></p></li>
+<li><p>Fill in:</p>
+<ul class="simple">
+<li><p><strong>Name</strong>: e.g., “IVRE”</p></li>
+<li><p><strong>Supported account types</strong>: choose based on your needs:</p>
+<ul>
+<li><p><strong>Single tenant</strong>: only your organization</p></li>
+<li><p><strong>Multitenant</strong>: any Azure AD organization</p></li>
+<li><p><strong>Multitenant + personal accounts</strong>: broadest access</p></li>
+</ul>
+</li>
+<li><p><strong>Redirect URI</strong>: select <strong>Web</strong> and enter
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com/cgi/auth/callback/microsoft</span></code></p></li>
+</ul>
+</li>
+<li><p>Click <strong>Register</strong></p></li>
+<li><p>Copy the <strong>Application (client) ID</strong></p></li>
+<li><p>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>New client secret</strong></p></li>
+<li><p>Copy the secret <strong>Value</strong> (not the Secret ID)</p></li>
+</ol>
+<p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx&quot;</span>
+<span class="n">WEB_AUTH_MICROSOFT_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+</pre></div>
+</div>
+<p>For single-tenant setups, also set the tenant ID:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_TENANT</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx&quot;</span>
+</pre></div>
+</div>
+<p>The default is <code class="docutils literal notranslate"><span class="pre">&quot;common&quot;</span></code> which allows any Microsoft account.</p>
+</section>
+<section id="generic-oidc">
+<h3>Generic OIDC<a class="headerlink" href="#generic-oidc" title="Link to this heading"></a></h3>
+<p>Works with any OpenID Connect provider: Keycloak, Authentik,
+Authelia, Dex, Okta, etc.</p>
+<p>There are two configuration modes:</p>
+<p><strong>Discovery mode</strong> (recommended): provide the OIDC discovery URL
+and IVRE will auto-discover the endpoints:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-client-secret&quot;</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/.well-known/openid-configuration&quot;</span>
+</pre></div>
+</div>
+<p><strong>Manual mode</strong>: provide each endpoint explicitly:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-client-secret&quot;</span>
+<span class="n">WEB_AUTH_OIDC_AUTHORIZE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/auth&quot;</span>
+<span class="n">WEB_AUTH_OIDC_TOKEN_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/token&quot;</span>
+<span class="n">WEB_AUTH_OIDC_USERINFO_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/userinfo&quot;</span>
+</pre></div>
+</div>
+<p>The redirect URI to configure in your IdP is:
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com/cgi/auth/callback/oidc</span></code></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 25.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Setting</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_OIDC_SCOPES</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;openid</span> <span class="pre">email</span> <span class="pre">profile&quot;</span></code></p></td>
+<td><p>OAuth2 scopes to request</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_OIDC_LABEL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;SSO&quot;</span></code></p></td>
+<td><p>Button label on the login page (shown as “Sign in with
+{label}”)</p></td>
+</tr>
+</tbody>
+</table>
+<section id="keycloak-example">
+<h4>Keycloak example<a class="headerlink" href="#keycloak-example" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-keycloak-secret&quot;</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration&quot;</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Keycloak&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="authentik-example">
+<h4>Authentik example<a class="headerlink" href="#authentik-example" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-authentik-secret&quot;</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://authentik.example.com/application/o/ivre/.well-known/openid-configuration&quot;</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Authentik&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="email-magic-link">
+<h3>Email (Magic Link)<a class="headerlink" href="#email-magic-link" title="Link to this heading"></a></h3>
+<p>Users receive a login link by email. No password is stored.</p>
+<ol class="arabic">
+<li><p>You need an SMTP server for sending emails</p></li>
+<li><p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MAGIC_LINK_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">&quot;smtp.example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_PORT</span> <span class="o">=</span> <span class="mi">587</span>
+<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">&quot;smtp-password&quot;</span>
+<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_USE_TLS</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Setting</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_MAGIC_LINK_ENABLED</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
+<td><p>Enable magic link authentication</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_HOST</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;localhost&quot;</span></code></p></td>
+<td><p>SMTP server hostname</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_PORT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">587</span></code></p></td>
+<td><p>SMTP server port</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_USER</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>SMTP username (skip auth if <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_PASSWORD</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>SMTP password</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_FROM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;noreply&#64;example.com&quot;</span></code></p></td>
+<td><p>From address</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_SMTP_USE_TLS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Use STARTTLS</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_MAGIC_LINK_LIFETIME</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">900</span></code></p></td>
+<td><p>Link validity in seconds (default: 15 min)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_MAGIC_LINK_RATE_PER_EMAIL</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Maximum magic link emails per address per time window
+(window = <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_MAGIC_LINK_LIFETIME</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WEB_AUTH_MAGIC_LINK_RATE_PER_IP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>Maximum magic link emails per source IP per time window.
+IPv6 addresses are grouped by /48 (see
+<span class="xref std std-ref">reverse-proxy-setup</span>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="reverse-proxy-setup">
+<h2>Reverse Proxy Setup<a class="headerlink" href="#reverse-proxy-setup" title="Link to this heading"></a></h2>
+<p>When IVRE is deployed behind a reverse proxy (nginx, Cloudflare,
+HAProxy, etc.), the rate limiter and logging see the <strong>proxy’s IP
+address</strong> instead of the real client IP. This makes the per-IP
+rate limit ineffective (all clients share one counter) and can
+also affect logging.</p>
+<p>To fix this, configure your reverse proxy to pass the real client
+IP as the <code class="docutils literal notranslate"><span class="pre">REMOTE_ADDR</span></code> WSGI variable. This is <strong>not</strong> done by
+reading <code class="docutils literal notranslate"><span class="pre">X-Forwarded-For</span></code> at the application level — it must be
+handled by the proxy and WSGI server.</p>
+<section id="nginx-uwsgi">
+<h3>nginx + uwsgi<a class="headerlink" href="#nginx-uwsgi" title="Link to this heading"></a></h3>
+<p>In your nginx configuration:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Trust the real client IP (adjust the set_real_ip_from</span>
+<span class="c1"># directive to match your proxy&#39;s address or range)</span>
+<span class="n">set_real_ip_from</span> <span class="mf">127.0.0.1</span><span class="p">;</span>       <span class="c1"># local uwsgi</span>
+<span class="n">set_real_ip_from</span> <span class="mf">172.16.0.0</span><span class="o">/</span><span class="mi">12</span><span class="p">;</span>   <span class="c1"># Docker network</span>
+<span class="n">set_real_ip_from</span> <span class="mf">10.0.0.0</span><span class="o">/</span><span class="mi">8</span><span class="p">;</span>      <span class="c1"># private range</span>
+<span class="c1"># set_real_ip_from 173.245.48.0/20;  # Cloudflare (see their IP list)</span>
+<span class="n">real_ip_header</span> <span class="n">X</span><span class="o">-</span><span class="n">Forwarded</span><span class="o">-</span><span class="n">For</span><span class="p">;</span>
+<span class="n">real_ip_recursive</span> <span class="n">on</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>nginx passes <code class="docutils literal notranslate"><span class="pre">REMOTE_ADDR</span></code> to uwsgi automatically via the
+<code class="docutils literal notranslate"><span class="pre">uwsgi_params</span></code> file.</p>
+</section>
+<section id="cloudflare">
+<h3>Cloudflare<a class="headerlink" href="#cloudflare" title="Link to this heading"></a></h3>
+<p>Cloudflare sends the real client IP in the <code class="docutils literal notranslate"><span class="pre">CF-Connecting-IP</span></code>
+header. Use it as the <code class="docutils literal notranslate"><span class="pre">real_ip_header</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">set_real_ip_from</span> <span class="mf">173.245.48.0</span><span class="o">/</span><span class="mi">20</span><span class="p">;</span>
+<span class="n">set_real_ip_from</span> <span class="mf">103.21.244.0</span><span class="o">/</span><span class="mi">22</span><span class="p">;</span>
+<span class="c1"># ... (see https://www.cloudflare.com/ips/ for the full list)</span>
+<span class="n">real_ip_header</span> <span class="n">CF</span><span class="o">-</span><span class="n">Connecting</span><span class="o">-</span><span class="n">IP</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Without proper <code class="docutils literal notranslate"><span class="pre">REMOTE_ADDR</span></code> propagation, the per-IP magic
+link rate limit groups all clients under the proxy’s address.
+The per-email rate limit still works correctly regardless of
+proxy configuration.</p>
+</div>
+</section>
+</section>
+<section id="web-server-authentication">
+<h2>Web Server Authentication<a class="headerlink" href="#web-server-authentication" title="Link to this heading"></a></h2>
+<p>Instead of (or in addition to) using IVRE’s built-in providers,
+authentication can be handled entirely by the web server (Apache,
+nginx, etc.). This is the recommended approach for protocols that
+web servers already support natively, such as:</p>
+<ul class="simple">
+<li><p>HTTP Basic / Digest authentication</p></li>
+<li><p>LDAP / Active Directory (e.g., Apache <code class="docutils literal notranslate"><span class="pre">mod_authnz_ldap</span></code>,
+nginx <code class="docutils literal notranslate"><span class="pre">ngx_http_auth_ldap_module</span></code>)</p></li>
+<li><p>Kerberos / SPNEGO (e.g., Apache <code class="docutils literal notranslate"><span class="pre">mod_auth_gssapi</span></code>)</p></li>
+<li><p>SAML (e.g., Apache <code class="docutils literal notranslate"><span class="pre">mod_auth_mellon</span></code>)</p></li>
+<li><p>Client certificates</p></li>
+</ul>
+<section id="how-it-works">
+<h3>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h3>
+<p>When the web server authenticates a user, it sets the
+<code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> environment variable (or CGI/WSGI parameter) to
+the authenticated username. IVRE reads this value and uses it as
+the user’s identity.</p>
+</section>
+<section id="without-built-in-auth">
+<h3>Without built-in auth<a class="headerlink" href="#without-built-in-auth" title="Link to this heading"></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> (the default), IVRE
+simply reads <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> from the WSGI environment. No IVRE
+configuration is needed beyond the web server setup itself. The
+value of <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> is used directly in
+<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code> lookups to apply per-user or per-domain
+access control.</p>
+</section>
+<section id="with-built-in-auth">
+<h3>With built-in auth<a class="headerlink" href="#with-built-in-auth" title="Link to this heading"></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> is
+checked after session cookies and API keys. IVRE will
+automatically create a user record in the auth database if one
+does not exist yet. The user is immediately active (no admin
+approval needed), which enables hybrid setups where some users
+authenticate via the web server and others use the built-in
+providers.</p>
+<p>Authentication priority when <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Session cookie (from built-in login)</p></li>
+<li><p>API key (<code class="docutils literal notranslate"><span class="pre">X-API-Key</span></code> or <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span></code> header)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> (web server)</p></li>
+</ol>
+</section>
+</section>
+<section id="api-keys">
+<h2>API Keys<a class="headerlink" href="#api-keys" title="Link to this heading"></a></h2>
+<p>Authenticated users can create API keys for programmatic access.
+API keys provide the same identity and permissions as the user
+who created them.</p>
+<section id="via-the-web-ui">
+<h3>Via the Web UI<a class="headerlink" href="#via-the-web-ui" title="Link to this heading"></a></h3>
+<p>Click your name in the navbar &gt; <strong>API Keys</strong> &gt; <strong>New key</strong>.</p>
+<p>The key is shown once. Store it securely.</p>
+</section>
+<section id="via-the-cli">
+<h3>Via the CLI<a class="headerlink" href="#via-the-cli" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli create-api-key user@example.com &quot;my-script&quot;
+</pre></div>
+</div>
+</section>
+<section id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># With X-API-Key header
+$ curl -H &quot;X-API-Key: ivre_xxxxxxxxxxxx&quot; https://ivre.example.com/cgi/view
+
+# With Authorization header
+$ curl -H &quot;Authorization: Bearer ivre_xxxxxxxxxxxx&quot; https://ivre.example.com/cgi/view
+</pre></div>
+</div>
+</section>
+</section>
+<section id="groups-and-access-control">
+<h2>Groups and Access Control<a class="headerlink" href="#groups-and-access-control" title="Link to this heading"></a></h2>
+<p>Users can be assigned to groups. Groups control what data a user
+can access via <code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>.</p>
+<section id="assigning-groups">
+<h3>Assigning Groups<a class="headerlink" href="#assigning-groups" title="Link to this heading"></a></h3>
+<p>Via CLI:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli add-group user@example.com analysts
+</pre></div>
+</div>
+<p>Via the admin panel: click <strong>+ Group</strong> next to a user.</p>
+</section>
+<section id="group-based-filters">
+<h3>Group-Based Filters<a class="headerlink" href="#group-based-filters" title="Link to this heading"></a></h3>
+<p>In <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>, use the <code class="docutils literal notranslate"><span class="pre">group:</span></code> prefix in
+<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;admin@example.com&quot;</span><span class="p">:</span> <span class="s2">&quot;full&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;group:analysts&quot;</span><span class="p">:</span> <span class="s2">&quot;category:production&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;group:interns&quot;</span><span class="p">:</span> <span class="s2">&quot;category:training&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;@example.com&quot;</span><span class="p">:</span> <span class="s2">&quot;category:shared&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Lookup order:</p>
+<ol class="arabic simple">
+<li><p>Exact email match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&#64;domain</span></code> match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">group:name</span></code> match (first matching group wins)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WEB_DEFAULT_INIT_QUERY</span></code> fallback</p></li>
+</ol>
+</section>
+</section>
+<section id="admin-panel">
+<h2>Admin Panel<a class="headerlink" href="#admin-panel" title="Link to this heading"></a></h2>
+<p>Admins can manage users at
+<code class="docutils literal notranslate"><span class="pre">https://ivre.example.com/admin.html</span></code>:</p>
+<ul class="simple">
+<li><p>Activate / deactivate users</p></li>
+<li><p>Grant / revoke admin privileges</p></li>
+<li><p>Add / remove group memberships</p></li>
+<li><p>Create new user accounts</p></li>
+</ul>
+</section>
+<section id="cli-reference">
+<h2>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli init                          # Initialize auth database
+$ ivre authcli add-user [--admin] EMAIL      # Create a user
+$ ivre authcli del-user EMAIL                # Delete a user
+$ ivre authcli activate-user EMAIL           # Activate a pending user
+$ ivre authcli deactivate-user EMAIL         # Deactivate a user
+$ ivre authcli set-admin EMAIL               # Grant admin
+$ ivre authcli unset-admin EMAIL             # Revoke admin
+$ ivre authcli add-group EMAIL GROUP         # Add user to group
+$ ivre authcli del-group EMAIL GROUP         # Remove user from group
+$ ivre authcli list-users                    # List all users
+$ ivre authcli create-api-key EMAIL NAME     # Create an API key
+</pre></div>
+</div>
+</section>
+<section id="example-configuration">
+<h2>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Authentication</span>
+<span class="n">WEB_AUTH_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-random-secret-here&quot;</span>
+<span class="n">WEB_AUTH_REGISTRATION</span> <span class="o">=</span> <span class="s2">&quot;domain:example.com&quot;</span>
+
+<span class="c1"># Providers</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/.well-known/openid-configuration&quot;</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Company SSO&quot;</span>
+
+<span class="c1"># Magic link</span>
+<span class="n">WEB_AUTH_MAGIC_LINK_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">&quot;smtp.example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_PORT</span> <span class="o">=</span> <span class="mi">587</span>
+<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">&quot;IVRE &lt;noreply@example.com&gt;&quot;</span>
+
+<span class="c1"># Access control</span>
+<span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;group:admins&quot;</span><span class="p">:</span> <span class="s2">&quot;full&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;group:analysts&quot;</span><span class="p">:</span> <span class="s2">&quot;category:production&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s2">&quot;noaccess&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="web-ui.html" class="btn btn-neutral float-left" title="Web User Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="kibana.html" class="btn btn-neutral float-right" title="IVRE with Kibana" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2011 - 2026, Pierre LALET.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
