@@ -1,0 +1,668 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+
+"""MCP (Model Context Protocol) server exposing IVRE to LLM agents.
+
+Requires the ``mcp`` optional dependency (install IVRE with the
+``[mcp]`` extra). The server communicates over stdio and is intended
+to be launched by an MCP-capable client (Claude Code, Claude Desktop,
+Cursor, OpenCode, ...).
+"""
+
+import base64
+import glob
+import json
+import logging
+import os
+import re
+import zlib
+from typing import Any, Literal
+from urllib.parse import urlparse
+
+from ivre import config
+from ivre.db import db
+from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
+from ivre.plugins import load_plugins
+from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp
+from ivre.web.utils import parse_filter
+
+from .schemas import SCHEMAS
+
+
+class _McpErrorFallback(Exception):
+    """Placeholder used when the optional ``mcp`` dependency is missing.
+
+    The real ``mcp.shared.exceptions.McpError`` is only available when IVRE
+    is installed with the ``[mcp]`` extra. We expose a distinct subclass of
+    :class:`Exception` here so that code paths catching ``McpError`` remain
+    structurally valid without the optional package.
+    """
+
+
+try:
+    from mcp.server.fastmcp import FastMCP
+    from mcp.shared.exceptions import McpError
+    from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ErrorData
+except ImportError as exc:  # pragma: no cover - optional dependency
+    _MCP_IMPORT_ERROR: ImportError | None = exc
+    FastMCP = None
+    McpError = _McpErrorFallback
+    ErrorData = None
+    INVALID_PARAMS = 0
+    INTERNAL_ERROR = 0
+else:
+    _MCP_IMPORT_ERROR = None
+
+FilterType = str
+
+AllPurpose = Literal["nmap", "passive", "view"]
+ActivePurpose = Literal["nmap", "view"]
+PassivePurpose = Literal["passive"]
+
+
+def seal(flt: dict[str, Any] | list[Any]) -> str:
+    return (
+        base64.urlsafe_b64encode(
+            zlib.compress(json.dumps(flt, default=serialize).encode())
+        )
+        .rstrip(b"=")
+        .decode()
+    )
+
+
+def _unseal(token: str) -> dict[str, Any] | list[Any]:
+    try:
+        decoded = json.loads(
+            zlib.decompress(base64.urlsafe_b64decode(token.encode() + b"=="))
+        )
+    except Exception as exc:
+        raise McpError(
+            ErrorData(code=INVALID_PARAMS, message="Invalid filter")
+        ) from exc
+    if isinstance(decoded, (dict, list)):
+        return decoded
+    raise McpError(ErrorData(code=INVALID_PARAMS, message="Invalid filter"))
+
+
+if _MCP_IMPORT_ERROR is None:
+    mcp = FastMCP(
+        "ivre",
+        instructions=(
+            "IVRE is a network reconnaissance framework. Data can be queried with three "
+            "purposes: 'nmap' (active scan results), 'passive' (passively collected traffic "
+            "data), and 'view' (a consolidated, deduplicated merge of nmap and passive). "
+            "Always prefer the 'view' purpose unless the user explicitly requests a "
+            "different one or the needed data is only available in 'nmap' or 'passive'.\n\n"
+            "IMPORTANT: Filters are opaque values. Always use the filter-building tools "
+            "(searchnet, searchhost, searchcountry, searchport, etc.) to create filters, "
+            "and flt_and / flt_or to combine them. Never manually construct, modify, or "
+            "guess the internal structure of filter objects.\n\n"
+            "When exploring a scope or answering broad security questions, read the "
+            "ivre://guides/scope-discovery resource first for recommended steps."
+        ),
+    )
+else:
+    mcp = None
+
+_DUMMY_URL = urlparse("http://127.0.0.1")
+
+HTTP_DB = {
+    "nmap": HttpDBNmap(_DUMMY_URL),
+    "passive": HttpDBPassive(_DUMMY_URL),
+    "view": HttpDBView(_DUMMY_URL),
+}
+
+REAL_DB = {
+    "nmap": db.nmap,
+    "passive": db.passive,
+    "view": db.view,
+}
+
+
+def _parse(purpose: str, flt: FilterType | None) -> Any:
+    real = REAL_DB[purpose]
+    if flt is None:
+        return real.flt_empty
+    raw = _unseal(flt)
+    try:
+        return parse_filter(real, raw)
+    except ValueError as exc:
+        raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+
+
+def _parse_sort(sort_list: list[str] | None) -> list[tuple[str, int]] | None:
+    if not sort_list:
+        return None
+    result: list[tuple[str, int]] = []
+    for field in sort_list:
+        if field.startswith("-"):
+            result.append((field[1:], -1))
+        else:
+            result.append((field, 1))
+    return result
+
+
+def _register_tools() -> None:
+    """Register all MCP tools and resources on the module-level ``mcp``.
+
+    Called from :func:`main` after verifying that the ``mcp`` package is
+    importable. Keeping the decorators inside a function lets the module
+    import cleanly when the optional ``[mcp]`` dependency is not installed.
+    """
+
+    # --- Filter combinators ---
+
+    @mcp.tool()
+    def flt_and(purpose: AllPurpose, flt1: FilterType, flt2: FilterType) -> FilterType:
+        """Combine two filters with a logical AND."""
+        return seal(HTTP_DB[purpose].flt_and(_unseal(flt1), _unseal(flt2)))
+
+    @mcp.tool()
+    def flt_or(purpose: AllPurpose, flt1: FilterType, flt2: FilterType) -> FilterType:
+        """Combine two filters with a logical OR."""
+        return seal(HTTP_DB[purpose].flt_or(_unseal(flt1), _unseal(flt2)))
+
+    @mcp.tool()
+    def flt_empty(purpose: AllPurpose) -> FilterType:
+        """Return the empty filter (matches all records)."""
+        return seal(HTTP_DB[purpose].flt_empty)
+
+    # --- Filter construction: Host / Network ---
+
+    @mcp.tool()
+    def searchnet(purpose: AllPurpose, net: str) -> FilterType:
+        """Filter records whose address belongs to a network (CIDR) or equals a host."""
+        return seal(HTTP_DB[purpose].searchnet(net))
+
+    @mcp.tool()
+    def searchhost(purpose: AllPurpose, host: str) -> FilterType:
+        """Filter records for an exact host address."""
+        return seal(HTTP_DB[purpose].searchhost(host))
+
+    @mcp.tool()
+    def searchhostname(purpose: AllPurpose, hostname: str) -> FilterType:
+        """Filter records matching a hostname (exact or regex)."""
+        return seal(HTTP_DB[purpose].searchhostname(hostname))
+
+    @mcp.tool()
+    def searchdomain(purpose: AllPurpose, domain: str) -> FilterType:
+        """Filter records whose hostname belongs to a domain."""
+        return seal(HTTP_DB[purpose].searchdomain(domain))
+
+    # --- Filter construction: Port / Service ---
+
+    @mcp.tool()
+    def searchport(
+        purpose: AllPurpose, port: int, protocol: Literal["tcp", "udp"] = "tcp"
+    ) -> FilterType:
+        """Filter records with an open port."""
+        return seal(HTTP_DB[purpose].searchport(port, protocol=protocol))
+
+    @mcp.tool()
+    def searchservice(
+        purpose: AllPurpose,
+        service: str,
+        port: int | None = None,
+        protocol: Literal["tcp", "udp"] = "tcp",
+    ) -> FilterType:
+        """Filter records with a detected service name on any port."""
+        kwargs: dict[str, int | str] = {}
+        if port is not None:
+            kwargs["port"] = port
+            kwargs["protocol"] = protocol
+        return seal(HTTP_DB[purpose].searchservice(service, **kwargs))
+
+    @mcp.tool()
+    def searchproduct(
+        purpose: AllPurpose,
+        product: str | None,
+        version: str | None,
+        service: str | None = None,
+        port: int | None = None,
+        protocol: Literal["tcp", "udp"] = "tcp",
+    ) -> FilterType:
+        """Filter records with a detected service, product and/or version."""
+        kwargs: dict[str, int | str] = {}
+        if product is not None:
+            kwargs["product"] = product
+        if version is not None:
+            kwargs["version"] = version
+        if service is not None:
+            kwargs["service"] = service
+        if port is not None:
+            kwargs["port"] = port
+        if protocol is not None:
+            kwargs["protocol"] = protocol
+        return seal(HTTP_DB[purpose].searchproduct(**kwargs))
+
+    @mcp.tool()
+    def searchdevicetype(purpose: ActivePurpose, devtype: str) -> FilterType:
+        """Filter records by device type."""
+        return seal(HTTP_DB[purpose].searchdevicetype(devtype))
+
+    # --- Filter construction: Geolocation / ASN ---
+
+    @mcp.tool()
+    def searchcountry(purpose: AllPurpose, country: str) -> FilterType:
+        """Filter records by country code (ISO 3166-1 alpha-2)."""
+        return seal(HTTP_DB[purpose].searchcountry(country))
+
+    @mcp.tool()
+    def searchasnum(purpose: AllPurpose, asnum: int | str) -> FilterType:
+        """Filter records by Autonomous System number or name."""
+        return seal(HTTP_DB[purpose].searchasnum(asnum))
+
+    # --- Filter construction: OS / Script / CVE ---
+
+    @mcp.tool()
+    def searchos(purpose: ActivePurpose, os_name: str) -> FilterType:
+        """Filter records by detected operating system."""
+        return seal(HTTP_DB[purpose].searchos(os_name))
+
+    @mcp.tool()
+    def searchscript(
+        purpose: ActivePurpose,
+        name: str | None = None,
+        output: str | None = None,
+    ) -> FilterType:
+        """Filter records having a specific Nmap script result. At least one of name or output must be provided."""
+        kwargs: dict[str, str] = {}
+        if name is not None:
+            kwargs["name"] = name
+        if output is not None:
+            kwargs["output"] = output
+        if not kwargs:
+            raise McpError(
+                ErrorData(
+                    code=INVALID_PARAMS,
+                    message="At least one of 'name' or 'output' must be provided",
+                )
+            )
+        return seal(HTTP_DB[purpose].searchscript(**kwargs))
+
+    @mcp.tool()
+    def searchcve(purpose: ActivePurpose, cve: str) -> FilterType:
+        """Filter records associated with a CVE identifier.
+
+        Matches hosts tagged "Vulnerable" whose tag info contains the given
+        CVE identifier (e.g., "CVE-2022-22897"). The match is a substring
+        regex against the tag info field, so passing "CVE-2022-22" will also
+        match "CVE-2022-22897"; pass the full CVE identifier to narrow down.
+
+        To find the detailed scan output for a vulnerability, use
+        distinct("ports.scripts.id", flt) on the matching hosts: the
+        vulnerability may have been found by different tools — an Nmap NSE
+        script (many possible names) or a Nuclei template stored under a
+        script ID ending in "-nuclei" (e.g., "http-nuclei").
+        """
+        # No IVRE backend implements a dedicated searchcve method. CVE IDs
+        # are stored in the info field of the "Vulnerable" tag
+        # (see ivre/tags/active.py), so we match via searchtag with a
+        # CVE substring regex against tag info.
+        return seal(
+            HTTP_DB[purpose].searchtag(
+                {"value": "Vulnerable", "info": re.compile(re.escape(cve))}
+            )
+        )
+
+    # --- Filter construction: Category / Tag ---
+
+    @mcp.tool()
+    def searchcategory(purpose: ActivePurpose, category: str) -> FilterType:
+        """Filter records belonging to a category."""
+        return seal(HTTP_DB[purpose].searchcategory(category))
+
+    @mcp.tool()
+    def searchtag(
+        purpose: ActivePurpose,
+        tag: str | None = None,
+        info: str | None = None,
+    ) -> FilterType:
+        """Filter records by tag value, and optionally by tag info.
+
+        IVRE automatically tags hosts based on scan results. The severity
+        markers below (danger / warning / info) mirror the IVRE web UI color
+        coding and are a hint for prioritizing findings -- "danger" tags are
+        the ones to triage first.
+
+        Well-known tags:
+
+        - "Vulnerable" (danger): host has known vulnerabilities found by a scanning tool
+        - "Likely vulnerable" (warning): host is likely vulnerable based on version detection
+        - "Cannot test vuln" (info): vulnerability test was inconclusive
+        - "Default password" (danger): a default password was detected
+        - "Malware" (danger): malware detected on the host
+        - "CDN" (info): host belongs to a CDN provider (e.g., Cloudflare, Akamai)
+        - "CLOUD" (info): host belongs to a cloud provider (e.g., aws, gcp, azure)
+        - "WAF" (info): host is behind a Web Application Firewall (e.g., cloudflare, incapsula)
+        - "Organization" (info): host is associated with a known organization
+        - "Scanner" (warning): host is a known scanner (Shodan, Censys, etc.)
+        - "Honeypot" (warning): host appears to be a honeypot
+        - "TOR" (info): host is a TOR exit node
+        - "GovCloud" (info): host belongs to a government cloud range
+        - "Reserved address" (info): host uses a reserved IP range
+
+        If tag is None and info is None, matches any record that has at
+        least one tag.
+
+        When info is provided, it is matched as a substring regex against
+        the tag info field (e.g., `searchtag(tag="CLOUD", info="azure")` to
+        find hosts tagged CLOUD with info mentioning azure).
+        """
+        if info is None:
+            return seal(HTTP_DB[purpose].searchtag(tag))
+        tag_dict: dict[str, Any] = {"info": re.compile(re.escape(info))}
+        if tag is not None:
+            tag_dict["value"] = tag
+        return seal(HTTP_DB[purpose].searchtag(tag_dict))
+
+    # --- Filter construction: Passive-specific ---
+
+    @mcp.tool()
+    def searchrecontype(purpose: PassivePurpose, recontype: str) -> FilterType:
+        """Filter passive records by reconnaissance type."""
+        return seal(HTTP_DB[purpose].searchrecontype(recontype))
+
+    @mcp.tool()
+    def searchsensor(purpose: PassivePurpose, sensor: str) -> FilterType:
+        """Filter passive records by sensor name."""
+        return seal(HTTP_DB[purpose].searchsensor(sensor))
+
+    # --- Action tools ---
+
+    @mcp.tool()
+    def count(purpose: AllPurpose, flt: FilterType | None = None) -> int:
+        """Count records matching a filter."""
+        try:
+            return int(REAL_DB[purpose].count(_parse(purpose, flt)))
+        except McpError:
+            raise
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def get(
+        purpose: AllPurpose,
+        flt: FilterType | None = None,
+        limit: int = 10,
+        skip: int = 0,
+        sort: list[str] | None = None,
+        fields: list[str] | None = None,
+    ) -> str:
+        """Retrieve records matching a filter. Returns JSON array."""
+        limit = max(1, min(limit, 100))
+        try:
+            parsed_flt = _parse(purpose, flt)
+            records = [
+                _clean_record(rec)
+                for rec in REAL_DB[purpose].get(
+                    parsed_flt,
+                    limit=limit,
+                    skip=skip,
+                    sort=_parse_sort(sort),
+                    fields=fields,
+                )
+            ]
+            return json.dumps(records, default=serialize)
+        except McpError:
+            raise
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def topvalues(
+        purpose: AllPurpose,
+        field: str,
+        flt: FilterType | None = None,
+        topnbr: int = 10,
+    ) -> str:
+        """Return the most frequent values of a field. Returns JSON array of {value, count}."""
+        try:
+            parsed_flt = _parse(purpose, flt)
+            raw = REAL_DB[purpose].topvalues(field, flt=parsed_flt, topnbr=topnbr)
+            results = [
+                {"value": entry["_id"], "count": entry["count"]} for entry in raw
+            ]
+            return json.dumps(results, default=serialize)
+        except McpError:
+            raise
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def distinct(
+        purpose: AllPurpose,
+        field: str,
+        flt: FilterType | None = None,
+        limit: int = 100,
+    ) -> str:
+        """Return distinct values of a field. Returns JSON array.
+
+        Tip: use distinct("ports.scripts.id") to list all Nmap scripts that have
+        produced results in a given scope. This is useful to understand what data
+        is available before drilling down with searchscript.
+        """
+        try:
+            parsed_flt = _parse(purpose, flt)
+            values = list(REAL_DB[purpose].distinct(field, flt=parsed_flt, limit=limit))
+            return json.dumps(values, default=serialize)
+        except McpError:
+            raise
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def describe_schema(purpose: AllPurpose) -> str:
+        """Return the document schema for a given purpose, listing field paths usable with topvalues, distinct, and get (sort).
+
+        See also nmap_service_values() to discover valid service names and product
+        names for use with searchservice / searchproduct.
+        """
+        return json.dumps(SCHEMAS[purpose])
+
+    # --- Nmap service value discovery ---
+
+    @mcp.tool()
+    def nmap_service_values(
+        field: Literal["service_name", "service_product"],
+        service: str | None = None,
+    ) -> str:
+        """List known Nmap values for service_name or service_product.
+
+        For service_name: returns the comprehensive list of all possible service names.
+        For service_product: returns known product names (not exhaustive — banner
+        extraction may produce unlisted values). Use the optional service parameter
+        to filter products by service name.
+        """
+        try:
+            cache = _get_nmap_service_values()
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+        if field == "service_name":
+            return json.dumps(sorted(cache.get("service_names", set())))
+
+        # field == "service_product"
+        if service is not None:
+            values = cache.get(f"products:{service}", set())
+        else:
+            values = cache.get("products_all", set())
+        return json.dumps(sorted(values))
+
+    # --- Resources ---
+
+    @mcp.resource("ivre://guides/scope-discovery")
+    def scope_discovery_guide() -> str:
+        """Guide: recommended steps when discovering or analyzing a scope."""
+        return _SCOPE_DISCOVERY_GUIDE
+
+
+def _clean_record(record: dict[str, Any]) -> dict[str, Any]:
+    try:
+        del record["_id"]
+    except KeyError:
+        pass
+    return record
+
+
+# --- Nmap service value discovery ---
+
+_NMAP_SVC_CACHE: dict[str, set[str]] = {}
+
+_NSE_VERSION_NAME_RE = re.compile(r'\.version\.name\s*=\s*([\'"])([^\'"]*)\1')
+_NSE_VERSION_PRODUCT_RE = re.compile(r'\.version\.product\s*=\s*([\'"])([^\'"]*)\1')
+
+
+def _get_nmap_service_values() -> dict[str, set[str]]:
+    if _NMAP_SVC_CACHE:
+        return _NMAP_SVC_CACHE
+
+    service_names: set[str] = set()
+    products: dict[str, set[str]] = {}
+
+    # Trigger lazy loading of _NMAP_PROBES
+    try:
+        get_nmap_svc_fp("tcp", "NULL")
+    except KeyError:
+        pass
+
+    # Extract from nmap-service-probes fingerprints
+    for probes in _NMAP_PROBES.values():
+        for probe_rec in probes.values():
+            for svc_name, info in probe_rec.get("fp", []):
+                service_names.add(svc_name)
+                if "p" in info:
+                    product_str = info["p"][0]
+                    if "$" not in product_str:
+                        products.setdefault(svc_name, set()).add(product_str)
+
+    # Extract from NSE scripts
+    nmap_scripts = os.path.join(config.NMAP_SHARE_PATH, "scripts")
+    if os.path.isdir(nmap_scripts):
+        for nse_path in glob.glob(os.path.join(nmap_scripts, "*.nse")):
+            try:
+                with open(nse_path, encoding="utf-8", errors="replace") as fdesc:
+                    content = fdesc.read()
+            except OSError:
+                continue
+            for match in _NSE_VERSION_NAME_RE.finditer(content):
+                service_names.add(match.group(2))
+            for match in _NSE_VERSION_PRODUCT_RE.finditer(content):
+                value = match.group(2)
+                if "$" not in value:
+                    products.setdefault("", set()).add(value)
+
+    _NMAP_SVC_CACHE["service_names"] = service_names
+    _NMAP_SVC_CACHE["products_all"] = {p for ps in products.values() for p in ps}
+    for svc_name, prods in products.items():
+        _NMAP_SVC_CACHE[f"products:{svc_name}"] = prods
+
+    return _NMAP_SVC_CACHE
+
+
+_SCOPE_DISCOVERY_GUIDE = """\
+# Scope Discovery Guide
+
+When exploring a new scope or answering broad security questions, follow these
+steps. They work with any filter (flt_empty for the whole database, or a
+specific filter built with searchnet, searchcountry, searchasnum, etc.).
+
+## 1. Get an overview
+
+- `count(purpose, flt)` — how many hosts are in scope?
+- `topvalues(purpose, "openports", flt)` — most common port profiles; each
+  value is a full open-ports structure with port count and port list, so you
+  see the typical "shapes" of hosts in the scope (e.g., 71k hosts with only
+  tcp/80 + tcp/443 open)
+- `distinct(purpose, "tags.value", flt)` — list which tags are present in the
+  scope (e.g., Vulnerable, CDN, CLOUD, Organization, …)
+
+## 2. Understand the services
+
+- `topvalues(purpose, "service", flt)` — most common service names
+- `topvalues(purpose, "port", flt)` — most common open ports
+- `topvalues(purpose, "product", flt)` — most common software products
+- `topvalues(purpose, "version", flt)` — most common product versions
+- `topvalues(purpose, "product:<port>", flt)` — products on a specific port
+  (e.g., "product:443" for HTTPS, "product:22" for SSH)
+- `topvalues(purpose, "product:<service>", flt)` — products for a service on
+  any port (e.g., "product:http" to cover HTTP on all ports, not just 80/443)
+- `topvalues(purpose, "version:<service>:<product>", flt)` — versions of a
+  specific product (e.g., "version:http:Microsoft IIS httpd" to see which IIS
+  versions are deployed)
+
+## 3. Discover what scan data is available
+
+- `distinct(purpose, "ports.scripts.id", flt)` — list all Nmap scripts that
+  produced results in the scope. This tells you what data you can drill into
+  with searchscript (e.g., "ssl-cert", "http-title", "vulners", "ftp-anon").
+
+## 4. Assess security posture
+
+- `searchtag(purpose, "Vulnerable")` — hosts with confirmed vulnerabilities
+- `searchtag(purpose, "Likely vulnerable")` — hosts likely vulnerable (version-based)
+- `searchtag(purpose, "Default password")` — hosts with default credentials
+- `searchcve(purpose, "CVE-YYYY-NNNN")` — hosts vulnerable to a specific CVE
+  (shortcut for searchtag with a CVE substring match on tag info)
+- `topvalues(purpose, "tag.value", flt)` — just the tag names with host counts
+  (equivalent to `tags.value`); use this for a quick tag histogram
+- `topvalues(purpose, "tag", flt)` — full tag `[value, info]` pairs with
+  counts; use this for a detailed breakdown (e.g., which specific cloud
+  providers, which CVEs on vulnerable hosts)
+- `searchtag(purpose, tag="Vulnerable", info="CVE-2021-")` — narrow a tag
+  query by an info substring; any tag supports this pattern
+- Look for risky exposed services: telnet, ftp-anon, ms-wbt-server (RDP), vnc,
+  netbios-ssn (SMB), mysql, postgresql, mongodb
+
+## 5. Identify infrastructure
+
+- `topvalues(purpose, "country", flt)` — geographic distribution
+- `topvalues(purpose, "as", flt)` — autonomous systems
+- `topvalues(purpose, "domains", flt)` — most common domains
+- `topvalues(purpose, "os", flt)` — operating systems
+- `topvalues(purpose, "devicetype", flt)` — device types
+- `searchtag(purpose, "CDN")` — hosts behind CDNs
+- `searchtag(purpose, "CLOUD")` — hosts in cloud providers
+- `searchtag(purpose, "WAF")` — hosts behind WAFs
+
+## Tips
+
+- Always start broad (topvalues, count) before drilling into individual hosts.
+- Combine filters with flt_and to narrow down (e.g., country + service).
+- Use the `fields` parameter in get() to limit output to relevant fields.
+- Use describe_schema(purpose) to discover all available field paths.
+- Many Nmap scripts store parsed, structured data in `ports.scripts[i]`
+  under keys other than `id` and `output` (e.g., `ssl-cert`, `http-nuclei`,
+  `nuclei`, `vulners`). Prefer these keys when drilling into a host — they
+  are easier to parse than the raw `output` string.
+"""
+
+
+logger = logging.getLogger(__name__)
+
+
+def main() -> None:
+    """Entry point for ``ivre mcp-server``."""
+    if _MCP_IMPORT_ERROR is not None:
+        raise SystemExit(
+            "The 'mcp' Python package is required. Install IVRE with the "
+            "[mcp] extra: pip install 'ivre[mcp]'.\n"
+            f"Original import error: {_MCP_IMPORT_ERROR}"
+        )
+    _register_tools()
+    load_plugins("ivre.plugins.mcp_server", globals())
+    mcp.run(transport="stdio")
