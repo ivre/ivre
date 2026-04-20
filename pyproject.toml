@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Network recon framework"
 readme = "README.md"
 license = "GPL-3.0-or-later"
-requires-python = ">=3.11, <4"
+requires-python = ">=3.12, <4"
 authors = [{ name = "Pierre LALET", email = "pierre@droids-corp.org" }]
 keywords = [
     "network",
@@ -32,7 +32,6 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Intended Audience :: Telecommunications Industry",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
