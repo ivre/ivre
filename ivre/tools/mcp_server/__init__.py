@@ -23,6 +23,7 @@ to be launched by an MCP-capable client (Claude Code, Claude Desktop,
 Cursor, OpenCode, ...).
 """
 
+import argparse
 import base64
 import glob
 import json
@@ -657,6 +658,15 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Entry point for ``ivre mcp-server``."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Start the IVRE MCP (Model Context Protocol) server on "
+            "stdio. Meant to be launched by an MCP-capable client "
+            "(Claude Code, Claude Desktop, Cursor, OpenCode, ...). "
+            "See doc/usage/mcp-server.rst for client configuration."
+        ),
+    )
+    parser.parse_args()
     if _MCP_IMPORT_ERROR is not None:
         raise SystemExit(
             "The 'mcp' Python package is required. Install IVRE with the "
