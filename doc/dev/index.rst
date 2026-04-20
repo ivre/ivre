@@ -8,3 +8,4 @@ Development
   web-api
   tests
   linting
+  mcp-plugins
