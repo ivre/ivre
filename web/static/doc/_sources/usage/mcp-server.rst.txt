@@ -109,6 +109,130 @@ A resource at ``ivre://guides/scope-discovery`` is also exposed; the
 server's top-level instructions point agents at it when they start
 exploring a scope.
 
+HTTP transport
+==============
+
+In addition to stdio, the server can be exposed over HTTP using the
+Model Context Protocol *Streamable HTTP* transport. This is how
+remote or shared MCP deployments are typically served.
+
+Starting the HTTP transport
+---------------------------
+
+::
+
+    ivre mcp-server --http \
+                    --bind 127.0.0.1 \
+                    --port 9100 \
+                    --path /mcp
+
+CLI flags:
+
+===================== ========================================================
+Flag                  Description
+===================== ========================================================
+``--http``            Switch from stdio to Streamable HTTP.
+``--bind``            Bind address. Default ``127.0.0.1``.
+``--port``            TCP port. Default ``9100``.
+``--path``            HTTP path prefix for the MCP endpoint. Default ``/mcp``.
+``--allow-anonymous`` Disable bearer-token auth. Refused unless the server
+                      is bound to a loopback address.
+===================== ========================================================
+
+Defaults can also be set from ``ivre.conf`` via ``MCP_HTTP_BIND``,
+``MCP_HTTP_PORT``, ``MCP_HTTP_PATH`` and ``MCP_HTTP_ALLOW_ANONYMOUS``.
+
+Authentication
+--------------
+
+The HTTP transport reuses the :doc:`web-auth` API-key infrastructure.
+MCP clients authenticate with ``Authorization: Bearer <api-key>``;
+the server verifies the token against ``db.auth.validate_api_key``
+(the same code path used by the Web UI) and refuses unauthenticated
+requests when ``WEB_AUTH_ENABLED`` is set.
+
+Per-user access controls (``WEB_INIT_QUERIES``, ``WEB_DEFAULT_INIT_QUERY``,
+group-based rules) are honoured for every MCP tool call: the
+authenticated user is resolved from the bearer token and the resulting
+init filter is AND-ed with any filter built by the client.
+
+To create an API key, log in to the Web UI as the user, open
+*Admin > API Keys* and click **Create**. Keep the key secret --
+revoking it from the Web UI immediately invalidates MCP clients
+carrying it.
+
+Safety defaults
+---------------
+
+- When ``--bind`` is not a loopback address and authentication is not
+  configured, ``ivre mcp-server --http`` refuses to start. Either
+  bind to loopback, enable ``WEB_AUTH_ENABLED``, or pass
+  ``--allow-anonymous`` to acknowledge the risk.
+- Anonymous mode disables *all* access control. Use it only for
+  single-user local development.
+
+Reverse proxy (nginx)
+---------------------
+
+For production deployments, terminate TLS in nginx and reverse-proxy
+to the MCP HTTP server. The Streamable-HTTP transport relies on
+server-sent events, so disable response buffering and bump the read
+timeout::
+
+    location /mcp/ {
+        proxy_pass              http://127.0.0.1:9100/mcp/;
+        proxy_http_version      1.1;
+        proxy_set_header        Host              $host;
+        proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+        proxy_set_header        Authorization     $http_authorization;
+        proxy_buffering         off;
+        proxy_cache             off;
+        proxy_read_timeout      1h;
+        proxy_send_timeout      1h;
+        chunked_transfer_encoding on;
+    }
+
+HTTP client configuration
+-------------------------
+
+Claude Desktop, Claude Code, Cursor, VS Code and Windsurf support
+connecting to remote MCP servers. Example Claude Code snippet for
+``~/.claude/settings.json`` or a project-level ``.mcp.json``::
+
+    {
+      "mcpServers": {
+        "IVRE": {
+          "type": "http",
+          "url": "https://ivre.example.com/mcp",
+          "headers": {
+            "Authorization": "Bearer IVRE_API_KEY_HERE"
+          }
+        }
+      }
+    }
+
+The exact JSON schema differs slightly between clients; consult the
+client documentation for the precise key names.
+
+Docker
+------
+
+The reference Docker deployment (see :doc:`../install/docker`) ships a
+dedicated ``ivre/web-mcp`` image that runs ``ivre mcp-server --http``
+on port 9100 inside the Compose network. The ``ivre/web`` nginx
+container reverse-proxies it at ``/mcp/``, so no extra configuration
+is required to reach it from an MCP client at
+``http(s)://<host>/mcp``.
+
+The image starts with ``--allow-anonymous`` because the MCP port is
+not published on the host. For any production use, enable the IVRE
+Web auth backend (``WEB_AUTH_ENABLED = True`` in ``ivre.conf``),
+create an API key from *Admin > API Keys* in the Web UI, and override
+the ``ivremcp`` ``command:`` in ``docker-compose.yml`` to drop
+``--allow-anonymous``.
+
+
 Client setup
 ============
 

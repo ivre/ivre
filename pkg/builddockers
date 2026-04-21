@@ -18,7 +18,7 @@
 
 docker pull debian:trixie-slim
 
-VERSION="$(python3 -m setuptools_scm 2>/dev/null)"
+VERSION="$(python setup.py --version 2>/dev/null)"
 
 case "$VERSION" in
     *.dev*)
@@ -46,17 +46,18 @@ case "$VERSION" in
 esac
 
 git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
+tar --owner=root:0 --group=root:0 --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/_version.py
 
 cd "$(dirname "$0")/../docker" || exit 255
 
 docker build --no-cache -t "ivre/base:$tag" "base-local" || exit $?
 
-for img in client agent web web-doku web-uwsgi ; do
+for img in client agent web web-doku web-mcp web-uwsgi ; do
     docker build --no-cache --build-arg TAG="$tag" -t "ivre/$img:$tag" "$img" || exit $?
 done
 
 # Uncomment to push images
 # docker login
-# for img in base client agent web web-doku web-uwsgi ; do
+# for img in base client agent web web-doku web-mcp web-uwsgi ; do
 #     docker push "ivre/$img:$tag"
 # done

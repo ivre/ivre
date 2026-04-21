@@ -36,6 +36,12 @@ services:
     restart: always
     volumes:
       - ./dokuwiki_data:/var/www/dokuwiki/data
+  ivremcp:
+    image: ivre/web-mcp
+    container_name: ivremcp
+    restart: always
+    depends_on:
+      - ivredb
   ivreweb:
     image: ivre/web
     container_name: ivreweb
@@ -45,6 +51,7 @@ services:
     depends_on:
       - ivreuwsgi
       - ivredoku
+      - ivremcp
     volumes:
       - ./dokuwiki_data:/var/www/dokuwiki/data
   ivreclient:

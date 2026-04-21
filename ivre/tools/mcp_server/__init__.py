@@ -26,6 +26,7 @@ Cursor, OpenCode, ...).
 import argparse
 import base64
 import glob
+import ipaddress
 import json
 import logging
 import os
@@ -39,7 +40,7 @@ from ivre.db import db
 from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
 from ivre.plugins import load_plugins
 from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp
-from ivre.web.utils import parse_filter
+from ivre.web.utils import get_init_flt_for, parse_filter
 
 from .schemas import SCHEMAS
 
@@ -55,12 +56,14 @@ class _McpErrorFallback(Exception):
 
 
 try:
+    from mcp.server.auth.settings import AuthSettings
     from mcp.server.fastmcp import FastMCP
     from mcp.shared.exceptions import McpError
     from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ErrorData
 except ImportError as exc:  # pragma: no cover - optional dependency
     _MCP_IMPORT_ERROR: ImportError | None = exc
     FastMCP = None
+    AuthSettings = None
     McpError = _McpErrorFallback
     ErrorData = None
     INVALID_PARAMS = 0
@@ -99,25 +102,35 @@ def _unseal(token: str) -> dict[str, Any] | list[Any]:
     raise McpError(ErrorData(code=INVALID_PARAMS, message="Invalid filter"))
 
 
-if _MCP_IMPORT_ERROR is None:
-    mcp = FastMCP(
-        "ivre",
-        instructions=(
-            "IVRE is a network reconnaissance framework. Data can be queried with three "
-            "purposes: 'nmap' (active scan results), 'passive' (passively collected traffic "
-            "data), and 'view' (a consolidated, deduplicated merge of nmap and passive). "
-            "Always prefer the 'view' purpose unless the user explicitly requests a "
-            "different one or the needed data is only available in 'nmap' or 'passive'.\n\n"
-            "IMPORTANT: Filters are opaque values. Always use the filter-building tools "
-            "(searchnet, searchhost, searchcountry, searchport, etc.) to create filters, "
-            "and flt_and / flt_or to combine them. Never manually construct, modify, or "
-            "guess the internal structure of filter objects.\n\n"
-            "When exploring a scope or answering broad security questions, read the "
-            "ivre://guides/scope-discovery resource first for recommended steps."
-        ),
-    )
-else:
-    mcp = None
+_INSTRUCTIONS = (
+    "IVRE is a network reconnaissance framework. Data can be queried with three "
+    "purposes: 'nmap' (active scan results), 'passive' (passively collected traffic "
+    "data), and 'view' (a consolidated, deduplicated merge of nmap and passive). "
+    "Always prefer the 'view' purpose unless the user explicitly requests a "
+    "different one or the needed data is only available in 'nmap' or 'passive'.\n\n"
+    "IMPORTANT: Filters are opaque values. Always use the filter-building tools "
+    "(searchnet, searchhost, searchcountry, searchport, etc.) to create filters, "
+    "and flt_and / flt_or to combine them. Never manually construct, modify, or "
+    "guess the internal structure of filter objects.\n\n"
+    "When exploring a scope or answering broad security questions, read the "
+    "ivre://guides/scope-discovery resource first for recommended steps."
+)
+
+
+def _build_server(**fastmcp_kwargs: Any) -> Any:
+    """Build a :class:`FastMCP` instance with the IVRE tools registered.
+
+    Extra keyword arguments are forwarded to :class:`FastMCP` (e.g. to
+    enable HTTP auth or to configure the Streamable-HTTP transport).
+    """
+    global mcp  # noqa: PLW0603
+    mcp = FastMCP("ivre", instructions=_INSTRUCTIONS, **fastmcp_kwargs)
+    _register_tools()
+    load_plugins("ivre.plugins.mcp_server", globals())
+    return mcp
+
+
+mcp: Any = None  # populated by _build_server() at startup time
 
 _DUMMY_URL = urlparse("http://127.0.0.1")
 
@@ -136,11 +149,25 @@ REAL_DB = {
 
 def _parse(purpose: str, flt: FilterType | None) -> Any:
     real = REAL_DB[purpose]
+    # Resolve the authenticated user (HTTP transport only; None on stdio).
+    try:
+        from .auth import current_user_email  # pylint: disable=import-outside-toplevel
+    except ImportError:  # pragma: no cover - optional dependency
+        user: str | None = None
+    else:
+        user = current_user_email()
+    # Enforce authentication when WEB_AUTH_ENABLED is set and the call
+    # arrives over an HTTP transport (i.e. auth context is expected).
+    if config.WEB_AUTH_ENABLED and _HTTP_AUTH_REQUIRED and user is None:
+        raise McpError(
+            ErrorData(code=INVALID_PARAMS, message="Authentication required")
+        )
+    base_flt = get_init_flt_for(user, real)
     if flt is None:
-        return real.flt_empty
+        return base_flt
     raw = _unseal(flt)
     try:
-        return parse_filter(real, raw)
+        return real.flt_and(base_flt, parse_filter(real, raw))
     except ValueError as exc:
         raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
 
@@ -656,23 +683,144 @@ specific filter built with searchnet, searchcountry, searchasnum, etc.).
 logger = logging.getLogger(__name__)
 
 
+# Set to True by main() when the HTTP transport is started with a
+# token verifier; consulted by :func:`_parse` to enforce authentication
+# on every tool call. Stays False under the stdio transport.
+_HTTP_AUTH_REQUIRED = False
+
+
+def _is_loopback(addr: str) -> bool:
+    """Return True if ``addr`` is a loopback IP address."""
+    try:
+        return ipaddress.ip_address(addr).is_loopback
+    except ValueError:
+        return False
+
+
 def main() -> None:
     """Entry point for ``ivre mcp-server``."""
     parser = argparse.ArgumentParser(
         description=(
-            "Start the IVRE MCP (Model Context Protocol) server on "
-            "stdio. Meant to be launched by an MCP-capable client "
-            "(Claude Code, Claude Desktop, Cursor, OpenCode, ...). "
-            "See doc/usage/mcp-server.rst for client configuration."
+            "Start the IVRE MCP (Model Context Protocol) server. By "
+            "default it runs over stdio, meant to be launched by an "
+            "MCP-capable client (Claude Code, Claude Desktop, Cursor, "
+            "OpenCode, ...). Use --http to expose it over HTTP "
+            "(Streamable HTTP transport). See doc/usage/mcp-server.rst "
+            "for client configuration."
         ),
     )
-    parser.parse_args()
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help=(
+            "Serve over HTTP (Streamable HTTP transport) instead of "
+            "stdio. Clients connect with `Authorization: Bearer "
+            "<api-key>`. See --bind / --port / --path."
+        ),
+    )
+    parser.add_argument(
+        "--bind",
+        default=config.MCP_HTTP_BIND,
+        help=f"HTTP bind address (default: {config.MCP_HTTP_BIND}).",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=config.MCP_HTTP_PORT,
+        help=f"HTTP port (default: {config.MCP_HTTP_PORT}).",
+    )
+    parser.add_argument(
+        "--path",
+        default=config.MCP_HTTP_PATH,
+        help=f"HTTP path prefix (default: {config.MCP_HTTP_PATH}).",
+    )
+    parser.add_argument(
+        "--allow-anonymous",
+        action="store_true",
+        default=config.MCP_HTTP_ALLOW_ANONYMOUS,
+        help=(
+            "Disable bearer-token auth on the HTTP transport. Refused "
+            "unless the server is bound to a loopback address."
+        ),
+    )
+    args = parser.parse_args()
     if _MCP_IMPORT_ERROR is not None:
         raise SystemExit(
             "The 'mcp' Python package is required. Install IVRE with the "
             "[mcp] extra: pip install 'ivre[mcp]'.\n"
             f"Original import error: {_MCP_IMPORT_ERROR}"
         )
-    _register_tools()
-    load_plugins("ivre.plugins.mcp_server", globals())
-    mcp.run(transport="stdio")
+    if args.http:
+        _run_http(args)
+    else:
+        _build_server()
+        mcp.run(transport="stdio")
+
+
+def _run_http(args: argparse.Namespace) -> None:
+    """Start the Streamable-HTTP transport."""
+    global _HTTP_AUTH_REQUIRED  # noqa: PLW0603
+
+    loopback = _is_loopback(args.bind)
+    auth_backend_ok = config.WEB_AUTH_ENABLED and db.auth is not None
+    use_auth = auth_backend_ok and not args.allow_anonymous
+
+    if not use_auth and not loopback:
+        raise SystemExit(
+            "Refusing to start the MCP HTTP transport on a non-loopback "
+            f"address ({args.bind}) without authentication. Either:\n"
+            "  - enable the IVRE Web auth backend (WEB_AUTH_ENABLED = True "
+            "in ivre.conf) and create an API key via the admin UI, or\n"
+            "  - bind explicitly to a loopback address (e.g. --bind "
+            "127.0.0.1), or\n"
+            "  - pass --allow-anonymous to acknowledge the risk."
+        )
+
+    if args.allow_anonymous and auth_backend_ok:
+        logger.warning(
+            "MCP HTTP: --allow-anonymous was passed while the auth backend "
+            "is configured; every client will have full (unauthenticated) "
+            "access to the database.",
+        )
+
+    fastmcp_kwargs: dict[str, Any] = {
+        "host": args.bind,
+        "port": args.port,
+        "streamable_http_path": args.path,
+    }
+
+    if use_auth:
+        from .auth import IvreTokenVerifier  # pylint: disable=import-outside-toplevel
+
+        # The issuer/resource URLs are advertised to clients; build them
+        # from the bind address and path. TLS termination is expected to
+        # happen upstream (nginx/Apache); the URL scheme is therefore
+        # only used as an identifier and not dereferenced here.
+        scheme = "http"
+        if loopback:
+            host_url = f"{scheme}://{args.bind}:{args.port}"
+        else:
+            # Non-loopback deployments are expected behind TLS.
+            scheme = "https"
+            host_url = f"{scheme}://{args.bind}:{args.port}"
+        resource_url = host_url + args.path
+        fastmcp_kwargs["token_verifier"] = IvreTokenVerifier()
+        fastmcp_kwargs["auth"] = AuthSettings(
+            issuer_url=host_url,
+            resource_server_url=resource_url,
+        )
+        _HTTP_AUTH_REQUIRED = True
+        logger.info(
+            "MCP HTTP: bearer-token auth enabled (API keys from db.auth)",
+        )
+    else:
+        _HTTP_AUTH_REQUIRED = False
+        logger.warning(
+            "MCP HTTP: running without authentication on %s:%d%s",
+            args.bind,
+            args.port,
+            args.path,
+        )
+
+    _build_server(**fastmcp_kwargs)
+    mcp.run(transport="streamable-http")

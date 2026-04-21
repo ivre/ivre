@@ -85,6 +85,10 @@ setup(
             ],
         ),
         (
+            "share/ivre/docker/web-mcp",
+            ["docker/web-mcp/Dockerfile"],
+        ),
+        (
             "share/ivre/docker/web-uwsgi",
             ["docker/web-uwsgi/Dockerfile"],
         ),

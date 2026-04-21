@@ -9,6 +9,32 @@ The images published on Docker hub are built from the current
 and from the current release (tag ``vX.Y.Z``, use
 ``ivre/<imagename>:vX.Y.Z`` to use it).
 
+Images
+------
+
+IVRE ships the following Docker images (all built from the
+``Dockerfile``\ s under ``docker/``):
+
+=================== ==============================================================
+Image               Role
+=================== ==============================================================
+``ivre/base``       Base image with IVRE and its dependencies installed;
+                    parent of every other image.
+``ivre/client``     CLI container, used to run ``ivre`` subcommands
+                    against the database.
+``ivre/agent``      Remote scan agent (see ``ivre runscansagent``).
+``ivre/web``        nginx front-end serving the Web UI static assets and
+                    reverse-proxying ``/cgi/``, ``/dokuwiki/`` and
+                    ``/mcp/`` to the internal backends.
+``ivre/web-uwsgi``  uWSGI application server running the IVRE Web API
+                    (Bottle app in :mod:`ivre.web.app`).
+``ivre/web-doku``   PHP-FPM container running the Dokuwiki wiki
+                    integrated in the Web UI.
+``ivre/web-mcp``    :doc:`../usage/mcp-server` exposed over the Streamable
+                    HTTP transport, reachable through the
+                    ``ivre/web`` reverse proxy at ``/mcp``.
+=================== ==============================================================
+
 Using docker compose
 --------------------
 
@@ -77,7 +103,7 @@ that, from the ``docker/`` directory, run:
 
 ::
 
-   $ for img in base client agent web web-doku web-uwsgi ; do
+   $ for img in base client agent web web-doku web-mcp web-uwsgi ; do
    > docker build -t "ivre/$img" "$img"
    > done
 
@@ -97,6 +123,7 @@ run:
 ::
 
    $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
+   $ tar --owner=root:0 --group=root:0 --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/_version.py
    $ docker build -t ivre/base docker/base-local
 
 Using pip

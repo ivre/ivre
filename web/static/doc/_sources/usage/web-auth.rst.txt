@@ -283,6 +283,8 @@ Users receive a login link by email. No password is stored.
        IPv6 addresses are grouped by /48 (see
        :ref:`reverse-proxy-setup`)
 
+.. _reverse-proxy-setup:
+
 Reverse Proxy Setup
 ~~~~~~~~~~~~~~~~~~~
 

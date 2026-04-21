@@ -209,17 +209,18 @@ def _parse_query(dbase, query):
     }[query[0]](dbase, *query[1:])
 
 
-def get_init_flt(dbase):
-    """Return a filter corresponding to the current user's
-    privileges.
+def get_init_flt_for(user, dbase):
+    """Return a filter corresponding to the given user's privileges.
 
+    Unlike :func:`get_init_flt`, this function does not consult the
+    current Bottle request and does not abort on unauthenticated users;
+    callers are expected to have resolved the user beforehand (for
+    instance from an MCP transport) and to handle the unauthenticated
+    case themselves.
+
+    ``user`` must be either a user email (``str``) or ``None`` to mean
+    "no authenticated user".
     """
-    user = get_user()
-    # When auth is enabled, deny access to unauthenticated users
-    if config.WEB_AUTH_ENABLED and user is None:
-        from bottle import abort  # pylint: disable=import-outside-toplevel
-
-        abort(401, "Authentication required")
     init_queries = {
         key: _parse_query(dbase, value)
         for key, value in config.WEB_INIT_QUERIES.items()
@@ -240,6 +241,20 @@ def get_init_flt(dbase):
                 if key in init_queries:
                     return init_queries[key]
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
+
+
+def get_init_flt(dbase):
+    """Return a filter corresponding to the current user's
+    privileges.
+
+    """
+    user = get_user()
+    # When auth is enabled, deny access to unauthenticated users
+    if config.WEB_AUTH_ENABLED and user is None:
+        from bottle import abort  # pylint: disable=import-outside-toplevel
+
+        abort(401, "Authentication required")
+    return get_init_flt_for(user, dbase)
 
 
 PORT = re.compile("^(?:(tcp|udp)[/_])?([0-9]+)$")

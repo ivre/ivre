@@ -28,7 +28,6 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 # The comment lines "Begin XXX" and "End XXX" are used to include
 # parts of this files in the documentation.
 
-
 import os
 import stat
 from collections.abc import Generator
@@ -320,6 +319,18 @@ WEB_AUTH_OIDC_USERINFO_URL = None
 WEB_AUTH_OIDC_SCOPES = "openid email profile"
 # Label shown on the login page button
 WEB_AUTH_OIDC_LABEL = "SSO"
+
+
+# --- MCP server ---
+# Bind address / port / path used when `ivre mcp-server --http` starts
+# without explicit CLI flags. Defaults are loopback-only.
+MCP_HTTP_BIND = "127.0.0.1"
+MCP_HTTP_PORT = 9100
+MCP_HTTP_PATH = "/mcp"
+# When True, bypasses API-key authentication on the HTTP transport.
+# The HTTP server refuses to start when this is False (default) and
+# bound to a non-loopback address without a valid auth backend.
+MCP_HTTP_ALLOW_ANONYMOUS = False
 
 
 def get_config_file(paths: list[str] | None = None) -> Generator[str, None, None]:
