@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -52,15 +52,47 @@ IGNORE_TABLE_ELEMS = set(["xmpp-info", "sslv2", "sslv2-drown"])
 
 SCREENSHOT_PATTERN = re.compile("^ *Saved to (.*)$", re.MULTILINE)
 RTSP_SCREENSHOT_PATTERN = re.compile("^ *Saved [^ ]* to (.*)$", re.MULTILINE)
+SCREENSHOT_ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".gif"}
 
 
-def screenshot_extract(script):
-    fname = (
-        RTSP_SCREENSHOT_PATTERN
-        if script["id"] == "rtsp-screenshot"
-        else SCREENSHOT_PATTERN
-    ).search(script["output"])
-    return None if fname is None else fname.groups()[0]
+def screenshot_extract(script) -> str | None:
+    """Extracts the screenshot filename written by a `*-screenshot`
+    NSE script from its output.
+
+    The returned value is always a bare basename (no directory
+    component) with an image extension from
+    `SCREENSHOT_ALLOWED_EXT`.
+
+    Returns `None` when no valid filename is found.
+
+    """
+    if (
+        mtch := (
+            RTSP_SCREENSHOT_PATTERN
+            if script["id"] == "rtsp-screenshot"
+            else SCREENSHOT_PATTERN
+        ).search(script["output"])
+    ) is None:
+        return None
+    fname = mtch.groups()[0].strip()
+    if not fname:
+        return None
+    if os.path.basename(fname) != fname:
+        utils.LOGGER.warning(
+            "Screenshot: rejecting unsafe filename %r from script %r",
+            fname,
+            script.get("id"),
+        )
+        return None
+    if os.path.splitext(fname)[1].lower() not in SCREENSHOT_ALLOWED_EXT:
+        utils.LOGGER.warning(
+            "Screenshot: rejecting filename with unexpected extension %r "
+            "from script %r",
+            fname,
+            script.get("id"),
+        )
+        return None
+    return fname
 
 
 SCREENSHOTS_SCRIPTS = {
