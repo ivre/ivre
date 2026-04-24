@@ -60,6 +60,7 @@ mediawiki = ["mysqlclient"]
 3d-traceroute = ["dbus-python"]
 plots = ["matplotlib"]
 ja3 = ["scapy"]
+mcp = ["mcp"]
 linting = ["bandit", "black", "codespell", "flake8", "mypy", "pylint", "rstcheck[sphinx]", "sphinx-lint"]
 doc = ["Sphinx", "docutils!=0.18", "sphinx_rtd_theme", "sphinxcontrib-httpdomain"]
 

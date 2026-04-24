@@ -76,6 +76,18 @@ On a system with IVRE installed, you can use a `--help` option with
 most IVRE CLI tools, and `help(ivre.module)` with most IVRE Python
 sub-modules.
 
+## MCP server ##
+
+IVRE ships an [MCP](https://modelcontextprotocol.io/) (Model Context
+Protocol) server that exposes the database to LLM agents. Install
+with `pip install 'ivre[mcp]'` and run `ivre mcp-server`.
+
+See [`doc/usage/mcp-server.rst`](doc/usage/mcp-server.rst) for client
+configuration (Claude Code, Claude Desktop, Cursor, OpenCode, VS Code,
+Windsurf, JetBrains) and
+[`doc/dev/mcp-plugins.rst`](doc/dev/mcp-plugins.rst) to extend the
+server with additional tools.
+
 ## License ##
 
 IVRE is free software: you can redistribute it and/or modify

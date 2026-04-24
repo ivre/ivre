@@ -35,6 +35,7 @@ CATEGORIES = [
     "db",
     "db.elastic",
     "db.mongo",
+    "mcp_server",
     "tags",
     "tags.active",
     "tools",

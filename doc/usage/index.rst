@@ -12,3 +12,4 @@ Usage
   web-ui
   web-auth
   kibana
+  mcp-server

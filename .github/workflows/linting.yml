@@ -45,7 +45,7 @@ jobs:
 
     - run: curl -L https://github.com/koalaman/shellcheck/releases/download/v0.9.0/shellcheck-v0.9.0.linux.x86_64.tar.xz | tar -Jxf - -C /usr/local/bin --strip-components 1 shellcheck-v0.9.0/shellcheck
 
-    - run: pip install '.[linting]'
+    - run: pip install '.[linting,mcp]'
 
     - run: mv ivre ivre_bak
 
@@ -63,6 +63,11 @@ jobs:
     - run: mv ivre_bak ivre
     - run: MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tags,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,plugins,utils,zgrabout}.py
     - run: MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/db/mongo.py
+    # The MCP tool uses @mcp.tool() / @mcp.resource() decorators from an
+    # external (optional) dependency whose types are not followed
+    # (--follow-imports=skip), so --disallow-untyped-decorators and
+    # --disallow-untyped-defs do not apply. Everything else stays strict.
+    - run: MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/tools/mcp_server/*.py
     - run: mv ivre ivre_bak
 
     - run: flake8 --ignore=E402,E501,F401 ./doc/conf.py

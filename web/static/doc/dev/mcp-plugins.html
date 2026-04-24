@@ -1,0 +1,255 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP server plugins &mdash; IVRE  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="IVRE: GPL v3" href="../license.html" />
+    <link rel="prev" title="Code linting" href="linting.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IVRE
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="web-api.html">Web API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tests.html">Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linting.html">Code linting</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">MCP server plugins</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#entry-point">Entry point</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#minimal-example">Minimal example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#conventions">Conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#discovery">Discovery</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Development</a></li>
+      <li class="breadcrumb-item active">MCP server plugins</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/dev/mcp-plugins.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mcp-server-plugins">
+<h1>MCP server plugins<a class="headerlink" href="#mcp-server-plugins" title="Link to this heading"></a></h1>
+<p>This page documents how to register additional tools and resources on
+the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span></code> (see <a class="reference internal" href="../usage/mcp-server.html#mcp-server"><span class="std std-ref">MCP server</span></a>)
+without modifying IVRE itself. The plugin hook uses IVRE’s standard
+entry-point conventions (see <code class="xref py py-mod docutils literal notranslate"><span class="pre">ivre.plugins</span></code>).</p>
+<section id="entry-point">
+<h2>Entry point<a class="headerlink" href="#entry-point" title="Link to this heading"></a></h2>
+<p>Plugins register themselves under the
+<code class="docutils literal notranslate"><span class="pre">ivre.plugins.mcp_server</span></code> entry-point group. The entry-point name
+<strong>must</strong> start with <code class="docutils literal notranslate"><span class="pre">_install_</span></code> (this is the convention enforced by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ivre.plugins.load_plugins()</span></code>).</p>
+<p>Example <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> snippet from the plugin distribution:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">&quot;ivre.plugins.mcp_server&quot;</span><span class="p">]</span>
+<span class="n">_install_myplugin</span> <span class="o">=</span> <span class="s2">&quot;mypkg.mcp:install&quot;</span>
+</pre></div>
+</div>
+<p>The function referenced by the entry point is called with a single
+argument, the <code class="docutils literal notranslate"><span class="pre">scope</span></code> dictionary, which is the module globals of
+<code class="docutils literal notranslate"><span class="pre">ivre.tools.mcp_server</span></code>. The useful entries in <code class="docutils literal notranslate"><span class="pre">scope</span></code> are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;mcp&quot;]</span></code> – the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">mcp.server.fastmcp.FastMCP</span></code> instance the tool is running. Use
+its <code class="docutils literal notranslate"><span class="pre">&#64;mcp.tool()</span></code> / <code class="docutils literal notranslate"><span class="pre">&#64;mcp.resource(...)</span></code> decorators to register
+tools and resources.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;seal&quot;]</span></code> – callable <code class="docutils literal notranslate"><span class="pre">(dict</span> <span class="pre">|</span> <span class="pre">list)</span> <span class="pre">-&gt;</span> <span class="pre">str</span></code> that turns an
+IVRE filter (as produced by <code class="docutils literal notranslate"><span class="pre">HTTP_DB[purpose].searchX(...)</span></code>) into
+the opaque token the MCP client exchanges with the server. Every
+filter-building tool <strong>must</strong> return <code class="docutils literal notranslate"><span class="pre">seal(...)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;HTTP_DB&quot;]</span></code> – <code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">ivre.db.http.HttpDB*]</span></code> used only
+to build filters; keyed by <code class="docutils literal notranslate"><span class="pre">&quot;nmap&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;passive&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;view&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;REAL_DB&quot;]</span></code> – <code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">ivre.db.DB*]</span></code> used to execute
+queries (<code class="docutils literal notranslate"><span class="pre">count</span></code>, <code class="docutils literal notranslate"><span class="pre">get</span></code>, <code class="docutils literal notranslate"><span class="pre">topvalues</span></code>, <code class="docutils literal notranslate"><span class="pre">distinct</span></code>, …).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;_parse&quot;]</span></code> – callable <code class="docutils literal notranslate"><span class="pre">(purpose:</span> <span class="pre">str,</span> <span class="pre">flt:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None)</span>
+<span class="pre">-&gt;</span> <span class="pre">IVRE</span> <span class="pre">filter</span></code> that unseals a user-supplied token against the
+right backend and raises <code class="docutils literal notranslate"><span class="pre">McpError(INVALID_PARAMS)</span></code> on invalid
+input. Every action tool that accepts a <code class="docutils literal notranslate"><span class="pre">flt</span></code> argument <strong>must</strong>
+pass it through <code class="docutils literal notranslate"><span class="pre">_parse</span></code> before handing it to the backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;AllPurpose&quot;]</span></code> / <code class="docutils literal notranslate"><span class="pre">scope[&quot;ActivePurpose&quot;]</span></code> /
+<code class="docutils literal notranslate"><span class="pre">scope[&quot;PassivePurpose&quot;]</span></code> – <code class="docutils literal notranslate"><span class="pre">typing.Literal</span></code> types used to
+advertise purpose availability to the MCP client. Annotate the
+<code class="docutils literal notranslate"><span class="pre">purpose</span></code> parameter with the narrowest one that applies.</p></li>
+</ul>
+</section>
+<section id="minimal-example">
+<h2>Minimal example<a class="headerlink" href="#minimal-example" title="Link to this heading"></a></h2>
+<p>The following plugin adds a <code class="docutils literal notranslate"><span class="pre">searchbanner</span></code> filter tool (selecting
+hosts whose service banner contains a regex) and an <code class="docutils literal notranslate"><span class="pre">exposed_count</span></code>
+action tool (count of hosts matching a filter with at least one open
+port):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># mypkg/mcp.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.shared.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">McpError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">ErrorData</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">install</span><span class="p">(</span><span class="n">scope</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">mcp</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;mcp&quot;</span><span class="p">]</span>
+    <span class="n">seal</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;seal&quot;</span><span class="p">]</span>
+    <span class="n">HTTP_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;HTTP_DB&quot;</span><span class="p">]</span>
+    <span class="n">REAL_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;REAL_DB&quot;</span><span class="p">]</span>
+    <span class="n">_parse</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;_parse&quot;</span><span class="p">]</span>
+    <span class="n">ActivePurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;ActivePurpose&quot;</span><span class="p">]</span>
+    <span class="n">AllPurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;AllPurpose&quot;</span><span class="p">]</span>
+
+    <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">searchbanner</span><span class="p">(</span><span class="n">purpose</span><span class="p">:</span> <span class="n">ActivePurpose</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Filter records whose service banner matches a regex.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">seal</span><span class="p">(</span><span class="n">HTTP_DB</span><span class="p">[</span><span class="n">purpose</span><span class="p">]</span><span class="o">.</span><span class="n">searchbanner</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">pattern</span><span class="p">)))</span>
+
+    <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exposed_count</span><span class="p">(</span><span class="n">purpose</span><span class="p">:</span> <span class="n">AllPurpose</span><span class="p">,</span> <span class="n">flt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Count matching hosts that have at least one open port.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse</span><span class="p">(</span><span class="n">purpose</span><span class="p">,</span> <span class="n">flt</span><span class="p">)</span>
+            <span class="n">real</span> <span class="o">=</span> <span class="n">REAL_DB</span><span class="p">[</span><span class="n">purpose</span><span class="p">]</span>
+            <span class="n">narrowed</span> <span class="o">=</span> <span class="n">real</span><span class="o">.</span><span class="n">flt_and</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="n">real</span><span class="o">.</span><span class="n">searchopenport</span><span class="p">())</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">real</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">narrowed</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">McpError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">McpError</span><span class="p">(</span>
+                <span class="n">ErrorData</span><span class="p">(</span><span class="n">code</span><span class="o">=</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+</pre></div>
+</div>
+<p>The matching <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> entry:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">&quot;ivre.plugins.mcp_server&quot;</span><span class="p">]</span>
+<span class="n">_install_mypkg</span> <span class="o">=</span> <span class="s2">&quot;mypkg.mcp:install&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="conventions">
+<h2>Conventions<a class="headerlink" href="#conventions" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Filters are opaque.</strong> Never return raw filter objects to the
+client; always <code class="docutils literal notranslate"><span class="pre">seal(...)</span></code> them. Never parse filter tokens
+manually; always go through <code class="docutils literal notranslate"><span class="pre">_parse</span></code>.</p></li>
+<li><p><strong>Pick the narrowest purpose type.</strong> <code class="docutils literal notranslate"><span class="pre">PassivePurpose</span></code> if a tool
+only makes sense against passive data, <code class="docutils literal notranslate"><span class="pre">ActivePurpose</span></code> for
+nmap/view-only tools, otherwise <code class="docutils literal notranslate"><span class="pre">AllPurpose</span></code>.</p></li>
+<li><p><strong>Error handling.</strong> Wrap action-tool bodies with <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">McpError:</span>
+<span class="pre">raise</span></code> first, then <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">Exception</span> <span class="pre">as</span> <span class="pre">exc:</span> <span class="pre">raise</span>
+<span class="pre">McpError(ErrorData(code=INTERNAL_ERROR,</span> <span class="pre">message=str(exc)))</span> <span class="pre">from</span>
+<span class="pre">exc</span></code> – without this pattern, raw tracebacks leak through MCP.</p></li>
+<li><p><strong>Strip ``_id`` from record payloads</strong> before returning them, matching
+the built-in <code class="docutils literal notranslate"><span class="pre">get</span></code> tool. The MongoDB <code class="docutils literal notranslate"><span class="pre">_id</span></code> is an internal
+identifier and serializes poorly to JSON.</p></li>
+<li><p><strong>Do not rename IVRE-internal symbols.</strong> <code class="docutils literal notranslate"><span class="pre">parse_filter</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HttpDBNmap/Passive/View</span></code>, <code class="docutils literal notranslate"><span class="pre">serialize</span></code> are consumed from IVRE
+and must keep the same semantics; plugins should not monkey-patch
+them.</p></li>
+</ul>
+</section>
+<section id="discovery">
+<h2>Discovery<a class="headerlink" href="#discovery" title="Link to this heading"></a></h2>
+<p>Installed plugins appear in the <code class="docutils literal notranslate"><span class="pre">mcp_server</span></code> category of
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ivre.plugins.list_plugins()</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">version</span></code>).</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="linting.html" class="btn btn-neutral float-left" title="Code linting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../license.html" class="btn btn-neutral float-right" title="IVRE: GPL v3" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2011 - 2026, Pierre LALET.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
