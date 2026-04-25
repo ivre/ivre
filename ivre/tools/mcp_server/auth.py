@@ -26,29 +26,25 @@ The ``AccessToken`` returned by :meth:`IvreTokenVerifier.verify_token`
 stores the authenticated user's email in the ``client_id`` field and
 the user's groups in the ``scopes`` list. Downstream MCP tools can
 retrieve the email with :func:`current_user_email`.
+
+This module requires the optional ``mcp`` package (``ivre[mcp]``); it
+is only imported from call sites that have already verified the
+package is available (see ``_MCP_IMPORT_ERROR`` in
+:mod:`ivre.tools.mcp_server`).
 """
 
 from __future__ import annotations
 
-from typing import Any
+from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 
 from ivre import utils
-
-try:
-    from mcp.server.auth.middleware.auth_context import get_access_token
-    from mcp.server.auth.provider import AccessToken, TokenVerifier
-except ImportError:  # pragma: no cover - optional dependency
-    AccessToken = None
-    TokenVerifier = object
-
-    def get_access_token() -> Any | None:
-        return None
 
 
 class IvreTokenVerifier(TokenVerifier):
     """Verify MCP bearer tokens against the IVRE API-key store."""
 
-    async def verify_token(self, token: str) -> Any | None:
+    async def verify_token(self, token: str) -> AccessToken | None:
         """Return an :class:`AccessToken` if ``token`` matches an active
         IVRE API key, or ``None`` otherwise.
         """

@@ -150,12 +150,9 @@ REAL_DB = {
 def _parse(purpose: str, flt: FilterType | None) -> Any:
     real = REAL_DB[purpose]
     # Resolve the authenticated user (HTTP transport only; None on stdio).
-    try:
-        from .auth import current_user_email  # pylint: disable=import-outside-toplevel
-    except ImportError:  # pragma: no cover - optional dependency
-        user: str | None = None
-    else:
-        user = current_user_email()
+    from .auth import current_user_email  # pylint: disable=import-outside-toplevel
+
+    user = current_user_email()
     # Enforce authentication when WEB_AUTH_ENABLED is set and the call
     # arrives over an HTTP transport (i.e. auth context is expected).
     if config.WEB_AUTH_ENABLED and _HTTP_AUTH_REQUIRED and user is None:
