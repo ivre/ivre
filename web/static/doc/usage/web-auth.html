@@ -456,14 +456,14 @@ and IVRE will auto-discover the endpoints:</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
 <td><p>Maximum magic link emails per source IP per time window.
 IPv6 addresses are grouped by /48 (see
-<a class="reference internal" href="#reverse-proxy-setup"><span class="std std-ref">Reverse Proxy Setup</span></a>)</p></td>
+<a class="reference internal" href="#reverse-proxy-setup">Reverse Proxy Setup</a>)</p></td>
 </tr>
 </tbody>
 </table>
 </section>
 </section>
 <section id="reverse-proxy-setup">
-<span id="id1"></span><h2>Reverse Proxy Setup<a class="headerlink" href="#reverse-proxy-setup" title="Link to this heading"></a></h2>
+<h2>Reverse Proxy Setup<a class="headerlink" href="#reverse-proxy-setup" title="Link to this heading"></a></h2>
 <p>When IVRE is deployed behind a reverse proxy (nginx, Cloudflare,
 HAProxy, etc.), the rate limiter and logging see the <strong>proxy’s IP
 address</strong> instead of the real client IP. This makes the per-IP
