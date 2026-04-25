@@ -377,11 +377,16 @@ single-user local development.</p></li>
 <section id="reverse-proxy-nginx">
 <h3>Reverse proxy (nginx)<a class="headerlink" href="#reverse-proxy-nginx" title="Link to this heading"></a></h3>
 <p>For production deployments, terminate TLS in nginx and reverse-proxy
-to the MCP HTTP server. The Streamable-HTTP transport relies on
+to the MCP HTTP server. FastMCP registers the endpoint at exactly
+<code class="docutils literal notranslate"><span class="pre">/mcp</span></code> (no trailing slash), so use an exact-match location: a
+prefix <code class="docutils literal notranslate"><span class="pre">location</span> <span class="pre">/mcp/</span></code> block would trigger nginx’s automatic
+trailing-slash 301 and Starlette’s <code class="docutils literal notranslate"><span class="pre">/mcp/</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">/mcp</span></code> redirect,
+producing a loop, and a regex location is incompatible with a
+<code class="docutils literal notranslate"><span class="pre">proxy_pass</span></code> URI part. The Streamable-HTTP transport relies on
 server-sent events, so disable response buffering and bump the read
 timeout:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>location /mcp/ {
-    proxy_pass              http://127.0.0.1:9100/mcp/;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>location = /mcp {
+    proxy_pass              http://127.0.0.1:9100/mcp;
     proxy_http_version      1.1;
     proxy_set_header        Host              $host;
     proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -422,7 +427,7 @@ client documentation for the precise key names.</p>
 <p>The reference Docker deployment (see <a class="reference internal" href="../install/docker.html"><span class="doc">Docker</span></a>) ships a
 dedicated <code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code> image that runs <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span> <span class="pre">--http</span></code>
 on port 9100 inside the Compose network. The <code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> nginx
-container reverse-proxies it at <code class="docutils literal notranslate"><span class="pre">/mcp/</span></code>, so no extra configuration
+container reverse-proxies it at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>, so no extra configuration
 is required to reach it from an MCP client at
 <code class="docutils literal notranslate"><span class="pre">http(s)://&lt;host&gt;/mcp</span></code>.</p>
 <p>The image starts with <code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code> because the MCP port is

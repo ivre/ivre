@@ -25,7 +25,7 @@ Image               Role
 ``ivre/agent``      Remote scan agent (see ``ivre runscansagent``).
 ``ivre/web``        nginx front-end serving the Web UI static assets and
                     reverse-proxying ``/cgi/``, ``/dokuwiki/`` and
-                    ``/mcp/`` to the internal backends.
+                    ``/mcp`` to the internal backends.
 ``ivre/web-uwsgi``  uWSGI application server running the IVRE Web API
                     (Bottle app in :mod:`ivre.web.app`).
 ``ivre/web-doku``   PHP-FPM container running the Dokuwiki wiki

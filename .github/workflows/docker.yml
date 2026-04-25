@@ -117,11 +117,37 @@ jobs:
         # volume before launching php-fpm, so this can take a while.
         check_status http://localhost/dokuwiki/start   200
 
-        # MCP: a plain GET without the proper handshake will not
-        # return 200, but a redirect (typically 307 to /mcp) confirms
-        # the proxy rule and the container are alive. Retry while
-        # the container is still importing IVRE / starting Uvicorn.
-        check_status http://localhost/mcp/             "200 202 301 302 307 308"
+        # MCP: do a real `initialize` handshake against the
+        # Streamable-HTTP endpoint. The response is either a JSON
+        # object or a single SSE event carrying the same JSON
+        # payload; either way it contains `protocolVersion` on
+        # success. Test both /mcp and /mcp/ to confirm neither
+        # nginx nor Starlette emits a redirect to the client.
+        # `curl -fsS` does not follow redirects, so any 3xx fails.
+        mcp_init() {
+            curl -fsS -X POST \
+                 -H 'Content-Type: application/json' \
+                 -H 'Accept: application/json, text/event-stream' \
+                 --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ivre-ci","version":"0"}}}' \
+                 "$1"
+        }
+        for url in http://localhost/mcp http://localhost/mcp/; do
+            resp=""
+            for _ in $(seq 1 60); do
+                resp="$(mcp_init "$url" 2>&1 || true)"
+                case "$resp" in *protocolVersion*) break ;; esac
+                sleep 2
+            done
+            case "$resp" in
+                *protocolVersion*)
+                    echo "MCP initialize OK on $url"
+                    ;;
+                *)
+                    echo "MCP initialize FAILED on $url: $resp" >&2
+                    exit 1
+                    ;;
+            esac
+        done
 
         # /cgi/config: exercises uwsgi (no DB access required).
         # The endpoint is protected by check_referer; sending a

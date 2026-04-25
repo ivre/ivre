@@ -176,12 +176,17 @@ Reverse proxy (nginx)
 ---------------------
 
 For production deployments, terminate TLS in nginx and reverse-proxy
-to the MCP HTTP server. The Streamable-HTTP transport relies on
+to the MCP HTTP server. FastMCP registers the endpoint at exactly
+``/mcp`` (no trailing slash), so use an exact-match location: a
+prefix ``location /mcp/`` block would trigger nginx's automatic
+trailing-slash 301 and Starlette's ``/mcp/`` -> ``/mcp`` redirect,
+producing a loop, and a regex location is incompatible with a
+``proxy_pass`` URI part. The Streamable-HTTP transport relies on
 server-sent events, so disable response buffering and bump the read
 timeout::
 
-    location /mcp/ {
-        proxy_pass              http://127.0.0.1:9100/mcp/;
+    location = /mcp {
+        proxy_pass              http://127.0.0.1:9100/mcp;
         proxy_http_version      1.1;
         proxy_set_header        Host              $host;
         proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -222,7 +227,7 @@ Docker
 The reference Docker deployment (see :doc:`../install/docker`) ships a
 dedicated ``ivre/web-mcp`` image that runs ``ivre mcp-server --http``
 on port 9100 inside the Compose network. The ``ivre/web`` nginx
-container reverse-proxies it at ``/mcp/``, so no extra configuration
+container reverse-proxies it at ``/mcp``, so no extra configuration
 is required to reach it from an MCP client at
 ``http(s)://<host>/mcp``.
 

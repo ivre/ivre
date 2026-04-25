@@ -93,7 +93,7 @@ Both transports supported by the MCP specification are available:
 *Streamable HTTP* (a shared ``ivre mcp-server --http`` exposed behind
 nginx, authenticated with the same API keys as the Web UI). The
 Docker reference deployment ships a dedicated ``ivre/web-mcp``
-container reverse-proxied at ``/mcp/`` by ``ivre/web``.
+container reverse-proxied at ``/mcp`` by ``ivre/web``.
 
 For installation, transport options, authentication and per-client
 configuration snippets, see :doc:`mcp-server`.
