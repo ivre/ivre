@@ -739,8 +739,10 @@ def main() -> None:
         action="store_true",
         default=config.MCP_HTTP_ALLOW_ANONYMOUS,
         help=(
-            "Disable bearer-token auth on the HTTP transport. Refused "
-            "unless the server is bound to a loopback address."
+            "Disable bearer-token auth on the HTTP transport. Required "
+            "to bind a non-loopback address when the IVRE Web auth "
+            "backend is not configured (acknowledges that every client "
+            "will have full unauthenticated access to the database)."
         ),
     )
     args = parser.parse_args()
@@ -765,7 +767,7 @@ def _run_http(args: argparse.Namespace) -> None:
     auth_backend_ok = config.WEB_AUTH_ENABLED and db.auth is not None
     use_auth = auth_backend_ok and not args.allow_anonymous
 
-    if not use_auth and not loopback:
+    if not use_auth and not loopback and not args.allow_anonymous:
         raise SystemExit(
             "Refusing to start the MCP HTTP transport on a non-loopback "
             f"address ({args.bind}) without authentication. Either:\n"

@@ -338,8 +338,9 @@ remote or shared MCP deployments are typically served.</p>
 <td><p>HTTP path prefix for the MCP endpoint. Default <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code></p></td>
-<td><p>Disable bearer-token auth. Refused unless the server
-is bound to a loopback address.</p></td>
+<td><p>Disable bearer-token auth. Required to bind a
+non-loopback address when the IVRE Web auth
+backend is not configured.</p></td>
 </tr>
 </tbody>
 </table>

@@ -135,8 +135,9 @@ Flag                  Description
 ``--bind``            Bind address. Default ``127.0.0.1``.
 ``--port``            TCP port. Default ``9100``.
 ``--path``            HTTP path prefix for the MCP endpoint. Default ``/mcp``.
-``--allow-anonymous`` Disable bearer-token auth. Refused unless the server
-                      is bound to a loopback address.
+``--allow-anonymous`` Disable bearer-token auth. Required to bind a
+                      non-loopback address when the IVRE Web auth
+                      backend is not configured.
 ===================== ========================================================
 
 Defaults can also be set from ``ivre.conf`` via ``MCP_HTTP_BIND``,
