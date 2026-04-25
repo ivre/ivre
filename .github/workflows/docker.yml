@@ -1,0 +1,148 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+name: Docker images
+
+on: [push, pull_request]
+
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
+jobs:
+  docker-compose:
+    runs-on: ubuntu-24.04
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v4
+      with:
+        # builddockers calls `python setup.py --version` (setuptools-scm)
+        # and `git rev-parse --abbrev-ref HEAD`, both of which need
+        # full history.
+        fetch-depth: 0
+
+    - name: Use Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install build helpers
+      run: pip install --upgrade setuptools setuptools-scm
+
+    - name: Build Docker images
+      run: ./pkg/builddockers
+
+    - name: Re-tag images to :latest for docker-compose
+      run: |
+        # docker-compose.yml references images without an explicit tag
+        # (i.e. `:latest`). builddockers tags them based on the version
+        # / branch (e.g. `branch-foo`, `commit-deadbeef`, `vX.Y.Z`),
+        # so we re-tag each one.
+        tag="$(docker images --format '{{.Tag}}' ivre/base | head -n1)"
+        if [ -z "$tag" ]; then
+            echo "ivre/base image was not built" >&2
+            exit 1
+        fi
+        echo "Detected build tag: $tag"
+        for img in base client agent web web-doku web-mcp web-uwsgi; do
+            docker tag "ivre/$img:$tag" "ivre/$img:latest"
+        done
+        docker images 'ivre/*'
+
+    - name: Start docker compose stack
+      working-directory: docker
+      run: docker compose up -d
+
+    - name: Smoke-test web server endpoints
+      run: |
+        set -e
+
+        # Probe a URL until the response status code is in $expected.
+        # Empty responses and 5xx are retried (upstream containers may
+        # still be starting up: ivredoku populates its data volume on
+        # first run before launching php-fpm; ivreuwsgi forks workers;
+        # ivremcp imports the IVRE codebase, etc.).
+        check_status() {
+            local url="$1"
+            local expected="$2"
+            local timeout="${3:-120}"
+            local deadline=$((SECONDS + timeout))
+            local code=""
+            local attempt=0
+            while [ $SECONDS -lt $deadline ]; do
+                attempt=$((attempt + 1))
+                code="$(curl -s -o /dev/null -w '%{http_code}' \
+                        -H 'Referer: http://localhost/' "$url" || true)"
+                case " $expected " in
+                    *" $code "*)
+                        echo "GET $url -> $code (expected: $expected) [ok after ${attempt} attempt(s)]"
+                        return 0
+                        ;;
+                esac
+                sleep 2
+            done
+            echo "GET $url -> $code (expected: $expected)"
+            echo "Unexpected status code for $url: $code (after ${timeout}s)" >&2
+            return 1
+        }
+
+        # Static UI (served directly by nginx — this also acts as the
+        # initial readiness probe for the ivreweb container).
+        check_status http://localhost/                 200
+        check_status http://localhost/index.html       200
+        check_status http://localhost/login.html       200
+
+        # Sphinx-built doc tree (served from web/static/doc/)
+        check_status http://localhost/doc/             200
+
+        # Dokuwiki: hit the `start` page in the wiki. This exercises
+        # the fastcgi proxy to the ivredoku container; on first run
+        # the entrypoint copies the data tree into the persistent
+        # volume before launching php-fpm, so this can take a while.
+        check_status http://localhost/dokuwiki/start   200
+
+        # MCP: a plain GET without the proper handshake will not
+        # return 200, but a redirect (typically 307 to /mcp) confirms
+        # the proxy rule and the container are alive. Retry while
+        # the container is still importing IVRE / starting Uvicorn.
+        check_status http://localhost/mcp/             "200 202 301 302 307 308"
+
+        # /cgi/config: exercises uwsgi (no DB access required).
+        # The endpoint is protected by check_referer; sending a
+        # Referer header matching the request base URL satisfies it.
+        check_status http://localhost/cgi/config       200
+        body="$(curl -fsS -H 'Referer: http://localhost/' \
+                http://localhost/cgi/config)"
+        echo "$body"
+        echo "$body" | grep -q 'config\.version'
+
+    - name: docker compose ps
+      if: failure()
+      working-directory: docker
+      run: docker compose ps
+
+    - name: docker compose logs
+      if: failure()
+      working-directory: docker
+      run: docker compose logs --no-color --tail=200
+
+    - name: docker compose down
+      if: always()
+      working-directory: docker
+      run: docker compose down -v
