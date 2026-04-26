@@ -21,8 +21,16 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 # The `mcp` Python package is an optional IVRE dependency (`[mcp]`
 # extra). The base image has already purged pip, so reinstall it just
 # long enough to fetch `mcp`, then clean up again.
+#
+# `nmap-common` ships the Nmap data files under /usr/share/nmap/
+# (nmap-service-probes, nmap-services, scripts/*.nse, ...). The MCP
+# `nmap_service_values` tool reads those files to enumerate known
+# service_name / service_product values; without them
+# `config.NMAP_SHARE_PATH` resolves to None and the tool fails. Keep
+# `nmap-common` installed in the final image (only `python3-pip` is
+# autoremoved).
 RUN apt-get -q update && \
-    apt-get -qy --no-install-recommends install python3-pip && \
+    apt-get -qy --no-install-recommends install python3-pip nmap-common && \
     pip3 install --break-system-packages mcp && \
     apt-get -qy --purge autoremove python3-pip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

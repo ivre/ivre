@@ -32,7 +32,11 @@ Image               Role
                     integrated in the Web UI.
 ``ivre/web-mcp``    :doc:`../usage/mcp-server` exposed over the Streamable
                     HTTP transport, reachable through the
-                    ``ivre/web`` reverse proxy at ``/mcp``.
+                    ``ivre/web`` reverse proxy at ``/mcp``. Bundles
+                    Debian's ``nmap-common`` data files under
+                    ``/usr/share/nmap/`` so the MCP
+                    ``nmap_service_values`` tool can enumerate known
+                    service names and products.
 =================== ==============================================================
 
 Using docker compose
