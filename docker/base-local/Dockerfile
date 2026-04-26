@@ -22,6 +22,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ADD ivre.tar ./
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install python3-pip && \
+    SETUPTOOLS_SCM_PRETEND_VERSION=$(grep '^__version__ *=' /ivre/ivre/_version.py | sed 's#.*= *##' | tr -d \"\') \
     pip3 install --break-system-packages /ivre
 
 

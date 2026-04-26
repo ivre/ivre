@@ -74,6 +74,34 @@ To see an interactive session of IVRE using passive data (including
 DNS answers), have a look at :ref:`overview/screenshots:Passive
 network analysis`.
 
+MCP server (LLM agents)
+-----------------------
+
+IVRE ships an `MCP <https://modelcontextprotocol.io/>`_ (Model Context
+Protocol) server that exposes the database to LLM agents (Claude Code,
+Claude Desktop, Cursor, OpenCode, VS Code with GitHub Copilot,
+Windsurf, JetBrains AI Assistant, ...). Once configured, the agent
+can answer natural-language questions over the same data the Web UI
+serves -- "How many hosts are running SSH?", "Show me the top
+products on port 443 in Germany.", "List hosts affected by
+CVE-2021-44228." -- by calling the typed tools the server exposes
+(filter builders, ``count``, ``get``, ``topvalues``, ``distinct``,
+etc.).
+
+Both transports supported by the MCP specification are available:
+``stdio`` (the agent spawns ``ivre mcp-server`` locally) and
+*Streamable HTTP* (a shared ``ivre mcp-server --http`` exposed behind
+nginx, authenticated with the same API keys as the Web UI). The
+Docker reference deployment ships a dedicated ``ivre/web-mcp``
+container reverse-proxied at ``/mcp`` by ``ivre/web``.
+
+For installation, transport options, authentication and per-client
+configuration snippets, see :doc:`mcp-server`.
+
+|ivre_mcp_topssh_1|
+
+|ivre_mcp_topssh_2|
+
 YETI plugin
 -----------
 
@@ -197,6 +225,8 @@ or decide if they need it? Please let us know: `open an issue
 <https://github.com/ivre/ivre/issues/new>`_ or :ref:`index:Contact` us
 so that we can add a link here!
 
+.. |ivre_mcp_topssh_1| image:: ../screenshots/ivre-mcp-topssh-1.png
+.. |ivre_mcp_topssh_2| image:: ../screenshots/ivre-mcp-topssh-2.png
 .. |yeti_investigation| image:: ../screenshots/yeti_investigation.png
 .. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png
 .. |opencti_connector_scans| image:: ../screenshots/opencti-connector-scans.png

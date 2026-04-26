@@ -6017,6 +6017,128 @@ class IvreTests(unittest.TestCase):
         count = ivre.db.db.view.count(ivre.db.db.view.searchhost(addr))
         self.assertEqual(count, 0)
 
+    def test_mcp_middleware(self):
+        """Exercise PublicUrlRewriteMiddleware against a stub Starlette
+        app that mimics what FastMCP emits when ``AuthSettings`` is
+        configured with the sentinel URL. The middleware is the
+        component that translates the sentinel into the request-derived
+        public origin (Host: + X-Forwarded-Proto:).
+        """
+        try:
+            import asyncio  # noqa: PLC0415
+            import json as _json  # noqa: PLC0415
+
+            import httpx  # noqa: PLC0415
+            from starlette.applications import Starlette  # noqa: PLC0415
+            from starlette.responses import JSONResponse, Response  # noqa: PLC0415
+            from starlette.routing import Route  # noqa: PLC0415
+
+            from ivre.tools.mcp_server.middleware import (  # noqa: PLC0415
+                PublicUrlRewriteMiddleware,
+            )
+        except ImportError as exc:
+            self.skipTest(f"MCP middleware test deps unavailable: {exc}")
+
+        sentinel = "http://placeholder.invalid"
+
+        async def unauthorized(_request):  # type: ignore[no-untyped-def]
+            return Response(
+                status_code=401,
+                content=b'{"error":"invalid_token"}',
+                media_type="application/json",
+                headers={
+                    "WWW-Authenticate": (
+                        'Bearer error="invalid_token", '
+                        f'resource_metadata="{sentinel}'
+                        '/.well-known/oauth-protected-resource/mcp"'
+                    ),
+                },
+            )
+
+        async def well_known(_request):  # type: ignore[no-untyped-def]
+            return JSONResponse(
+                {
+                    "resource": f"{sentinel}/mcp",
+                    "authorization_servers": [f"{sentinel}/"],
+                }
+            )
+
+        async def streaming(_request):  # type: ignore[no-untyped-def]
+            # Mimics the streamable MCP endpoint: must pass through
+            # the middleware untouched and *not* be buffered.
+            return Response(content=b"chunk-1chunk-2", media_type="text/plain")
+
+        app = Starlette(
+            routes=[
+                Route("/mcp", unauthorized),
+                Route("/.well-known/oauth-protected-resource/mcp", well_known),
+                Route("/stream", streaming),
+            ]
+        )
+        app.add_middleware(PublicUrlRewriteMiddleware)
+
+        async def _run():  # type: ignore[no-untyped-def]
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as client:
+                # 1. WWW-Authenticate rewrite using Host:/X-Forwarded-Proto:
+                resp = await client.get(
+                    "/mcp",
+                    headers={
+                        "Host": "ivre.example.com",
+                        "X-Forwarded-Proto": "https",
+                    },
+                )
+                self.assertEqual(resp.status_code, 401)
+                www_auth = resp.headers.get("WWW-Authenticate", "")
+                self.assertIn(
+                    'resource_metadata="https://ivre.example.com'
+                    '/.well-known/oauth-protected-resource/mcp"',
+                    www_auth,
+                )
+                self.assertNotIn("placeholder.invalid", www_auth)
+
+                # 2. Well-known JSON body rewrite + Content-Length update.
+                resp = await client.get(
+                    "/.well-known/oauth-protected-resource/mcp",
+                    headers={
+                        "Host": "ivre.example.com",
+                        "X-Forwarded-Proto": "https",
+                    },
+                )
+                self.assertEqual(resp.status_code, 200)
+                self.assertNotIn(b"placeholder.invalid", resp.content)
+                payload = _json.loads(resp.content)
+                self.assertEqual(payload["resource"], "https://ivre.example.com/mcp")
+                self.assertEqual(
+                    payload["authorization_servers"],
+                    ["https://ivre.example.com/"],
+                )
+                self.assertEqual(int(resp.headers["content-length"]), len(resp.content))
+
+                # 3. Missing X-Forwarded-Proto: defaults to http.
+                resp = await client.get(
+                    "/.well-known/oauth-protected-resource/mcp",
+                    headers={"Host": "internal.lan:9100"},
+                )
+                payload = _json.loads(resp.content)
+                self.assertEqual(payload["resource"], "http://internal.lan:9100/mcp")
+
+                # 4. Streaming endpoint passes through unchanged
+                #    (no buffering, no rewriting).
+                resp = await client.get(
+                    "/stream",
+                    headers={
+                        "Host": "ivre.example.com",
+                        "X-Forwarded-Proto": "https",
+                    },
+                )
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.content, b"chunk-1chunk-2")
+
+        asyncio.run(_run())
+
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
         has_env_conf = "IVRE_CONF" in os.environ
@@ -6054,6 +6176,7 @@ TESTS = set(
         "60_flow",
         "90_cleanup",
         "conf",
+        "mcp_middleware",
         "scans",
         "utils",
     ]

@@ -68,6 +68,15 @@
 <li class="toctree-l4"><a class="reference internal" href="#query-tools">Query tools</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#http-transport">HTTP transport</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#starting-the-http-transport">Starting the HTTP transport</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#safety-defaults">Safety defaults</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#reverse-proxy-nginx">Reverse proxy (nginx)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#http-client-configuration">HTTP client configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#docker">Docker</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#client-setup">Client setup</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#opencode">OpenCode</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#claude-code">Claude Code</a></li>
@@ -293,6 +302,149 @@ them with <code class="docutils literal notranslate"><span class="pre">flt_and</
 <p>A resource at <code class="docutils literal notranslate"><span class="pre">ivre://guides/scope-discovery</span></code> is also exposed; the
 server’s top-level instructions point agents at it when they start
 exploring a scope.</p>
+</section>
+</section>
+<section id="http-transport">
+<h2>HTTP transport<a class="headerlink" href="#http-transport" title="Link to this heading"></a></h2>
+<p>In addition to stdio, the server can be exposed over HTTP using the
+Model Context Protocol <em>Streamable HTTP</em> transport. This is how
+remote or shared MCP deployments are typically served.</p>
+<section id="starting-the-http-transport">
+<h3>Starting the HTTP transport<a class="headerlink" href="#starting-the-http-transport" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ivre</span> <span class="n">mcp</span><span class="o">-</span><span class="n">server</span> <span class="o">--</span><span class="n">http</span> \
+                <span class="o">--</span><span class="n">bind</span> <span class="mf">127.0.0.1</span> \
+                <span class="o">--</span><span class="n">port</span> <span class="mi">9100</span> \
+                <span class="o">--</span><span class="n">path</span> <span class="o">/</span><span class="n">mcp</span>
+</pre></div>
+</div>
+<p>CLI flags:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--http</span></code></p></td>
+<td><p>Switch from stdio to Streamable HTTP.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--bind</span></code></p></td>
+<td><p>Bind address. Default <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--port</span></code></p></td>
+<td><p>TCP port. Default <code class="docutils literal notranslate"><span class="pre">9100</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--path</span></code></p></td>
+<td><p>HTTP path prefix for the MCP endpoint. Default <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code></p></td>
+<td><p>Disable bearer-token auth. Required to bind a
+non-loopback address when the IVRE Web auth
+backend is not configured.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Defaults can also be set from <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> via <code class="docutils literal notranslate"><span class="pre">MCP_HTTP_BIND</span></code>,
+<code class="docutils literal notranslate"><span class="pre">MCP_HTTP_PORT</span></code>, <code class="docutils literal notranslate"><span class="pre">MCP_HTTP_PATH</span></code> and <code class="docutils literal notranslate"><span class="pre">MCP_HTTP_ALLOW_ANONYMOUS</span></code>.</p>
+</section>
+<section id="authentication">
+<h3>Authentication<a class="headerlink" href="#authentication" title="Link to this heading"></a></h3>
+<p>The HTTP transport reuses the <a class="reference internal" href="web-auth.html"><span class="doc">Web Authentication</span></a> API-key infrastructure.
+MCP clients authenticate with <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;api-key&gt;</span></code>;
+the server verifies the token against <code class="docutils literal notranslate"><span class="pre">db.auth.validate_api_key</span></code>
+(the same code path used by the Web UI) and refuses unauthenticated
+requests when <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> is set.</p>
+<p>Per-user access controls (<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>, <code class="docutils literal notranslate"><span class="pre">WEB_DEFAULT_INIT_QUERY</span></code>,
+group-based rules) are honoured for every MCP tool call: the
+authenticated user is resolved from the bearer token and the resulting
+init filter is AND-ed with any filter built by the client.</p>
+<p>To create an API key, log in to the Web UI as the user, open
+<em>Admin &gt; API Keys</em> and click <strong>Create</strong>. Keep the key secret –
+revoking it from the Web UI immediately invalidates MCP clients
+carrying it.</p>
+</section>
+<section id="safety-defaults">
+<h3>Safety defaults<a class="headerlink" href="#safety-defaults" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>When <code class="docutils literal notranslate"><span class="pre">--bind</span></code> is not a loopback address and authentication is not
+configured, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span> <span class="pre">--http</span></code> refuses to start. Either
+bind to loopback, enable <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code>, or pass
+<code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code> to acknowledge the risk.</p></li>
+<li><p>Anonymous mode disables <em>all</em> access control. Use it only for
+single-user local development.</p></li>
+</ul>
+</section>
+<section id="reverse-proxy-nginx">
+<h3>Reverse proxy (nginx)<a class="headerlink" href="#reverse-proxy-nginx" title="Link to this heading"></a></h3>
+<p>For production deployments, terminate TLS in nginx and reverse-proxy
+to the MCP HTTP server. FastMCP registers the endpoint at exactly
+<code class="docutils literal notranslate"><span class="pre">/mcp</span></code> (no trailing slash), so use an exact-match location: a
+prefix <code class="docutils literal notranslate"><span class="pre">location</span> <span class="pre">/mcp/</span></code> block would trigger nginx’s automatic
+trailing-slash 301 and Starlette’s <code class="docutils literal notranslate"><span class="pre">/mcp/</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">/mcp</span></code> redirect,
+producing a loop, and a regex location is incompatible with a
+<code class="docutils literal notranslate"><span class="pre">proxy_pass</span></code> URI part. The Streamable-HTTP transport relies on
+server-sent events, so disable response buffering and bump the read
+timeout:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>location = /mcp {
+    proxy_pass              http://127.0.0.1:9100/mcp;
+    proxy_http_version      1.1;
+    proxy_set_header        Host              $host;
+    proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header        X-Forwarded-Proto $scheme;
+    proxy_set_header        Authorization     $http_authorization;
+    proxy_buffering         off;
+    proxy_cache             off;
+    proxy_read_timeout      1h;
+    proxy_send_timeout      1h;
+    chunked_transfer_encoding on;
+}
+</pre></div>
+</div>
+<p>The MCP server derives the externally-visible origin (used in
+<code class="docutils literal notranslate"><span class="pre">WWW-Authenticate:</span> <span class="pre">Bearer</span> <span class="pre">...,</span> <span class="pre">resource_metadata=&quot;...&quot;</span></code> and in the
+<code class="docutils literal notranslate"><span class="pre">/.well-known/oauth-protected-resource/...</span></code> JSON document) from each
+request’s <code class="docutils literal notranslate"><span class="pre">Host:</span></code> and <code class="docutils literal notranslate"><span class="pre">X-Forwarded-Proto:</span></code> headers, the same trust
+surface as the Web UI’s <code class="docutils literal notranslate"><span class="pre">Referer:</span></code> header check (see
+<code class="docutils literal notranslate"><span class="pre">WEB_ALLOWED_REFERERS</span></code> in <a class="reference internal" href="../install/config.html"><span class="doc">Configuration</span></a>). The snippet
+above forwards both correctly. The public path must match the
+upstream <code class="docutils literal notranslate"><span class="pre">--path</span></code> (both default to <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>); rewriting via
+<code class="docutils literal notranslate"><span class="pre">X-Forwarded-Prefix</span></code> is not currently supported.</p>
+</section>
+<section id="http-client-configuration">
+<h3>HTTP client configuration<a class="headerlink" href="#http-client-configuration" title="Link to this heading"></a></h3>
+<p>Claude Desktop, Claude Code, Cursor, VS Code and Windsurf support
+connecting to remote MCP servers. Example Claude Code snippet for
+<code class="docutils literal notranslate"><span class="pre">~/.claude/settings.json</span></code> or a project-level <code class="docutils literal notranslate"><span class="pre">.mcp.json</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.example.com/mcp&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;Authorization&quot;</span><span class="p">:</span> <span class="s2">&quot;Bearer IVRE_API_KEY_HERE&quot;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The exact JSON schema differs slightly between clients; consult the
+client documentation for the precise key names.</p>
+</section>
+<section id="docker">
+<h3>Docker<a class="headerlink" href="#docker" title="Link to this heading"></a></h3>
+<p>The reference Docker deployment (see <a class="reference internal" href="../install/docker.html"><span class="doc">Docker</span></a>) ships a
+dedicated <code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code> image that runs <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span> <span class="pre">--http</span></code>
+on port 9100 inside the Compose network. The <code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> nginx
+container reverse-proxies it at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>, so no extra configuration
+is required to reach it from an MCP client at
+<code class="docutils literal notranslate"><span class="pre">http(s)://&lt;host&gt;/mcp</span></code>.</p>
+<p>The image starts with <code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code> because the MCP port is
+not published on the host. For any production use, enable the IVRE
+Web auth backend (<code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span> <span class="pre">=</span> <span class="pre">True</span></code> in <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>),
+create an API key from <em>Admin &gt; API Keys</em> in the Web UI, and override
+the <code class="docutils literal notranslate"><span class="pre">ivremcp</span></code> <code class="docutils literal notranslate"><span class="pre">command:</span></code> in <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code> to drop
+<code class="docutils literal notranslate"><span class="pre">--allow-anonymous</span></code>.</p>
 </section>
 </section>
 <section id="client-setup">

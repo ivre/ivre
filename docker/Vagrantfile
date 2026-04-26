@@ -73,11 +73,21 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     uwsgi.vm.synced_folder "dokuwiki_data", "/var/www/dokuwiki/data"
   end
 
+  # The IVRE MCP (Model Context Protocol) server
+  config.vm.define 'ivremcp' do |mcp|
+    mcp.vm.provider "docker" do |docker|
+      docker.link('ivredb:ivredb')
+      docker.image = 'ivre/web-mcp'
+      docker.name = 'ivremcp'
+    end
+  end
+
   # The Web server
   config.vm.define 'ivreweb' do |web|
     web.vm.provider "docker" do |docker|
       docker.link('ivredoku:ivredoku')
       docker.link('ivreuwsgi:ivreuwsgi')
+      docker.link('ivremcp:ivremcp')
       docker.image = 'ivre/web'
       docker.name = 'ivreweb'
     end

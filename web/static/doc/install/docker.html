@@ -54,6 +54,7 @@
 <li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Docker</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#versions">Versions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#images">Images</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-docker-compose">Using docker compose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-vagrant">Using Vagrant</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#build-the-images">Build the images</a><ul>
@@ -113,6 +114,49 @@
 and from the current release (tag <code class="docutils literal notranslate"><span class="pre">vX.Y.Z</span></code>, use
 <code class="docutils literal notranslate"><span class="pre">ivre/&lt;imagename&gt;:vX.Y.Z</span></code> to use it).</p>
 </section>
+<section id="images">
+<h2>Images<a class="headerlink" href="#images" title="Link to this heading"></a></h2>
+<p>IVRE ships the following Docker images (all built from the
+<code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s under <code class="docutils literal notranslate"><span class="pre">docker/</span></code>):</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Image</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/base</span></code></p></td>
+<td><p>Base image with IVRE and its dependencies installed;
+parent of every other image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/client</span></code></p></td>
+<td><p>CLI container, used to run <code class="docutils literal notranslate"><span class="pre">ivre</span></code> subcommands
+against the database.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/agent</span></code></p></td>
+<td><p>Remote scan agent (see <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web</span></code></p></td>
+<td><p>nginx front-end serving the Web UI static assets and
+reverse-proxying <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code>, <code class="docutils literal notranslate"><span class="pre">/dokuwiki/</span></code> and
+<code class="docutils literal notranslate"><span class="pre">/mcp</span></code> to the internal backends.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-uwsgi</span></code></p></td>
+<td><p>uWSGI application server running the IVRE Web API
+(Bottle app in <code class="xref py py-mod docutils literal notranslate"><span class="pre">ivre.web.app</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-doku</span></code></p></td>
+<td><p>PHP-FPM container running the Dokuwiki wiki
+integrated in the Web UI.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code></p></td>
+<td><p><a class="reference internal" href="../usage/mcp-server.html"><span class="doc">MCP server</span></a> exposed over the Streamable
+HTTP transport, reachable through the
+<code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> reverse proxy at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="using-docker-compose">
 <h2>Using docker compose<a class="headerlink" href="#using-docker-compose" title="Link to this heading"></a></h2>
 <p>The easiest way, just run:</p>
@@ -162,7 +206,7 @@ $ vagrant up --no-parallel
 <p>By default, the images will be downloaded from the Docker Hub. But you
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in base client agent web web-doku web-uwsgi ; do
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in base client agent web web-doku web-mcp web-uwsgi ; do
 &gt; docker build -t &quot;ivre/$img&quot; &quot;$img&quot;
 &gt; done
 </pre></div>
@@ -177,6 +221,7 @@ the <em>tarball</em> from GitHub, by creating it locally and using the
 <code class="docutils literal notranslate"><span class="pre">base-local</span></code> directory instead of <code class="docutils literal notranslate"><span class="pre">base</span></code>. From the repository root,
 run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
+$ tar --owner=root:0 --group=root:0 --transform=&#39;s#^#ivre/#&#39; -rf docker/base-local/ivre.tar ivre/_version.py
 $ docker build -t ivre/base docker/base-local
 </pre></div>
 </div>

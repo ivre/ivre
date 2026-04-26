@@ -281,7 +281,7 @@ Users receive a login link by email. No password is stored.
      - ``10``
      - Maximum magic link emails per source IP per time window.
        IPv6 addresses are grouped by /48 (see
-       :ref:`reverse-proxy-setup`)
+       `Reverse Proxy Setup`_)
 
 Reverse Proxy Setup
 ~~~~~~~~~~~~~~~~~~~
