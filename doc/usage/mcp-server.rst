@@ -199,6 +199,16 @@ timeout::
         chunked_transfer_encoding on;
     }
 
+The MCP server derives the externally-visible origin (used in
+``WWW-Authenticate: Bearer ..., resource_metadata="..."`` and in the
+``/.well-known/oauth-protected-resource/...`` JSON document) from each
+request's ``Host:`` and ``X-Forwarded-Proto:`` headers, the same trust
+surface as the Web UI's ``Referer:`` header check (see
+``WEB_ALLOWED_REFERERS`` in :doc:`../install/config`). The snippet
+above forwards both correctly. The public path must match the
+upstream ``--path`` (both default to ``/mcp``); rewriting via
+``X-Forwarded-Prefix`` is not currently supported.
+
 HTTP client configuration
 -------------------------
 

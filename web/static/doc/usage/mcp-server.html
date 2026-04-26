@@ -400,6 +400,15 @@ timeout:</p>
 }
 </pre></div>
 </div>
+<p>The MCP server derives the externally-visible origin (used in
+<code class="docutils literal notranslate"><span class="pre">WWW-Authenticate:</span> <span class="pre">Bearer</span> <span class="pre">...,</span> <span class="pre">resource_metadata=&quot;...&quot;</span></code> and in the
+<code class="docutils literal notranslate"><span class="pre">/.well-known/oauth-protected-resource/...</span></code> JSON document) from each
+request’s <code class="docutils literal notranslate"><span class="pre">Host:</span></code> and <code class="docutils literal notranslate"><span class="pre">X-Forwarded-Proto:</span></code> headers, the same trust
+surface as the Web UI’s <code class="docutils literal notranslate"><span class="pre">Referer:</span></code> header check (see
+<code class="docutils literal notranslate"><span class="pre">WEB_ALLOWED_REFERERS</span></code> in <a class="reference internal" href="../install/config.html"><span class="doc">Configuration</span></a>). The snippet
+above forwards both correctly. The public path must match the
+upstream <code class="docutils literal notranslate"><span class="pre">--path</span></code> (both default to <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>); rewriting via
+<code class="docutils literal notranslate"><span class="pre">X-Forwarded-Prefix</span></code> is not currently supported.</p>
 </section>
 <section id="http-client-configuration">
 <h3>HTTP client configuration<a class="headerlink" href="#http-client-configuration" title="Link to this heading"></a></h3>

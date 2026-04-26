@@ -791,22 +791,22 @@ def _run_http(args: argparse.Namespace) -> None:
     if use_auth:
         from .auth import IvreTokenVerifier  # pylint: disable=import-outside-toplevel
 
-        # The issuer/resource URLs are advertised to clients; build them
-        # from the bind address and path. TLS termination is expected to
-        # happen upstream (nginx/Apache); the URL scheme is therefore
-        # only used as an identifier and not dereferenced here.
-        scheme = "http"
-        if loopback:
-            host_url = f"{scheme}://{args.bind}:{args.port}"
-        else:
-            # Non-loopback deployments are expected behind TLS.
-            scheme = "https"
-            host_url = f"{scheme}://{args.bind}:{args.port}"
-        resource_url = host_url + args.path
+        # AuthSettings.issuer_url / resource_server_url are advertised
+        # to clients in the WWW-Authenticate header (on 401) and the
+        # /.well-known/oauth-protected-resource{path} JSON document.
+        # The bind address is the *internal* one (typically loopback,
+        # behind nginx) and is not what clients use to reach us. To
+        # avoid a config knob, set the URLs at startup to a fixed
+        # sentinel rooted at the RFC 2606 reserved
+        # ``placeholder.invalid`` TLD; PublicUrlRewriteMiddleware (see
+        # below) substitutes the sentinel scheme+host with the
+        # request-derived public origin on the way out, the same trust
+        # surface as ivre.web.base.check_referer.
+        sentinel_origin = "http://placeholder.invalid"
         fastmcp_kwargs["token_verifier"] = IvreTokenVerifier()
         fastmcp_kwargs["auth"] = AuthSettings(
-            issuer_url=host_url,
-            resource_server_url=resource_url,
+            issuer_url=sentinel_origin,
+            resource_server_url=f"{sentinel_origin}{args.path}",
         )
         _HTTP_AUTH_REQUIRED = True
         logger.info(
@@ -822,4 +822,22 @@ def _run_http(args: argparse.Namespace) -> None:
         )
 
     _build_server(**fastmcp_kwargs)
-    mcp.run(transport="streamable-http")
+    if use_auth:
+        # pylint: disable=import-outside-toplevel
+        import asyncio
+
+        import uvicorn
+
+        from .middleware import PublicUrlRewriteMiddleware
+
+        app = mcp.streamable_http_app()
+        app.add_middleware(PublicUrlRewriteMiddleware)
+        uvicorn_config = uvicorn.Config(
+            app,
+            host=args.bind,
+            port=args.port,
+            log_level="info",
+        )
+        asyncio.run(uvicorn.Server(uvicorn_config).serve())
+    else:
+        mcp.run(transport="streamable-http")
