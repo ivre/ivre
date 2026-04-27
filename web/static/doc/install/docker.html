@@ -152,7 +152,11 @@ integrated in the Web UI.</p></td>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code></p></td>
 <td><p><a class="reference internal" href="../usage/mcp-server.html"><span class="doc">MCP server</span></a> exposed over the Streamable
 HTTP transport, reachable through the
-<code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> reverse proxy at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> reverse proxy at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>. Bundles
+Debian’s <code class="docutils literal notranslate"><span class="pre">nmap-common</span></code> data files under
+<code class="docutils literal notranslate"><span class="pre">/usr/share/nmap/</span></code> so the MCP
+<code class="docutils literal notranslate"><span class="pre">nmap_service_values</span></code> tool can enumerate known
+service names and products.</p></td>
 </tr>
 </tbody>
 </table>
