@@ -113,7 +113,12 @@ _INSTRUCTIONS = (
     "and flt_and / flt_or to combine them. Never manually construct, modify, or "
     "guess the internal structure of filter objects.\n\n"
     "When exploring a scope or answering broad security questions, read the "
-    "ivre://guides/scope-discovery resource first for recommended steps."
+    "ivre://guides/scope-discovery resource first for recommended steps.\n\n"
+    "IMPORTANT: For topvalues(), always use the field aliases documented in "
+    "that tool's description (e.g. 'product:ssh', 'product:22', "
+    "'version:ssh:OpenSSH') rather than raw document paths from "
+    "describe_schema(). Raw paths like 'ports.service_product' aggregate "
+    "across all ports and produce misleading mixed-service results."
 )
 
 
@@ -455,7 +460,34 @@ def _register_tools() -> None:
         flt: FilterType | None = None,
         topnbr: int = 10,
     ) -> str:
-        """Return the most frequent values of a field. Returns JSON array of {value, count}."""
+        """Return the most frequent values of a field. Returns JSON array of {value, count}.
+
+        The field parameter accepts both raw document paths (from describe_schema)
+        and the following higher-level aliases that are more precise:
+
+          "service"              — service names across all ports
+          "port"                 — open port numbers
+          "product"              — software products across all ports
+          "version"              — software versions across all ports
+          "product:<port>"       — products on a specific port number
+                                   e.g. "product:22" for SSH, "product:443" for HTTPS
+          "product:<service>"    — products for a named service on any port
+                                   e.g. "product:ssh", "product:http"
+          "version:<svc>:<prod>" — versions of a specific product
+                                   e.g. "version:ssh:OpenSSH"
+          "country"              — country codes
+          "as"                   — autonomous systems
+          "domains"              — hostnames / domain names
+          "os"                   — operating systems
+          "devicetype"           — device types
+          "openports"            — full open-port profiles (port count + port list)
+          "tag"                  — [value, info] tag pairs
+          "tag.value"            — tag names only (equivalent to "tags.value")
+
+        Always prefer these aliases over raw document paths such as
+        "ports.service_product": raw paths aggregate across all ports and return
+        misleading mixed-service results for service-specific queries.
+        """
         try:
             parsed_flt = _parse(purpose, flt)
             raw = REAL_DB[purpose].topvalues(field, flt=parsed_flt, topnbr=topnbr)
@@ -492,7 +524,13 @@ def _register_tools() -> None:
 
     @mcp.tool()
     def describe_schema(purpose: AllPurpose) -> str:
-        """Return the document schema for a given purpose, listing field paths usable with topvalues, distinct, and get (sort).
+        """Return the document schema for a given purpose, listing raw field paths.
+
+        Raw paths are usable with distinct() and get() (sort parameter). For
+        topvalues(), prefer the higher-level field aliases documented in
+        topvalues() — e.g. "product:ssh" instead of "ports.service_product".
+        Raw paths in topvalues() aggregate across all ports and return misleading
+        mixed-service results for service-specific queries.
 
         See also nmap_service_values() to discover valid service names and product
         names for use with searchservice / searchproduct.
