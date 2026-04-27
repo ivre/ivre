@@ -39,7 +39,7 @@ from ivre import config
 from ivre.db import db
 from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
 from ivre.plugins import load_plugins
-from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp
+from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp, str2regexp
 from ivre.web.utils import get_init_flt_for, parse_filter
 
 from .schemas import SCHEMAS
@@ -225,13 +225,13 @@ def _register_tools() -> None:
 
     @mcp.tool()
     def searchhostname(purpose: AllPurpose, hostname: str) -> FilterType:
-        """Filter records matching a hostname (exact or regex)."""
-        return seal(HTTP_DB[purpose].searchhostname(hostname))
+        """Filter records matching a hostname (exact or "/regex/")."""
+        return seal(HTTP_DB[purpose].searchhostname(str2regexp(hostname)))
 
     @mcp.tool()
     def searchdomain(purpose: AllPurpose, domain: str) -> FilterType:
-        """Filter records whose hostname belongs to a domain."""
-        return seal(HTTP_DB[purpose].searchdomain(domain))
+        """Filter records whose hostname belongs to a domain (exact or "/regex/")."""
+        return seal(HTTP_DB[purpose].searchdomain(str2regexp(domain)))
 
     # --- Filter construction: Port / Service ---
 
@@ -265,14 +265,17 @@ def _register_tools() -> None:
         port: int | None = None,
         protocol: Literal["tcp", "udp"] = "tcp",
     ) -> FilterType:
-        """Filter records with a detected service, product and/or version."""
-        kwargs: dict[str, int | str] = {}
+        """Filter records with a detected service, product and/or version.
+
+        product, version, and service accept exact values or "/regex/" patterns.
+        """
+        kwargs: dict[str, Any] = {}
         if product is not None:
-            kwargs["product"] = product
+            kwargs["product"] = str2regexp(product)
         if version is not None:
-            kwargs["version"] = version
+            kwargs["version"] = str2regexp(version)
         if service is not None:
-            kwargs["service"] = service
+            kwargs["service"] = str2regexp(service)
         if port is not None:
             kwargs["port"] = port
         if protocol is not None:
@@ -281,8 +284,8 @@ def _register_tools() -> None:
 
     @mcp.tool()
     def searchdevicetype(purpose: ActivePurpose, devtype: str) -> FilterType:
-        """Filter records by device type."""
-        return seal(HTTP_DB[purpose].searchdevicetype(devtype))
+        """Filter records by device type (exact or "/regex/")."""
+        return seal(HTTP_DB[purpose].searchdevicetype(str2regexp(devtype)))
 
     # --- Filter construction: Geolocation / ASN ---
 
@@ -300,8 +303,8 @@ def _register_tools() -> None:
 
     @mcp.tool()
     def searchos(purpose: ActivePurpose, os_name: str) -> FilterType:
-        """Filter records by detected operating system."""
-        return seal(HTTP_DB[purpose].searchos(os_name))
+        """Filter records by detected operating system (exact or "/regex/")."""
+        return seal(HTTP_DB[purpose].searchos(str2regexp(os_name)))
 
     @mcp.tool()
     def searchscript(
@@ -309,19 +312,22 @@ def _register_tools() -> None:
         name: str | None = None,
         output: str | None = None,
     ) -> FilterType:
-        """Filter records having a specific Nmap script result. At least one of name or output must be provided."""
-        kwargs: dict[str, str] = {}
+        """Filter records having a specific Nmap script result.
+
+        The name and output can be exact values or regular expressions
+        passed as "/expr/". Flags can be added as "/expr/i" for
+        example.
+
+        Warning: regular expressions can be expensive. Anchor patterns
+        with "/^expr/" when possible. When filtering by output, also
+        specify the script name to avoid scanning all script outputs.
+
+        """
+        kwargs: dict[str, Any] = {}
         if name is not None:
-            kwargs["name"] = name
+            kwargs["name"] = str2regexp(name)
         if output is not None:
-            kwargs["output"] = output
-        if not kwargs:
-            raise McpError(
-                ErrorData(
-                    code=INVALID_PARAMS,
-                    message="At least one of 'name' or 'output' must be provided",
-                )
-            )
+            kwargs["output"] = str2regexp(output)
         return seal(HTTP_DB[purpose].searchscript(**kwargs))
 
     @mcp.tool()
@@ -353,8 +359,8 @@ def _register_tools() -> None:
 
     @mcp.tool()
     def searchcategory(purpose: ActivePurpose, category: str) -> FilterType:
-        """Filter records belonging to a category."""
-        return seal(HTTP_DB[purpose].searchcategory(category))
+        """Filter records belonging to a category (exact or "/regex/")."""
+        return seal(HTTP_DB[purpose].searchcategory(str2regexp(category)))
 
     @mcp.tool()
     def searchtag(
