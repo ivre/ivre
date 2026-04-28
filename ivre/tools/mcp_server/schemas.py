@@ -47,7 +47,27 @@ ACTIVE_SCHEMA = {
         {
             "path": "hostnames[].type",
             "type": "string",
-            "description": "Type (e.g. user, PTR)",
+            "description": (
+                "Source/type of the hostname (open set). Common values: "
+                "'user' (user-supplied: CLI, DNS analyzer, dns-zone-transfer "
+                "script); "
+                "'PTR' (reverse DNS lookup); "
+                "'A', 'AAAA', 'CNAME', 'NS', 'MX' (passive DNS answers "
+                "merged into the view, named after the DNS record type); "
+                "'smb' (DNS_Computer_Name from SMB OS discovery); "
+                "'ntlm' (DNS_Computer_Name from NTLM challenges, HTTP "
+                "Negotiate or SMB); "
+                "'service' (extracted by service detection, e.g. "
+                "Elasticsearch cluster banner); "
+                "'cert-subject-cn' (Subject CN of a TLS certificate); "
+                "'cert-san-dns' (TLS cert SAN of type DNS:); "
+                "'cert-san-uri' (host part of a TLS cert SAN of type URI:); "
+                "'cert-san-dirname-cn' (CN inside a TLS cert SAN of type "
+                "DirName:); "
+                "'cert-san-othername-upn' (TLS cert SAN othername:UPN:); "
+                "'cert-san-othername-<subtype>' (TLS cert SAN "
+                "othername:<subtype>:..., subtype lower-cased)."
+            ),
         },
         {
             "path": "hostnames[].domains[]",
