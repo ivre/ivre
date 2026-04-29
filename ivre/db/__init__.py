@@ -37,7 +37,6 @@ import sys
 import tempfile
 import time
 import uuid
-import xml.sax
 from argparse import ArgumentParser
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -48,6 +47,20 @@ from typing import Dict, Generator
 from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import build_opener
+
+# `defusedxml.expatreader.create_parser(forbid_external=False)` returns
+# a hardened expat-based SAX parser that raises `EntitiesForbidden` on
+# every entity declaration (internal or external), which blocks both
+# billion-laughs and XXE/external-PE attacks at the parser level.
+#
+# We deliberately keep `forbid_external=False` because legitimate Nmap
+# XML carries `<!DOCTYPE nmaprun PUBLIC "..." SYSTEM "https://..."/>`,
+# and the default `forbid_external=True` would refuse to parse it. The
+# DOCTYPE URI is *declared* but never *fetched*: expat's
+# `feature_external_pes` defaults to False, so the URI is not
+# dereferenced. Combined with `forbid_entities=True`, this leaves no
+# remaining XXE / external-entity primitive.
+import defusedxml.expatreader  # type: ignore[import-untyped]
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -2377,7 +2390,7 @@ class DBNmap(DBActive):
         if no action has to be taken.
 
         """
-        parser = xml.sax.make_parser()
+        parser = defusedxml.expatreader.create_parser(forbid_external=False)
         self.start_store_hosts()
         try:
             content_handler = self.content_handler(fname, self.globaldb, **kargs)
@@ -2386,9 +2399,6 @@ class DBNmap(DBActive):
         else:
             content_handler.callback = callback
             parser.setContentHandler(content_handler)
-            parser.setEntityResolver(xmlnmap.NoExtResolver())
-            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
-            parser.setFeature(xml.sax.handler.feature_external_pes, 0)
             parser.parse(utils.open_file(fname))
             if self.output_function is not None:
                 self.output_function(content_handler._db, out=self.output)

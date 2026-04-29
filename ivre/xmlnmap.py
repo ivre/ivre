@@ -25,9 +25,8 @@ import hashlib
 import os
 import re
 import struct
-import sys
 from textwrap import wrap
-from xml.sax.handler import ContentHandler, EntityResolver
+from xml.sax.handler import ContentHandler
 
 from ivre import utils
 from ivre.active.cpe import cpe2dict
@@ -1532,16 +1531,6 @@ def add_service_hostname(service_info, hostnames):
     add_hostname(name, "service", hostnames)
 
 
-class NoExtResolver(EntityResolver):
-    """A simple EntityResolver that will prevent any external
-    resolution.
-
-    """
-
-    def resolveEntity(self, *_):
-        return "file://%s" % os.devnull
-
-
 class NmapHandler(ContentHandler):
     """The handler for Nmap's XML documents. An abstract class for
     database specific implementations.
@@ -2235,39 +2224,80 @@ class NmapHandler(ContentHandler):
             if self._curscript["id"] in SCREENSHOTS_SCRIPTS:
                 fname = SCREENSHOTS_SCRIPTS[self._curscript["id"]](self._curscript)
                 if fname is not None:
-                    exceptions = []
-                    for full_fname in [
-                        fname,
-                        os.path.join(os.path.dirname(self._fname), fname),
+                    # `screenshot_extract()` already guarantees `fname`
+                    # is a bare basename with an allowed image
+                    # extension. We try two trusted resolution roots
+                    # in order, accepting the first existing file:
+                    #
+                    #   1. `os.path.dirname(self._fname)` -- the
+                    #      common case when the operator runs
+                    #      `ivre scan2db` against an XML file located
+                    #      next to its screenshots.
+                    #   2. `os.getcwd()` -- the historical fallback,
+                    #      used when the operator extracted the
+                    #      screenshots next to the directory from
+                    #      which they invoked `ivre scan2db` rather
+                    #      than next to the XML.
+                    #
+                    # Each candidate is resolved with `os.path.realpath`
+                    # and re-checked to be contained within its root,
+                    # so symlinks planted inside either directory
+                    # cannot be used to escape it.
+                    seen_full_fnames: set[str] = set()
+                    found_screenshot = False
+                    last_exc_full_fname: str | None = None
+                    last_exc: BaseException | None = None
+                    for base in [
+                        os.path.realpath(os.path.dirname(self._fname) or "."),
+                        os.path.realpath(os.getcwd()),
                     ]:
+                        full_fname = os.path.realpath(os.path.join(base, fname))
+                        if full_fname in seen_full_fnames:
+                            continue
+                        seen_full_fnames.add(full_fname)
+                        if full_fname != base and not full_fname.startswith(
+                            base + os.sep
+                        ):
+                            utils.LOGGER.warning(
+                                "Screenshot: rejecting path %r outside "
+                                "directory %r (scanfile %r, script %r)",
+                                full_fname,
+                                base,
+                                self._fname,
+                                self._curscript.get("id"),
+                            )
+                            continue
+                        if not os.path.exists(full_fname):
+                            continue
                         try:
                             with open(full_fname, "rb") as fdesc:
                                 data = fdesc.read()
-                                trim_result = utils.trim_image(data)
-                                if trim_result:
-                                    # When trim_result is False, the image no
-                                    # longer exists after trim
-                                    if trim_result is not True:
-                                        # Image has been trimmed
-                                        data = trim_result
-                                    current["screenshot"] = "field"
-                                    current["screendata"] = self._to_binary(data)
-                                    screenwords = utils.screenwords(data)
-                                    if screenwords is not None:
-                                        current["screenwords"] = screenwords
-                                else:
-                                    current["screenshot"] = "empty"
-                        except Exception:
-                            exceptions.append((sys.exc_info(), full_fname))
+                        except Exception as exc:
+                            last_exc_full_fname = full_fname
+                            last_exc = exc
+                            continue
+                        trim_result = utils.trim_image(data)
+                        if trim_result:
+                            # When trim_result is False, the image no
+                            # longer exists after trim
+                            if trim_result is not True:
+                                # Image has been trimmed
+                                data = trim_result
+                            current["screenshot"] = "field"
+                            current["screendata"] = self._to_binary(data)
+                            screenwords = utils.screenwords(data)
+                            if screenwords is not None:
+                                current["screenwords"] = screenwords
                         else:
-                            exceptions = []
-                            break
-                    for exc_info, full_fname in exceptions:
+                            current["screenshot"] = "empty"
+                        found_screenshot = True
+                        break
+                    if not found_screenshot and last_exc is not None:
                         utils.LOGGER.warning(
-                            "Screenshot: exception (scanfile %r, file %r)",
+                            "Screenshot: exception (scanfile %r, file %r): %s",
                             self._fname,
-                            full_fname,
-                            exc_info=exc_info,
+                            last_exc_full_fname,
+                            last_exc,
                         )
             if ignore_script(self._curscript):
                 if self._curtablepath:

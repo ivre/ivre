@@ -438,6 +438,15 @@ wheels = [
 ]
 
 [[package]]
+name = "defusedxml"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/d5/c66da9b79e5bdb124974bfe172b4daf3c984ebd9c2a06e2b8a4dc7331c72/defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69", size = 75520, upload-time = "2021-03-08T10:59:26.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61", size = 25604, upload-time = "2021-03-08T10:59:24.45Z" },
+]
+
+[[package]]
 name = "dill"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -698,6 +707,7 @@ source = { editable = "." }
 dependencies = [
     { name = "bottle" },
     { name = "cryptography" },
+    { name = "defusedxml" },
     { name = "pymongo" },
     { name = "pyopenssl" },
 ]
@@ -766,6 +776,7 @@ requires-dist = [
     { name = "codespell", marker = "extra == 'linting'" },
     { name = "cryptography" },
     { name = "dbus-python", marker = "extra == '3d-traceroute'" },
+    { name = "defusedxml" },
     { name = "docutils", marker = "extra == 'doc'", specifier = "!=0.18" },
     { name = "elasticsearch", marker = "extra == 'elasticsearch'" },
     { name = "elasticsearch-dsl", marker = "extra == 'elasticsearch'" },
