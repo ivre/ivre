@@ -572,6 +572,77 @@ def _register_tools() -> None:
             values = cache.get("products_all", set())
         return json.dumps(sorted(values))
 
+    # --- RIR (Regional Internet Registry) lookups ---
+
+    @mcp.tool()
+    def rir_lookup(addr: str) -> str:
+        """Return the most-specific RIR record for an IP address.
+
+        Looks up the smallest range covering ``addr`` in the RIR
+        database (built from AfriNIC / APNIC / ARIN / LACNIC / RIPE
+        whois dumps). Returns a JSON object with whois fields such as
+        ``netname``, ``descr``, ``country``, ``org``, ``start``,
+        ``stop``. Returns JSON ``null`` when no record matches.
+
+        Equivalent to the ``ivre rirlookup <addr>`` CLI.
+        """
+        try:
+            rec = db.rir.get_best(addr)
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+        if rec is None:
+            return json.dumps(None)
+        rec.pop("_id", None)
+        return json.dumps(rec, default=serialize)
+
+    def _rir_filter(query: str | None, country: str | None) -> Any:
+        flt = db.rir.flt_empty
+        if query is not None and hasattr(db.rir, "searchtext"):
+            flt = db.rir.flt_and(flt, db.rir.searchtext(query))
+        if country is not None:
+            flt = db.rir.flt_and(flt, db.rir.searchcountry(country))
+        return flt
+
+    @mcp.tool()
+    def rir_search(
+        query: str | None = None,
+        country: str | None = None,
+        limit: int = 10,
+    ) -> str:
+        """Search RIR records by free text and/or country code.
+
+        ``query`` is a free-text search across the ``netname``,
+        ``descr``, ``remarks``, ``notify`` and ``org`` fields (only
+        available with backends that index those fields, e.g.
+        MongoDB). ``country`` is a 2-letter ISO 3166-1 country code.
+        Returns up to ``limit`` records (max 100) as a JSON array.
+
+        Equivalent to ``ivre rirlookup --search ... --country ...``.
+        """
+        limit = max(1, min(limit, 100))
+        try:
+            records = []
+            for rec in db.rir.get(_rir_filter(query, country), limit=limit):
+                rec.pop("_id", None)
+                records.append(rec)
+            return json.dumps(records, default=serialize)
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def rir_count(
+        query: str | None = None,
+        country: str | None = None,
+    ) -> int:
+        """Count RIR records matching free-text and/or country criteria.
+
+        Same filter semantics as :func:`rir_search`.
+        """
+        try:
+            return int(db.rir.count(_rir_filter(query, country)))
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
     # --- Resources ---
 
     @mcp.resource("ivre://guides/scope-discovery")

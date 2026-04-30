@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -353,12 +353,13 @@ def get_nmap_count(subdb):
     return f"{flt_params.callback}({count});\n"
 
 
-@application.get("/<subdb:re:scans|view|passive>/top/<field:path>")
+@application.get("/<subdb:re:scans|view|passive|rir>/top/<field:path>")
 @check_referer
 def get_top(subdb, field):
-    """Get top values from Nmap, View & Passive databases
+    """Get top values from Nmap, View, Passive & RIR databases
 
-    :param str subdb: database to query (must be "scans" or "view")
+    :param str subdb: database to query (must be "scans", "view",
+                      "passive" or "rir")
     :param str field: (pseudo-)field to get top values (e.g., "service")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
@@ -376,6 +377,7 @@ def get_top(subdb, field):
     """
     subdb = {
         "passive": db.passive,
+        "rir": db.rir,
         "scans": db.nmap,
         "view": db.view,
     }[subdb]
@@ -423,12 +425,13 @@ def get_top(subdb, field):
         yield "\n]);\n"
 
 
-@application.get("/<subdb:re:scans|view|passive>/distinct/<field:path>")
+@application.get("/<subdb:re:scans|view|passive|rir>/distinct/<field:path>")
 @check_referer
 def get_distinct(subdb, field):
-    """Get distinct values from Nmap, View & Passive databases
+    """Get distinct values from Nmap, View, Passive & RIR databases
 
-    :param str subdb: database to query (must be "scans" or "view")
+    :param str subdb: database to query (must be "scans", "view",
+                      "passive" or "rir")
     :param str field: (pseudo-)field to get distinct values (e.g., "service")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
@@ -446,6 +449,7 @@ def get_distinct(subdb, field):
     """
     subdb = {
         "passive": db.passive,
+        "rir": db.rir,
         "scans": db.nmap,
         "view": db.view,
     }[subdb]
@@ -996,6 +1000,78 @@ def get_passive_count():
     """
     flt_params = get_base(db.passive)
     count = db.passive.count(flt_params.flt)
+    if flt_params.callback is None:
+        return f"{count}\n"
+    return f"{flt_params.callback}({count});\n"
+
+
+#
+# RIR (/rir/)
+#
+
+
+@application.get("/rir")
+@check_referer
+def get_rir():
+    """Get records from the RIR database.
+
+    :query str q: query (only used for limit/skip and sort)
+    :query str f: filter
+    :query str callback: callback to use for JSONP results
+    :query str format: "json" (the default) or "ndjson"
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr object: results
+
+    """
+    flt_params = get_base(db.rir)
+    result = db.rir.get(
+        flt_params.flt,
+        skip=flt_params.skip,
+        sort=flt_params.sortby,
+        fields=flt_params.fields,
+    )
+    if flt_params.callback is None:
+        if flt_params.fmt == "json":
+            yield "[\n"
+    else:
+        yield f"{flt_params.callback}([\n"
+    for i, rec in enumerate(result):
+        try:
+            del rec["_id"]
+        except KeyError:
+            pass
+        if flt_params.fmt == "ndjson":
+            yield f"{json.dumps(rec, default=utils.serialize)}\n"
+        else:
+            yield "%s\t%s" % (
+                ",\n" if i else "",
+                json.dumps(rec, default=utils.serialize),
+            )
+        if flt_params.limit and i + 1 >= flt_params.limit:
+            break
+    if flt_params.callback is None:
+        if flt_params.fmt == "json":
+            yield "\n]\n"
+    else:
+        yield "\n]);\n"
+
+
+@application.get("/rir/count")
+@check_referer
+def get_rir_count():
+    """Count records from the RIR database.
+
+    :query str q: query (only used for limit/skip and sort)
+    :query str f: filter
+    :query str callback: callback to use for JSONP results
+    :status 200: no error
+    :status 400: invalid referer
+    :>json int: count
+
+    """
+    flt_params = get_base(db.rir)
+    count = db.rir.count(flt_params.flt)
     if flt_params.callback is None:
         return f"{count}\n"
     return f"{flt_params.callback}({count});\n"

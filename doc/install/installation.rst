@@ -67,7 +67,7 @@ Databases
 ~~~~~~~~~
 
 IVRE's reference backend service is `MongoDB
-<https://www.mongodb.org/>`_, version 3.6 minimum. It is highly
+<https://www.mongodb.org/>`_, version 7.0 minimum. It is highly
 suggested that you use the latest stable release (the performances
 tend to improve a lot).
 

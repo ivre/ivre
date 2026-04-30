@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -38,16 +38,22 @@ else:
     HAS_CURL = True
 
 
-from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBView
+from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBRir, DBView
 
 try:
     from ivre.db.maxmind import MaxMindDBData
 except ImportError:
     MaxMindDBData = None
 try:
-    from ivre.db.mongo import MongoDBActive, MongoDBNmap, MongoDBPassive, MongoDBView
+    from ivre.db.mongo import (
+        MongoDBActive,
+        MongoDBNmap,
+        MongoDBPassive,
+        MongoDBRir,
+        MongoDBView,
+    )
 except ImportError:
-    MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBView = None
+    MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBRir = MongoDBView = None
 from ivre import VERSION, utils
 
 RESULTS_COUNT = 200
@@ -459,3 +465,9 @@ class HttpDBData(HttpDB, DBData):
 
     def country_byip(self, addr):
         return self._infos_byip(["country_code", "country_name"], addr)
+
+
+class HttpDBRir(HttpDB, DBRir):
+    reference = MongoDBRir
+
+    route = "rir"

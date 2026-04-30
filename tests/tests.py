@@ -4042,6 +4042,94 @@ class IvreTests(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
+        # BEGIN Using the HTTP server as a database
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv["IVRE_CONF"], "rb"))
+            fdesc.write(
+                (
+                    '\nDB_RIR = "http://%s:%d/cgi#Referer=http://%s:%d/"\n'
+                    % (
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                    )
+                ).encode()
+            )
+        newenv["IVRE_CONF"] = fdesc.name
+
+        res, out1, err = RUN(["ivre", "rirlookup", "--count"], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "rirlookup", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+
+        res, out1, err = RUN(
+            ["ivre", "rirlookup", "--country", "FR", "--count"], env=newenv
+        )
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "rirlookup", "--country", "FR", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+
+        for distinct in ["country", "source"]:
+            cmd = ["ivre", "rirlookup", "--distinct", distinct]
+            res, out1, err = RUN(cmd, env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(cmd)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
+
+        # Address lookup (positional argument): both backends must return
+        # the same most-specific record.
+        for addr in ["132.165.0.1", "185.50.64.1"]:
+            res, out1, err = RUN(["ivre", "rirlookup", "--json", addr], env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(["ivre", "rirlookup", "--json", addr])
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(out1, out2)
+
+        # Full-text search combined with country filter.
+        cmd = [
+            "ivre",
+            "rirlookup",
+            "--search",
+            '"Commissariat" "Energie" "Atomique"',
+            "--country",
+            "FR",
+            "--json",
+        ]
+        res, out1, err = RUN(cmd, env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(cmd)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
+
+        # Short-format output for a free-text-only search.
+        cmd = ["ivre", "rirlookup", "--search", '"SGDSN"', "--short"]
+        res, out1, err = RUN(cmd, env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(cmd)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
+
+        os.unlink(fdesc.name)
+        # END Using the HTTP server as a database
+
     def test_scans(self):
         "Run scans, with and without agents"
 

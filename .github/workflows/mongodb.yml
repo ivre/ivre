@@ -31,7 +31,7 @@ jobs:
       matrix:
         # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
         python-version: ['3.12', '3.13', '3.14']
-        mongodb-version: ['5.0', '6.0', '7.0', '8.0']
+        mongodb-version: ['7.0', '8.0']
 
     steps:
 
@@ -51,7 +51,7 @@ jobs:
         mongodb-version: ${{ matrix.mongodb-version }}
 
     - name: Install MongoDB tools (mongodump)
-      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
       run: |
           wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
           echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
@@ -72,7 +72,7 @@ jobs:
         DB: mongo
 
     - name: Create MongoDB dump for Elasticsearch tests
-      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
       run: |
           rm -rf ./backup/ && mkdir ./backup/
           mongodump --db=ivre --out=./backup/
@@ -80,7 +80,7 @@ jobs:
           tar jcf ./backup_nmap_passive.tar.bz2 ./backup/{hosts,passive}.bson
 
     - name: Archive MongoDB dump artifacts
-      if: ${{ matrix.mongodb-version == '5.0' && matrix.python-version == '3.12' }}
+      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
       uses: actions/upload-artifact@v4
       with:
         name: backup_nmap_passive

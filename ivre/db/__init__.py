@@ -5467,6 +5467,7 @@ class DBRir(DB):
         "https://ftp.ripe.net/ripe/dbase/split/ripe.db.inet6num.gz",
     ]
     backends = {
+        "http": ("http", "HttpDBRir"),
         "mongodb": ("mongo", "MongoDBRir"),
     }
 
