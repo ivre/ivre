@@ -43,6 +43,7 @@ classifiers = [
 ]
 dependencies = [
     "cryptography",
+    "defusedxml",
     "pymongo>=3.7",
     "pyOpenSSL>=16.1.0",
     "bottle",

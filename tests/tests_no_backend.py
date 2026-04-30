@@ -1,0 +1,1517 @@
+#! /usr/bin/env python
+
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+
+"""Backend-free tests for IVRE.
+
+This module collects regression tests that do not require a configured
+database backend. It is safe to run with::
+
+    python -m unittest tests.tests_no_backend
+
+or::
+
+    pytest tests/tests_no_backend.py
+
+It also accepts the following optional command-line arguments when
+invoked as a script (``python tests/tests_no_backend.py``):
+
+- ``--samples DIR``  Path to the IVRE samples directory (default:
+  ``./samples`` relative to ``tests/``).
+- ``--coverage``     Run helper subprocess invocations under
+  ``coverage run`` (mirrors ``tests/tests.py``).
+
+The module currently contains:
+
+- :class:`XMLParserHardeningTests` -- regression tests for
+  defusedxml-based SAX parser.
+- :class:`ScreenshotContainmentTests` -- regression tests for
+  screenshot path containment.
+- :class:`UtilsTests` -- the formerly-monolithic ``test_utils``
+  routine moved out of ``tests/tests.py`` (it exercises a wide range
+  of ``ivre`` utility functions, parsers, and CLI tools that do not
+  touch a database).
+"""
+
+from __future__ import annotations
+
+import errno
+import inspect
+import io
+import json
+import os
+import random
+import re
+import shutil
+import subprocess  # nosec B404  # required to drive the `ivre` CLI in UtilsTests
+import sys
+import tempfile
+import unittest
+from ast import literal_eval
+from datetime import datetime
+from functools import reduce
+from unittest import mock
+from xml.sax.handler import (  # nosec B406  # used only as a no-op SAX event sink against the defusedxml-hardened parser
+    ContentHandler,
+)
+
+import defusedxml.expatreader  # type: ignore[import-untyped]
+from defusedxml.common import (  # type: ignore[import-untyped]
+    DTDForbidden,
+    EntitiesForbidden,
+    ExternalReferenceForbidden,
+)
+
+import ivre.analyzer.ntlm
+import ivre.config
+import ivre.mathutils
+import ivre.parser.iptables
+import ivre.parser.zeek
+import ivre.passive
+import ivre.utils
+import ivre.web.utils
+from ivre import xmlnmap
+from ivre.db import DBNmap
+
+# ---------------------------------------------------------------------
+# Module-level helpers (RUN, SAMPLES, etc.)
+#
+# These mirror the ones defined in `tests/tests.py` so that tests can
+# be moved between the two files without rewriting their bodies. They
+# are configured at import time with sensible defaults so the tests
+# also run under `pytest` discovery without any special setup.
+# ---------------------------------------------------------------------
+
+
+SAMPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
+USE_COVERAGE = False
+COVERAGE: list[str] = []
+
+
+def run_iter(
+    cmd,
+    interp=None,
+    stdin=None,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    env=None,
+):
+    if interp is not None:
+        cmd = interp + [shutil.which(cmd[0])] + cmd[1:]
+    return subprocess.Popen(  # nosec B603  # argv list, no shell=True
+        cmd, stdin=stdin, stdout=stdout, stderr=stderr, env=env
+    )
+
+
+def run_cmd(cmd, interp=None, stdin=None, stdout=subprocess.PIPE, env=None):
+    proc = run_iter(cmd, interp=interp, stdin=stdin, stdout=stdout, env=env)
+    out, err = proc.communicate()
+    return proc.returncode, out, err
+
+
+def python_run(cmd, stdin=None, stdout=subprocess.PIPE, env=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin, stdout=stdout, env=env)
+
+
+def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
+    return run_iter(
+        cmd, interp=[sys.executable], stdin=stdin, stdout=stdout, stderr=stderr
+    )
+
+
+def coverage_run(cmd, stdin=None, stdout=subprocess.PIPE, env=None):
+    return run_cmd(
+        cmd,
+        interp=COVERAGE + ["run", "--parallel-mode"],
+        stdin=stdin,
+        stdout=stdout,
+        env=env,
+    )
+
+
+def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
+    return run_iter(
+        cmd,
+        interp=COVERAGE + ["run", "--parallel-mode"],
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
+# Default RUN: run subprocesses through the current Python interpreter.
+# Switched to `coverage_run` if the script is invoked with --coverage.
+RUN = python_run
+RUN_ITER = python_run_iter
+
+
+# A minimal but valid 1x1 transparent PNG, used to exercise the
+# legitimate (non-adversarial) screenshot path.
+_PNG_1X1 = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "000000017352474200aece1ce90000000d49444154789c6300010000000500010d"
+    "0a2db40000000049454e44ae426082"
+)
+
+
+# ---------------------------------------------------------------------
+# XMLParserHardeningTests
+# ---------------------------------------------------------------------
+
+
+_NMAP_DOCTYPE_FIXTURE = (
+    b'<?xml version="1.0"?>\n'
+    b'<?xml-stylesheet href="file:///usr/share/nmap/nmap.xsl" type="text/xsl"?>\n'
+    b'<!DOCTYPE nmaprun PUBLIC "-//IDN nmap.org//DTD Nmap XML 1.04//EN"'
+    b' "https://svn.nmap.org/nmap/docs/nmap.dtd">\n'
+    b'<nmaprun scanner="nmap" args="nmap -p 1 127.0.0.1" start="1" '
+    b'startstr="" version="7.95" xmloutputversion="1.05">\n'
+    b"  <host>\n"
+    b'    <status state="up" reason="conn-refused" reason_ttl="0"/>\n'
+    b'    <address addr="127.0.0.1" addrtype="ipv4"/>\n'
+    b"    <ports>\n"
+    b'      <port protocol="tcp" portid="1">\n'
+    b'        <state state="closed" reason="conn-refused" reason_ttl="0"/>\n'
+    b'        <service name="tcpmux" method="table" conf="3"/>\n'
+    b"      </port>\n"
+    b"    </ports>\n"
+    b"  </host>\n"
+    b'  <runstats><finished time="2"/>'
+    b'<hosts up="1" down="0" total="1"/></runstats>\n'
+    b"</nmaprun>\n"
+)
+
+
+class XMLParserHardeningTests(unittest.TestCase):
+    """Regression tests for XML parser hardening.
+
+    Asserts that the parser used by `DBNmap.store_scan_xml`:
+
+    1. is a `defusedxml.expatreader.DefusedExpatParser` (not the stdlib
+       `xml.sax` parser);
+    2. raises on every adversarial XML pattern we care about
+       (billion-laughs, external general entity, external parameter
+       entity);
+    3. does NOT raise on legitimate Nmap-style XML carrying a DOCTYPE
+       SYSTEM URI (e.g. `https://svn.nmap.org/nmap/docs/nmap.dtd`),
+       which is the standard output of `nmap -oX` and `ivre auditdom`;
+    4. does NOT actually fetch that DOCTYPE URI over the network.
+
+    The combination is achieved by passing
+    ``forbid_external=False`` to ``defusedxml.expatreader.create_parser``
+    while keeping the default ``forbid_entities=True``: the security
+    work is done by ``forbid_entities`` (which raises on every
+    `<!ENTITY ...>` declaration, internal or external), and
+    ``forbid_external`` would only have added a *redundant* raise on
+    DOCTYPE SYSTEM URIs that expat does not dereference anyway
+    (`feature_external_pes` defaults to False).
+    """
+
+    def setUp(self) -> None:
+        # Adversary-controlled secret file XXE payloads attempt to read.
+        fd, self._secret_path = tempfile.mkstemp(suffix=".txt")
+        with os.fdopen(fd, "wb") as fdesc:
+            fdesc.write(b"PWNED-SECRET-CONTENT")
+
+    def tearDown(self) -> None:
+        os.unlink(self._secret_path)
+
+    def _make_parser(self):
+        """Build the SAX parser exactly like `DBNmap.store_scan_xml`."""
+        return defusedxml.expatreader.create_parser(forbid_external=False)
+
+    def _parse(self, payload: bytes) -> None:
+        """Drive the defused SAX parser exactly like `store_scan_xml`."""
+        parser = self._make_parser()
+        parser.setContentHandler(ContentHandler())
+        parser.parse(io.BytesIO(payload))
+
+    def _ingest_via_store_scan_xml(self, payload: bytes) -> None:
+        """Run `payload` through the same `store_scan_xml` code path
+        used by `ivre scan2db`. Bypasses the database backend by
+        skipping the actual store_host/store_or_merge_host calls.
+        """
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as fdesc:
+            fdesc.write(payload)
+            xml_path = fdesc.name
+        try:
+            res, out, err = RUN(["ivre", "scan2db", "--test", xml_path])
+        finally:
+            os.unlink(xml_path)
+        self.assertEqual(
+            res,
+            0,
+            "ivre scan2db --test exit=%d, stderr=%r" % (res, err.decode()[-1000:]),
+        )
+
+    # --- parser configuration ---
+
+    def test_make_parser_returns_defused_expat_parser(self) -> None:
+        """The parser used by `store_scan_xml` must be a
+        `DefusedExpatParser`. Guards against an ImportError regression
+        that would silently fall back to the stdlib parser."""
+        from defusedxml.expatreader import (  # type: ignore[import-untyped]
+            DefusedExpatParser,
+        )
+
+        self.assertIsInstance(self._make_parser(), DefusedExpatParser)
+
+    def test_store_scan_xml_uses_defusedxml(self) -> None:
+        """`DBNmap.store_scan_xml` must call
+        `defusedxml.expatreader.create_parser(forbid_external=False)`
+        and must not fall back to `xml.sax.make_parser()` or rely on
+        the legacy `feature_external_*es = 0` / `NoExtResolver`
+        pattern."""
+        src = inspect.getsource(DBNmap.store_scan_xml)
+        self.assertIn("defusedxml.expatreader.create_parser", src)
+        self.assertIn("forbid_external=False", src)
+        # Look for `xml.sax.make_parser` not preceded by `defused`.
+        self.assertIsNone(
+            re.search(r"(?<!defused)xml\.sax\.make_parser", src),
+            "store_scan_xml must not call the stdlib xml.sax.make_parser",
+        )
+        self.assertNotIn("feature_external_ges", src)
+        self.assertNotIn("feature_external_pes", src)
+        self.assertNotIn("NoExtResolver", src)
+
+    def test_no_ext_resolver_class_removed(self) -> None:
+        """`xmlnmap.NoExtResolver` was removed alongside the
+        `feature_external_*es = 0` flags as redundant in the presence
+        of `DefusedExpatParser`."""
+        self.assertFalse(
+            hasattr(xmlnmap, "NoExtResolver"),
+            "xmlnmap.NoExtResolver should not exist anymore",
+        )
+
+    # --- attack-class regressions ---
+
+    def test_billion_laughs_raises_entities_forbidden(self) -> None:
+        """Pure-internal entity expansion (billion-laughs) must raise
+        before any expansion happens. This is the attack class the
+        legacy `feature_external_*es = 0` flags did NOT cover."""
+        payload = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE l ["
+            b'<!ENTITY a "a">'
+            b'<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+            b'<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">'
+            b"]>"
+            b"<r>&c;</r>"
+        )
+        with self.assertRaises(EntitiesForbidden):
+            self._parse(payload)
+
+    def test_external_general_entity_raises(self) -> None:
+        """An external general entity (the canonical XXE pattern) must
+        raise instead of resolving the URI."""
+        payload = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE r ["
+            b'<!ENTITY xxe SYSTEM "file://' + self._secret_path.encode() + b'">'
+            b"]>"
+            b"<r>&xxe;</r>"
+        )
+        with self.assertRaises(EntitiesForbidden):
+            self._parse(payload)
+
+    def test_external_parameter_entity_raises(self) -> None:
+        """External parameter entities -- used to smuggle
+        attacker-supplied DTD fragments -- must raise."""
+        payload = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE r ["
+            b'<!ENTITY % pe SYSTEM "file://' + self._secret_path.encode() + b'">'
+            b"%pe;"
+            b"]>"
+            b"<r/>"
+        )
+        # External parameter entities can be reported either as a
+        # forbidden entity declaration or as a forbidden external
+        # reference, depending on the order in which the underlying
+        # expat handlers fire. Either is acceptable; both prove the
+        # parser refused to load the URI.
+        with self.assertRaises(
+            (EntitiesForbidden, ExternalReferenceForbidden, DTDForbidden)
+        ):
+            self._parse(payload)
+
+    # --- legitimate-input regressions (DOCTYPE SYSTEM tolerance) ---
+
+    def test_nmap_doctype_fixture_parses_cleanly(self) -> None:
+        """A minimal hand-crafted Nmap-style XML, including the
+        `<!DOCTYPE nmaprun PUBLIC "..." SYSTEM "https://...">` line
+        emitted by every `nmap -oX` and `ivre auditdom` invocation,
+        must parse without raising."""
+        parser = self._make_parser()
+        parser.setContentHandler(ContentHandler())
+        parser.parse(io.BytesIO(_NMAP_DOCTYPE_FIXTURE))
+
+    def test_nmap_doctype_fixture_ingestible_by_scan2db(self) -> None:
+        """End-to-end: the same fixture is accepted by
+        `ivre scan2db --test`, the entry point that broke when
+        `forbid_external=True` was the default."""
+        self._ingest_via_store_scan_xml(_NMAP_DOCTYPE_FIXTURE)
+
+    def test_doctype_url_is_not_fetched(self) -> None:
+        """Defence-in-depth pin: with ``forbid_external=False`` we are
+        relying on expat's ``feature_external_pes=False`` default to
+        ensure the DOCTYPE SYSTEM URI is never dereferenced. Stand up a
+        local HTTP server, point a fixture's DOCTYPE at it, parse, and
+        assert zero hits."""
+        import http.server
+        import socket
+        import socketserver
+        import threading
+
+        hits: list[str] = []
+
+        class _Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - stdlib handler signature
+                hits.append(self.path)
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, *args, **kwargs):
+                # Silence the default per-request stderr noise.
+                pass
+
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        srv = socketserver.TCPServer(("127.0.0.1", port), _Handler)
+        thread = threading.Thread(target=srv.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = ("http://127.0.0.1:%d/nmap.dtd" % port).encode()
+            payload = (
+                b'<?xml version="1.0"?>\n'
+                b"<!DOCTYPE nmaprun PUBLIC "
+                b'"-//IDN nmap.org//DTD Nmap XML 1.04//EN" "' + url + b'">\n'
+                b'<nmaprun><host><address addr="1.2.3.4" addrtype="ipv4"/>'
+                b"</host></nmaprun>\n"
+            )
+            parser = self._make_parser()
+            parser.setContentHandler(ContentHandler())
+            parser.parse(io.BytesIO(payload))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        self.assertEqual(
+            hits,
+            [],
+            "DOCTYPE SYSTEM URI was fetched -- expat default "
+            "feature_external_pes=False is no longer holding "
+            "(got hits: %r)" % (hits,),
+        )
+
+    def test_real_ivre_auditdom_output_ingestible(self) -> None:
+        """Real-world regression: `ivre auditdom ivre.rocks` must
+        produce XML that `ivre scan2db --test` can ingest. This is the
+        precise failure mode that surfaced in CI."""
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as fdesc:
+            xml_path = fdesc.name
+        try:
+            with open(xml_path, "wb") as out_fdesc:
+                res, _, err = RUN(
+                    ["ivre", "auditdom", "--ipv4", "ivre.rocks"],
+                    stdout=out_fdesc,
+                )
+            if res != 0:
+                self.skipTest(
+                    "ivre auditdom failed (likely no DNS/network in this "
+                    "environment): exit=%d, stderr=%r" % (res, err.decode()[-500:])
+                )
+            # Sanity: the XML really does carry a DOCTYPE referring to
+            # an external DTD (otherwise the test is no longer
+            # exercising the forbid_external=False path).
+            with open(xml_path, "rb") as in_fdesc:
+                head = in_fdesc.read(4096)
+            self.assertIn(b"<!DOCTYPE nmaprun", head)
+            self.assertIn(b"nmap.dtd", head)
+            res, out, err = RUN(["ivre", "scan2db", "--test", xml_path])
+            self.assertEqual(
+                res,
+                0,
+                "ivre scan2db --test failed on real auditdom XML: "
+                "exit=%d, stderr=%r" % (res, err.decode()[-1000:]),
+            )
+        finally:
+            os.unlink(xml_path)
+
+    def test_real_nmap_output_ingestible(self) -> None:
+        """Real-world regression: `nmap -vv -p 1 127.0.0.1 -oX <file>`
+        must produce XML that `ivre scan2db --test` can ingest. Also
+        guards against any future change to Nmap's XML preamble that
+        IVRE would need to follow."""
+        # `RUN` injects the current Python interpreter as a wrapper
+        # (mirroring `tests/tests.py`), which is fine for `ivre <cmd>`
+        # entrypoints but cannot run a native binary like `nmap`. Drive
+        # nmap through a plain subprocess.run() instead.
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as fdesc:
+            xml_path = fdesc.name
+        try:
+            subprocess.check_call(
+                ["nmap", "-vv", "-p", "1", "127.0.0.1", "-oX", xml_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            with open(xml_path, "rb") as in_fdesc:
+                head = in_fdesc.read(4096)
+            # Both old (DOCTYPE PUBLIC ".dtd") and new (bare DOCTYPE
+            # nmaprun) forms are accepted by `ivre scan2db --test`. We
+            # only assert there is an `nmaprun` root and a DOCTYPE
+            # decl; the ingestion check below is what we actually
+            # care about.
+            self.assertIn(b"<!DOCTYPE nmaprun", head)
+            self.assertIn(b"<nmaprun", head)
+            res, out, err = RUN(["ivre", "scan2db", "--test", xml_path])
+            self.assertEqual(
+                res,
+                0,
+                "ivre scan2db --test failed on real nmap XML: "
+                "exit=%d, stderr=%r" % (res, err.decode()[-1000:]),
+            )
+        finally:
+            os.unlink(xml_path)
+
+
+# ---------------------------------------------------------------------
+# ScreenshotContainmentTests
+# ---------------------------------------------------------------------
+
+
+class _StubNmapHandler(xmlnmap.NmapHandler):
+    """Lightweight `NmapHandler` subclass used to drive the screenshot
+    code path without instantiating a real database backend.
+
+    It bypasses the parent ``__init__`` and pre-populates only the
+    attributes that ``endElement('script')`` accesses inside the
+    screenshot block.
+    """
+
+    def __init__(self, fname: str) -> None:  # type: ignore[no-untyped-def]
+        # Deliberately do not call super().__init__: the real one wires
+        # up the database backend, which we explicitly avoid here.
+        # pylint: disable=super-init-not-called
+        self._fname = fname
+        self._curport = {
+            "port": 80,
+            "protocol": "tcp",
+            "state_state": "open",
+        }
+        self._curhost = {"addr": "127.0.0.1", "ports": [self._curport]}
+        self._curtable: dict = {}
+        self._curtablepath: list = []
+        self._curscript: dict | None = None
+        self.callback = None
+
+    def _to_binary(self, data: bytes) -> bytes:
+        return data
+
+
+class ScreenshotContainmentTests(unittest.TestCase):
+    """Regression tests for screenshots filename validation
+
+    Drive ``NmapHandler.endElement('script')`` with adversarial NSE
+    ``*-screenshot`` ``output`` values and assert that no file outside
+    the two trusted resolution roots (``dirname(scan_xml)`` and
+    ``os.getcwd()``) is opened. The mitigation has two layers
+    (basename validation in `screenshot_extract` and `realpath`
+    containment in the `endElement` block); the tests cover both.
+    """
+
+    def setUp(self) -> None:
+        self._scan_dir = tempfile.mkdtemp()
+        self._scan_path = os.path.join(self._scan_dir, "scan.xml")
+        with open(self._scan_path, "wb"):
+            pass
+        self._attacker_dir = tempfile.mkdtemp()
+        # Use a dedicated cwd so the tests do not pick up files from
+        # the developer's working directory.
+        self._cwd_dir = tempfile.mkdtemp()
+        self._old_cwd = os.getcwd()
+        os.chdir(self._cwd_dir)
+
+    def tearDown(self) -> None:
+        # Restore cwd before deleting the temp dir, otherwise the
+        # rmtree below races with our own working directory.
+        try:
+            os.chdir(self._old_cwd)
+        except OSError:
+            pass
+        shutil.rmtree(self._scan_dir, ignore_errors=True)
+        shutil.rmtree(self._attacker_dir, ignore_errors=True)
+        shutil.rmtree(self._cwd_dir, ignore_errors=True)
+
+    def _drive(
+        self, output: str, intercept_open: bool = True
+    ) -> tuple[_StubNmapHandler, list[str]]:
+        """Run ``endElement('script')`` for a given screenshot
+        ``output`` value. When ``intercept_open`` is True, every
+        ``open()`` call inside the handler is recorded and made to
+        raise ``FileNotFoundError`` so we can prove containment kicks
+        in *before* any read happens."""
+        handler = _StubNmapHandler(self._scan_path)
+        handler._curscript = {"id": "http-screenshot", "output": output}
+        opened: list[str] = []
+
+        if not intercept_open:
+            handler.endElement("script")
+            return handler, opened
+
+        def spy(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+            opened.append(os.fspath(path))
+            raise FileNotFoundError(path)
+
+        with mock.patch("builtins.open", side_effect=spy):
+            handler.endElement("script")
+        return handler, opened
+
+    def test_absolute_path_rejected_at_extract(self) -> None:
+        """An absolute path in the script ``output`` must be rejected
+        by ``screenshot_extract`` before any ``open()`` is attempted."""
+        handler, opened = self._drive("Saved to /etc/passwd")
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(opened, [])
+
+    def test_traversal_path_rejected_at_extract(self) -> None:
+        handler, opened = self._drive("Saved to ../../../../etc/shadow")
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(opened, [])
+
+    def test_subdirectory_path_rejected_at_extract(self) -> None:
+        """A relative path with a ``/`` separator must be rejected by
+        the ``basename(fname) == fname`` check, even if the basename
+        component would have been benign."""
+        handler, opened = self._drive("Saved to subdir/foo.png")
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(opened, [])
+
+    def test_disallowed_extension_rejected(self) -> None:
+        """Anything outside ``SCREENSHOT_ALLOWED_EXT`` must be
+        rejected, even with a valid basename."""
+        handler, opened = self._drive("Saved to evil.exe")
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(opened, [])
+
+    def test_no_match_returns_none(self) -> None:
+        """Output that does not match the ``Saved to`` pattern must be
+        a no-op."""
+        handler, opened = self._drive("nothing was saved")
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(opened, [])
+
+    def test_symlink_escape_in_scan_dir_rejected_by_realpath(self) -> None:
+        """A symlink with a basename-valid name placed in the
+        scan-file directory and pointing outside it must be caught by
+        the ``realpath`` containment check before any read.
+
+        The cwd fallback is also exercised here: the resolved cwd
+        candidate either does not exist (skipped) or also lives
+        outside both trusted roots; in either case ``open()`` must
+        never be called.
+        """
+        target = os.path.join(self._attacker_dir, "secret.png")
+        with open(target, "wb") as fdesc:
+            fdesc.write(b"SECRET")
+        link = os.path.join(self._scan_dir, "trap.png")
+        os.symlink(target, link)
+
+        handler, opened = self._drive("Saved to trap.png")
+
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(
+            opened,
+            [],
+            "open() must NOT be called when the resolved path is "
+            "outside both trusted directories; got: %r" % (opened,),
+        )
+
+    def test_symlink_escape_in_cwd_rejected_by_realpath(self) -> None:
+        """Same pattern as above, but the symlink is planted in the
+        cwd resolution root (the historical fallback). Containment
+        must still reject it."""
+        target = os.path.join(self._attacker_dir, "secret.png")
+        with open(target, "wb") as fdesc:
+            fdesc.write(b"SECRET")
+        link = os.path.join(self._cwd_dir, "trap.png")
+        os.symlink(target, link)
+
+        handler, opened = self._drive("Saved to trap.png")
+
+        self.assertNotIn("screendata", handler._curport)
+        self.assertEqual(
+            opened,
+            [],
+            "open() must NOT be called for a cwd-rooted symlink that "
+            "escapes the cwd; got: %r" % (opened,),
+        )
+
+    def test_legitimate_image_in_scan_dir_is_read(self) -> None:
+        """A valid image with a benign basename, sitting next to the
+        scan file, is read and stored (no cwd fallback needed)."""
+        legit = os.path.join(self._scan_dir, "shot.png")
+        with open(legit, "wb") as fdesc:
+            fdesc.write(_PNG_1X1)
+
+        handler, _ = self._drive("Saved to shot.png", intercept_open=False)
+
+        self.assertIn("screendata", handler._curport)
+        self.assertEqual(handler._curport["screendata"], _PNG_1X1)
+
+    def test_legitimate_image_in_cwd_is_read(self) -> None:
+        """Regression test for the workflow used by
+        ``tests/tests.py::test_scans``: the screenshots are extracted
+        from a tarball into ``cwd``, while the XML lives elsewhere.
+        The cwd fallback must locate the screenshot and store it.
+        """
+        legit = os.path.join(self._cwd_dir, "shot.png")
+        with open(legit, "wb") as fdesc:
+            fdesc.write(_PNG_1X1)
+        # Sanity: the scan-file directory must NOT contain the file,
+        # so success can only come from the cwd fallback.
+        self.assertFalse(os.path.exists(os.path.join(self._scan_dir, "shot.png")))
+
+        handler, _ = self._drive("Saved to shot.png", intercept_open=False)
+
+        self.assertIn("screendata", handler._curport)
+        self.assertEqual(handler._curport["screendata"], _PNG_1X1)
+
+    def test_scan_dir_is_preferred_over_cwd(self) -> None:
+        """If the screenshot exists in both trusted roots, the
+        scan-file directory wins (more specific source)."""
+        scan_payload = b"SCAN-DIR-WINS"
+        cwd_payload = b"CWD-LOSES"
+        with open(os.path.join(self._scan_dir, "shot.png"), "wb") as fdesc:
+            fdesc.write(_PNG_1X1)
+            scan_path = fdesc.name
+        with open(os.path.join(self._cwd_dir, "shot.png"), "wb") as fdesc:
+            fdesc.write(_PNG_1X1)
+        # Differentiate the two by overwriting after the fact: we want
+        # the bytes to differ but both files to remain valid PNG-ish.
+        with open(scan_path, "wb") as fdesc:
+            fdesc.write(scan_payload)
+        with open(os.path.join(self._cwd_dir, "shot.png"), "wb") as fdesc:
+            fdesc.write(cwd_payload)
+
+        handler, _ = self._drive("Saved to shot.png", intercept_open=False)
+
+        self.assertIn("screendata", handler._curport)
+        self.assertEqual(handler._curport["screendata"], scan_payload)
+
+
+# ---------------------------------------------------------------------
+# UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
+# ---------------------------------------------------------------------
+
+
+class UtilsTests(unittest.TestCase):
+    """Catch-all regression tests for ``ivre`` utility functions,
+    parsers, and CLI tools that do not need a database backend.
+
+    Historically a single ``test_utils`` method on ``IvreTests`` in
+    ``tests/tests.py``; moved here to (a) make it runnable without a
+    configured backend, and (b) decouple it from the long-running
+    backend-specific test suite.
+    """
+
+    maxDiff = None
+
+    def setUp(self):
+        try:
+            with open(os.path.join(SAMPLES, "results")) as fdesc:
+                self.results = {
+                    line[: line.index(" = ")]: literal_eval(
+                        line[line.index(" = ") + 3 : -1]
+                    )
+                    for line in fdesc
+                    if " = " in line
+                }
+        except IOError as exc:
+            if exc.errno != errno.ENOENT:
+                raise exc
+            self.results = {}
+        self.new_results: set[str] = set()
+        self.used_prefixes: set[str] = set()
+        self.unused_results = set(self.results)
+
+    def tearDown(self):
+        ivre.utils.cleandir("logs")
+        ivre.utils.cleandir(".state")
+        if self.new_results:
+            with open(os.path.join(SAMPLES, "results"), "a") as fdesc:
+                for valname in self.new_results:
+                    fdesc.write("%s = %r\n" % (valname, self.results[valname]))
+        for name in self.unused_results:
+            if any(name.startswith(prefix) for prefix in self.used_prefixes):
+                sys.stderr.write("UNUSED VALUE key %r\n" % name)
+
+    def check_value(self, name, value, check=None):
+        if check is None:
+            check = self.assertEqual
+        try:
+            self.unused_results.remove(name)
+        except KeyError:
+            pass
+        self.used_prefixes.add(name.split("_", 1)[0] + "_")
+        if name not in self.results:
+            self.results[name] = value
+            sys.stderr.write("NEW VALUE for key %r: %r\n" % (name, value))
+            self.new_results.add(name)
+        try:
+            check(value, self.results[name])
+        except AssertionError:
+            print(
+                f"check_value() fail for {name}: got {value!r}, "
+                f"expected {self.results[name]!r}"
+            )
+            raise
+
+    def test_utils(self):
+        """Functions that have not yet been tested"""
+
+        self.assertIsNotNone(ivre.config.guess_prefix("zeek"))
+        self.assertIsNone(ivre.config.guess_prefix("inexistent"))
+
+        # Version / help
+        res, out1, err = RUN(["ivre"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "help"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+        res, _, err = RUN(["ivre", "version"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, _, _ = RUN(["ivre", "inexistent"])
+        self.assertTrue(res)
+
+        # IP addresses manipulation utils
+        with self.assertRaises(ValueError):
+            list(ivre.utils.range2nets((2, 1)))
+
+        # Special cases for range2nets & net2range
+        self.assertEqual(
+            list(ivre.utils.range2nets(("0.0.0.0", "255.255.255.255"))), ["0.0.0.0/0"]
+        )
+        self.assertEqual(
+            ivre.utils.net2range("0.0.0.0/0"), ("0.0.0.0", "255.255.255.255")
+        )
+        self.assertEqual(
+            ivre.utils.net2range("::ffff:ffff:ffff:ffff/80"),
+            ("::ffff:0:0:0", "::ffff:ffff:ffff:ffff"),
+        )
+        self.assertEqual(
+            ivre.utils.net2range("192.168.0.0/255.255.255.0"),
+            ("192.168.0.0", "192.168.0.255"),
+        )
+        self.assertEqual(
+            ivre.utils.net2range("::/48"), ("::", "::ffff:ffff:ffff:ffff:ffff")
+        )
+
+        # String utils
+        teststr = b"TEST STRING -./*'"
+        self.assertEqual(ivre.utils.regexp2pattern(teststr), (re.escape(teststr), 0))
+        self.assertEqual(
+            ivre.utils.regexp2pattern(re.compile(b"^" + re.escape(teststr) + b"$")),
+            (re.escape(teststr), 0),
+        )
+        self.assertEqual(
+            ivre.utils.regexp2pattern(re.compile(re.escape(teststr))),
+            (b".*" + re.escape(teststr) + b".*", 0),
+        )
+        self.assertEqual(ivre.utils.str2list(teststr), teststr)
+        teststr = "1,2|3"
+        self.assertCountEqual(ivre.utils.str2list(teststr), ["1", "2", "3"])
+        self.assertTrue(ivre.utils.isfinal(1))
+        self.assertTrue(ivre.utils.isfinal("1"))
+        self.assertFalse(ivre.utils.isfinal([]))
+        self.assertFalse(ivre.utils.isfinal({}))
+
+        # Nmap ports
+        ports = [1, 3, 2, 4, 6, 80, 5, 5, 110, 111]
+        self.assertEqual(
+            set(ports), ivre.utils.nmapspec2ports(ivre.utils.ports2nmapspec(ports))
+        )
+        self.assertEqual(ivre.utils.ports2nmapspec(ports), "1-6,80,110-111")
+
+        # Nmap fingerprints
+        match = ivre.utils.match_nmap_svc_fp(
+            b"SSH-2.0-OpenSSH_6.0p1 Debian-4+deb7u7\r\n"
+        )
+        self.assertEqual(match["service_name"], "ssh")
+        self.assertEqual(match["service_extrainfo"], "protocol 2.0")
+        self.assertEqual(match["service_ostype"], "Linux")
+        self.assertEqual(match["service_product"], "OpenSSH")
+        self.assertEqual(match["service_version"], "6.0p1 Debian 4+deb7u7")
+        match = ivre.utils.match_nmap_svc_fp(
+            b"HTTP/1.1 400 Bad Request\r\n"
+            b"Date: Sun, 22 Apr 2018 12:21:46 GMT\r\n"
+            b"Server: Apache/2.4.10 (Debian)\r\n"
+            b"Content-Length: 312\r\n"
+            b"Connection: close\r\n"
+            b"Content-Type: text/html; charset=iso-8859-1\r\n",
+            probe="GetRequest",
+        )
+        self.assertEqual(match["service_name"], "http")
+        self.assertEqual(match["service_extrainfo"], "(Debian)")
+        self.assertEqual(match["service_product"], "Apache httpd")
+        self.assertEqual(match["service_version"], "2.4.10")
+        match = ivre.utils.match_nmap_svc_fp(
+            b"220 localhost.localdomain ESMTP Server (Microsoft Exchange "
+            b"Internet Mail Service 5.5.2653.13) ready\n"
+        )
+        self.assertEqual(match["service_name"], "smtp")
+        self.assertEqual(match["service_hostname"], "localhost.localdomain")
+        self.assertEqual(match["service_ostype"], "Windows")
+        self.assertEqual(match["service_product"], "Microsoft Exchange smtpd")
+        self.assertEqual(match["service_version"], "5.5.2653.13")
+
+        # Nmap (and Zeek) encoding & decoding
+        # >>> from random import randint
+        # >>> bytes(randint(0, 255) for _ in range(1000))
+        raw_data = (
+            b'\xc6\x97\x05\xc8\x16\x96\xaei\xe9\xdd\xe8"\x07\x16\x15\x8c\xf5'
+            b"%x\xb0\x00\xb4\xbcv\xb8A\x19\xefj+RbgH}U\xec\xb4\x1bZ\x08\xd4"
+            b"\xfe\xca\x95z\xa0\x0cB\xabWM\xf1\xfd\x95\xb7)\xbb\xe9\xa7\x8a"
+            b"\x08]\x8a\xcab\xb3\x1eI\xc0Q0\xec\xd0\xd4\xd4bt\xf7\xbb1\xc5"
+            b"\x9c\x85\xf8\x87\x8b\xb2\x87\xed\x82R\xf9}+\xfc\xa4\xf2?\xa5"
+            b"}\x17k\xa6\xb6t\xab\x91\x91\x83?\xb4\x01L\x1fO\xff}\x98j\xa5"
+            b"\x9a\t,\xf3\x8b\x1e\xf4\xd3~\x83\x87\x0b\x95\\\xa9\xaa\xfbi5"
+            b"\xfb\xaau\xc6y\xff\xac\xcb'\xa5\xf4y\x8f\xab\xf2\x04Z\xf1\xd7"
+            b"\x08\x17\xa8\xa5\xe4\x04\xa5R0\xdb\xa3\xe6\xc0\x88\x9a\xee"
+            b"\x93\x8c\x8a\x8b\xa3\x03\xb6\xdf\xbbHp\x1f\x1d{\x92\xb2\xd7B"
+            b"\xc4\x13\xddD\xb29\xbd\x0f\xd8\xed\x94q\xda\x00\x067\xd8T\xb3"
+            b"I\xd3\x88/wE\xd4C\xec!\xf6 <H\xaa\xea\xc1;\x90\x87)\xc5\xb6"
+            b"\xd6\n\x81r\x16\xa1/\xd0Q<\xa4jT\x0f\xe4\xad\x14>0\xf1\xb7"
+            b'\xec\x08\x7f>"\x96P\xd2;\xc4:\xed\xc0\xcb\x85M\x04&{|k\xd0'
+            b"\x06Yc_\x12S\xb0>\xe0=:\xca1\xca\n\xcb.\xf4\xe2\xb1e\x0e\x16"
+            b"\xd6\x8c\xbc!\xbcWd\x19\x0b\xd7\xa0\xed\x1d>$%\xf7\xfb\xc2("
+            b"\xef\x13\x82\xcc\xa5\xecc\x1fy_\x9f93\xbcPv\xd7\x9b\xbb\x0b]"
+            b"\x9a\xc7\xbd&5\xb2\x85\x95\xfb\xf2j\x11f\xd8\xdb\x03\xc0\xb1"
+            b"\xda\x08aF\x80\xd8\x18\x7f\xf3\x86N\x91\xa6\xd4i\x83\xd4*$_t"
+            b"\x19\xb3\xa2\x187w2 \x0c#\xe5\xca\x03\xb3@H\xb7\xfb,a\xb8\x02"
+            b"\xe4;/\xc11\xb7\xd8\xdd\x9b\xcc\xdcg\xb4\x9f\x81\x10,\x0e\x0c"
+            b"'_m\xf8$\xa10\xc4\xe9\xc5G_\x14\x10\xf5& \xcf\xa8\x10:\xee"
+            b"\x1aGL\x966\xd7\x1d?\xb0:\xee\x11\x89\xb9\xeb\x8d\xf7\x02\x00"
+            b"\xdb\xd9/\x8a\x01!\xa5wRc?\xfd\x87\x11E\xa9\x8f\x9ed\x0f.\xff"
+            b'M\xd1\xb4\xe9\x19\xb0\xb0"\xac\x84\xff5D\xa9\x12O\xcc1G#\xb5'
+            b'\x16\xba%{:\xde\xf6\t"\xe7\xed\xa0*\xa3\x89\xabl\x08p\x1d'
+            b"\xc1\xae\x14e)\xf3=\x16\x80\xa8\x1b\xe3OSD&V\x16\xf3*\x8416"
+            b"\xdd6\xe6\xbf,R$\x93s>\x87\xbe\x94\x1c\x10\\o,\xc2\x18ig\xa2"
+            b"\xf7\xc9\x9d|\x8c\xc6\x94\\\xee\xb0'\x01\x1c\x94\xf8\xea\xda"
+            b"\x91\xf1 \x8cP\x84=\xa0\x1a\x87\xba\xa8\x9c\xd6\xf7\n'\x99"
+            b"\xb9\xd5L\xd2u\x7f\x13\xf3^_T\xc3\x806\x94\xbe\x94\xee\x0cJ`"
+            b"\xba\xf1\n*\xc2\xc7?[\xa7\xdd\xcbX\x08\xafTsU\x81\xa5r\x86Q"
+            b"\x1b8\xcf\xc8\xab\xf1\x1e\xee,i\x15:*\xb4\x84\x01\xc0\x8f\xb3"
+        )
+        encoded_data = ivre.utils.nmap_encode_data(raw_data)
+        # The exact encoded representations are quite long; we
+        # round-trip through the decoder to ensure the output is the
+        # original bytes again. The Nmap and Zeek encoders differ in
+        # how they escape a few control bytes (e.g. \t / \n / \\), but
+        # both are required to be the exact inverse of their decoder.
+        self.assertEqual(ivre.utils.nmap_decode_data(encoded_data), raw_data)
+        encoded_data = ivre.utils.zeek_encode_data(raw_data)
+        self.assertEqual(ivre.utils.nmap_decode_data(encoded_data), raw_data)
+        # Specific Nmap representation for null bytes & escape random
+        # chars (used in nmap-service-probes)
+        self.assertEqual(
+            ivre.utils.nmap_decode_data("\\0\\#", arbitrary_escapes=True),
+            b"\x00#",
+        )
+        self.assertEqual(
+            ivre.utils.nmap_decode_data("\\0\\#"),
+            b"\x00\\#",
+        )
+
+        # get_addr_type()
+        # ipv4
+        self.assertEqual(ivre.utils.get_addr_type("0.123.45.67"), "Current-Net")
+        self.assertIsNone(ivre.utils.get_addr_type("8.8.8.8"))
+        self.assertEqual(ivre.utils.get_addr_type("10.0.0.0"), "Private")
+        self.assertIsNone(ivre.utils.get_addr_type("100.63.255.255"))
+        self.assertEqual(ivre.utils.get_addr_type("100.67.89.123"), "CGN")
+        self.assertEqual(ivre.utils.get_addr_type("239.255.255.255"), "Multicast")
+        self.assertEqual(ivre.utils.get_addr_type("240.0.0.0"), "Reserved")
+        self.assertEqual(ivre.utils.get_addr_type("255.255.255.254"), "Reserved")
+        self.assertEqual(ivre.utils.get_addr_type("255.255.255.255"), "Broadcast")
+        # ipv6
+        self.assertEqual(ivre.utils.get_addr_type("::"), "Unspecified")
+        self.assertEqual(ivre.utils.get_addr_type("::1"), "Loopback")
+        self.assertIsNone(ivre.utils.get_addr_type("::ffff:8.8.8.8"))
+        self.assertEqual(
+            ivre.utils.get_addr_type("64:ff9b::8.8.8.8"), "Well-known prefix"
+        )
+        self.assertEqual(ivre.utils.get_addr_type("100::"), "Discard (RTBH)")
+        self.assertEqual(ivre.utils.get_addr_type("2001::"), "Protocol assignments")
+        self.assertIsNone(ivre.utils.get_addr_type("2001:4860:4860::8888"))
+        self.assertEqual(ivre.utils.get_addr_type("2001:db8::db2"), "Documentation")
+        self.assertEqual(ivre.utils.get_addr_type("fc00::"), "Unique Local Unicast")
+        self.assertEqual(ivre.utils.get_addr_type("fe80::"), "Link Local Unicast")
+        self.assertEqual(ivre.utils.get_addr_type("ff00::"), "Multicast")
+
+        # ip2int() / int2ip()
+        self.assertEqual(ivre.utils.ip2int("1.0.0.1"), (1 << 24) + 1)
+        self.assertEqual(ivre.utils.int2ip((1 << 24) + 1), "1.0.0.1")
+        self.assertEqual(ivre.utils.ip2int("::2:0:0:0:2"), (2 << 64) + 2)
+        self.assertEqual(ivre.utils.int2ip((2 << 64) + 2), "::2:0:0:0:2")
+        self.assertEqual(
+            ivre.utils.int2ip6(0x1234567890ABCDEFFED0000000004321),
+            "1234:5678:90ab:cdef:fed0::4321",
+        )
+        # ip2bin
+        # unicode error
+        self.assertEqual(
+            ivre.utils.ip2bin(b"\x33\xe6\x34\x35"),
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff3\xe645",
+        )
+        with self.assertRaises(ValueError):
+            ivre.utils.ip2bin(b"\xe6")
+        # else case
+        with self.assertRaises(ValueError):
+            ivre.utils.ip2bin(b"23T")
+        self.assertEqual(
+            ivre.utils.ip2bin(b"23TT"),
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff23TT",
+        )
+        self.assertEqual(ivre.utils.ip2bin(b"T3STTESTTESTTEST"), b"T3STTESTTESTTEST")
+        self.assertEqual(
+            ivre.utils.ip2bin(b" \x01H`\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00h"),
+            b" \x01H`\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00h",
+        )
+        # str2pyval
+        self.assertEqual(ivre.utils.str2pyval("{'test': 0}"), {"test": 0})
+        self.assertEqual(ivre.utils.str2pyval("{'test: 0}"), "{'test: 0}")
+        # all2datetime
+        # NOTICE : compared to datetime.utcfromtimestamp
+        self.assertEqual(
+            ivre.utils.all2datetime(1410532663), datetime(2014, 9, 12, 14, 37, 43)
+        )
+        self.assertEqual(
+            ivre.utils.all2datetime(1410532663.0), datetime(2014, 9, 12, 14, 37, 43)
+        )
+
+        # fields2csv_head
+        self.assertCountEqual(
+            ivre.utils.fields2csv_head(
+                {
+                    "field": {
+                        "subfield": {
+                            "subsubfield": True,
+                            "subsubfunc": lambda: None,
+                            "notsubsubfield": False,
+                        }
+                    }
+                }
+            ),
+            ["field.subfield.subsubfield", "field.subfield.subsubfunc"],
+        )
+        # doc2csv
+        self.assertCountEqual(
+            ivre.utils.doc2csv(
+                {"field": {"subfield": {"subsubfield": 1}, "subvalue": 1}},
+                {"field": {"subfield": {"subsubfield": lambda x: 0}, "subvalue": True}},
+            )[0],
+            [0, 1],
+        )
+        # serialize
+        self.assertEqual(
+            ivre.utils.serialize(re.compile("^test$", re.I | re.U)), "/^test$/iu"
+        )
+
+        # Math utils
+        # http://stackoverflow.com/a/15285588/3223422
+        def is_prime(n):
+            if n == 2 or n == 3:
+                return True
+            if n < 2 or n % 2 == 0:
+                return False
+            if n < 9:
+                return True
+            if n % 3 == 0:
+                return False
+            r = int(n**0.5)
+            f = 5
+            while f <= r:
+                if n % f == 0:
+                    return False
+                if n % (f + 2) == 0:
+                    return False
+                f += 6
+            return True
+
+        for _ in range(3):
+            nbr = random.randint(2, 1000)  # nosec B311  # not security-sensitive
+            factors = list(ivre.mathutils.factors(nbr))
+            self.assertTrue(is_prime(nbr) or len(factors) > 1)
+            self.assertTrue(all(is_prime(x) for x in factors))
+            self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
+        # Readables
+        self.assertEqual(ivre.utils.num2readable(1000), "1k")
+        self.assertEqual(ivre.utils.num2readable(1000000000000000000000000), "1Y")
+        self.assertEqual(ivre.utils.num2readable(1049000.0), "1.049M")
+
+        # Zeek logs
+        basepath = os.getenv("ZEEK_SAMPLES")
+        badchars = re.compile(
+            "[%s]" % "".join(re.escape(char) for char in [os.path.sep, "-", "."])
+        )
+        if basepath:
+            for dirname, _, fnames in os.walk(basepath):
+                for fname in fnames:
+                    if not fname.endswith(".log"):
+                        continue
+                    fname = os.path.join(dirname, fname)
+                    zeekfd = ivre.parser.zeek.ZeekFile(fname)
+                    i = 0
+                    for i, record in enumerate(zeekfd):
+                        json.dumps(record, default=ivre.utils.serialize)
+                    self.check_value(
+                        "utils_zeek_%s_count"
+                        % badchars.sub(
+                            "_",
+                            fname[len(basepath) : -4].lstrip("/"),
+                        ),
+                        i + 1,
+                    )
+
+        # Iptables
+        with ivre.parser.iptables.Iptables(
+            os.path.join(SAMPLES, "iptables.log")
+        ) as ipt_parser:
+            count = 0
+            for res in ipt_parser:
+                count += 1
+                self.assertTrue("proto" in res and "src" in res and "dst" in res)
+                if res["proto"] in {"udp", "tcp"}:
+                    self.assertTrue("sport" in res and "dport" in res)
+
+            self.assertEqual(count, 40)
+
+        # Web utils
+        with self.assertRaises(ValueError):
+            ivre.web.utils.query_from_params({"q": '"'})
+
+        # Country aliases
+        europe = ivre.utils.country_unalias("EU")
+        self.assertTrue("FR" in europe)
+        self.assertTrue("DE" in europe)
+        self.assertFalse("US" in europe)
+        self.assertFalse("GB" in europe)
+        self.assertEqual(
+            ivre.utils.country_unalias("UK"), ivre.utils.country_unalias("GB")
+        )
+        ukfr = ivre.utils.country_unalias(["FR", "UK"])
+        self.assertTrue("FR" in ukfr)
+        self.assertTrue("GB" in ukfr)
+        self.assertEqual(ivre.utils.country_unalias("FR"), "FR")
+
+        # Serveur port guess
+        self.assertEqual(ivre.utils.guess_srv_port(67, 68, proto="udp"), 1)
+        self.assertEqual(ivre.utils.guess_srv_port(65432, 80), -1)
+        self.assertEqual(ivre.utils.guess_srv_port(666, 666), 0)
+        # Certificate argument parsing
+        self.assertCountEqual(
+            list(ivre.utils.parse_cert_subject_string('O = "Test\\", Inc."')),
+            [("O", 'Test", Inc.')],
+        )
+
+        # ipcalc tool
+        res, out, _ = RUN(["ivre", "ipcalc", "192.168.0.0/16"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"192.168.0.0-192.168.255.255\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "10.0.0.0-10.255.255.255"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"10.0.0.0/8\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "8.8.8.8"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"134744072\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "134744072"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"8.8.8.8\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"0\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::", "-", "::ff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/120\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "::", "-", "::ff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/120\n")
+        res, out, _ = RUN(
+            ["ivre", "ipcalc", "::", "-", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/0\n")
+        res, out, _ = RUN(
+            ["ivre", "ipcalc", "::", "-", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+        )
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"::/0\n")
+        res, out, _ = RUN(["ivre", "ipcalc", "abcd:ef::", "-", "abcd:ff::ffff"])
+        self.assertEqual(res, 0)
+        self.assertEqual(
+            out,
+            (
+                b"abcd:ef::/32\nabcd:f0::/29\nabcd:f8::/30\nabcd:fc::/31\n"
+                b"abcd:fe::/32\nabcd:ff::/112\n"
+            ),
+        )
+
+        # IPADDR regexp, based on
+        # <https://gist.github.com/dfee/6ed3a4b05cfe7a6faf40a2102408d5d8>
+        addr_tests_ipv6 = [
+            "1::",
+            "1:2:3:4:5:6:7::",
+            "1::8",
+            "1:2:3:4:5:6::8",
+            "1:2:3:4:5:6::8",
+            "1::7:8",
+            "1:2:3:4:5::7:8",
+            "1:2:3:4:5::8",
+            "1::6:7:8",
+            "1:2:3:4::6:7:8",
+            "1:2:3:4::8",
+            "1::5:6:7:8",
+            "1:2:3::5:6:7:8",
+            "1:2:3::8",
+            "1::4:5:6:7:8",
+            "1:2::4:5:6:7:8",
+            "1:2::8",
+            "1::3:4:5:6:7:8",
+            "1::3:4:5:6:7:8",
+            "1::8",
+            "::2:3:4:5:6:7:8",
+            "::2:3:4:5:6:7:8",
+            "::8",
+            "::",
+            "fe80::7:8%eth0",
+            "fe80::7:8%1",
+            "::255.255.255.255",
+            "::0.0.0.0",
+            "::ffff:255.255.255.255",
+            "::ffff:0.0.0.0",
+            "::ffff:0:255.255.255.255",
+            "::ffff:0:0.0.0.0",
+            "2001:db8:3:4::192.0.2.33",
+            "2001:db8:3:4::0.0.2.33",
+            "64:ff9b::192.0.2.33",
+            "64:ff9b::0.0.2.33",
+        ]
+        addr_tests_ipv4 = [
+            "0.0.0.0",
+            "0.0.2.33",
+            "10.0.2.33",
+            "10.10.2.33",
+            "192.0.2.33",
+            "255.255.255.255",
+        ]
+        for test in [addr_tests_ipv4, addr_tests_ipv6]:
+            for addr in addr_tests_ipv6:
+                match = ivre.utils.IPADDR.search(addr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 1)
+                self.assertEqual(match.groups()[0], addr)
+                if "%" not in addr:
+                    self.assertIsNone(ivre.utils.IPADDR.search("x%s" % addr))
+                    self.assertIsNone(ivre.utils.IPADDR.search("%sx" % addr))
+                addr = addr.swapcase()
+                match = ivre.utils.IPADDR.search(addr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 1)
+                self.assertEqual(match.groups()[0], addr)
+                if "%" not in addr:
+                    self.assertIsNone(ivre.utils.IPADDR.search("X%s" % addr))
+                    self.assertIsNone(ivre.utils.IPADDR.search("%sX" % addr))
+        for addr in addr_tests_ipv4:
+            for netmask in [
+                "0",
+                "7",
+                "24",
+                "32",
+                "0.0.0.0",
+                "255.0.0.0",
+                "255.255.255.255",
+            ]:
+                naddr = "%s/%s" % (addr, netmask)
+                match = ivre.utils.NETADDR.search(naddr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 2)
+                self.assertEqual(match.groups(), tuple(naddr.split("/")))
+        for addr in addr_tests_ipv6:
+            for netmask in [0, 7, 24, 32, 64, 127, 128]:
+                naddr = "%s/%d" % (addr, netmask)
+                match = ivre.utils.NETADDR.search(naddr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 2)
+                self.assertEqual(match.groups(), tuple(naddr.split("/")))
+        for mac, res in [
+            (
+                "00:00:00:00:00:00",
+                ("Xerox", "Xerox Corporation"),
+            ),
+            ("00:00:01:00:00:00", ("Xerox", "Xerox Corporation")),
+            ("00:01:01:00:00:00", ("Private", None)),
+            ("01:00:00:00:00:00", None),
+        ]:
+            self.assertEqual(ivre.utils.mac2manuf(mac), res)
+
+        # Banner "canonicalization"
+        for expr, result in ivre.passive.TCP_SERVER_PATTERNS:
+            if not isinstance(result, bytes):
+                # Not tested yet
+                continue
+            if b"\\1" in result or b"\\g<" in result:
+                # Not tested yet
+                continue
+            # The substitution must match the pattern.
+            self.assertTrue(expr.search(result) is not None)
+            # The transformation must leave the result expression
+            # unchanged.
+            self.assertEqual(expr.sub(result, result), result)
+
+        # DNS audit domain
+        for output in [], ["--json"]:
+            with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+                res = RUN(
+                    ["ivre", "auditdom", "--ipv4"]
+                    + output
+                    + ["ivre.rocks", "zonetransfer.me", "hardenize.com"],
+                    stdout=fdesc,
+                )[0]
+                self.assertEqual(res, 0)
+            res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
+            os.unlink(fdesc.name)
+            self.assertEqual(res, 0)
+            out = out.decode().splitlines()
+            found_zone_transfer = False
+            found_dns_servers = set()
+            found_dns_tls_rpt = set()
+            for line in out:
+                rec = json.loads(line)
+                for port in rec.get("ports", []):
+                    self.assertEqual(len(port["scripts"]), 1)
+                    for script in port["scripts"]:
+                        self.assertIn(
+                            script["id"],
+                            {
+                                "dns-check-consistency",  # may happen
+                                "dns-domains",
+                                "dns-domains-mx",
+                                "dns-tls-rpt",
+                                "dns-zone-transfer",
+                            },
+                        )
+                        if script["id"] == "dns-domains":
+                            self.assertEqual(
+                                script["output"][:28], "Server is authoritative for "
+                            )
+                            self.assertIn(
+                                script["dns-domains"][0]["domain"],
+                                {"ivre.rocks", "zonetransfer.me", "hardenize.com"},
+                            )
+                            found_dns_servers.add(script["dns-domains"][0]["domain"])
+                        elif script["id"] == "dns-zone-transfer":
+                            self.assertEqual(len(script["dns-zone-transfer"]), 1)
+                            self.assertEqual(
+                                script["dns-zone-transfer"][0]["domain"],
+                                "zonetransfer.me",
+                            )
+                            found_zone_transfer = True
+                        elif script["id"] == "dns-tls-rpt":
+                            self.assertIn(
+                                script["dns-tls-rpt"][0]["domain"],
+                                {"ivre.rocks", "zonetransfer.me", "hardenize.com"},
+                            )
+                            if script["dns-tls-rpt"][0]["domain"] == "hardenize.com":
+                                self.assertNotIn("warnings", script["dns-tls-rpt"])
+                                self.assertEqual(
+                                    script["output"],
+                                    "Domain hardenize.com has no TLS-RPT configuration",
+                                )
+                            found_dns_tls_rpt.add(script["dns-tls-rpt"][0]["domain"])
+            self.assertTrue(found_zone_transfer)
+            self.assertEqual(len(found_dns_servers), 3)
+            self.assertEqual(len(found_dns_tls_rpt), 3)
+
+        # url2hostport()
+        with self.assertRaises(ValueError):
+            ivre.utils.url2hostport("http://[::1]X/")
+        with self.assertRaises(ValueError):
+            ivre.utils.url2hostport("http://[::1/")
+        self.assertEqual(ivre.utils.url2hostport("http://[::1]/"), ("::1", 80))
+        self.assertEqual(ivre.utils.url2hostport("https://[::]:1234/"), ("::", 1234))
+        self.assertEqual(ivre.utils.url2hostport("https://[::]:1234/"), ("::", 1234))
+        self.assertEqual(ivre.utils.url2hostport("https://1.2.3.4/"), ("1.2.3.4", 443))
+        self.assertEqual(
+            ivre.utils.url2hostport("ftp://1.2.3.4:2121/"), ("1.2.3.4", 2121)
+        )
+
+        # NTLM Analyzer
+        self.assertEqual(ivre.analyzer.ntlm._is_ntlm_message("NTLM"), False)
+        self.assertEqual(ivre.analyzer.ntlm._is_ntlm_message("NTLM    "), False)
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "Negotiate a87421000492aa874209af8bc028"
+            ),
+            False,
+        )  # https://tools.ietf.org/html/rfc4559
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "NTLM TlRMTVNTUAABAAAAB4IIAAAAAAAAAAAAAAAAAAAAAAA="
+            ),
+            True,
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "Negotiate TlRMTVNTUAABAAAAB4IIAAAAAAAAAAAAAAAAAAAAAAA="
+            ),
+            True,
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm.ntlm_extract_info(
+                b"NTLMSSP\x00\x0b\x00\x00\x00\x07\x82\x08\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            {},
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm.ntlm_extract_info(
+                b"NTLMSSP\x00\x01\x00\x00\x00\x01\x82\x08\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            {"ntlm-fingerprint": "0x00088201"},
+        )
+        negotiate = ivre.analyzer.ntlm.ntlm_extract_info(
+            b"NTLMSSP\x00\x01\x00\x00\x00\x06\xb2\x08\xa0\x0a\x00\x0a\x00\x28\x00"
+            b"\x00\x00\x08\x00\x08\x00\x20\x00\x00\x00NAMETESTDOMAINTEST"
+        )
+        self.assertEqual(negotiate["NetBIOS_Domain_Name"], "DOMAINTEST")
+        self.assertEqual(negotiate["Workstation"], "NAMETEST")
+
+        res, out, err = RUN(["ivre", "localscan"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(out)
+        res, out, _ = RUN(
+            [
+                "ivre",
+                "scan2db",
+                "--test",
+                "--tags=LocalScan:info:ivre localscan,LocalScan:info:insert from XML",
+                fdesc.name,
+            ]
+        )
+        self.assertEqual(res, 0)
+        for line in out.splitlines():
+            data = json.loads(line)
+            self.assertTrue(isinstance(data, dict))
+            tags = [t for t in data["tags"] if t.get("value") == "LocalScan"]
+            self.assertEqual(len(tags), 1)
+            self.assertEqual(len(tags[0]["info"]), 2)
+
+        res, out, err = RUN(["ivre", "localscan", "--json"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(out)
+        for line in out.splitlines():
+            self.assertTrue(isinstance(json.loads(line), dict))
+        res, out, _ = RUN(
+            [
+                "ivre",
+                "scan2db",
+                "--test",
+                "--tags=LocalScan:info:ivre localscan,LocalScan:info:insert from JSON",
+                fdesc.name,
+            ]
+        )
+        self.assertEqual(res, 0)
+        for line in out.splitlines():
+            data = json.loads(line)
+            self.assertTrue(isinstance(data, dict))
+            tags = [t for t in data["tags"] if t.get("value") == "LocalScan"]
+            self.assertEqual(len(tags), 1)
+            self.assertEqual(len(tags[0]["info"]), 2)
+
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fdesc.write(
+                b"ivre.rocks\ngithub.com\n::1\n127.0.0.1\nivre.rocks\n"
+                b"127.1.0.0/16\n127.1.0.0/24"
+            )
+        with open(fdesc.name, "rb") as ifdesc:
+            res, out, err = RUN(["ivre", "sort"], stdin=ifdesc)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out.splitlines(),
+            [
+                b"127.0.0.1",
+                b"127.1.0.0/16",
+                b"127.1.0.0/24",
+                b"::1",
+                b"github.com",
+                b"ivre.rocks",
+                b"ivre.rocks",
+            ],
+        )
+        with open(fdesc.name, "rb") as ifdesc:
+            res, out, err = RUN(["ivre", "sort", "-u"], stdin=ifdesc)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out.splitlines(),
+            [
+                b"127.0.0.1",
+                b"127.1.0.0/16",
+                b"127.1.0.0/24",
+                b"::1",
+                b"github.com",
+                b"ivre.rocks",
+            ],
+        )
+        os.unlink(fdesc.name)
+
+
+def _parse_args() -> None:
+    """Parse the optional ``--samples`` and ``--coverage`` flags when
+    this module is invoked as a script. Mirrors ``tests/tests.py``."""
+    global SAMPLES, USE_COVERAGE, COVERAGE, RUN, RUN_ITER  # noqa: PLW0603
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run IVRE backend-free tests")
+    parser.add_argument("--samples", metavar="DIR", default=SAMPLES)
+    parser.add_argument("--coverage", action="store_true")
+    args, remaining = parser.parse_known_args()
+    SAMPLES = args.samples
+    USE_COVERAGE = args.coverage
+    if USE_COVERAGE:
+        COVERAGE = [sys.executable, os.path.dirname(__import__("coverage").__file__)]
+        RUN = coverage_run
+        RUN_ITER = coverage_run_iter
+    # Re-inject the unparsed args so unittest.main() sees them.
+    sys.argv = [sys.argv[0]] + remaining
+
+
+if __name__ == "__main__":
+    _parse_args()
+    unittest.main()
