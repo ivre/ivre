@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -103,7 +103,7 @@ def build_table() -> list[tuple[str, str, list[str]]]:
 def fetch_and_build() -> None:
     assert config.DATA_PATH is not None
     most_recent = get_all_files()
-    fname = os.path.join(config.DATA_PATH, "govcloud.py")
+    fname = os.path.join(config.DATA_PATH, "govcloud.json")
     try:
         current = os.stat(fname).st_mtime
     except FileNotFoundError:
@@ -112,8 +112,9 @@ def fetch_and_build() -> None:
         return
     table = make_range_tables(build_table())
     with open(fname, "w", encoding="utf8") as fdesc:
-        fdesc.write("[\n    (\n")
-        fdesc.writelines(f"        {elt[0]!r},\n" for elt in table)
-        fdesc.write("    ),\n    (\n")
-        fdesc.writelines(f"        {elt[1]!r},\n" for elt in table)
-        fdesc.write("    ),\n]\n")
+        json.dump(
+            [[elt[0] for elt in table], [elt[1] for elt in table]],
+            fdesc,
+            indent=2,
+        )
+        fdesc.write("\n")

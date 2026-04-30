@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2025 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 """This submodule contains functions to handle tags."""
 
+import json
 import os
 from bisect import bisect_left
 from collections.abc import Callable, Generator, Iterable
@@ -43,7 +44,7 @@ TAG_VULN_CANNOT_TEST: Tag = {"value": "Cannot test vuln", "type": "info"}
 
 
 _TOR_NODES: set[str] | None = None
-_CDN_TABLE: tuple[list[int], list[tuple[str, str] | None]] | None = None
+_CDN_TABLE: tuple[list[int], list[list[str] | None]] | None = None
 _GOVCLOUD_TABLE: tuple[list[int], list[list[str] | None]] | None = None
 _SCANNERS_TABLE: tuple[list[int], list[str | None]] | None = None
 
@@ -116,23 +117,23 @@ def _get_data() -> None:
     if _CDN_TABLE is None:
         try:
             with open(
-                os.path.join(DATA_PATH, "cdn_nuclei.py"), encoding="utf8"
+                os.path.join(DATA_PATH, "cdn_nuclei.json"), encoding="utf8"
             ) as fdesc:
-                # pylint: disable=eval-used
-                _CDN_TABLE = eval(compile(fdesc.read(), "cdn_nuclei", "eval"))
+                _CDN_TABLE = tuple(json.load(fdesc))
         except FileNotFoundError:
             LOGGER.warning(
-                "Cannot find file [cdn_nuclei.py]. Try running `ivre getwebdata`"
+                "Cannot find file [cdn_nuclei.json]. Try running `ivre getwebdata`"
             )
             _CDN_TABLE = ([], [])
     if _GOVCLOUD_TABLE is None:
         try:
-            with open(os.path.join(DATA_PATH, "govcloud.py"), encoding="utf8") as fdesc:
-                # pylint: disable=eval-used
-                _GOVCLOUD_TABLE = eval(compile(fdesc.read(), "gov_cloud", "eval"))
+            with open(
+                os.path.join(DATA_PATH, "govcloud.json"), encoding="utf8"
+            ) as fdesc:
+                _GOVCLOUD_TABLE = tuple(json.load(fdesc))
         except FileNotFoundError:
             LOGGER.warning(
-                "Cannot find file [govcloud.py]. Try running `ivre getwebdata`"
+                "Cannot find file [govcloud.json]. Try running `ivre getwebdata`"
             )
             _GOVCLOUD_TABLE = ([], [])
 
