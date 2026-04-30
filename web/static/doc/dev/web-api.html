@@ -186,13 +186,14 @@ timestamps</p></li>
 </dd></dl>
 
 <dl class="http get">
-<dt class="sig sig-object http" id="get--(subdb-re-scans|view|passive)-top-(field-path)">
-<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive)/top/</span></span><span class="sig-paren">(</span><span class="property"><span class="pre">field:</span> </span><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive)-top-(field-path)" title="Link to this definition"></a></dt>
-<dd><p>Get top values from Nmap, View &amp; Passive databases</p>
+<dt class="sig sig-object http" id="get--(subdb-re-scans|view|passive|rir)-top-(field-path)">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive|rir)/top/</span></span><span class="sig-paren">(</span><span class="property"><span class="pre">field:</span> </span><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive|rir)-top-(field-path)" title="Link to this definition"></a></dt>
+<dd><p>Get top values from Nmap, View, Passive &amp; RIR databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans”, “view”,
+“passive” or “rir”)</p></li>
 <li><p><strong>field</strong> (<em>str</em>) – (pseudo-)field to get top values (e.g., “service”)</p></li>
 </ul>
 </dd>
@@ -224,13 +225,14 @@ timestamps</p></li>
 </dd></dl>
 
 <dl class="http get">
-<dt class="sig sig-object http" id="get--(subdb-re-scans|view|passive)-distinct-(field-path)">
-<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive)/distinct/</span></span><span class="sig-paren">(</span><span class="property"><span class="pre">field:</span> </span><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive)-distinct-(field-path)" title="Link to this definition"></a></dt>
-<dd><p>Get distinct values from Nmap, View &amp; Passive databases</p>
+<dt class="sig sig-object http" id="get--(subdb-re-scans|view|passive|rir)-distinct-(field-path)">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive|rir)/distinct/</span></span><span class="sig-paren">(</span><span class="property"><span class="pre">field:</span> </span><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive|rir)-distinct-(field-path)" title="Link to this definition"></a></dt>
+<dd><p>Get distinct values from Nmap, View, Passive &amp; RIR databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans”, “view”,
+“passive” or “rir”)</p></li>
 <li><p><strong>field</strong> (<em>str</em>) – (pseudo-)field to get distinct values (e.g., “service”)</p></li>
 </ul>
 </dd>
@@ -469,6 +471,59 @@ timestamps</p></li>
 <dt class="sig sig-object http" id="get--passive-count">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/passive/count</span></span><a class="headerlink" href="#get--passive-count" title="Link to this definition"></a></dt>
 <dd><p>Get special values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Object<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>int</strong> – count</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--rir">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/rir</span></span><a class="headerlink" href="#get--rir" title="Link to this definition"></a></dt>
+<dd><p>Get records from the RIR database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>format</strong> (<em>str</em>) – “json” (the default) or “ndjson”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Array of Objects<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object</strong> – results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--rir-count">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/rir/count</span></span><a class="headerlink" href="#get--rir-count" title="Link to this definition"></a></dt>
+<dd><p>Count records from the RIR database.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
