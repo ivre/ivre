@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -72,11 +72,13 @@ def cdnjson2table(infd: BinaryIO, outfd: BinaryIO) -> None:
         for net in nets
         if NETADDR.search(net)  # TODO: handle domain names
     )
-    outfd.write(b"[\n    (\n")
-    outfd.writelines(f"        {elt[0]!r},\n".encode() for elt in table)
-    outfd.write(b"    ),\n    (\n")
-    outfd.writelines(f"        {elt[1]!r},\n".encode() for elt in table)
-    outfd.write(b"    ),\n]\n")
+    outfd.write(
+        json.dumps(
+            [[elt[0] for elt in table], [elt[1] for elt in table]],
+            indent=2,
+        ).encode()
+    )
+    outfd.write(b"\n")
 
 
 def censys_net_extractor(fdesc: BinaryIO) -> Generator[str, None, None]:
@@ -121,7 +123,7 @@ assert config.DATA_PATH is not None
 URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
     (
         "https://raw.githubusercontent.com/projectdiscovery/cdncheck/main/sources_data.json",
-        os.path.join(config.DATA_PATH, "cdn_nuclei.py"),
+        os.path.join(config.DATA_PATH, "cdn_nuclei.json"),
         cdnjson2table,
     ),
     (
@@ -151,12 +153,22 @@ URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
+    # Remove the legacy executable-Python tables that earlier IVRE
+    # versions wrote next to the JSON ones.
+    assert config.DATA_PATH is not None
+    for obsolete_name in ("cdn_nuclei.py", "govcloud.py"):
+        obsolete_path = os.path.join(config.DATA_PATH, obsolete_name)
+        try:
+            os.unlink(obsolete_path)
+        except FileNotFoundError:
+            pass
+        else:
+            LOGGER.info("Removed obsolete data file %r", obsolete_path)
     for url, fname, processor in URLS:
         try:
             download_if_newer(url, fname, processor=processor)
         except Exception:
             pass
-    assert config.DATA_PATH is not None
     with open(
         os.path.join(config.DATA_PATH, "ukncsc_scanners.txt"), "w", encoding="utf8"
     ) as fdesc:
