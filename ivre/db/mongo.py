@@ -170,10 +170,6 @@ class MongoDB(DB):
             if x
         )
         try:
-            self.maxscan = int(params.pop("maxscan", None))
-        except TypeError:
-            self.maxscan = None
-        try:
             self.maxtime = int(params.pop("maxtime", None))
         except TypeError:
             self.maxtime = None
@@ -207,8 +203,6 @@ class MongoDB(DB):
         self._db.close()
 
     def set_limits(self, cur):
-        if self.maxscan is not None:
-            cur.max_scan(self.maxscan)
         if self.maxtime is not None:
             cur.max_time_ms(self.maxtime)
         return cur
@@ -5015,7 +5009,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     def update(self, spec, **kargs):
         """Updates the first record matching "spec" in the "passive" column,
         setting values according to the keyword arguments."""
-        self.db[self.columns[self.column_passive]].update(spec, {"$set": kargs})
+        self.db[self.columns[self.column_passive]].update_one(spec, {"$set": kargs})
 
     @classmethod
     def _fix_sizes(cls, spec):
