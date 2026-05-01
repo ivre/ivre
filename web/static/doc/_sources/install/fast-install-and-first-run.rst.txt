@@ -72,29 +72,25 @@ Database init, data download & importation
    $ yes | ivre scancli --init
    $ yes | ivre view --init
    $ yes | ivre flowcli --init
-   $ yes | sudo ivre runscansagentdb --init
    $ sudo ivre ipdata --download
    $ sudo ivre getwebdata
 
 Run a first scan
 ----------------
 
-Against 1k (routable) IP addresses, with a single nmap process:
+Run an Nmap scan with the options of your choice; for example, against
+a small list of routable IP addresses:
 
 ::
 
-   $ sudo ivre runscans --routable --limit 1000
+   $ sudo nmap -sS -Pn -p- --open --traceroute -oX scan.xml \
+   >          -iL targets.txt
 
-Go have some coffees and/or beers (remember that according to the
-traveler's theorem, for any time of the day, there exists a time zone in
-which it is OK to drink).
-
-When the command has terminated, import the results and create a view:
+When the scan has terminated, import the results and create a view:
 
 ::
 
-   $ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
-   >              scans/ROUTABLE/up
+   $ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource scan.xml
    $ ivre db2view nmap
 
 The ``-c`` argument adds categories to the scan results. Categories are
@@ -114,13 +110,11 @@ Go back to the Web UI and browse your first scan results!
 Some remarks
 ------------
 
-There is no tool (for now) to automatically import scan results to the
-database. It is your job to do so, according to your settings.
+There is no tool (for now) to automatically import scan results into
+the database. It is your job to do so, according to your settings.
 
 If you run very large scans (particularly against random hosts on the
-Internet), do NOT use the default ``--output=XML`` option. Rather, go
-for the ``--output=XMLFork``. This will fork one nmap process per IP to
-scan, and is (sadly) much more reliable.
-
-Another way to run scans efficiently is to use an `agent <AGENT.md>`__
-and the ``ivre runscansagent`` command.
+Internet), running a single Nmap process is rarely the best
+choice. Split the target into chunks and run several Nmap processes in
+parallel; ``ivre scan2db`` will happily ingest the resulting XML
+files, and Masscan / Zgrab2 output too.

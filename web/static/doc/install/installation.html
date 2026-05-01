@@ -62,13 +62,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#initialization">Initialization</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#getting-ip-data">Getting IP data</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#using-agents">Using Agents</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
-<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
 </ul>
 </li>
 </ul>
@@ -255,11 +253,10 @@ different configuration parameters.</p>
 <h2>Initialization<a class="headerlink" href="#initialization" title="Link to this heading"></a></h2>
 <p>Once IVRE has been properly configured, it’s time to initialize its
 databases.</p>
-<p>For that, the command-line tools (namely <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span>
-<span class="pre">scancli</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span>
-<span class="pre">runscansagentdb</span></code>, respectively for information about IP addresses,
-passive information, active information and running scans through
-agents) have a <code class="docutils literal notranslate"><span class="pre">--init</span></code> option.</p>
+<p>For that, the command-line tools (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>, respectively for information about
+IP addresses, active scans, the merged view and traffic flows) all
+have a <code class="docutils literal notranslate"><span class="pre">--init</span></code> option.</p>
 <p>So you can run, with a user or from a host where the configuration has a
 write access to the database (add <code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">/dev/null</span></code> to skip the
 confirmation):</p>
@@ -267,7 +264,6 @@ confirmation):</p>
 $ yes | ivre scancli --init
 $ yes | ivre view --init
 $ yes | ivre flowcli --init
-$ yes | sudo ivre runscansagentdb --init
 </pre></div>
 </div>
 </section>
@@ -302,19 +298,6 @@ GeoLite2-dumps.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz
 BGP.raw: https://thyme.apnic.net/current/data-raw-table
 </pre></div>
 </div>
-</section>
-<section id="using-agents">
-<h2>Using Agents<a class="headerlink" href="#using-agents" title="Link to this heading"></a></h2>
-<p>If you do not plan to run active scans with remote agents (where IVRE
-will not be installed), you can skip this section.</p>
-<p>The agent does not require IVRE to be installed. It is a script that
-needs to be adapted to each situation.</p>
-<p>The agent is only needed when you cannot install IVRE on the machine
-used to scan or when you want to use several machines to run one scan.</p>
-<p>It requires a POSIX environment, and the commands <code class="docutils literal notranslate"><span class="pre">screen</span></code>,
-<code class="docutils literal notranslate"><span class="pre">rsync</span></code> and <code class="docutils literal notranslate"><span class="pre">nmap</span></code> (of course). See the
-<a class="reference internal" href="agents.html#agents"><span class="std std-ref">Agents</span></a> documentation for more information about
-that.</p>
 </section>
 </section>
 

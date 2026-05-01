@@ -186,11 +186,10 @@ Initialization
 Once IVRE has been properly configured, it's time to initialize its
 databases.
 
-For that, the command-line tools (namely ``ivre ipinfo``, ``ivre
-scancli``, ``ivre view``, ``ivre flowcli`` and ``ivre
-runscansagentdb``, respectively for information about IP addresses,
-passive information, active information and running scans through
-agents) have a ``--init`` option.
+For that, the command-line tools (``ivre ipinfo``, ``ivre scancli``,
+``ivre view`` and ``ivre flowcli``, respectively for information about
+IP addresses, active scans, the merged view and traffic flows) all
+have a ``--init`` option.
 
 So you can run, with a user or from a host where the configuration has a
 write access to the database (add ``< /dev/null`` to skip the
@@ -202,7 +201,6 @@ confirmation):
    $ yes | ivre scancli --init
    $ yes | ivre view --init
    $ yes | ivre flowcli --init
-   $ yes | sudo ivre runscansagentdb --init
 
 Getting IP data
 ---------------
@@ -241,21 +239,3 @@ following files are downloaded:
    GeoLite2-ASN-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip
    GeoLite2-dumps.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz
    BGP.raw: https://thyme.apnic.net/current/data-raw-table
-
-
-Using Agents
-------------
-
-If you do not plan to run active scans with remote agents (where IVRE
-will not be installed), you can skip this section.
-
-The agent does not require IVRE to be installed. It is a script that
-needs to be adapted to each situation.
-
-The agent is only needed when you cannot install IVRE on the machine
-used to scan or when you want to use several machines to run one scan.
-
-It requires a POSIX environment, and the commands ``screen``,
-``rsync`` and ``nmap`` (of course). See the
-:ref:`install/agents:agents` documentation for more information about
-that.

@@ -23,13 +23,11 @@ import logging
 import os
 import random
 import re
-import shlex
 import shutil
 import signal
 import socket
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 import unittest
@@ -52,7 +50,6 @@ import ivre.mathutils
 import ivre.parser.iptables
 import ivre.parser.zeek
 import ivre.passive
-import ivre.target
 import ivre.utils
 import ivre.web.utils
 import ivre.xmlnmap
@@ -160,165 +157,6 @@ def _parse_cli_top_out(out):
         while data and data[0][0] == lowest:
             data.pop(0)
     return data[::-1]
-
-
-def run_passiverecon_worker(bulk_mode=None):
-    time.sleep(1)  # Hack for Travis CI
-    pid = os.fork()
-    if pid < 0:
-        raise Exception("Cannot fork")
-    if pid:
-        # Wait for child process to handle every file in "logs"
-        while any(walk[2] for walk in os.walk("logs")):
-            print("Waiting for passivereconworker")
-            time.sleep(2)
-        os.kill(pid, signal.SIGINT)
-        os.waitpid(pid, 0)
-    elif USE_COVERAGE:
-        os.execvp(
-            sys.executable,
-            COVERAGE
-            + [
-                "run",
-                "--parallel-mode",
-                shutil.which("ivre"),
-                "passivereconworker",
-                "--directory",
-                "logs",
-                "--progname",
-                " ".join(
-                    shlex.quote(elt)
-                    for elt in COVERAGE
-                    + [
-                        "run",
-                        "--parallel-mode",
-                        shutil.which("ivre"),
-                        "passiverecon2db",
-                        bulk_mode,
-                    ]
-                ),
-            ],
-        )
-    else:
-        os.execlp(
-            "ivre",
-            "ivre",
-            "passivereconworker",
-            "--directory",
-            "logs",
-            "--progname",
-            "ivre passiverecon2db %s" % bulk_mode,
-        )
-
-
-class AgentScanner:
-    """This builds an agent, runs it in the background, runs a feed
-    process (also in the background) and provides an object that can be
-    used to .scan() targets.
-
-    Example:
-
-        with AgentScanner(self, nmap_template="http") as agent:
-            agent.scan(['--net', '192.168.0.0/24'])
-
-    """
-
-    def __init__(self, test, nmap_template="default"):
-        self.test = test
-        self.pid_agent = self.pid_feed = None
-        self._build_agent(nmap_template)
-        self._start_agent()
-        self._start_feed()
-
-    def __enter__(self):
-        return self
-
-    def __delete__(self):
-        self.stop()
-
-    def __exit__(self, *_):
-        self.wait()
-        self.stop()
-
-    def _build_agent(self, nmap_template):
-        res, out, _ = RUN(
-            ["ivre", "runscans", "--output", "Agent", "--nmap-template", nmap_template]
-        )
-        self.test.assertEqual(res, 0)
-        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
-            fdesc.write(out)
-        os.chmod(fdesc.name, 0o0755)
-        self.agent = fdesc.name
-
-    def _start_agent(self):
-        self.agent_dir = tempfile.mkdtemp()
-        self.pid_agent = subprocess.Popen(
-            [self.agent], preexec_fn=os.setsid, cwd=self.agent_dir
-        ).pid
-
-    def _start_feed(self):
-        feed_cmd = ["runscansagent", "--sync", self.agent_dir]
-        if USE_COVERAGE:
-            feed_cmd = (
-                COVERAGE + ["run", "--parallel-mode", shutil.which("ivre")] + feed_cmd
-            )
-        else:
-            feed_cmd = ["ivre"] + feed_cmd
-        self.pid_feed = subprocess.Popen(feed_cmd).pid
-
-    def stop(self):
-        """Kills the process backgrounded processes, moves the results to
-        "output", and removes the temporary files and directories.
-
-        """
-        if self.pid_agent is not None:
-            os.kill(self.pid_agent, signal.SIGTERM)
-            os.waitpid(self.pid_agent, 0)
-            self.pid_agent = None
-        if self.pid_feed is not None:
-            os.kill(self.pid_feed, signal.SIGTERM)
-            os.waitpid(self.pid_feed, 0)
-            self.pid_feed = None
-        os.rename(os.path.join("agentsdata", "output"), "output")
-        for dirname in [self.agent_dir, "agentsdata"]:
-            if dirname is not None:
-                try:
-                    shutil.rmtree(dirname)
-                except OSError as exc:
-                    if exc.errno != errno.ENOENT:
-                        raise
-
-    def wait(self):
-        """Waits for current and scheduled scans to terminate."""
-        dirnames = [
-            dirname
-            for subdir in [
-                "input",
-                "remoteinput",
-                "remotecur",
-                "remoteoutput",
-                "remotedata",
-            ]
-            for dirname in glob(os.path.join("agentsdata", "*", subdir))
-        ]
-        dirnames.extend(
-            os.path.join(self.agent_dir, subdir)
-            for subdir in ["input", "cur", "output"]
-        )
-        while any(walk[2] for dirname in dirnames for walk in os.walk(dirname)):
-            print("Waiting for runscans sync & agent")
-            time.sleep(2)
-
-    def scan(self, target_options):
-        """Runs a scan. `target_options` should be a list of arguments to be
-        passed to `ivre runscansagent --feed`.
-
-        """
-        res = RUN(
-            ["ivre", "runscansagent", "--feed"] + target_options + [self.agent_dir],
-            stdin=subprocess.DEVNULL,
-        )[0]
-        self.test.assertEqual(res, 0)
 
 
 class IvreTests(unittest.TestCase):
@@ -2011,7 +1849,17 @@ class IvreTests(unittest.TestCase):
                 env=zeekenv,
             )
 
-        run_passiverecon_worker(bulk_mode=bulk_mode)
+        # Drain Zeek-generated logs into the passive DB.
+        for log_root, _, log_names in os.walk("logs"):
+            for log_name in log_names:
+                log_path = os.path.join(log_root, log_name)
+                with open(log_path, "rb") as log_fdesc:
+                    ret = subprocess.call(
+                        ["ivre", "passiverecon2db", "-s", "TEST", bulk_mode],
+                        stdin=log_fdesc,
+                    )
+                self.assertEqual(ret, 0)
+                os.remove(log_path)
 
         for fname in self.pcap_files:
             outf = f"{fname}.p0f.log"
@@ -3819,91 +3667,6 @@ class IvreTests(unittest.TestCase):
             },
         )
 
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--routable"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"Target has 2848655972 IP addresses\n")
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--asnum", "15169"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"Target has 4521723 IP addresses\n")
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--country", "US"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"Target has 1581733971 IP addresses\n")
-        res, out, _ = RUN(["ivre", "runscans", "--output", "List", "--country", "PN"])
-        self.assertEqual(res, 0)
-        self.assertEqual(
-            out,
-            b"""5.62.56.189 - 5.62.56.191
-5.62.58.165 - 5.62.58.167
-46.36.201.141 - 46.36.201.145
-104.224.47.0 - 104.224.47.255
-""",
-        )
-        res, out, _ = RUN(
-            ["ivre", "runscans", "--output", "ListCIDRs", "--country", "BV"]
-        )
-        self.assertEqual(res, 0)
-        self.assertEqual(
-            out,
-            b"""31.28.161.170/32
-172.94.114.0/24
-185.193.124.0/24
-195.181.215.206/32
-""",
-        )
-        # ListAll and ListAllRand use different mechanisms
-        res, out1, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAll", "--country", "PN"]
-        )
-        self.assertEqual(res, 0)
-        res, out2, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAllRand", "--country", "PN"]
-        )
-        self.assertEqual(res, 0)
-        out1, out2 = out1.split(b"\n"), out2.split(b"\n")
-        self.assertGreater(len(out1), 0)
-        self.assertCountEqual(out1, out2)
-        res, out1, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAll", "--region", "WF", "UV"]
-        )
-        self.assertEqual(res, 0)
-        res, out2, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAllRand", "--region", "WF", "UV"]
-        )
-        self.assertEqual(res, 0)
-        out1, out2 = out1.split(b"\n"), out2.split(b"\n")
-        self.assertGreater(len(out1), 0)
-        self.assertCountEqual(out1, out2)
-        res, out1, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAll", "--city", "FR", "Carcassonne"]
-        )
-        self.assertEqual(res, 0)
-        res, out2, _ = RUN(
-            [
-                "ivre",
-                "runscans",
-                "--output",
-                "ListAllRand",
-                "--city",
-                "FR",
-                "Carcassonne",
-            ]
-        )
-        self.assertEqual(res, 0)
-        out1, out2 = out1.split(b"\n"), out2.split(b"\n")
-        self.assertGreater(len(out1), 0)
-        self.assertCountEqual(out1, out2)
-        res, out1, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAll", "--asnum", "12345"]
-        )
-        self.assertEqual(res, 0)
-        res, out2, _ = RUN(
-            ["ivre", "runscans", "--output", "ListAllRand", "--asnum", "12345"]
-        )
-        self.assertEqual(res, 0)
-        out1, out2 = out1.split(b"\n"), out2.split(b"\n")
-        self.assertGreater(len(out1), 0)
-        self.assertCountEqual(out1, out2)
-
         # Web API (JSON) vs Python API
         for addr in ["8.8.8.8", "2003::1"]:
             req = Request(
@@ -3919,33 +3682,6 @@ class IvreTests(unittest.TestCase):
                 result,
                 json.loads(udesc.read().decode()),
             )
-
-        # targets manipulation
-        targ1 = ivre.target.TargetCountry("PN")
-        targ2 = ivre.target.TargetCountry("BV")
-        self.assertCountEqual(set(targ1).union(targ2), set(targ1 + targ2))
-        count_t1_t2 = len(targ1 + targ2)
-
-        res, out1, err = RUN(
-            ["ivre", "runscans", "--output", "Count", "--country", "UK"]
-        )
-        self.assertEqual(res, 0)
-        self.assertFalse(err)
-        res, out2, err = RUN(
-            ["ivre", "runscans", "--output", "Count", "--country", "GB"]
-        )
-        self.assertEqual(res, 0)
-        self.assertFalse(err)
-        self.assertEqual(out1, out2)
-        res, out, err = RUN(
-            ["ivre", "runscans", "--output", "Count", "--country", "PN,BV"]
-        )
-        self.assertEqual(res, 0)
-        self.assertFalse(err)
-        self.assertEqual(
-            out,
-            ("Target has %d IP addresses\n" % count_t1_t2).encode(),
-        )
 
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
@@ -4129,294 +3865,6 @@ class IvreTests(unittest.TestCase):
 
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
-
-    def test_scans(self):
-        "Run scans, with and without agents"
-
-        # Check simple runscans
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Test", "--test", "2"])
-        self.assertEqual(res, 0)
-        self.assertTrue(b"\nRead address 127.0.0.1\n" in out)
-        self.assertTrue(b"\nRead address 127.0.0.2\n" in out)
-        res = RUN(["ivre", "runscans", "--network", "127.0.0.1/31"])[0]
-        self.assertEqual(res, 0)
-        fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(2, 4))
-        fdesc.close()
-        res = RUN(["ivre", "runscans", "--file", fdesc.name, "--output", "XMLFork"])[0]
-        self.assertEqual(res, 0)
-        os.unlink(fdesc.name)
-        res = RUN(
-            [
-                "ivre",
-                "runscans",
-                "--range",
-                "127.0.0.4",
-                "127.0.0.5",
-                "--output",
-                "XMLFull",
-            ]
-        )[0]
-        self.assertEqual(res, 0)
-        count = sum(len(walk_elt[2]) for walk_elt in os.walk("scans"))
-        self.assertEqual(count, 9)
-
-        # Generate a command line
-        res = RUN(["ivre", "runscans", "--output", "CommandLine"])[0]
-        self.assertEqual(res, 0)
-
-        # Scan using an agent
-        with AgentScanner(self) as agent:
-            agent.scan(["--test", "2"])
-
-        # Count the results
-        count = sum(len(walk_elt[2]) for walk_elt in os.walk("output/"))
-        self.assertEqual(count, 2)
-
-        # Clean
-        shutil.rmtree("output")
-
-        # Generate an agent
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Agent"])
-        self.assertEqual(res, 0)
-        with open("ivre-agent.sh", "wb") as fdesc:
-            fdesc.write(out)
-        os.chmod("ivre-agent.sh", 0o0755)
-
-        # Fork an agent
-        ivre.utils.makedirs("tmp")
-        pid_agent = subprocess.Popen(
-            [os.path.join(os.getcwd(), "ivre-agent.sh")],
-            preexec_fn=os.setsid,
-            cwd="tmp",
-        ).pid
-
-        # Init DB for agents and for nmap
-        self.init_nmap_db()
-        res = RUN(["ivre", "runscansagentdb", "--init"], stdin=subprocess.DEVNULL)[0]
-        self.assertEqual(res, 0)
-        res = RUN(["ivre", "runscansagentdb", "--add-local-master"])[0]
-        self.assertEqual(res, 0)
-
-        # Add local agent
-        res = RUN(
-            [
-                "ivre",
-                "runscansagentdb",
-                "--source",
-                "TEST-AGENT-SOURCE",
-                "--add-agent",
-                os.path.join(os.getcwd(), "tmp"),
-            ]
-        )[0]
-        self.assertEqual(res, 0)
-
-        # Create test scans
-        res = RUN(["ivre", "runscansagentdb", "--test", "2", "--assign-free-agents"])[0]
-        self.assertEqual(res, 0)
-        fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(3, 5))
-        fdesc.close()
-        res = RUN(
-            ["ivre", "runscansagentdb", "--file", fdesc.name, "--assign-free-agents"]
-        )[0]
-        self.assertEqual(res, 0)
-
-        # Test the lock mechanism
-        # Check no scan is locked
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-        self.assertEqual(res, 0)
-        self.assertTrue(b"  - locked" not in out)
-        # Get a scan id
-        scanid = next(iter(ivre.db.db.agent.get_scans()))
-        # Lock it
-        locked_scan = ivre.db.db.agent.lock_scan(scanid)
-        self.assertIsInstance(locked_scan, dict)
-        self.assertEqual(locked_scan["pid"], os.getpid())
-        self.assertIsNotNone(locked_scan.get("lock"))
-        # Check one scan is locked with our PID
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-        self.assertEqual(res, 0)
-        self.assertTrue(("  - locked (by %d)\n" % os.getpid()).encode() in out)
-        # Attempt to lock it again
-        with self.assertRaises(ivre.db.LockError):
-            ivre.db.db.agent.lock_scan(scanid)
-        # Unlock it
-        self.assertEqual(ivre.db.db.agent.unlock_scan(locked_scan), True)
-        # Attempt to unlock it again
-        with self.assertRaises(ivre.db.LockError):
-            ivre.db.db.agent.unlock_scan(locked_scan)
-        with self.assertRaises(ivre.db.LockError):
-            ivre.db.db.agent.unlock_scan(ivre.db.db.agent.get_scan(scanid))
-        # Check no scan is locked
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-        self.assertEqual(res, 0)
-        self.assertTrue(b"  - locked" not in out)
-        # Lock the scan again
-        locked_scan = ivre.db.db.agent.lock_scan(scanid)
-        self.assertIsInstance(locked_scan, dict)
-        self.assertEqual(locked_scan["pid"], os.getpid())
-        self.assertIsNotNone(locked_scan.get("lock"))
-        # Check one scan is locked with our PID
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-        self.assertEqual(res, 0)
-        self.assertTrue(("  - locked (by %d)\n" % os.getpid()).encode() in out)
-        # Unlock all the scans from the CLI
-        res = RUN(
-            ["ivre", "runscansagentdb", "--force-unlock"], stdin=subprocess.DEVNULL
-        )[0]
-        self.assertEqual(res, 0)
-        # Check no scan is locked
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-        self.assertEqual(res, 0)
-        self.assertTrue(b"  - locked" not in out)
-
-        # Fork a daemon
-        daemon_cmd = ["runscansagentdb", "--daemon"]
-        if USE_COVERAGE:
-            daemon_cmd = (
-                COVERAGE + ["run", "--parallel-mode", shutil.which("ivre")] + daemon_cmd
-            )
-        else:
-            daemon_cmd = ["ivre"] + daemon_cmd
-        pid_daemon = subprocess.Popen(daemon_cmd).pid
-        # Make sure the daemon is running
-        time.sleep(4)
-
-        # We should have two scans, wait until one is over
-        scanmatch = re.compile(
-            b"scan:\n  - id: (?P<id>[0-9a-f]+)\n.*\n.*\n  "
-            b"- targets added: (?P<nbadded>\\d+)\n  "
-            b"- results fetched: (?P<nbfetched>\\d+)\n  "
-            b"- total targets to add: (?P<nbtargets>\\d+)\n"
-        )
-
-        def is_scan_over(scan):
-            return int(scan["nbtargets"]) == int(scan["nbfetched"])
-
-        while True:
-            res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-            self.assertEqual(res, 0)
-            scans = [scan.groupdict() for scan in scanmatch.finditer(out)]
-            self.assertEqual(len(scans), 2)
-            if any(is_scan_over(scan) for scan in scans):
-                break
-            time.sleep(2)
-        scan = next(scan for scan in scans if not is_scan_over(scan))
-
-        # We should have one agent
-        agentmatch = re.compile(b"agent:\n  - id: (?P<id>[0-9a-f]+)\n")
-        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-agents"])
-        self.assertEqual(res, 0)
-        agents = [agt.groupdict() for agt in agentmatch.finditer(out)]
-        self.assertEqual(len(agents), 1)
-        agent = agents[0]
-
-        # Assign the remaining scan to the agent
-        res = RUN(
-            [
-                "ivre",
-                "runscansagentdb",
-                "--assign",
-                "%s:%s" % (agent["id"].decode(), scan["id"].decode()),
-            ]
-        )[0]
-        self.assertEqual(res, 0)
-        # Make sure the daemon handles the new scan
-        time.sleep(4)
-
-        # Wait until we have two scans, both of them over
-        while True:
-            res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
-            self.assertEqual(res, 0)
-            scans = [scn.groupdict() for scn in scanmatch.finditer(out)]
-            self.assertEqual(len(scans), 2)
-            if all(is_scan_over(scn) for scn in scans):
-                break
-            time.sleep(2)
-
-        # Wait for child processes to handle all the scans
-        while any(
-            walk[2]
-            for dirname in [
-                "tmp/input",
-                "tmp/cur",
-                "tmp/output",
-                ivre.config.AGENT_MASTER_PATH,
-            ]
-            for walk in os.walk(dirname)
-            if not (
-                walk[0].startswith(
-                    os.path.join(ivre.config.AGENT_MASTER_PATH, "output", "")
-                )
-                or (walk[0] == ivre.config.AGENT_MASTER_PATH and walk[2] == ["whoami"])
-            )
-        ):
-            print("Waiting for runscans daemon & agent")
-            time.sleep(2)
-
-        # Kill the agent and the daemon
-        os.kill(pid_agent, signal.SIGTERM)
-        os.kill(pid_daemon, signal.SIGTERM)
-        os.waitpid(pid_agent, 0)
-        os.waitpid(pid_daemon, 0)
-
-        # Check we have 4 scan results
-        res, out, _ = RUN(["ivre", "scancli", "--count"])
-        self.assertEqual(res, 0)
-        self.assertEqual(int(out), 4)
-
-        # Clean
-        for dirname in ["scans", "tmp"]:
-            shutil.rmtree(dirname)
-
-        # Screenshots: this tests the http-screenshot script
-        # (including phantomjs) and IVRE's ability to read
-        # screenshots (including extracting words with tesseract)
-        ipaddr = socket.gethostbyname("ivre.rocks")
-        with AgentScanner(self, nmap_template="http") as agent:
-            agent.scan(["--net", "%s/32" % ipaddr])
-        data_files, up_files = (
-            glob(
-                "%s.%s*"
-                % (os.path.join("output", "MISC", subdir, "*", *ipaddr.split(".")), ext)
-            )
-            for subdir, ext in [("data", "tar"), ("up", "xml")]
-        )
-        self.assertEqual(len(data_files), 1)
-        self.assertTrue(os.path.exists(data_files[0]))
-        self.assertEqual(len(up_files), 1)
-        self.assertTrue(os.path.exists(up_files[0]))
-        with tarfile.open(data_files[0]) as data_archive:
-            data_archive = tarfile.open(data_files[0])
-            data_archive.extractall(
-                members=[m for m in data_archive.getmembers() if "/" not in m.name],
-                filter="data",
-            )
-        self.assertTrue(os.path.exists("screenshot-%s-80.jpg" % ipaddr))
-        res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
-        self.assertEqual(res, 0)
-
-        def _json_loads(data, deflt=None):
-            try:
-                return json.loads(data.decode())
-            except ValueError:
-                return deflt
-
-        screenshots_count = sum(
-            bool(port.get("screendata"))
-            for line in out.splitlines()
-            for port in _json_loads(line, {}).get("ports", [])
-        )
-        self.assertEqual(screenshots_count, 1)
-        screenwords = set(
-            word
-            for line in out.splitlines()
-            for port in _json_loads(line, {}).get("ports", [])
-            for word in port.get("screenwords", [])
-        )
-        self.assertTrue("ivre" in screenwords)
-        shutil.rmtree("output")
 
     def test_50_dump_nmap_passive(self):
         """Dump the `hosts` and `passive` collections to
@@ -5610,7 +5058,6 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)
-        RUN(["ivre", "runscansagentdb", "--init"], stdin=subprocess.DEVNULL)
 
 
 TESTS = set(
@@ -5626,7 +5073,6 @@ TESTS = set(
         "90_cleanup",
         "conf",
         "mcp_middleware",
-        "scans",
     ]
 )
 
@@ -5637,7 +5083,7 @@ TESTS = set(
 DATABASES = {
     # **excluded** tests
     "mongo": [],
-    "postgres": ["15_rir", "60_flow", "scans"],
+    "postgres": ["15_rir", "60_flow"],
     "sqlite": [
         "15_rir",
         "30_nmap",
@@ -5645,7 +5091,6 @@ DATABASES = {
         "53_nmap_delete",
         "55_view_delete",
         "60_flow",
-        "scans",
     ],
     "elastic": [
         "15_rir",
@@ -5655,7 +5100,6 @@ DATABASES = {
         "54_passive_delete",
         "60_flow",
         "90_cleanup",
-        "scans",
     ],
     "maxmind": [
         "15_rir",
@@ -5667,7 +5111,6 @@ DATABASES = {
         "55_view_delete",
         "60_flow",
         "90_cleanup",
-        "scans",
     ],
     "tinydb": ["15_rir"],
 }

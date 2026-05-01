@@ -46,12 +46,8 @@ __all__ = [
     "mcp_server",
     "p0f2db",
     "passiverecon2db",
-    "passivereconworker",
     "plotdb",
     "rirlookup",
-    "runscans",
-    "runscansagent",
-    "runscansagentdb",
     "scan2db",
     "scancli",
     "scanstatus",
@@ -68,8 +64,6 @@ ALIASES = {
     "httpd-ivre": "httpd",
     "ipinfohost": "iphost",
     "mcp-server": "mcp_server",
-    "runscans-agent": "runscansagent",
-    "runscans-agentdb": "runscansagentdb",
     "nmap2db": "scan2db",
 }
 

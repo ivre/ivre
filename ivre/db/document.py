@@ -23,7 +23,6 @@ DocumentDB databases.
 
 from ivre.db.mongo import (
     MongoDBActive,
-    MongoDBAgent,
     MongoDBFlow,
     MongoDBNmap,
     MongoDBPassive,
@@ -44,10 +43,6 @@ class DocumentDBView(MongoDBView):
 
 class DocumentDBPassive(MongoDBPassive):
     is_documentdb = True
-
-
-class DocumentDBAgent(MongoDBAgent):
-    pass
 
 
 class DocumentDBFlow(MongoDBFlow):

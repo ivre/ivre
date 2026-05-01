@@ -179,15 +179,15 @@ will have access to all the results.</p>
 <section id="scanning-the-internet-is-slow">
 <h2>Scanning the Internet is slow!<a class="headerlink" href="#scanning-the-internet-is-slow" title="Link to this heading"></a></h2>
 <p>This is based on <a class="reference external" href="https://github.com/ivre/ivre/issues/822">issue GH#822</a>.</p>
-<p>When running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span> <span class="pre">--routable</span> <span class="pre">--limit</span> <span class="pre">40</span></code>, one can notice
-the scan really takes a long time to terminate.</p>
-<p>First of all, IVRE is not guilty here. IVRE runs Nmap, feeds it with
-targets, and wait for its output. You would get the same results using
-the same Nmap options as IVRE.</p>
-<p>That being said, we have several ways to speed up a scan.</p>
+<p>When scanning a wide target with <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, one can notice the scan
+really takes a long time to terminate.</p>
+<p>IVRE itself is not the bottleneck: it merely ingests the XML produced
+by your scanner. You would get the same throughput running Nmap
+directly.</p>
+<p>That being said, here are several ways to speed up a scan.</p>
 <section id="use-masscan-rather-that-nmap">
 <h3>Use Masscan rather that Nmap<a class="headerlink" href="#use-masscan-rather-that-nmap" title="Link to this heading"></a></h3>
-<p>This is pretty radical, and have an important drawback: Masscan
+<p>This is pretty radical, and has an important drawback: Masscan
 results gather less intelligence than Nmap (a lot less in some
 situations).</p>
 <p>However, it is often the only option to get comprehensive scans of the
@@ -201,15 +201,13 @@ and use IVRE to merge and browse the results.</p>
 </section>
 <section id="parallelize-nmap-scans">
 <h3>Parallelize Nmap scans<a class="headerlink" href="#parallelize-nmap-scans" title="Link to this heading"></a></h3>
-<p>Another option is to run several Nmap processes instead of
-one. Theoretically it should not work, since Nmap is supposed to
-handle efficiently the resources, but it has proven useful in several
-situations, particularly when scanning heavily filtered hosts or
-random hosts across the Internet.</p>
-<p>For that, one can either use an agent (see
-<a class="reference internal" href="../install/agents.html#agents"><span class="std std-ref">Agents</span></a>) or <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span> <span class="pre">--output</span>
-<span class="pre">XMLFork</span> <span class="pre">--processes</span> <span class="pre">&lt;n&gt;</span></code> where <code class="docutils literal notranslate"><span class="pre">&lt;n&gt;</span></code> is the number of simultaneous
-Nmap processes to use.</p>
+<p>Another option is to run several Nmap processes in parallel rather
+than one. Theoretically it should not help (Nmap manages its own
+resources), but it has proven useful in practice, particularly when
+scanning heavily filtered hosts or random hosts across the Internet.</p>
+<p>Split the target into chunks (for instance with <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipcalc</span></code> or any
+other tool), launch several <code class="docutils literal notranslate"><span class="pre">nmap</span></code> processes against each chunk, and
+ingest the resulting XML files with <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
 </section>
 </section>
 <section id="can-ivre-be-used-to-look-for-xxx">

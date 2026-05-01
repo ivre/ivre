@@ -105,23 +105,6 @@ if HAS_TYPED_DICT:
         cpe: list[str]
         soft: bool
 
-    class NmapScanTemplate(TypedDict, total=False):
-        nmap: str
-        pings: str
-        scans: str
-        osdetect: bool
-        traceroute: bool
-        resolve: int
-        verbosity: int
-        ports: str | None
-        top_ports: int | None
-        host_timeout: str | None
-        script_timeout: str | None
-        scripts_categories: Iterable[str] | None
-        scripts_exclude: Iterable[str] | None
-        scripts_force: Iterable[str] | None
-        extra_options: Iterable[str] | None
-
     class DB(Protocol):
         flt_empty: Filter
 
@@ -165,9 +148,6 @@ if HAS_TYPED_DICT:
         @staticmethod
         def serialize(obj: Any) -> str: ...
 
-    class DBAgent(DB, Protocol):
-        pass
-
     class DBData(DB, Protocol):
         pass
 
@@ -200,7 +180,6 @@ if HAS_TYPED_DICT:
         pass
 
     class MetaDB(Protocol):
-        agent: DBAgent
         data: DBData
         db_types: dict[str, dict[str, tuple[str, str]]]
         flow: DBFlow
@@ -219,12 +198,7 @@ else:
     CpeDict = dict[str, str | set[str]]  # type: ignore
     NmapProbeRec = dict[str, bytes | NmapProbe | list[str]]  # type: ignore
     NmapServiceMatch = dict[str, str | list[str]]  # type: ignore
-    NmapScanTemplate = dict[  # type: ignore
-        str,
-        str | bool | int | Iterable[str] | None,
-    ]
     DB = Any  # type: ignore
-    DBAgent = Any  # type: ignore
     DBData = Any  # type: ignore
     DBFlow = Any  # type: ignore
     DBActive = Any  # type: ignore

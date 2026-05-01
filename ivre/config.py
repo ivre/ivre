@@ -32,8 +32,6 @@ import os
 import stat
 from collections.abc import Generator
 
-from ivre.types import NmapScanTemplate
-
 # Default values:
 DEBUG = False
 DEBUG_DB = False
@@ -59,7 +57,6 @@ RIR_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
 WEB_STATIC_PATH = None
 WEB_DOKU_PATH = None
-AGENT_MASTER_PATH = "/var/lib/ivre/master"
 # specific: if no value is specified, tries /usr/local/share/nmap,
 # /opt/nmap/share/nmap, then /usr/share/nmap.
 NMAP_SHARE_PATH = None
@@ -67,38 +64,6 @@ NMAP_SHARE_PATH = None
 TESSERACT_CMD = "tesseract"
 OPENSSL_CMD = "openssl"
 # End commands
-
-# Begin default Nmap scan template
-NMAP_SCAN_TEMPLATES: dict[str, NmapScanTemplate] = {
-    "default": {
-        # Commented values are default values and to not need to be
-        # specified:
-        # "nmap": "nmap",
-        # "pings": "SE",
-        # "scans": "SV",
-        # "osdetect": True,
-        # "traceroute": True,
-        # "resolve": 1,
-        # "verbosity": 2,
-        # "ports": None,
-        # "top_ports": None,
-        "host_timeout": "15m",  # default value: None
-        "script_timeout": "2m",  # default value: None
-        "scripts_categories": ["default", "discovery", "auth"],  # default value: None
-        "scripts_exclude": [
-            "broadcast",
-            "brute",
-            "dos",
-            "exploit",
-            "external",
-            "fuzzer",
-            "intrusive",
-        ],  # default value: None
-        # "scripts_force": None,
-        # "extra_options": None,
-    }
-}
-# End default Nmap scan template
 
 # Begin Masscan probes
 
