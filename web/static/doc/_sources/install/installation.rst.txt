@@ -45,7 +45,7 @@ minimum, with the following modules:
 
 - `bottle <https://bottlepy.org/>`_.
 - `cryptography <https://cryptography.io/en/latest/>`_.
-- `pymongo <http://api.mongodb.org/python/>`_ version 3.7 minimum.
+- `pymongo <http://api.mongodb.org/python/>`_ version 4.10 minimum.
 - `tinydb <https://tinydb.readthedocs.io/>`_, to use the
   **experimental** TinyDB backend (this does not require a database
   server).
