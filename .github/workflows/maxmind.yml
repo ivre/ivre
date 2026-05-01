@@ -45,6 +45,8 @@ jobs:
 
     - name: Install IVRE
       uses: ./.github/actions/install
+      with:
+        install-zeek: 'false'
 
     - run: cd tests && python tests.py
       env:

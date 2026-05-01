@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-name: MongoDB tests
+name: MongoDB and Elasticsearch tests
 
 on: [push, pull_request]
 
@@ -70,14 +70,9 @@ jobs:
       env:
         CI: true
         DB: mongo
-
-    - name: Create MongoDB dump for Elasticsearch tests
-      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
-      run: |
-          rm -rf ./backup/ && mkdir ./backup/
-          mongodump --db=ivre --out=./backup/
-          mv ./backup/ivre/*.bson ./backup/
-          tar jcf ./backup_nmap_passive.tar.bz2 ./backup/{hosts,passive}.bson
+        # Only the dump-producing matrix entry sets this; the test
+        # `test_50_dump_nmap_passive` is a no-op everywhere else.
+        IVRE_DUMP_NMAP_PASSIVE: ${{ (matrix.mongodb-version == '7.0' && matrix.python-version == '3.12') && '1' || '' }}
 
     - name: Archive MongoDB dump artifacts
       if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
@@ -85,6 +80,83 @@ jobs:
       with:
         name: backup_nmap_passive
         path: ./backup_nmap_passive.tar.bz2
+
+    - run: cat /tmp/webserver.log
+      if: failure()
+
+  elastic:
+    runs-on: ubuntu-24.04
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+        elastic-version: ['7.17.29', '8.19.15', '9.3.4']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.1
+      with:
+        mongodb-version: '7.0'
+
+    - name: Start Elasticsearch
+      uses: elastic/elastic-github-actions/elasticsearch@master
+      with:
+        stack-version: ${{ matrix.elastic-version }}
+        security-enabled: false
+
+    - name: Capture Elasticsearch container logs (on failure)
+      if: failure()
+      run: |
+          docker ps -a || true
+          docker logs es1 || true
+
+    - run: pip install '.[elasticsearch]'
+
+    - name: Install MongoDB tools (mongorestore)
+      run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get -q update
+          sudo apt-get -qy install mongodb-org-tools
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+      with:
+        install-zeek: 'false'
+
+    - run: curl http://127.0.0.1:9200
+
+    - run: echo 'DB_VIEW = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
+
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
+
+    - name: Get MongoDB dump artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: backup_nmap_passive
+        path: .
+
+    - run: tar jxf ./backup_nmap_passive.tar.bz2
+
+    - run: cd tests && python tests.py
+      env:
+        CI: true
+        DB: elastic
 
     - run: cat /tmp/webserver.log
       if: failure()

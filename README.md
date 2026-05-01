@@ -5,8 +5,7 @@
 [![PyPI downloads](https://pepy.tech/badge/ivre)](https://pypi.org/project/ivre/)
 [![Docker pulls](https://img.shields.io/docker/pulls/ivre/web)](https://hub.docker.com/u/ivre/)
 
-[![MongoDB tests](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/?branch=master)
-[![Elasticsearch tests](https://github.com/ivre/ivre/actions/workflows/elastic.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/elastic.yml/?branch=master)
+[![MongoDB and Elasticsearch tests](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/?branch=master)
 [![PostgreSQL tests](https://github.com/ivre/ivre/actions/workflows/postgres.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/postgres.yml/?branch=master)
 [![TinyDB tests](https://github.com/ivre/ivre/actions/workflows/tinydb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/tinydb.yml/?branch=master)
 [![SQLite tests](https://github.com/ivre/ivre/actions/workflows/sqlite.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/sqlite.yml/?branch=master)
