@@ -23,12 +23,12 @@ This module exists to break the cyclic import between ``app`` and
 so they live here where neither module is imported.
 """
 
+import json
 from functools import wraps
 
 from bottle import Bottle, request, response
 
 from ivre import config, utils
-from ivre.web import utils as webutils
 
 application = Bottle()
 
@@ -37,6 +37,7 @@ application = Bottle()
 def add_security_headers():
     response.set_header("X-Frame-Options", "DENY")
     response.set_header("Content-Security-Policy", "frame-ancestors 'none'")
+    response.set_header("X-Content-Type-Options", "nosniff")
 
 
 def check_referer(func):
@@ -52,10 +53,12 @@ def check_referer(func):
 
     def _die(referer):
         utils.LOGGER.critical("Invalid Referer header [%r]", referer)
-        response.set_header("Content-Type", "application/javascript")
+        response.set_header("Content-Type", "application/json")
         response.status = "400 Bad Request"
-        return webutils.js_alert(
-            "referer", "error", "Invalid Referer header. Check your configuration."
+        return json.dumps(
+            {
+                "error": "Invalid Referer header. Check your configuration.",
+            }
         )
 
     @wraps(func)

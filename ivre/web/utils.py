@@ -26,7 +26,6 @@ import functools
 import os
 import re
 import shlex
-import sys
 
 try:
     import MySQLdb  # type: ignore
@@ -39,27 +38,6 @@ except ImportError:
 from bottle import request  # type: ignore
 
 from ivre import config, utils
-
-
-def js_alert(ident, level, message):
-    """This function returns a string containing JS code to
-    generate an alert message.
-
-    """
-    message = message.replace('"', '\\"')
-    return (
-        f'try {{add_message("{ident}", "{level}", "{message}");}}\n'
-        f'catch(err) {{alert("{level.upper()}: {message}");}}\n'
-    )
-
-
-def js_del_alert(ident):
-    """This function returns a string containing JS code to
-    remove an alert message.
-
-    """
-    return 'try {del_message("%s");} catch(err) {}\n' % ident
-
 
 GET_NOTEPAD_PAGES = {}
 
@@ -129,8 +107,9 @@ def query_from_params(params):
     returns the query as a list of three elements list: [boolean
     `neg`, `param`, `value`].
 
-    This function will write an error message and abort the CGI if an
-    error occurs with `shlex.split()`.
+    Raises ``ValueError`` if `shlex.split()` fails on the query string;
+    the caller is expected to surface the error via Bottle (typically
+    as HTTP 400).
 
     """
     try:
@@ -146,14 +125,6 @@ def query_from_params(params):
             )
         ]
     except ValueError as exc:
-        sys.stdout.write(
-            js_alert(
-                "param-parsing",
-                "warning",
-                "Parameter parsing error. Check the server's logs "
-                "for more information.",
-            )
-        )
         utils.LOGGER.critical("Parameter parsing error [%s (%r)]", exc, exc)
         raise ValueError("Parameter parsing error") from exc
 

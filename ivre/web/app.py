@@ -82,7 +82,6 @@ FilterParams = namedtuple(
         "skip",
         "limit",
         "fields",
-        "callback",
         "ipsasnumbers",
         "datesasstrings",
         "fmt",
@@ -102,26 +101,21 @@ def get_base(dbase):
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:
         limit = min(limit, config.WEB_MAXRESULTS)
-    callback = request.params.get("callback")
     # type of result
     ipsasnumbers = request.params.get("ipsasnumbers")
-    if callback:
-        fmt = "json"
-    else:
-        fmt = request.params.get("format") or "json"
-        if fmt not in set(["txt", "json", "ndjson"]):
-            fmt = "txt"
+    fmt = request.params.get("format") or "json"
+    if fmt not in {"txt", "json", "ndjson"}:
+        fmt = "txt"
     datesasstrings = request.params.get("datesasstrings")
     if fmt == "txt":
         response.set_header("Content-Type", "text/plain")
     elif fmt == "ndjson":
         response.set_header("Content-Type", "application/x-ndjson")
     else:
-        response.set_header("Content-Type", "application/javascript")
-    if callback is None:
-        response.set_header(
-            "Content-Disposition", f'attachment; filename="IVRE-results.{fmt}"'
-        )
+        response.set_header("Content-Type", "application/json")
+    response.set_header(
+        "Content-Disposition", f'attachment; filename="IVRE-results.{fmt}"'
+    )
     return FilterParams(
         flt,
         sortby,
@@ -129,7 +123,6 @@ def get_base(dbase):
         skip,
         limit,
         fields,
-        callback,
         ipsasnumbers,
         datesasstrings,
         fmt,
@@ -150,8 +143,6 @@ def get_nmap_action(subdb, action):
                       or "diffcats")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results (forces "json"
-                        format)
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
@@ -167,7 +158,7 @@ def get_nmap_action(subdb, action):
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
-        result, count = subdb.get_open_port_count(flt_params.flt)
+        result, _ = subdb.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
 
             def r2time(r):
@@ -206,9 +197,8 @@ def get_nmap_action(subdb, action):
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = "]}\n"
         result = list(subdb.getlocations(flt_params.flt))
-        count = len(result)
     elif action == "countopenports":
-        result, count = subdb.get_open_port_count(flt_params.flt)
+        result, _ = subdb.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
 
             def r2res(r):
@@ -220,7 +210,7 @@ def get_nmap_action(subdb, action):
                 return [r["addr"], r.get("openports", {}).get("count", 0)]
 
     elif action == "ipsports":
-        result, count = subdb.get_ips_ports(flt_params.flt)
+        result, _ = subdb.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
 
             def r2res(r):
@@ -246,7 +236,7 @@ def get_nmap_action(subdb, action):
                 ]
 
     elif action == "onlyips":
-        result, count = subdb.get_ips(flt_params.flt)
+        result, _ = subdb.get_ips(flt_params.flt)
         if flt_params.ipsasnumbers:
 
             def r2res(r):
@@ -275,18 +265,15 @@ def get_nmap_action(subdb, action):
                 request.params.get("cat2"),
                 flt=flt_params.flt,
             )
-        count = 0
         result = {}
         if flt_params.ipsasnumbers:
             for res in output:
                 result.setdefault(res["addr"], []).append([res["port"], res["value"]])
-                count += 1
         else:
             for res in output:
                 result.setdefault(utils.int2ip(res["addr"]), []).append(
                     [res["port"], res["value"]]
                 )
-                count += 1
         result = result.items()
 
     if flt_params.fmt == "txt":
@@ -300,14 +287,6 @@ def get_nmap_action(subdb, action):
             yield f"{json.dumps(r2res(rec))}\n"
         return
 
-    if flt_params.callback is not None:
-        if count >= config.WEB_WARN_DOTS_COUNT:
-            yield (
-                'if(confirm("You are about to ask your browser to display %d '
-                "dots, which is a lot and might slow down, freeze or crash "
-                'your browser. Do you want to continue?")) {\n' % count
-            )
-        yield f"{flt_params.callback}(\n"
     yield preamble
 
     # hack to avoid a trailing comma
@@ -323,12 +302,7 @@ def get_nmap_action(subdb, action):
         yield "\n"
 
     yield postamble
-    if flt_params.callback is not None:
-        yield ");"
-        if count >= config.WEB_WARN_DOTS_COUNT:
-            yield "}\n"
-    else:
-        yield "\n"
+    yield "\n"
 
 
 @application.get("/<subdb:re:scans|view>/count")
@@ -339,7 +313,6 @@ def get_nmap_count(subdb):
     :param str subdb: database to query (must be "scans" or "view")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :status 200: no error
     :status 400: invalid referer
     :>json int: count
@@ -348,9 +321,7 @@ def get_nmap_count(subdb):
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
     count = subdb.count(flt_params.flt)
-    if flt_params.callback is None:
-        return f"{count}\n"
-    return f"{flt_params.callback}({count});\n"
+    return f"{count}\n"
 
 
 @application.get("/<subdb:re:scans|view|passive|rir>/top/<field:path>")
@@ -363,7 +334,6 @@ def get_top(subdb, field):
     :param str field: (pseudo-)field to get top values (e.g., "service")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
@@ -405,10 +375,7 @@ def get_top(subdb, field):
         for rec in cursor:
             yield json.dumps({"label": rec["_id"], "value": rec["count"]})
         return
-    if flt_params.callback is None:
-        yield "[\n"
-    else:
-        yield f"{flt_params.callback}([\n"
+    yield "[\n"
     # hack to avoid a trailing comma
     cursor = iter(cursor)
     try:
@@ -419,10 +386,7 @@ def get_top(subdb, field):
         yield json.dumps({"label": rec["_id"], "value": rec["count"]})
         for rec in cursor:
             yield f",\n{json.dumps({'label': rec['_id'], 'value': rec['count']})}"
-    if flt_params.callback is None:
-        yield "\n]\n"
-    else:
-        yield "\n]);\n"
+    yield "\n]\n"
 
 
 @application.get("/<subdb:re:scans|view|passive|rir>/distinct/<field:path>")
@@ -435,7 +399,6 @@ def get_distinct(subdb, field):
     :param str field: (pseudo-)field to get distinct values (e.g., "service")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
@@ -465,10 +428,7 @@ def get_distinct(subdb, field):
         for rec in cursor:
             yield f"{json.dumps(rec)}\n"
         return
-    if flt_params.callback is None:
-        yield "[\n"
-    else:
-        yield f"{flt_params.callback}([\n"
+    yield "[\n"
     # hack to avoid a trailing comma
     cursor = iter(cursor)
     try:
@@ -479,10 +439,7 @@ def get_distinct(subdb, field):
         yield json.dumps(rec)
         for rec in cursor:
             yield f",\n{json.dumps(rec)}"
-    if flt_params.callback is None:
-        yield "\n]\n"
-    else:
-        yield "\n]);\n"
+    yield "\n]\n"
 
 
 def _convert_datetime_value(value):
@@ -520,7 +477,6 @@ def get_nmap(subdb):
     :param str subdb: database to query (must be "scans" or "view")
     :query str q: query (including limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
@@ -548,27 +504,15 @@ def get_nmap(subdb):
 
     if flt_params.unused:
         msg = f"Option{'s' if len(flt_params.unused) > 1 else ''} not understood: {', '.join(flt_params.unused)}"
-        if flt_params.callback is not None:
-            yield webutils.js_alert("param-unused", "warning", msg)
         utils.LOGGER.warning(msg)
-    elif flt_params.callback is not None:
-        yield webutils.js_del_alert("param-unused")
 
     if config.DEBUG:
-        msg1 = f"filter: {subdb.flt2str(flt_params.flt)!r}"
-        msg2 = f"user: {webutils.get_user()!r}"
-        utils.LOGGER.debug(msg1)
-        utils.LOGGER.debug(msg2)
-        if flt_params.callback is not None:
-            yield webutils.js_alert("filter", "info", msg1)
-            yield webutils.js_alert("user", "info", msg2)
+        utils.LOGGER.debug("filter: %r", subdb.flt2str(flt_params.flt))
+        utils.LOGGER.debug("user: %r", webutils.get_user())
 
     version_mismatch = {}
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "[\n"
-    else:
-        yield f"{flt_params.callback}([\n"
+    if flt_params.fmt == "json":
+        yield "[\n"
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
@@ -619,11 +563,8 @@ def get_nmap(subdb):
         # XXX-WORKAROUND-PGSQL
         if flt_params.limit and i + 1 >= flt_params.limit:
             break
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "\n]\n"
-    else:
-        yield "\n]);\n"
+    if flt_params.fmt == "json":
+        yield "\n]\n"
 
     messages = {
         1: lambda count: (
@@ -634,12 +575,7 @@ def get_nmap(subdb):
         ),
     }
     for mismatch, count in version_mismatch.items():
-        message = messages[mismatch](count)
-        if flt_params.callback is not None:
-            yield webutils.js_alert(
-                f"version-mismatch-{(mismatch + 1) // 2}", "warning", message
-            )
-        utils.LOGGER.warning(message)
+        utils.LOGGER.warning(messages[mismatch](count))
 
 
 #
@@ -737,21 +673,17 @@ def get_flow():
     """Get special values from Nmap & View databases
 
     :query str q: query (including limit/skip, orderby, etc.)
-    :query str callback: callback to use for JSONP results
     :query str action: can be set to "details"
     :status 200: no error
     :status 400: invalid referer
     :>json object: results
 
     """
-    callback = request.params.get("callback")
+    response.set_header("Content-Type", "application/json")
+    response.set_header(
+        "Content-Disposition", 'attachment; filename="IVRE-results.json"'
+    )
     action = request.params.get("action", "")
-    if callback is None:
-        response.set_header(
-            "Content-Disposition", 'attachment; filename="IVRE-results.json"'
-        )
-    else:
-        yield f"{callback}(\n"
     utils.LOGGER.debug("Params: %r", dict(request.params))
     query = json.loads(request.params.get("q", "{}"))
     limit = query.get("limit", config.WEB_GRAPH_LIMIT)
@@ -809,8 +741,7 @@ def get_flow():
                 before=before,
             )
     yield json.dumps(res, default=utils.serialize)
-    if callback is not None:
-        yield ");\n"
+    yield "\n"
 
 
 #
@@ -824,17 +755,13 @@ def get_ipdata(addr):
     """Returns (estimated) geographical and AS data for a given IP address.
 
     :param str addr: IP address to query
-    :query str callback: callback to use for JSONP results
     :status 200: no error
     :status 400: invalid referer
     :>json object: the result values
 
     """
-    callback = request.params.get("callback")
-    result = json.dumps(db.data.infos_byip(addr))
-    if callback is None:
-        return f"{result}\n"
-    return f"{callback}({result});\n"
+    response.set_header("Content-Type", "application/json")
+    return f"{json.dumps(db.data.infos_byip(addr))}\n"
 
 
 #
@@ -924,7 +851,6 @@ def get_passive():
 
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
@@ -947,11 +873,8 @@ def get_passive():
         sort=flt_params.sortby,
         fields=flt_params.fields,
     )
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "[\n"
-    else:
-        yield f"{flt_params.callback}([\n"
+    if flt_params.fmt == "json":
+        yield "[\n"
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
@@ -978,11 +901,8 @@ def get_passive():
             )
         if flt_params.limit and i + 1 >= flt_params.limit:
             break
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "\n]\n"
-    else:
-        yield "\n]);\n"
+    if flt_params.fmt == "json":
+        yield "\n]\n"
 
 
 @application.get("/passive/count")
@@ -992,7 +912,6 @@ def get_passive_count():
 
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :status 200: no error
     :status 400: invalid referer
     :>json int: count
@@ -1000,9 +919,7 @@ def get_passive_count():
     """
     flt_params = get_base(db.passive)
     count = db.passive.count(flt_params.flt)
-    if flt_params.callback is None:
-        return f"{count}\n"
-    return f"{flt_params.callback}({count});\n"
+    return f"{count}\n"
 
 
 #
@@ -1017,7 +934,6 @@ def get_rir():
 
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer
@@ -1031,11 +947,8 @@ def get_rir():
         sort=flt_params.sortby,
         fields=flt_params.fields,
     )
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "[\n"
-    else:
-        yield f"{flt_params.callback}([\n"
+    if flt_params.fmt == "json":
+        yield "[\n"
     for i, rec in enumerate(result):
         try:
             del rec["_id"]
@@ -1050,11 +963,8 @@ def get_rir():
             )
         if flt_params.limit and i + 1 >= flt_params.limit:
             break
-    if flt_params.callback is None:
-        if flt_params.fmt == "json":
-            yield "\n]\n"
-    else:
-        yield "\n]);\n"
+    if flt_params.fmt == "json":
+        yield "\n]\n"
 
 
 @application.get("/rir/count")
@@ -1064,7 +974,6 @@ def get_rir_count():
 
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
-    :query str callback: callback to use for JSONP results
     :status 200: no error
     :status 400: invalid referer
     :>json int: count
@@ -1072,9 +981,7 @@ def get_rir_count():
     """
     flt_params = get_base(db.rir)
     count = db.rir.count(flt_params.flt)
-    if flt_params.callback is None:
-        return f"{count}\n"
-    return f"{flt_params.callback}({count});\n"
+    return f"{count}\n"
 
 
 # Auth check route for nginx auth_request — always registered so that
