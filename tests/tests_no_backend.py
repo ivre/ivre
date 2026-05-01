@@ -717,6 +717,233 @@ class ScreenshotContainmentTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# RIR HTTP backend / MCP tool tests
+# ---------------------------------------------------------------------
+
+
+class RirBackendTests(unittest.TestCase):
+    """Regression tests for the HTTP-backed `db.rir` purpose.
+
+    These tests cover the surface of `HttpDBRir`: backend resolution,
+    filter construction, the round-trip with `web.utils.parse_filter`,
+    and inheritance of the base `DBRir.get_best` implementation. They
+    do not connect to any upstream IVRE.
+    """
+
+    def test_from_url_resolves_to_http_backend(self):
+        from ivre.db import DBRir
+        from ivre.db.http import HttpDBRir
+
+        inst = DBRir.from_url("http://example.com/cgi")
+        self.assertIsInstance(inst, HttpDBRir)
+        self.assertEqual(inst.route, "rir")
+
+    def test_https_url_also_resolves(self):
+        from ivre.db import DBRir
+        from ivre.db.http import HttpDBRir
+
+        inst = DBRir.from_url("https://example.com/cgi")
+        self.assertIsInstance(inst, HttpDBRir)
+
+    def test_search_filters_emit_sealed_dicts(self):
+        """`HttpDBRir.search*` produce the sealed-dict shape consumed
+        by the server-side `web.utils.parse_filter`."""
+        from urllib.parse import urlparse
+
+        from ivre.db.http import HttpDBRir
+
+        hdb = HttpDBRir(urlparse("http://x"))
+        self.assertEqual(hdb.searchhost("8.8.8.8"), {"f": "host", "a": ["8.8.8.8"]})
+        self.assertEqual(hdb.searchcountry("FR"), {"f": "country", "a": ["FR"]})
+        self.assertEqual(hdb.searchtext("orange"), {"f": "text", "a": ["orange"]})
+
+    def test_flt_combinators_emit_sealed_dicts(self):
+        from urllib.parse import urlparse
+
+        from ivre.db.http import HttpDBRir
+
+        hdb = HttpDBRir(urlparse("http://x"))
+        flt_and = hdb.flt_and(hdb.searchcountry("FR"), hdb.searchtext("orange"))
+        self.assertEqual(flt_and["f"], "and")
+        self.assertEqual(len(flt_and["a"]), 2)
+        flt_or = hdb.flt_or(hdb.searchhost("1.1.1.1"), hdb.searchhost("8.8.8.8"))
+        self.assertEqual(flt_or["f"], "or")
+        self.assertEqual(len(flt_or["a"]), 2)
+
+    def test_filter_round_trips_through_parse_filter(self):
+        """A filter built by `HttpDBRir` is JSON-serialised on the
+        wire and re-resolved on the server side by `parse_filter`
+        against the target backend's `searchXxx` methods."""
+        from urllib.parse import urlparse
+
+        from ivre.db.http import HttpDBRir
+        from ivre.web.utils import parse_filter
+
+        hdb = HttpDBRir(urlparse("http://x"))
+        flt = hdb.flt_and(hdb.searchcountry("FR"), hdb.searchtext("orange"))
+        # Mimic the JSON serialisation that goes over the wire.
+        wire = json.loads(json.dumps(flt))
+
+        calls = []
+
+        class _StubDBRir:
+            flt_empty = {}
+
+            @staticmethod
+            def flt_and(*args):
+                calls.append(("flt_and", args))
+                return ("AND", args)
+
+            @staticmethod
+            def flt_or(*args):
+                calls.append(("flt_or", args))
+                return ("OR", args)
+
+            @staticmethod
+            def searchcountry(*args, **kwargs):
+                calls.append(("searchcountry", args, kwargs))
+                return ("country", args)
+
+            @staticmethod
+            def searchtext(*args, **kwargs):
+                calls.append(("searchtext", args, kwargs))
+                return ("text", args)
+
+        parse_filter(_StubDBRir(), wire)
+        names = [c[0] for c in calls]
+        self.assertIn("searchcountry", names)
+        self.assertIn("searchtext", names)
+        self.assertIn("flt_and", names)
+        # Confirm the right arguments propagated.
+        country_call = next(c for c in calls if c[0] == "searchcountry")
+        self.assertEqual(country_call[1], ("FR",))
+        text_call = next(c for c in calls if c[0] == "searchtext")
+        self.assertEqual(text_call[1], ("orange",))
+
+    def test_get_best_inherits_from_dbrir(self):
+        """`HttpDBRir.get_best` must be inherited unchanged from
+        `DBRir`. The base implementation builds `searchhost(addr)`
+        and calls `self.get(...)`, both of which resolve to HTTP
+        requests through the existing `HttpDB` machinery; an HTTP-
+        specific override would be redundant."""
+        from ivre.db import DBRir
+        from ivre.db.http import HttpDBRir
+
+        self.assertIs(HttpDBRir.get_best, DBRir.get_best)
+
+    def test_count_url_shape(self):
+        """`HttpDBRir.count(flt)` builds a URL of the form
+        `<base>/rir/count?f=<sealed-filter>`. We don't make a network
+        call; we just rebuild the URL the way the implementation
+        would and assert it shape-matches what the server route
+        accepts."""
+        from urllib.parse import unquote, urlparse
+
+        from ivre.db.http import HttpDBRir
+
+        hdb = HttpDBRir(urlparse("http://upstream.example/cgi"))
+        flt = hdb.flt_and(hdb.searchcountry("FR"))
+        rendered = hdb._output_filter(flt)
+        url = f"{hdb.db.baseurl}/{hdb.route}/count?f={rendered}"
+        self.assertTrue(url.startswith("http://upstream.example/cgi/rir/count?f="))
+        decoded = json.loads(unquote(rendered))
+        self.assertEqual(decoded["f"], "and")
+
+
+class RirWebRoutesTests(unittest.TestCase):
+    """Regression tests for the `/rir` Bottle web routes."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Importing the app instantiates the route table once.
+        from ivre.web.app import application
+
+        cls.routes = [(r.method, r.rule) for r in application.routes]
+
+    def _has_route(self, method, rule):
+        return (method, rule) in self.routes
+
+    def test_rir_records_route_registered(self):
+        self.assertTrue(self._has_route("GET", "/rir"))
+
+    def test_rir_count_route_registered(self):
+        self.assertTrue(self._has_route("GET", "/rir/count"))
+
+    def test_rir_in_distinct_route_pattern(self):
+        """The shared `<subdb>/distinct/<field>` route must include
+        `rir` in its allowed-purpose regex."""
+        distinct_rules = [
+            rule
+            for method, rule in self.routes
+            if method == "GET" and "/distinct/" in rule
+        ]
+        self.assertTrue(distinct_rules)
+        self.assertTrue(
+            any("rir" in r for r in distinct_rules),
+            "no /distinct/ route includes 'rir' in its purpose regex; "
+            "found: %r" % distinct_rules,
+        )
+
+    def test_rir_in_top_route_pattern(self):
+        top_rules = [
+            rule for method, rule in self.routes if method == "GET" and "/top/" in rule
+        ]
+        self.assertTrue(top_rules)
+        self.assertTrue(
+            any("rir" in r for r in top_rules),
+            "no /top/ route includes 'rir' in its purpose regex; "
+            "found: %r" % top_rules,
+        )
+
+
+class RirMcpToolsTests(unittest.TestCase):
+    """Regression tests for the RIR MCP tools.
+
+    Skipped when the optional ``mcp`` dependency is not installed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        from ivre.tools import mcp_server
+
+        if mcp_server.FastMCP is None:
+            raise unittest.SkipTest("mcp dependency not installed")
+        cls.mcp = mcp_server._build_server()
+
+    def _tool_names(self):
+        import asyncio
+
+        tools = asyncio.run(self.mcp.list_tools())
+        return {t.name for t in tools}
+
+    def test_rir_tools_registered(self):
+        names = self._tool_names()
+        self.assertIn("rir_lookup", names)
+        self.assertIn("rir_search", names)
+        self.assertIn("rir_count", names)
+
+    def test_rir_lookup_signature(self):
+        """`rir_lookup` takes a single positional `addr` argument."""
+        import asyncio
+
+        tools = asyncio.run(self.mcp.list_tools())
+        spec = next(t for t in tools if t.name == "rir_lookup")
+        # FastMCP exposes JSON-Schema-shaped inputSchema.
+        props = spec.inputSchema.get("properties", {})
+        self.assertIn("addr", props)
+
+    def test_rir_search_signature(self):
+        """`rir_search` accepts optional `query`, `country`, `limit`."""
+        import asyncio
+
+        tools = asyncio.run(self.mcp.list_tools())
+        spec = next(t for t in tools if t.name == "rir_search")
+        props = spec.inputSchema.get("properties", {})
+        for key in ("query", "country", "limit"):
+            self.assertIn(key, props)
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 
