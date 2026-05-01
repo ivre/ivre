@@ -15,6 +15,11 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 name: "Install IVRE and the required tools"
+inputs:
+  install-zeek:
+    description: "Install Zeek (set to 'false' to skip)"
+    required: false
+    default: "true"
 runs:
   using: "composite"
   steps:
@@ -22,4 +27,4 @@ runs:
       shell: bash
     - run: ${{ github.action_path }}/install_zeek.sh
       shell: bash
-      if: ${{ github.workflow != 'Elasticsearch tests' && github.workflow != 'Maxmind tests' }}
+      if: ${{ inputs.install-zeek == 'true' }}

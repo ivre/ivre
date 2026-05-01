@@ -4418,6 +4418,41 @@ class IvreTests(unittest.TestCase):
         self.assertTrue("ivre" in screenwords)
         shutil.rmtree("output")
 
+    def test_50_dump_nmap_passive(self):
+        """Dump the `hosts` and `passive` collections to
+        `../backup_nmap_passive.tar.bz2` for the Elasticsearch CI
+        job. Runs only when the `IVRE_DUMP_NMAP_PASSIVE` environment
+        variable is set (the workflow sets it on the matrix entry
+        that produces the artefact). The dump is consumed by
+        `test_20_fake_nmap_passive` on the elastic backend, which
+        calls `mongorestore` to seed MongoDB.
+        """
+        if not os.environ.get("IVRE_DUMP_NMAP_PASSIVE"):
+            return
+        if DATABASE != "mongo":
+            return
+        backup_dir = "../backup"
+        if os.path.exists(backup_dir):
+            shutil.rmtree(backup_dir)
+        os.makedirs(backup_dir)
+        subprocess.check_call(["mongodump", "--db=ivre", "--out=" + backup_dir])
+        # `mongodump` writes BSON files under `<out>/<db>/`; flatten
+        # them up one level so `mongorestore --db ivre <out>` (which
+        # is what `test_20_fake_nmap_passive` runs) finds them.
+        for fname in glob(os.path.join(backup_dir, "ivre", "*.bson")):
+            shutil.move(fname, backup_dir)
+        subprocess.check_call(
+            [
+                "tar",
+                "jcf",
+                "../backup_nmap_passive.tar.bz2",
+                "-C",
+                "..",
+                "backup/hosts.bson",
+                "backup/passive.bson",
+            ]
+        )
+
     def test_50_view(self):
         processes = random.choice([[], ["--processes", "1"]])
         print(f"Running db2view with {processes!r}")
