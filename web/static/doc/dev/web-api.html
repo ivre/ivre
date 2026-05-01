@@ -131,8 +131,6 @@ or “diffcats”)</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results (forces “json”
-format)</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
 <li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
@@ -168,7 +166,6 @@ timestamps</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 </ul>
 </dd>
 <dt class="field-odd">Status Codes<span class="colon">:</span></dt>
@@ -201,7 +198,6 @@ timestamps</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
 <li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
@@ -240,7 +236,6 @@ timestamps</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
 <li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
@@ -277,7 +272,6 @@ timestamps</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
 <li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
@@ -338,7 +332,6 @@ timestamps</p></li>
 <dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip, orderby, etc.)</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>action</strong> (<em>str</em>) – can be set to “details”</p></li>
 </ul>
 </dd>
@@ -366,19 +359,14 @@ timestamps</p></li>
 <li><p><strong>addr</strong> (<em>str</em>) – IP address to query</p></li>
 </ul>
 </dd>
-<dt class="field-even">Query Parameters<span class="colon">:</span></dt>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
-</ul>
-</dd>
-<dt class="field-odd">Status Codes<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
 </ul>
 </dd>
-<dt class="field-even">Response JSON Object<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
+<dt class="field-odd">Response JSON Object<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>object</strong> – the result values</p></li>
 </ul>
 </dd>
@@ -445,7 +433,6 @@ where this answer has been seen.</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
 <li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
@@ -476,7 +463,6 @@ timestamps</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 </ul>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>
@@ -502,7 +488,6 @@ timestamps</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>format</strong> (<em>str</em>) – “json” (the default) or “ndjson”</p></li>
 </ul>
 </dd>
@@ -529,7 +514,6 @@ timestamps</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
-<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 </ul>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>
