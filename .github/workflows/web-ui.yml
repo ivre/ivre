@@ -86,20 +86,41 @@ jobs:
         # build-time references that are not fetched by the runtime)
         # and fails if any URL outside the allowed set appears.
         #
-        # Allowed:
-        #   - www.w3.org/...     XML/SVG namespaces
-        #   - localhost*         dev-only proxy targets
-        #   - react.dev/errors/  React's error-code lookup, a
-        #                        constructed string in console output
-        #   - tailwindcss.com    license attribution in the CSS
+        # Allowed (all are passive string literals — namespace URIs,
+        # license attributions, or error-/doc-reference URLs in
+        # console output, never reached over the network):
+        #
+        #   XML / SVG / RDF namespaces:
+        #     - www.w3.org/...         XML, SVG, XHTML
+        #     - purl.org/dc/...        Dublin Core (in world-map.svg)
+        #     - web.resource.org/cc/   Creative Commons RDF
+        #     - sodipodi.sourceforge.net/    Inkscape SVG metadata
+        #     - inkscape.org/namespaces/     Inkscape SVG metadata
+        #
+        #   Library license / attribution / error references:
+        #     - react.dev/errors/      React minified error lookup
+        #     - tailwindcss.com        Tailwind CSS license header
+        #     - radix-ui.com/...       Radix primitive doc URLs
+        #     - reactrouter.com/...    react-router doc URLs
+        #     - github.com/ungap/...   url-search-params polyfill comment
+        #
+        #   Dev-only:
+        #     - localhost*             dev server / proxy targets
         run: |
           set -e
           found=$(find dist/ -type f -not -name '*.map' -print0 \
               | xargs -0 grep -hoE 'https?://[A-Za-z0-9._/?=&%~+:#@-]+' 2>/dev/null \
               | grep -vE '^https?://www\.w3\.org/' \
+              | grep -vE '^https?://purl\.org/dc/' \
+              | grep -vE '^https?://web\.resource\.org/cc/' \
+              | grep -vE '^https?://sodipodi\.sourceforge\.net/' \
+              | grep -vE '^https?://(www\.)?inkscape\.org/namespaces/' \
               | grep -vE '^https?://localhost([:/]|$)' \
               | grep -vE '^https?://react\.dev/errors/' \
               | grep -vE '^https?://tailwindcss\.com($|/| )' \
+              | grep -vE '^https?://radix-ui\.com/' \
+              | grep -vE '^https?://reactrouter\.com/' \
+              | grep -vE '^https?://github\.com/ungap/' \
               | sort -u || true)
           if [ -n "$found" ]; then
               echo "External URLs leaked into the bundle:" >&2

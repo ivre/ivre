@@ -1,13 +1,26 @@
 @import "tailwindcss";
 
 /*
+ * Switch the ``dark:`` variant from Tailwind v4's default
+ * ``@media (prefers-color-scheme: dark)`` to a class-based scope.
+ * ``next-themes`` (configured with ``attribute="class"`` in
+ * ``src/routes/root.tsx``) toggles the ``.dark`` class on
+ * ``<html>``; without this declaration, ``dark:`` utilities would
+ * never fire in response to the user's manual theme toggle.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
  * shadcn/ui (new-york) base tokens, Tailwind v4 syntax. Tokens are
  * defined as CSS custom properties so shadcn components can pick them
- * up via classes such as `bg-background` or `text-foreground`.
+ * up via classes such as ``bg-background`` or ``text-foreground``.
  *
- * The values mirror the defaults from `npx shadcn@latest init` with the
- * "neutral" base colour. Kept minimal here; specific pages can extend
- * the palette as they need it.
+ * The palette is keyed to Tailwind's default ``gray`` scale (slightly
+ * blue-tinted), matching the design language of the prototype that
+ * preceded this rewrite. The specific OKLCH values come from Tailwind
+ * v4's ``--color-gray-*`` defaults so the surface tones line up with
+ * anything that uses ``bg-gray-50`` / ``bg-gray-900`` in component
+ * code.
  */
 
 @theme inline {
@@ -30,6 +43,16 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /*
+   * "Highlight" is the soft accent applied to result-card chips,
+   * facet rows, and domain-tree leaves whose value matches a
+   * currently-active filter. Light mode uses a pale yellow; dark
+   * mode uses a translucent orange (better contrast against the
+   * deep-blue dark surfaces). Both tokens live as CSS variables so
+   * one tweak in this file restyles every highlighted element.
+   */
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -37,48 +60,54 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* Tailwind gray-50 .. gray-900 (light mode). */
+  --background: oklch(0.985 0.002 247.839); /* gray-50 */
+  --foreground: oklch(0.21 0.034 264.665); /* gray-900 */
+  --card: oklch(1 0 0); /* white */
+  --card-foreground: oklch(0.21 0.034 264.665); /* gray-900 */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.21 0.034 264.665);
+  --primary: oklch(0.546 0.245 262.881); /* blue-600 */
+  --primary-foreground: oklch(0.985 0.002 247.839); /* gray-50 */
+  --secondary: oklch(0.928 0.006 264.531); /* gray-200 */
+  --secondary-foreground: oklch(0.278 0.033 256.848); /* gray-800 */
+  --muted: oklch(0.967 0.003 264.542); /* gray-100 */
+  --muted-foreground: oklch(0.446 0.03 256.802); /* gray-600 */
+  --accent: oklch(0.928 0.006 264.531); /* gray-200 */
+  --accent-foreground: oklch(0.21 0.034 264.665); /* gray-900 */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.928 0.006 264.531); /* gray-200 */
+  --input: oklch(0.928 0.006 264.531);
+  --ring: oklch(0.707 0.022 261.325); /* gray-400 */
+  --highlight: oklch(0.973 0.071 103.193); /* yellow-100 */
+  --highlight-foreground: oklch(0.279 0.077 45.635); /* yellow-950 */
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Tailwind gray-950 / gray-900 / gray-800 / gray-700 ... */
+  --background: oklch(0.13 0.028 261.692); /* gray-950 */
+  --foreground: oklch(0.985 0.002 247.839); /* gray-50 */
+  --card: oklch(0.21 0.034 264.665); /* gray-900 */
+  --card-foreground: oklch(0.985 0.002 247.839);
+  --popover: oklch(0.21 0.034 264.665);
+  --popover-foreground: oklch(0.985 0.002 247.839);
+  --primary: oklch(0.623 0.214 259.815); /* blue-500 */
+  --primary-foreground: oklch(0.985 0.002 247.839);
+  --secondary: oklch(0.278 0.033 256.848); /* gray-800 */
+  --secondary-foreground: oklch(0.985 0.002 247.839);
+  --muted: oklch(0.278 0.033 256.848); /* gray-800 */
+  --muted-foreground: oklch(0.707 0.022 261.325); /* gray-400 */
+  --accent: oklch(0.278 0.033 256.848); /* gray-800 */
+  --accent-foreground: oklch(0.985 0.002 247.839);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: oklch(0.373 0.034 259.733); /* gray-700 */
+  --input: oklch(0.373 0.034 259.733);
+  --ring: oklch(0.551 0.027 264.364); /* gray-500 */
+  --highlight: oklch(0.705 0.213 47.604 / 0.3); /* orange-500 @ 30% */
+  --highlight-foreground: oklch(0.954 0.038 75.164); /* orange-100 */
 }
 
 body {
@@ -90,4 +119,35 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
+}
+
+/*
+ * Hide scrollbars across the app while keeping scrolling itself
+ * functional. The chrome (cards, facets, sidebar rail) is
+ * already self-evident — visible scrollbar tracks were adding
+ * visual noise without communicating anything new. This mirrors
+ * the prototype's behaviour.
+ */
+html,
+*::-webkit-scrollbar {
+  -ms-overflow-style: none; /* Edge legacy */
+  scrollbar-width: none; /* Firefox */
+}
+*::-webkit-scrollbar {
+  display: none; /* WebKit / Blink */
+}
+
+/*
+ * Show the pointer cursor on every interactive element. Modern
+ * Chromium-based browsers ship with ``button { cursor: default }``
+ * in their user-agent stylesheet, which makes shadcn buttons,
+ * filter chips, and facet rows look non-interactive. The prototype
+ * relied on this rule too. Disabled controls still show their own
+ * cursor (``not-allowed`` from shadcn's ``disabled:`` modifiers).
+ */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+a[href],
+summary {
+  cursor: pointer;
 }
