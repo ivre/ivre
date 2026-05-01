@@ -56,7 +56,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Active recon</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#scanning">Scanning</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#with-nmap-masscan-or-zgrab2">With Nmap, Masscan or Zgrab2</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#with-ivre">With IVRE</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#splitting-wide-scans">Splitting wide scans</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#enjoying-the-results">Enjoying the results</a><ul>
@@ -136,33 +136,18 @@ you can explore with the the <a class="reference internal" href="web-ui.html#web
 the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> command line tool or the Python API
 (<code class="docutils literal notranslate"><span class="pre">ivre.db.db.view.*</span></code>).</p>
 </section>
-<section id="with-ivre">
-<h3>With IVRE<a class="headerlink" href="#with-ivre" title="Link to this heading"></a></h3>
+<section id="splitting-wide-scans">
+<h3>Splitting wide scans<a class="headerlink" href="#splitting-wide-scans" title="Link to this heading"></a></h3>
 <p>Masscan does not provide results as complete as Nmap, when using the
 “interesting” options (for example, <code class="docutils literal notranslate"><span class="pre">-vv</span> <span class="pre">-A</span></code>) or scripts. That being
 said, Nmap (with such “interesting” options) cannot run efficiently
 against huge networks.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span></code> tool can run one Nmap process per target (option
-<code class="docutils literal notranslate"><span class="pre">--output=XMLFork</span></code>). This should be less efficient in theory,
-because Nmap supposedly knows better how to handle the host and
-network resources, but in practice it is much more efficient. You can
-adjust how many Nmap processes you want to run in parallel using the
-<code class="docutils literal notranslate"><span class="pre">--processes</span> <span class="pre">N</span></code> option.</p>
-<p>Another advantage of using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span> <span class="pre">--output=XMLFork</span></code> over
-using Nmap directly is that <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span></code> produces output files as
-soon as each host has been scanned (in the <code class="docutils literal notranslate"><span class="pre">scans/*/up</span></code> directory).</p>
-<p>Here is a simple example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000 --output=XMLFork
-</pre></div>
-</div>
-<p>This will run a standard scan against 1000 random hosts on the Internet
-by running 30 nmap processes in parallel. See the output of
-<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">runscans</span></code> if you want to do something else.</p>
-<p>When it’s over, to import the results in the database and create a
-view from them, run (<code class="docutils literal notranslate"><span class="pre">ROUTABLE-001</span></code> is the category name, and
-<code class="docutils literal notranslate"><span class="pre">MySource</span></code> is the source name, usually referencing the machine used
-to run the scan):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/ROUTABLE/up
+<p>A common pattern is therefore to split the target into chunks and run
+several Nmap processes in parallel, each producing its own XML file.
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipcalc</span></code> can help slice address ranges or address-list files
+into chunks. Once the per-chunk XML files have been produced, ingest
+them with <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code> and create a view:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/
 $ ivre db2view nmap
 </pre></div>
 </div>

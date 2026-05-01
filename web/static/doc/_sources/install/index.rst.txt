@@ -9,4 +9,3 @@ Installation
   config
   fast-install-and-first-run
   docker
-  agents

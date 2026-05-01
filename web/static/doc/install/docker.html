@@ -20,7 +20,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Agents" href="agents.html" />
+    <link rel="next" title="Usage" href="../usage/index.html" />
     <link rel="prev" title="Fast install &amp; first run" href="fast-install-and-first-run.html" /> 
 </head>
 
@@ -64,7 +64,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#initialization">Initialization</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
 </ul>
 </li>
 </ul>
@@ -133,23 +132,20 @@ parent of every other image.</p></td>
 <td><p>CLI container, used to run <code class="docutils literal notranslate"><span class="pre">ivre</span></code> subcommands
 against the database.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/agent</span></code></p></td>
-<td><p>Remote scan agent (see <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code>).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web</span></code></p></td>
 <td><p>nginx front-end serving the Web UI static assets and
 reverse-proxying <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code>, <code class="docutils literal notranslate"><span class="pre">/dokuwiki/</span></code> and
 <code class="docutils literal notranslate"><span class="pre">/mcp</span></code> to the internal backends.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-uwsgi</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-uwsgi</span></code></p></td>
 <td><p>uWSGI application server running the IVRE Web API
 (Bottle app in <code class="xref py py-mod docutils literal notranslate"><span class="pre">ivre.web.app</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-doku</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-doku</span></code></p></td>
 <td><p>PHP-FPM container running the Dokuwiki wiki
 integrated in the Web UI.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ivre/web-mcp</span></code></p></td>
 <td><p><a class="reference internal" href="../usage/mcp-server.html"><span class="doc">MCP server</span></a> exposed over the Streamable
 HTTP transport, reachable through the
 <code class="docutils literal notranslate"><span class="pre">ivre/web</span></code> reverse proxy at <code class="docutils literal notranslate"><span class="pre">/mcp</span></code>. Bundles
@@ -210,7 +206,7 @@ $ vagrant up --no-parallel
 <p>By default, the images will be downloaded from the Docker Hub. But you
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in base client agent web web-doku web-mcp web-uwsgi ; do
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in base client web web-doku web-mcp web-uwsgi ; do
 &gt; docker build -t &quot;ivre/$img&quot; &quot;$img&quot;
 &gt; done
 </pre></div>
@@ -250,7 +246,6 @@ root@ivreclient:/# yes | ivre ipinfo --init
 root@ivreclient:/# yes | ivre scancli --init
 root@ivreclient:/# yes | ivre view --init
 root@ivreclient:/# yes | ivre flowcli --init
-root@ivreclient:/# yes | ivre runscansagentdb --init
 root@ivreclient:/# ivre ipdata --download
 </pre></div>
 </div>
@@ -280,7 +275,7 @@ root@ivreclient:/#
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="fast-install-and-first-run.html" class="btn btn-neutral float-left" title="Fast install &amp; first run" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="agents.html" class="btn btn-neutral float-right" title="Agents" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../usage/index.html" class="btn btn-neutral float-right" title="Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

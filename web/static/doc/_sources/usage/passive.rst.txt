@@ -27,15 +27,12 @@ PCAP file), run:
    $ LOG_PATH=logs/passiverecon \
    >   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -r capture
 
-This will produce log files in the ``logs`` directory. You need to run a
-``ivre passivereconworker`` to process these files. You can try:
+This will produce log files in the ``logs`` directory. Pipe each
+generated log file into ``ivre passiverecon2db``:
 
 ::
 
-   $ ivre passivereconworker --directory=logs
-
-This program will not stop by itself. You can ``kill`` it, it will
-stop gently (as soon as it has finished to process the current file).
+   $ for f in logs/passiverecon.*; do ivre passiverecon2db < "$f"; done
 
 You can also send the data from ``zeek`` to the database without using
 intermediate files:

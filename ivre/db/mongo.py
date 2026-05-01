@@ -26,12 +26,10 @@ from __future__ import annotations  # needed for flake8
 import datetime
 import hashlib
 import json
-import os
 import re
 import socket
 import struct
 import time
-import uuid
 from collections import OrderedDict
 from copy import deepcopy
 from secrets import token_urlsafe
@@ -55,7 +53,6 @@ from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import (
     DB,
     DBActive,
-    DBAgent,
     DBAuth,
     DBFlow,
     DBFlowMeta,
@@ -63,7 +60,6 @@ from ivre.db import (
     DBPassive,
     DBRir,
     DBView,
-    LockError,
 )
 from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
@@ -4443,7 +4439,6 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                 and not any(
                     colname_scans in otherdb.columns
                     for otherdb in [
-                        self.globaldb.agent,
                         self.globaldb.flow,
                         self.globaldb.passive,
                         self.globaldb.view,
@@ -5759,206 +5754,6 @@ class MongoDBPassive(MongoDB, DBPassive):
         return {
             "firstseen" if new else "lastseen": {"$lte" if neg else "$gt": timestamp}
         }
-
-
-class MongoDBAgent(MongoDB, DBAgent):
-    """MongoDB-specific code to handle agents-in-DB"""
-
-    column_agents = 0
-    column_scans = 1
-    column_masters = 2
-    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
-        # agents
-        [
-            ([("host", pymongo.ASCENDING)], {}),
-            ([("path.remote", pymongo.ASCENDING)], {}),
-            ([("path.local", pymongo.ASCENDING)], {}),
-            ([("master", pymongo.ASCENDING)], {}),
-            ([("scan", pymongo.ASCENDING)], {}),
-        ],
-        # scans
-        [
-            ([("agents", pymongo.ASCENDING)], {}),
-        ],
-        # masters
-        [
-            ([("hostname", pymongo.ASCENDING), ("path", pymongo.ASCENDING)], {}),
-        ],
-    ]
-
-    def __init__(self, url):
-        super().__init__(url)
-        self.columns = [
-            self.params.pop("colname_agents", "agents"),
-            self.params.pop("colname_scans", "runningscans"),
-            self.params.pop("colname_masters", "masters"),
-        ]
-
-    def _add_agent(self, agent):
-        return self.db[self.columns[self.column_agents]].insert_one(agent).inserted_id
-
-    def get_agent(self, agentid):
-        return self.db[self.columns[self.column_agents]].find_one({"_id": agentid})
-
-    def get_free_agents(self):
-        return (
-            x["_id"]
-            for x in self.set_limits(
-                self.db[self.columns[self.column_agents]].find(
-                    {"scan": None}, projection=["_id"]
-                )
-            )
-        )
-
-    def get_agents_by_master(self, masterid):
-        return (
-            x["_id"]
-            for x in self.set_limits(
-                self.db[self.columns[self.column_agents]].find(
-                    {"master": masterid},
-                    projection=["_id"],
-                )
-            )
-        )
-
-    def get_agents(self):
-        return (
-            x["_id"]
-            for x in self.set_limits(
-                self.db[self.columns[self.column_agents]].find(projection=["_id"])
-            )
-        )
-
-    def assign_agent(self, agentid, scanid, only_if_unassigned=False, force=False):
-        flt = {"_id": agentid}
-        if only_if_unassigned:
-            flt["scan"] = None
-        elif not force:
-            flt["scan"] = {"$ne": False}
-        self.db[self.columns[self.column_agents]].update_one(
-            flt, {"$set": {"scan": scanid}}
-        )
-        agent = self.get_agent(agentid)
-        if scanid is not None and scanid is not False and scanid == agent["scan"]:
-            self.db[self.columns[self.column_scans]].update_one(
-                {"_id": scanid, "agents": {"$ne": agentid}},
-                {"$push": {"agents": agentid}},
-            )
-
-    def unassign_agent(self, agentid, dont_reuse=False):
-        agent = self.get_agent(agentid)
-        scanid = agent["scan"]
-        if scanid is not None:
-            self.db[self.columns[self.column_scans]].update_one(
-                {"_id": scanid, "agents": agentid}, {"$pull": {"agents": agentid}}
-            )
-        if dont_reuse:
-            self.assign_agent(agentid, False, force=True)
-        else:
-            self.assign_agent(agentid, None, force=True)
-
-    def _del_agent(self, agentid):
-        return self.db[self.columns[self.column_agents]].delete_one({"_id": agentid})
-
-    def _add_scan(self, scan):
-        return self.db[self.columns[self.column_scans]].insert_one(scan).inserted_id
-
-    def get_scan(self, scanid):
-        scan = self.db[self.columns[self.column_scans]].find_one(
-            {"_id": scanid}, projection={"target": 0}
-        )
-        if scan.get("lock") is not None:
-            scan["lock"] = uuid.UUID(bytes=scan["lock"])
-        if "target_info" not in scan:
-            target = self.get_scan_target(scanid)
-            if target is not None:
-                target_info = target.target.infos
-                self.db[self.columns[self.column_scans]].update_one(
-                    {"_id": scanid},
-                    {"$set": {"target_info": target_info}},
-                )
-                scan["target_info"] = target_info
-        return scan
-
-    def _get_scan_target(self, scanid):
-        scan = self.db[self.columns[self.column_scans]].find_one(
-            {"_id": scanid},
-            projection={"target": 1, "_id": 0},
-        )
-        return None if scan is None else scan["target"]
-
-    def _lock_scan(self, scanid, oldlockid, newlockid):
-        """Change lock for scanid from oldlockid to newlockid. Returns the new
-        scan object on success, and raises a LockError on failure.
-
-        """
-        if oldlockid is not None:
-            oldlockid = bson.Binary(oldlockid)
-        if newlockid is not None:
-            newlockid = bson.Binary(newlockid)
-        scan = self.db[self.columns[self.column_scans]].find_one_and_update(
-            {
-                "_id": scanid,
-                "lock": oldlockid,
-            },
-            {
-                "$set": {"lock": newlockid, "pid": os.getpid()},
-            },
-            projection={"target": False},
-            new=True,
-        )
-        if scan is None:
-            if oldlockid is None:
-                raise LockError(f"Cannot acquire lock for {scanid!r}")
-            if newlockid is None:
-                raise LockError(f"Cannot release lock for {scanid!r}")
-            raise LockError(
-                f"Cannot change lock for {scanid!r} from {oldlockid!r} to {newlockid!r}"
-            )
-        if "target_info" not in scan:
-            target = self.get_scan_target(scanid)
-            if target is not None:
-                target_info = target.target.infos
-                self.db[self.columns[self.column_scans]].update_one(
-                    {"_id": scanid},
-                    {"$set": {"target_info": target_info}},
-                )
-                scan["target_info"] = target_info
-        if scan["lock"] is not None:
-            scan["lock"] = bytes(scan["lock"])
-        return scan
-
-    def get_scans(self):
-        return (
-            x["_id"]
-            for x in self.set_limits(
-                self.db[self.columns[self.column_scans]].find(projection=["_id"])
-            )
-        )
-
-    def _update_scan_target(self, scanid, target):
-        return self.db[self.columns[self.column_scans]].update_one(
-            {"_id": scanid}, {"$set": {"target": target}}
-        )
-
-    def incr_scan_results(self, scanid):
-        return self.db[self.columns[self.column_scans]].update_one(
-            {"_id": scanid}, {"$inc": {"results": 1}}
-        )
-
-    def _add_master(self, master):
-        return self.db[self.columns[self.column_masters]].insert_one(master).inserted_id
-
-    def get_master(self, masterid):
-        return self.db[self.columns[self.column_masters]].find_one({"_id": masterid})
-
-    def get_masters(self):
-        return (
-            x["_id"]
-            for x in self.set_limits(
-                self.db[self.columns[self.column_masters]].find(projection=["_id"])
-            )
-        )
 
 
 class MongoDBRir(MongoDB, DBRir):

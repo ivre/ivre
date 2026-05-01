@@ -67,7 +67,6 @@ setup(
         ("share/ivre/data/honeyd", ["data/honeyd/sshd"]),
         ("share/ivre/rir_data", ["data/.empty"]),
         ("share/ivre/docker", ["docker/Vagrantfile"]),
-        ("share/ivre/docker/agent", ["docker/agent/Dockerfile"]),
         ("share/ivre/docker/base", ["docker/base/Dockerfile"]),
         ("share/ivre/docker/client", ["docker/client/Dockerfile"]),
         (

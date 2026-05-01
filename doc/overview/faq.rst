@@ -87,19 +87,19 @@ Scanning the Internet is slow!
 This is based on `issue GH#822
 <https://github.com/ivre/ivre/issues/822>`_.
 
-When running ``ivre runscans --routable --limit 40``, one can notice
-the scan really takes a long time to terminate.
+When scanning a wide target with ``nmap``, one can notice the scan
+really takes a long time to terminate.
 
-First of all, IVRE is not guilty here. IVRE runs Nmap, feeds it with
-targets, and wait for its output. You would get the same results using
-the same Nmap options as IVRE.
+IVRE itself is not the bottleneck: it merely ingests the XML produced
+by your scanner. You would get the same throughput running Nmap
+directly.
 
-That being said, we have several ways to speed up a scan.
+That being said, here are several ways to speed up a scan.
 
 Use Masscan rather that Nmap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This is pretty radical, and have an important drawback: Masscan
+This is pretty radical, and has an important drawback: Masscan
 results gather less intelligence than Nmap (a lot less in some
 situations).
 
@@ -117,16 +117,14 @@ and use IVRE to merge and browse the results.
 Parallelize Nmap scans
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Another option is to run several Nmap processes instead of
-one. Theoretically it should not work, since Nmap is supposed to
-handle efficiently the resources, but it has proven useful in several
-situations, particularly when scanning heavily filtered hosts or
-random hosts across the Internet.
+Another option is to run several Nmap processes in parallel rather
+than one. Theoretically it should not help (Nmap manages its own
+resources), but it has proven useful in practice, particularly when
+scanning heavily filtered hosts or random hosts across the Internet.
 
-For that, one can either use an agent (see
-:ref:`install/agents:Agents`) or ``ivre runscans --output
-XMLFork --processes <n>`` where ``<n>`` is the number of simultaneous
-Nmap processes to use.
+Split the target into chunks (for instance with ``ivre ipcalc`` or any
+other tool), launch several ``nmap`` processes against each chunk, and
+ingest the resulting XML files with ``ivre scan2db``.
 
 Can IVRE be used to look for XXX?
 ---------------------------------

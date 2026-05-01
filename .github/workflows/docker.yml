@@ -60,7 +60,7 @@ jobs:
             exit 1
         fi
         echo "Detected build tag: $tag"
-        for img in base client agent web web-doku web-mcp web-uwsgi; do
+        for img in base client web web-doku web-mcp web-uwsgi; do
             docker tag "ivre/$img:$tag" "ivre/$img:latest"
         done
         docker images 'ivre/*'

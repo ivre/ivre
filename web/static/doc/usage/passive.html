@@ -129,13 +129,11 @@ $ LOG_PATH=logs/passiverecon \
 &gt;   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -r capture
 </pre></div>
 </div>
-<p>This will produce log files in the <code class="docutils literal notranslate"><span class="pre">logs</span></code> directory. You need to run a
-<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">passivereconworker</span></code> to process these files. You can try:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre passivereconworker --directory=logs
+<p>This will produce log files in the <code class="docutils literal notranslate"><span class="pre">logs</span></code> directory. Pipe each
+generated log file into <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">passiverecon2db</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for f in logs/passiverecon.*; do ivre passiverecon2db &lt; &quot;$f&quot;; done
 </pre></div>
 </div>
-<p>This program will not stop by itself. You can <code class="docutils literal notranslate"><span class="pre">kill</span></code> it, it will
-stop gently (as soon as it has finished to process the current file).</p>
 <p>You can also send the data from <code class="docutils literal notranslate"><span class="pre">zeek</span></code> to the database without using
 intermediate files:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \

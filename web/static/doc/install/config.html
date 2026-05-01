@@ -54,7 +54,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#debug">Debug</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#databases">Databases</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#paths-and-commands">Paths and commands</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#nmap-scan-templates">Nmap scan templates</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#masscan-probes">Masscan probes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-flow-purpose">The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-data-purpose">The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose</a></li>
@@ -70,7 +69,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
-<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
 </ul>
 </li>
 </ul>
@@ -168,9 +166,9 @@ which has the special meaning
 </section>
 <section id="paths-and-commands">
 <h2>Paths and commands<a class="headerlink" href="#paths-and-commands" title="Link to this heading"></a></h2>
-<p>All variables ending with <code class="docutils literal notranslate"><span class="pre">_PATH</span></code> (except <code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> and
-<code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code>) default to <code class="docutils literal notranslate"><span class="pre">None</span></code>, a special value which means
-“try to guess the path based on IVRE installation”.</p>
+<p>All variables ending with <code class="docutils literal notranslate"><span class="pre">_PATH</span></code> (except <code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code>)
+default to <code class="docutils literal notranslate"><span class="pre">None</span></code>, a special value which means “try to guess the
+path based on IVRE installation”.</p>
 <p>Here are the values with examples on a regular installation:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DATA_PATH</span> <span class="o">=</span> <span class="kc">None</span>                  <span class="c1"># /usr/share/ivre/data</span>
 <span class="n">GEOIP_PATH</span> <span class="o">=</span> <span class="kc">None</span>                 <span class="c1"># /usr/share/ivre/geoip</span>
@@ -179,83 +177,12 @@ which has the special meaning
 <span class="n">WEB_DOKU_PATH</span> <span class="o">=</span> <span class="kc">None</span>              <span class="c1"># /usr/share/ivre/dokuwiki</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">&quot;/var/lib/ivre/master&quot;</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>, which means IVRE will try
 <code class="docutils literal notranslate"><span class="pre">&quot;/usr/local/share/nmap&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;/opt/nmap/share/nmap&quot;</span></code>, then
 <code class="docutils literal notranslate"><span class="pre">&quot;/usr/share/nmap&quot;</span></code>.</p>
 <p>IVRE may need some executables:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TESSERACT_CMD</span> <span class="o">=</span> <span class="s2">&quot;tesseract&quot;</span>
 <span class="n">OPENSSL_CMD</span> <span class="o">=</span> <span class="s2">&quot;openssl&quot;</span>
-</pre></div>
-</div>
-</section>
-<section id="nmap-scan-templates">
-<h2>Nmap scan templates<a class="headerlink" href="#nmap-scan-templates" title="Link to this heading"></a></h2>
-<p>Nmap scan templates are defined in the <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code>
-variable. Usually, this variable should <strong>not</strong> be overridden, but
-rather modified.</p>
-<p>By default, <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code> contains one template, named
-<code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>, which is defined as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NmapScanTemplate</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="c1"># Commented values are default values and to not need to be</span>
-        <span class="c1"># specified:</span>
-        <span class="c1"># &quot;nmap&quot;: &quot;nmap&quot;,</span>
-        <span class="c1"># &quot;pings&quot;: &quot;SE&quot;,</span>
-        <span class="c1"># &quot;scans&quot;: &quot;SV&quot;,</span>
-        <span class="c1"># &quot;osdetect&quot;: True,</span>
-        <span class="c1"># &quot;traceroute&quot;: True,</span>
-        <span class="c1"># &quot;resolve&quot;: 1,</span>
-        <span class="c1"># &quot;verbosity&quot;: 2,</span>
-        <span class="c1"># &quot;ports&quot;: None,</span>
-        <span class="c1"># &quot;top_ports&quot;: None,</span>
-        <span class="s2">&quot;host_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;15m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
-        <span class="s2">&quot;script_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;2m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
-        <span class="s2">&quot;scripts_categories&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="s2">&quot;discovery&quot;</span><span class="p">,</span> <span class="s2">&quot;auth&quot;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
-        <span class="s2">&quot;scripts_exclude&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="s2">&quot;broadcast&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;brute&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;dos&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;exploit&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;external&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;fuzzer&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;intrusive&quot;</span><span class="p">,</span>
-        <span class="p">],</span>  <span class="c1"># default value: None</span>
-        <span class="c1"># &quot;scripts_force&quot;: None,</span>
-        <span class="c1"># &quot;extra_options&quot;: None,</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>To create another template, the easiest is to copy, either using
-<code class="docutils literal notranslate"><span class="pre">.copy()</span></code> or using the <code class="docutils literal notranslate"><span class="pre">dict()</span></code> constructor, the <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>
-template; the following configuration entry creates an
-<code class="docutils literal notranslate"><span class="pre">&quot;aggressive&quot;</span></code> template that will run more scripts (including
-potentially dangerous ones) and have more permissive timeout values:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">[</span><span class="s2">&quot;aggressive&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-    <span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">],</span>
-    <span class="n">host_timeout</span><span class="o">=</span><span class="s2">&quot;30m&quot;</span><span class="p">,</span>
-    <span class="n">script_timeout</span><span class="o">=</span><span class="s2">&quot;5m&quot;</span><span class="p">,</span>
-    <span class="n">scripts_categories</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="s1">&#39;discovery&#39;</span><span class="p">,</span> <span class="s1">&#39;auth&#39;</span><span class="p">,</span> <span class="s1">&#39;brute&#39;</span><span class="p">,</span>
-                        <span class="s1">&#39;exploit&#39;</span><span class="p">,</span> <span class="s1">&#39;intrusive&#39;</span><span class="p">],</span>
-    <span class="n">scripts_exclude</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;broadcast&#39;</span><span class="p">,</span> <span class="s1">&#39;external&#39;</span><span class="p">],</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>It is possible to check the options a template will use by running the
-following command (the output has been modified, the command line is
-normally on one single line):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscans --output CommandLine
-Command line to run a scan with template default
-    nmap -A -PS -PE -sS -vv --host-timeout 15m --script-timeout 2m
-         --script &#39;(default or discovery or auth) and not (broadcast
-         or brute or dos or exploit or external or fuzzer or intrusive)&#39;
-
-$ ivre runscans --output CommandLine --nmap-template aggressive
-Command line to run a scan with template aggressive
-    nmap -A -PS -PE -sS -vv --host-timeout 30m --script-timeout 5m
-         --script &#39;(default or discovery or auth or brute or exploit or
-         intrusive) and not (broadcast or external)&#39;
 </pre></div>
 </div>
 </section>

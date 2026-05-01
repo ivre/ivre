@@ -68,9 +68,9 @@ Batch insert or upsert operations can be tuned using backend-specific variables:
 Paths and commands
 ------------------
 
-All variables ending with ``_PATH`` (except ``AGENT_MASTER_PATH`` and
-``NMAP_SHARE_PATH``) default to ``None``, a special value which means
-"try to guess the path based on IVRE installation".
+All variables ending with ``_PATH`` (except ``NMAP_SHARE_PATH``)
+default to ``None``, a special value which means "try to guess the
+path based on IVRE installation".
 
 Here are the values with examples on a regular installation:
 
@@ -82,8 +82,6 @@ Here are the values with examples on a regular installation:
    WEB_STATIC_PATH = None            # /usr/share/ivre/web/static
    WEB_DOKU_PATH = None              # /usr/share/ivre/dokuwiki
 
-``AGENT_MASTER_PATH`` defaults to ``"/var/lib/ivre/master"``.
-
 ``NMAP_SHARE_PATH`` defaults to ``None``, which means IVRE will try
 ``"/usr/local/share/nmap"``, ``"/opt/nmap/share/nmap"``, then
 ``"/usr/share/nmap"``.
@@ -93,55 +91,6 @@ IVRE may need some executables:
 .. literalinclude:: ../../ivre/config.py
    :start-after: Begin commands
    :end-before: End commands
-
-Nmap scan templates
--------------------
-
-Nmap scan templates are defined in the ``NMAP_SCAN_TEMPLATES``
-variable. Usually, this variable should **not** be overridden, but
-rather modified.
-
-By default, ``NMAP_SCAN_TEMPLATES`` contains one template, named
-``"default"``, which is defined as follows:
-
-.. literalinclude:: ../../ivre/config.py
-   :start-after: Begin default Nmap scan template
-   :end-before: End default Nmap scan template
-
-To create another template, the easiest is to copy, either using
-``.copy()`` or using the ``dict()`` constructor, the ``"default"``
-template; the following configuration entry creates an
-``"aggressive"`` template that will run more scripts (including
-potentially dangerous ones) and have more permissive timeout values:
-
-.. code:: python
-
-   NMAP_SCAN_TEMPLATES["aggressive"] = dict(
-       NMAP_SCAN_TEMPLATES["default"],
-       host_timeout="30m",
-       script_timeout="5m",
-       scripts_categories=['default', 'discovery', 'auth', 'brute',
-                           'exploit', 'intrusive'],
-       scripts_exclude=['broadcast', 'external'],
-   )
-
-It is possible to check the options a template will use by running the
-following command (the output has been modified, the command line is
-normally on one single line):
-
-::
-
-   $ ivre runscans --output CommandLine
-   Command line to run a scan with template default
-       nmap -A -PS -PE -sS -vv --host-timeout 15m --script-timeout 2m
-            --script '(default or discovery or auth) and not (broadcast
-            or brute or dos or exploit or external or fuzzer or intrusive)'
-
-   $ ivre runscans --output CommandLine --nmap-template aggressive
-   Command line to run a scan with template aggressive
-       nmap -A -PS -PE -sS -vv --host-timeout 30m --script-timeout 5m
-            --script '(default or discovery or auth or brute or exploit or
-            intrusive) and not (broadcast or external)'
 
 Masscan probes
 --------------

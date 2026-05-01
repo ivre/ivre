@@ -61,7 +61,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
-<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
 </ul>
 </li>
 </ul>
@@ -166,7 +165,6 @@ button to check if everything works.</p>
 $ yes | ivre scancli --init
 $ yes | ivre view --init
 $ yes | ivre flowcli --init
-$ yes | sudo ivre runscansagentdb --init
 $ sudo ivre ipdata --download
 $ sudo ivre getwebdata
 </pre></div>
@@ -174,16 +172,14 @@ $ sudo ivre getwebdata
 </section>
 <section id="run-a-first-scan">
 <h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Link to this heading"></a></h2>
-<p>Against 1k (routable) IP addresses, with a single nmap process:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000
+<p>Run an Nmap scan with the options of your choice; for example, against
+a small list of routable IP addresses:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo nmap -sS -Pn -p- --open --traceroute -oX scan.xml \
+&gt;          -iL targets.txt
 </pre></div>
 </div>
-<p>Go have some coffees and/or beers (remember that according to the
-traveler’s theorem, for any time of the day, there exists a time zone in
-which it is OK to drink).</p>
-<p>When the command has terminated, import the results and create a view:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
-&gt;              scans/ROUTABLE/up
+<p>When the scan has terminated, import the results and create a view:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource scan.xml
 $ ivre db2view nmap
 </pre></div>
 </div>
@@ -201,14 +197,13 @@ differences depending on where the scans are run from.</p>
 </section>
 <section id="some-remarks">
 <h2>Some remarks<a class="headerlink" href="#some-remarks" title="Link to this heading"></a></h2>
-<p>There is no tool (for now) to automatically import scan results to the
-database. It is your job to do so, according to your settings.</p>
+<p>There is no tool (for now) to automatically import scan results into
+the database. It is your job to do so, according to your settings.</p>
 <p>If you run very large scans (particularly against random hosts on the
-Internet), do NOT use the default <code class="docutils literal notranslate"><span class="pre">--output=XML</span></code> option. Rather, go
-for the <code class="docutils literal notranslate"><span class="pre">--output=XMLFork</span></code>. This will fork one nmap process per IP to
-scan, and is (sadly) much more reliable.</p>
-<p>Another way to run scans efficiently is to use an <a class="reference external" href="AGENT.md">agent</a>
-and the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> command.</p>
+Internet), running a single Nmap process is rarely the best
+choice. Split the target into chunks and run several Nmap processes in
+parallel; <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code> will happily ingest the resulting XML
+files, and Masscan / Zgrab2 output too.</p>
 </section>
 </section>
 

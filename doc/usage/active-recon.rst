@@ -29,43 +29,23 @@ you can explore with the the :ref:`usage/web-ui:Web User Interface`,
 the ``ivre view`` command line tool or the Python API
 (``ivre.db.db.view.*``).
 
-With IVRE
-~~~~~~~~~
+Splitting wide scans
+~~~~~~~~~~~~~~~~~~~~
 
 Masscan does not provide results as complete as Nmap, when using the
 "interesting" options (for example, ``-vv -A``) or scripts. That being
 said, Nmap (with such "interesting" options) cannot run efficiently
 against huge networks.
 
-The ``ivre runscans`` tool can run one Nmap process per target (option
-``--output=XMLFork``). This should be less efficient in theory,
-because Nmap supposedly knows better how to handle the host and
-network resources, but in practice it is much more efficient. You can
-adjust how many Nmap processes you want to run in parallel using the
-``--processes N`` option.
-
-Another advantage of using ``ivre runscans --output=XMLFork`` over
-using Nmap directly is that ``ivre runscans`` produces output files as
-soon as each host has been scanned (in the ``scans/*/up`` directory).
-
-Here is a simple example:
+A common pattern is therefore to split the target into chunks and run
+several Nmap processes in parallel, each producing its own XML file.
+``ivre ipcalc`` can help slice address ranges or address-list files
+into chunks. Once the per-chunk XML files have been produced, ingest
+them with ``ivre scan2db`` and create a view:
 
 ::
 
-   $ sudo ivre runscans --routable --limit 1000 --output=XMLFork
-
-This will run a standard scan against 1000 random hosts on the Internet
-by running 30 nmap processes in parallel. See the output of
-``ivre help runscans`` if you want to do something else.
-
-When it's over, to import the results in the database and create a
-view from them, run (``ROUTABLE-001`` is the category name, and
-``MySource`` is the source name, usually referencing the machine used
-to run the scan):
-
-::
-
-   $ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/ROUTABLE/up
+   $ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/
    $ ivre db2view nmap
 
 Enjoying the results

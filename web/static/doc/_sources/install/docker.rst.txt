@@ -22,7 +22,6 @@ Image               Role
                     parent of every other image.
 ``ivre/client``     CLI container, used to run ``ivre`` subcommands
                     against the database.
-``ivre/agent``      Remote scan agent (see ``ivre runscansagent``).
 ``ivre/web``        nginx front-end serving the Web UI static assets and
                     reverse-proxying ``/cgi/``, ``/dokuwiki/`` and
                     ``/mcp`` to the internal backends.
@@ -107,7 +106,7 @@ that, from the ``docker/`` directory, run:
 
 ::
 
-   $ for img in base client agent web web-doku web-mcp web-uwsgi ; do
+   $ for img in base client web web-doku web-mcp web-uwsgi ; do
    > docker build -t "ivre/$img" "$img"
    > done
 
@@ -154,7 +153,6 @@ commands:
    root@ivreclient:/# yes | ivre scancli --init
    root@ivreclient:/# yes | ivre view --init
    root@ivreclient:/# yes | ivre flowcli --init
-   root@ivreclient:/# yes | ivre runscansagentdb --init
    root@ivreclient:/# ivre ipdata --download
 
 Then we can integrate the Nmap results to the database
