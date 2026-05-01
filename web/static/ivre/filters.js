@@ -116,8 +116,7 @@ var Filter = (function() {
             $.ajax({
                 url: "cgi/view/count?q=" +
                     encodeURIComponent(this.query),
-                jsonp: "callback",
-                dataType: "jsonp",
+                dataType: "json",
                 beforeSend: function() {
 		    filterobject.count = undefined;
                 },
@@ -133,8 +132,7 @@ var Filter = (function() {
             if(this.callbacks.get_results.length > 0) {
                 $.ajax({
                     url: "cgi/view?q=" + encodeURIComponent(this.query),
-                    jsonp: "callback",
-                    dataType: "jsonp",
+                    dataType: "json",
                     beforeSend: function() {
                         filterobject._call_callbacks(
                                 filterobject.callbacks.pre_get_results

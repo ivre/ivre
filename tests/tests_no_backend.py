@@ -717,6 +717,112 @@ class ScreenshotContainmentTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# JSONP-removal regressions
+# ---------------------------------------------------------------------
+
+
+class JsonpDroppedTests(unittest.TestCase):
+    """Regression tests asserting that JSONP support has been removed
+    from the Web API.
+
+    JSONP existed to allow cross-origin GETs by wrapping JSON
+    responses as ``callback(...);`` JavaScript. Modern setups serve
+    the IVRE Web UI from the same origin as the API, making JSONP
+    unnecessary; the wrapping itself is a class of MIME-confusion
+    risk (the response Content-Type was ``application/javascript``,
+    so any reflected data could potentially be interpreted as
+    script). Removing JSONP closes Finding 3 of the security review.
+    """
+
+    @staticmethod
+    def _read_py(module) -> str:
+        """Read a Python module's source via its imported file path.
+
+        Reading from a hard-coded ``ivre/`` filesystem path would fail
+        in CI where ``install.sh`` renames the in-tree ``ivre/``
+        directory to ``ivre_bak/`` to force tests to use the installed
+        package. Going through ``module.__file__`` finds the source
+        regardless of layout.
+        """
+        path = inspect.getsourcefile(module)
+        assert path is not None, f"no source file for {module!r}"
+        with open(path, encoding="utf8") as fdesc:
+            return fdesc.read()
+
+    @staticmethod
+    def _read_static(relpath: str) -> str:
+        """Read a file under ``web/static/`` relative to the repo
+        root. The ``web/`` tree is not renamed by ``install.sh``, so
+        the ``__file__`` of this test module still gives a usable
+        repo root."""
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(repo_root, relpath), encoding="utf8") as fdesc:
+            return fdesc.read()
+
+    def test_app_py_has_no_callback_query_param(self) -> None:
+        """``ivre/web/app.py`` no longer reads ``request.params.get(
+        "callback")``, no longer threads a ``callback`` field through
+        ``FilterParams``, and no longer emits ``callback(...);``
+        wrappers."""
+        from ivre.web import app
+
+        src = self._read_py(app)
+        # The query parameter is gone:
+        self.assertNotIn('request.params.get("callback")', src)
+        self.assertNotIn("flt_params.callback", src)
+        # No JSONP wrapper expressions like `f"{callback}(` remain:
+        self.assertIsNone(
+            re.search(r'f"\{[a-zA-Z_.]*callback[a-zA-Z_.]*\}\(', src),
+            "JSONP wrapper expression must not remain in app.py",
+        )
+        # The Content-Type lie (application/javascript for JSON
+        # responses) is gone too. The `/config` route legitimately
+        # emits JS via <script src=...>, so we accept at most one
+        # occurrence (the `/config` route).
+        self.assertLessEqual(
+            src.count('"application/javascript"'),
+            1,
+            "Only the /config route may set Content-Type: " "application/javascript",
+        )
+
+    def test_filter_params_has_no_callback_field(self) -> None:
+        """The ``FilterParams`` namedtuple no longer carries a
+        ``callback`` field."""
+        from ivre.web.app import FilterParams
+
+        self.assertNotIn("callback", FilterParams._fields)
+
+    def test_js_alert_helpers_removed(self) -> None:
+        """``js_alert`` and ``js_del_alert`` (which produced inline
+        JS snippets to be embedded in JSONP responses) are gone."""
+        from ivre.web import utils as webutils
+
+        self.assertFalse(hasattr(webutils, "js_alert"))
+        self.assertFalse(hasattr(webutils, "js_del_alert"))
+
+    def test_angularjs_callers_use_plain_json(self) -> None:
+        """The three AngularJS ``$.ajax`` JSONP callers (graph.js,
+        filters.js x2) have been migrated to plain JSON. They are
+        same-origin so JSONP is unnecessary."""
+        for relpath in (
+            "web/static/ivre/graph.js",
+            "web/static/ivre/filters.js",
+        ):
+            src = self._read_static(relpath)
+            self.assertNotIn('dataType: "jsonp"', src, msg=relpath)
+            self.assertNotIn('jsonp: "callback"', src, msg=relpath)
+
+    def test_security_headers_include_nosniff(self) -> None:
+        """``X-Content-Type-Options: nosniff`` is set on every
+        response by the Bottle ``after_request`` hook."""
+        from ivre.web import base
+
+        src = self._read_py(base)
+        self.assertIn("X-Content-Type-Options", src)
+        self.assertIn("nosniff", src)
+
+
+# ---------------------------------------------------------------------
 # RIR HTTP backend / MCP tool tests
 # ---------------------------------------------------------------------
 

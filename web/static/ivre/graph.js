@@ -50,8 +50,7 @@ var Graph = (function() {
 	    this.container.css("display", "inline");
 	    $.ajax({
 		url: this.get_url(),
-		jsonp: "callback",
-		dataType: "jsonp",
+		dataType: "json",
 		success: function(data) {
 		    graphobject.draw.call(graphobject, data);
 		}
