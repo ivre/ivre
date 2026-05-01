@@ -172,7 +172,7 @@ class MongoDB(DB):
         try:
             self.maxtime = int(params.pop("maxtime", None))
         except TypeError:
-            self.maxtime = None
+            self.maxtime = config.MONGODB_QUERY_TIMEOUT_MS
         if "ssl" in params:
             if params["ssl"].lower() == "true":
                 params["ssl"] = True
@@ -203,9 +203,22 @@ class MongoDB(DB):
         self._db.close()
 
     def set_limits(self, cur):
-        if self.maxtime is not None:
+        # `Cursor` (find) supports max_time_ms() post-construction;
+        # `CommandCursor` (aggregate) does not -- timeouts on
+        # aggregations are applied via `_aggregate()` instead.
+        if self.maxtime is not None and hasattr(cur, "max_time_ms"):
             cur.max_time_ms(self.maxtime)
         return cur
+
+    def _aggregate(self, collection, pipeline, **kwargs):
+        """Run a MongoDB aggregation with debug-level pipeline logging
+        and the configured query timeout. `CommandCursor` does not
+        accept `max_time_ms()` post-construction, so the timeout is
+        passed to `aggregate()` via `maxTimeMS=` instead."""
+        log_pipeline(pipeline)
+        if self.maxtime is not None:
+            kwargs.setdefault("maxTimeMS", self.maxtime)
+        return collection.aggregate(pipeline, **kwargs)
 
     @classmethod
     def get_hint(cls, spec, column):
@@ -527,8 +540,7 @@ class MongoDB(DB):
         pipeline = self._distinct_pipeline(
             field, flt=flt, sort=sort, limit=limit, skip=skip, is_ipfield=is_ipfield
         )
-        log_pipeline(pipeline)
-        cursor = self.set_limits(self.db[column].aggregate(pipeline, cursor={}))
+        cursor = self._aggregate(self.db[column], pipeline)
         if is_ipfield:
             return (
                 None if res["_id"][0] is None else self.internal2ip(res["_id"])
@@ -561,9 +573,8 @@ class MongoDB(DB):
             # When not using yieldall, we can sort in
             # database.
             pipeline.append({"$sort": OrderedDict([("_id", 1)])})
-        log_pipeline(pipeline)
-        for rec in self.db[self.columns[self._features_column]].aggregate(
-            pipeline, cursor={}
+        for rec in self._aggregate(
+            self.db[self.columns[self._features_column]], pipeline
         ):
             yield rec["_id"]
 
@@ -2413,8 +2424,7 @@ class MongoDBActive(MongoDB, DBActive):
                 }
             },
         ]
-        log_pipeline(aggr)
-        return self.db[self.columns[self.column_hosts]].aggregate(aggr, cursor={})
+        return self._aggregate(self.db[self.columns[self.column_hosts]], aggr)
 
     def group_by_port(self, flt):
         """Work-in-progress function to get scan results grouped by
@@ -2450,8 +2460,7 @@ class MongoDBActive(MongoDB, DBActive):
             },
             {"$group": {"_id": "$ports", "ids": {"$addToSet": "$_id"}}},
         ]
-        log_pipeline(aggr)
-        return self.db[self.columns[self.column_hosts]].aggregate(aggr, cursor={})
+        return self._aggregate(self.db[self.columns[self.column_hosts]], aggr)
 
     @staticmethod
     def _datetimevalue2dbrec(value):
@@ -4250,10 +4259,7 @@ class MongoDBActive(MongoDB, DBActive):
             specialproj=specialproj,
             specialflt=specialflt,
         )
-        log_pipeline(pipeline)
-        cursor = self.set_limits(
-            self.db[self.columns[self.column_hosts]].aggregate(pipeline, cursor={})
-        )
+        cursor = self._aggregate(self.db[self.columns[self.column_hosts]], pipeline)
         if outputproc is not None:
             return (outputproc(res) for res in cursor)
         return cursor
@@ -4337,9 +4343,7 @@ class MongoDBActive(MongoDB, DBActive):
                 }
             },
         ]
-        log_pipeline(pipeline)
-
-        cursor = self.db[self.columns[self.column_hosts]].aggregate(pipeline, cursor={})
+        cursor = self._aggregate(self.db[self.columns[self.column_hosts]], pipeline)
 
         def categories_to_val(categories):
             state1, state2 = category1 in categories, category2 in categories
@@ -4558,10 +4562,9 @@ class MongoDBView(MongoDBActive, DBView):
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
         ]
-        log_pipeline(pipeline)
         return (
             {"_id": tuple(rec["_id"][::-1]), "count": rec["count"]}
-            for rec in col.aggregate(pipeline, cursor={})
+            for rec in self._aggregate(col, pipeline)
         )
 
     @staticmethod
@@ -5380,13 +5383,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             specialflt=specialflt,
             **kargs,
         )
-        log_pipeline(pipeline)
-        cursor = self.set_limits(
-            self.db[self.columns[self.column_passive]].aggregate(
-                pipeline,
-                cursor={},
-            )
-        )
+        cursor = self._aggregate(self.db[self.columns[self.column_passive]], pipeline)
         if outputproc is not None:
             return (outputproc(res) for res in cursor)
         return cursor
@@ -6451,10 +6448,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 # https://docs.mongodb.com/manual/reference/operator/aggregation/count/#behavior
                 {"$group": {"_id": None, "count": {"$sum": 1}}},
             ]
-            log_pipeline(pipeline)
-            sources = next(self.db[self.columns[self.column_flow]].aggregate(pipeline))[
-                "count"
-            ]
+            sources = next(
+                self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
+            )["count"]
 
             pipeline = [
                 {"$match": flt},
@@ -6468,9 +6464,8 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 },
                 {"$group": {"_id": None, "count": {"$sum": 1}}},
             ]
-            log_pipeline(pipeline)
             destinations = next(
-                self.db[self.columns[self.column_flow]].aggregate(pipeline)
+                self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
             )["count"]
         return {"clients": sources, "servers": destinations, "flows": flows}
 
@@ -6620,8 +6615,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         if topnbr is not None:
             pipeline.append({"$limit": topnbr})
 
-        log_pipeline(pipeline)
-        res = self.db[self.columns[self.column_flow]].aggregate(pipeline, cursor={})
+        res = self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
         for entry in res:
             # Translate again the collected fields
             ext_entry = {}
@@ -7124,8 +7118,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         # Sort by time ascending
         pipeline.append({"$sort": {"_id.hour": 1, "_id.minute": 1, "_id.second": 1}})
 
-        log_pipeline(pipeline)
-        res = self.db[self.columns[self.column_flow]].aggregate(pipeline, cursor={})
+        res = self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
 
         for entry in res:
             flows = {}
@@ -7228,7 +7221,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             {"$sort": {"_id": 1}},
         ]
 
-        res = self.db[self.columns[self.column_flow]].aggregate(pipeline, cursor={})
+        res = self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
         for entry in res:
             yield entry["_id"]
 
@@ -7296,7 +7289,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
                 }
             },
         ]
-        res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
+        res = self._aggregate(self.db[self.columns[self.column_flow]], pipeline)
         bulk = []
         counter = 0
         for rec in res:

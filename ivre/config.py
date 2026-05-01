@@ -44,6 +44,12 @@ LOCAL_BATCH_SIZE = 10000  # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
 POSTGRES_BATCH_SIZE = 10000
 # End batch sizes
+# Default per-query time limit (in milliseconds) applied to MongoDB
+# operations. Caps the cost of any single query (in particular,
+# user-supplied regular expressions reaching `$regex`). Set to None
+# to disable. May be overridden per-connection with the `maxtime` URL
+# parameter on the `DB` setting.
+MONGODB_QUERY_TIMEOUT_MS: int | None = 30000
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).
