@@ -41,6 +41,30 @@ test("section nav switches to a stub", async ({ page }) => {
   await expect(page.getByText(/under construction/i)).toBeVisible();
 });
 
+test("Active section renders the host-list page (no world map)", async ({
+  page,
+}) => {
+  // No backend in CI dev mode; stub everything to 204.
+  await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
+  await page.goto("/");
+  await page.getByRole("link", { name: "Active" }).click();
+  await expect(page).toHaveURL(/#\/active/);
+  await expect(page.getByRole("link", { name: "Active" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  // Same filter-bar UI as View (proves the page rendered, not the
+  // "under construction" stub).
+  await expect(
+    page.getByRole("textbox", { name: /filter query/i }),
+  ).toBeVisible();
+  // The world map widget has its own ``role="img"`` with the SR-only
+  // "World map showing the geographic distribution of results."
+  // label; raw scans aren't typically GeoIP-enriched so the Active
+  // section omits it entirely.
+  await expect(page.getByLabel(/world map/i)).toHaveCount(0);
+});
+
 test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
   page,
 }) => {

@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DEFAULT_SECTION } from "@/lib/sections";
 
+import { ActiveRoute } from "./active";
 import { ViewRoute } from "./view";
 
 const queryClient = new QueryClient({
@@ -30,9 +31,13 @@ const router = createHashRouter([
       { index: true, element: <Navigate to={`/${DEFAULT_SECTION}`} replace /> },
       { path: "view", element: <ViewRoute /> },
       // Per-host deep link. The same component renders both
-      // ``/view`` (no detail open) and ``/view/host/<addr>`` (sheet
-      // pre-opened with that host).
+      // ``/<sectionId>`` (no detail open) and
+      // ``/<sectionId>/host/<addr>`` (sheet pre-opened with that
+      // host). View and Active share the same ``HostListRoute``;
+      // only the section config differs.
       { path: "view/host/:addr", element: <ViewRoute /> },
+      { path: "active", element: <ActiveRoute /> },
+      { path: "active/host/:addr", element: <ActiveRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],

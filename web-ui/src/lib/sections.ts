@@ -55,9 +55,16 @@ export const SECTIONS: readonly SectionConfig[] = [
     label: "Active",
     listEndpoint: "/scans",
     topEndpoint: "/scans/top",
-    facets: ["country", "as", "port:open", "product", "tag"],
+    // Active scan results (``db.nmap``) are typically not enriched
+    // with MaxMind GeoIP data — the IP-to-country / IP-to-AS columns
+    // are populated when records are merged into the View
+    // (``db2view``). The world-map widget and the country / AS
+    // facets would mostly render as empty for raw scans, so we
+    // omit them here. ``category`` is a scan-specific concept
+    // (operator-defined groupings) that is not meaningful in the
+    // View, hence its absence on the View facets list.
+    facets: ["category", "source", "port:open", "service", "product", "tag"],
     resultType: "hosts",
-    stub: true,
   },
   {
     id: "passive",
