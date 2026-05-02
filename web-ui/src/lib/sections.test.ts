@@ -73,6 +73,35 @@ describe("section configs", () => {
     });
   });
 
+  describe("passive", () => {
+    const passive = getSection("passive")!;
+
+    it("is a real (non-stub) section with passive result shape", () => {
+      expect(passive.stub).toBeFalsy();
+      expect(passive.resultType).toBe("passive");
+    });
+
+    it("hits ``/cgi/passive`` for the record list and top", () => {
+      expect(passive.listEndpoint).toBe("/passive");
+      expect(passive.topEndpoint).toBe("/passive/top");
+    });
+
+    it("does not declare a map endpoint (no GeoIP enrichment)", () => {
+      expect(passive.mapEndpoint).toBeUndefined();
+    });
+
+    it("does not include country / AS facets", () => {
+      expect(passive.facets).not.toContain("country");
+      expect(passive.facets).not.toContain("as");
+    });
+
+    it("includes the passive-specific sensor / recontype / source facets", () => {
+      expect(passive.facets).toContain("sensor");
+      expect(passive.facets).toContain("recontype");
+      expect(passive.facets).toContain("source");
+    });
+  });
+
   it("returns ``undefined`` for unknown section ids", () => {
     expect(getSection("nope")).toBeUndefined();
   });

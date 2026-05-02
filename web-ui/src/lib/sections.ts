@@ -71,9 +71,14 @@ export const SECTIONS: readonly SectionConfig[] = [
     label: "Passive",
     listEndpoint: "/passive",
     topEndpoint: "/passive/top",
+    // Passive records (``db.passive``) are not GeoIP-enriched and
+    // the backend does not expose ``/cgi/passive/coordinates``;
+    // omit the world-map widget for the same reason as Active.
+    // ``addr`` may be present (most records) or absent (DNS
+    // CNAME/MX/NS/PTR answers, where ``value`` is the queried
+    // name and ``targetval`` is the canonical name).
     facets: ["sensor", "recontype", "source"],
     resultType: "passive",
-    stub: true,
   },
   {
     id: "dns",

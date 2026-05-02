@@ -95,6 +95,49 @@ export interface CoordinatesResponse {
   }>;
 }
 
+/** A passive-recon record as served by ``GET /cgi/passive``.
+ *
+ *  ``schema_version``, ``recontype``, ``value``, ``firstseen``,
+ *  ``lastseen`` and ``count`` are always present; everything else
+ *  depends on the kind of observation (DNS answer, HTTP header,
+ *  TLS cert, JA3, …). ``firstseen`` / ``lastseen`` come back as
+ *  Unix timestamps (number of seconds) by default and as ISO-ish
+ *  strings when ``datesasstrings=1`` was passed. */
+export interface PassiveRecord {
+  schema_version: number;
+  recontype: string;
+  value: string;
+  count: number;
+  firstseen: number | string;
+  lastseen: number | string;
+  /** Set whenever the observation is attached to a single host
+   *  (most records). Absent for DNS CNAME/MX/NS/PTR records,
+   *  where ``value`` is the queried name. */
+  addr?: string;
+  /** Set when the record is not keyed on ``addr`` — e.g. DNS
+   *  CNAME answers where ``targetval`` is the canonical name. */
+  targetval?: string;
+  sensor?: string;
+  port?: number;
+  /** Sub-type string scoping the recontype; semantics depend on
+   *  the recontype. For ``DNS_ANSWER`` records the backend already
+   *  splits the historical ``"<TYPE>-<server>-<sport>"`` source
+   *  into a clean ``source`` plus an ``rrtype`` field (see below). */
+  source?: string;
+  /** Set on ``DNS_ANSWER`` records: ``"A"``, ``"AAAA"``,
+   *  ``"CNAME"``, ``"PTR"``, ``"MX"``, ``"NS"``, ``"SOA"``,
+   *  ``"TXT"``, … */
+  rrtype?: string;
+  /** Heterogeneous extra metadata: ``infos.domain`` /
+   *  ``domaintarget`` / ``san`` are arrays of strings;
+   *  ``infos.subject_text`` / ``issuer_text`` / ``sha1`` /
+   *  ``sha256`` etc. are scalars; ``infos.not_before`` /
+   *  ``not_after`` follow the same date-coercion rule as
+   *  ``firstseen`` / ``lastseen``. */
+  infos?: { [k: string]: unknown };
+  [k: string]: unknown;
+}
+
 /* ------------------------------------------------------------------ */
 /* Raw fetchers                                                       */
 /* ------------------------------------------------------------------ */
@@ -187,6 +230,36 @@ export async function fetchTop(
   return (await response.json()) as TopValue[];
 }
 
+/** Fetch a list of passive-recon records as NDJSON. ``firstseen``
+ *  / ``lastseen`` come back as Unix-epoch numbers; the caller is
+ *  expected to convert them to ``Date`` for display. */
+export async function fetchPassiveRecords(
+  listEndpoint: string,
+  params: ListParams = {},
+): Promise<PassiveRecord[]> {
+  const url =
+    CGI_ROOT +
+    listEndpoint +
+    qs({
+      q: params.q,
+      limit: params.limit,
+      skip: params.skip,
+      ipsasnumbers: params.ipsasnumbers ? 1 : undefined,
+      datesasstrings: params.datesasstrings ? 1 : undefined,
+      format: "ndjson",
+    });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET ${url}`);
+  const text = await response.text();
+  const out: PassiveRecord[] = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    out.push(JSON.parse(trimmed));
+  }
+  return out;
+}
+
 /** Fetch the GeoJSON GeometryCollection for the world-map widget. */
 export async function fetchCoordinates(
   mapEndpoint: string,
@@ -213,6 +286,19 @@ export function useHosts(
   return useQuery<HostRecord[]>({
     queryKey: ["hosts", listEndpoint, params],
     queryFn: () => fetchHosts(listEndpoint as string, params),
+    enabled: Boolean(listEndpoint),
+    ...options,
+  });
+}
+
+export function usePassiveRecords(
+  listEndpoint: string | undefined,
+  params: ListParams,
+  options?: HookOptions<PassiveRecord[]>,
+): UseQueryResult<PassiveRecord[]> {
+  return useQuery<PassiveRecord[]>({
+    queryKey: ["passive", listEndpoint, params],
+    queryFn: () => fetchPassiveRecords(listEndpoint as string, params),
     enabled: Boolean(listEndpoint),
     ...options,
   });
