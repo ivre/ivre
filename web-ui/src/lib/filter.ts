@@ -158,12 +158,27 @@ const HIGHLIGHT_TYPES = new Set([
   "recontype",
 ]);
 
+/** Bare ``protocol/port`` shape (e.g. ``tcp/443``, ``udp/53``).
+ *  Anonymous filters matching this pattern are indexed under the
+ *  ``port`` highlight set so that clicking an open-port chip
+ *  highlights the matching chip in adjacent cards / facet rows. */
+const PORT_TOKEN_RE = /^[A-Za-z]+\/\d+$/;
+
 export function buildHighlightMap(filters: readonly Filter[]): HighlightMap {
   const out: HighlightMap = new Map();
   for (const f of filters) {
-    if (f.neg || f.type === undefined) continue;
-    if (!HIGHLIGHT_TYPES.has(f.type)) continue;
-    const key = f.type;
+    if (f.neg) continue;
+    let key: string | undefined = f.type;
+    if (key === undefined) {
+      // Anonymous filter. We only recognise port tokens for now;
+      // bare IPs / CIDRs / hostnames don't have a chip to highlight.
+      if (PORT_TOKEN_RE.test(f.value)) {
+        key = "port";
+      } else {
+        continue;
+      }
+    }
+    if (!HIGHLIGHT_TYPES.has(key)) continue;
     let set = out.get(key);
     if (!set) {
       set = new Set();

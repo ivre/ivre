@@ -172,7 +172,7 @@ export function HostCard({
                     "border-none",
                     getTagColor(tag.type),
                     tagHL?.has(tag.value.toLowerCase()) &&
-                      "ring-2 ring-highlight",
+                      "ring-2 ring-yellow-500 dark:ring-orange-400",
                   )}
                 >
                   {tag.value}
@@ -213,7 +213,7 @@ export function HostCard({
                         className={cn(
                           "border-none font-mono",
                           getPortColor(p.state_state),
-                          highlighted && "ring-2 ring-highlight",
+                          highlighted && "ring-2 ring-yellow-500 dark:ring-orange-400",
                         )}
                       >
                         {token}

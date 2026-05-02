@@ -141,8 +141,20 @@ describe("buildHighlightMap", () => {
     expect(map.get("port")).toEqual(new Set(["tcp/443"]));
   });
 
-  it("ignores anonymous filters", () => {
-    const map = buildHighlightMap([{ value: "tcp/443" }]);
+  it("indexes anonymous port-token filters under 'port'", () => {
+    const map = buildHighlightMap([
+      { value: "tcp/443" },
+      { value: "udp/53" },
+    ]);
+    expect(map.get("port")).toEqual(new Set(["tcp/443", "udp/53"]));
+  });
+
+  it("ignores anonymous filters that don't look like port tokens", () => {
+    const map = buildHighlightMap([
+      { value: "1.2.3.4" },
+      { value: "example.com" },
+      { value: "" },
+    ]);
     expect(map.size).toBe(0);
   });
 

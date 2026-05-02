@@ -29,7 +29,10 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Navigate to={`/${DEFAULT_SECTION}`} replace /> },
       { path: "view", element: <ViewRoute /> },
-      { path: "view/*", element: <ViewRoute /> },
+      // Per-host deep link. The same component renders both
+      // ``/view`` (no detail open) and ``/view/host/<addr>`` (sheet
+      // pre-opened with that host).
+      { path: "view/host/:addr", element: <ViewRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],

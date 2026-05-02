@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link as LinkIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { HostRecord } from "@/lib/api";
+import type { Filter, HighlightMap } from "@/lib/filter";
 import {
   formatPort,
   formatTimestamp,
@@ -27,6 +29,36 @@ export interface HostDetailSheetProps {
   onNext?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  /** Click-to-add-filter callback. Mirrors the chip behaviour on
+   *  ``HostCard``: clicking on the country, AS, source, hostname,
+   *  category, tag, port, service, or product chip emits a
+   *  ``Filter`` to be appended to the active query. */
+  onAddFilter?: (filter: Filter) => void;
+  /** Highlight map used to surface chips that correspond to active
+   *  filters (yellow in light, soft orange in dark). Same payload
+   *  the surrounding ``HostCard`` consumes. */
+  highlights?: HighlightMap;
+}
+
+/** Copy the current page URL to the clipboard, falling back to a
+ *  prompt-style toast when the clipboard API is unavailable
+ *  (insecure context, missing permission, etc.). */
+async function copyPermalink(): Promise<void> {
+  const url = window.location.href;
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      await navigator.clipboard.writeText(url);
+      toast.success("Permalink copied to clipboard");
+      return;
+    }
+  } catch {
+    // fall through to the manual-copy toast below
+  }
+  toast.message("Permalink", { description: url });
 }
 
 /**
@@ -45,6 +77,8 @@ export function HostDetailSheet({
   onNext,
   hasPrev,
   hasNext,
+  onAddFilter,
+  highlights,
 }: HostDetailSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -67,6 +101,14 @@ export function HostDetailSheet({
                   {host.addr}
                 </SheetTitle>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Copy permalink"
+                    onClick={() => copyPermalink()}
+                  >
+                    <LinkIcon className="size-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -93,7 +135,11 @@ export function HostDetailSheet({
             </SheetHeader>
 
             <div className="flex-1 overflow-y-auto p-4 text-sm">
-              <HostDetailBody host={host} />
+              <HostDetailBody
+                host={host}
+                onAddFilter={onAddFilter}
+                highlights={highlights}
+              />
             </div>
           </>
         ) : null}
@@ -102,30 +148,82 @@ export function HostDetailSheet({
   );
 }
 
-function HostDetailBody({ host }: { host: HostRecord }) {
+function HostDetailBody({
+  host,
+  onAddFilter,
+  highlights,
+}: {
+  host: HostRecord;
+  onAddFilter?: (filter: Filter) => void;
+  highlights?: HighlightMap;
+}) {
+  const country = host.infos?.country_code;
+  const asNum = host.infos?.as_num;
+  const sources = host.source ?? [];
+  const countryHL = highlights?.get("country");
+  const asnumHL = highlights?.get("asnum");
+  const sourceHL = highlights?.get("source");
+  const hostnameHL = highlights?.get("hostname");
+  const tagHL = highlights?.get("tag");
+  const categoryHL = highlights?.get("category");
+  const portHL = highlights?.get("port");
+  const serviceHL = highlights?.get("service");
+  const productHL = highlights?.get("product");
+
   return (
     <div className="space-y-6">
       <Section title="Network">
         <KV label="Country">
-          {host.infos?.country_code ? (
-            <>
-              <span aria-hidden>
-                {getCountryFlag(host.infos.country_code)}{" "}
-              </span>
-              {host.infos.country_name ?? host.infos.country_code}
-            </>
+          {country ? (
+            <FilterChipText
+              highlighted={countryHL?.has(country.toLowerCase())}
+              onClick={() =>
+                onAddFilter?.({ type: "country", value: country })
+              }
+            >
+              <span aria-hidden>{getCountryFlag(country)} </span>
+              {host.infos?.country_name ?? country}
+            </FilterChipText>
           ) : (
             "—"
           )}
         </KV>
         <KV label="AS">
-          {host.infos?.as_num
-            ? `AS${host.infos.as_num}${
-                host.infos.as_name ? ` (${host.infos.as_name})` : ""
-              }`
-            : "—"}
+          {asNum !== undefined ? (
+            <FilterChipText
+              highlighted={asnumHL?.has(String(asNum))}
+              onClick={() =>
+                onAddFilter?.({ type: "asnum", value: String(asNum) })
+              }
+            >
+              {host.infos?.as_name
+                ? `AS${asNum} (${host.infos.as_name})`
+                : `AS${asNum}`}
+            </FilterChipText>
+          ) : (
+            "—"
+          )}
         </KV>
-        <KV label="Source">{(host.source ?? []).join(", ") || "—"}</KV>
+        <KV label="Source">
+          {sources.length > 0 ? (
+            <span className="flex flex-wrap gap-2">
+              {sources.map((src, i) => (
+                <FilterChipText
+                  key={src}
+                  highlighted={sourceHL?.has(src.toLowerCase())}
+                  onClick={() =>
+                    onAddFilter?.({ type: "source", value: src })
+                  }
+                >
+                  {src}
+                  {i < sources.length - 1 ? "," : ""}
+                </FilterChipText>
+              ))}
+            </span>
+          ) : (
+            "—"
+          )}
+        </KV>
         <KV label="First seen">{formatTimestamp(host.starttime) || "—"}</KV>
         <KV label="Last seen">{formatTimestamp(host.endtime) || "—"}</KV>
       </Section>
@@ -134,10 +232,24 @@ function HostDetailBody({ host }: { host: HostRecord }) {
         <Section title="Hostnames">
           <ul className="space-y-1 font-mono text-xs">
             {host.hostnames.map((h) => (
-              <li key={h.name}>
-                {h.name}
+              <li key={`${h.name}-${h.type ?? ""}`}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAddFilter?.({ type: "hostname", value: h.name })
+                  }
+                  className={cn(
+                    "rounded px-1 hover:underline",
+                    hostnameHL?.has(h.name.toLowerCase()) &&
+                      "bg-highlight text-highlight-foreground",
+                  )}
+                >
+                  {h.name}
+                </button>
                 {h.type ? (
-                  <span className="ml-2 text-muted-foreground">({h.type})</span>
+                  <span className="ml-2 text-muted-foreground">
+                    ({h.type})
+                  </span>
                 ) : null}
               </li>
             ))}
@@ -149,13 +261,25 @@ function HostDetailBody({ host }: { host: HostRecord }) {
         <Section title="Tags">
           <div className="flex flex-wrap gap-1.5">
             {host.tags.map((tag) => (
-              <Badge
+              <button
+                type="button"
                 key={tag.value}
-                className={cn("border-none", getTagColor(tag.type))}
+                onClick={() =>
+                  onAddFilter?.({ type: "tag", value: tag.value })
+                }
                 title={tag.info?.join("\n")}
               >
-                {tag.value}
-              </Badge>
+                <Badge
+                  className={cn(
+                    "border-none",
+                    getTagColor(tag.type),
+                    tagHL?.has(tag.value.toLowerCase()) &&
+                      "ring-2 ring-yellow-500 dark:ring-orange-400",
+                  )}
+                >
+                  {tag.value}
+                </Badge>
+              </button>
             ))}
           </div>
         </Section>
@@ -165,9 +289,23 @@ function HostDetailBody({ host }: { host: HostRecord }) {
         <Section title="Categories">
           <div className="flex flex-wrap gap-1.5">
             {host.categories.map((cat) => (
-              <Badge key={cat} variant="outline">
-                {cat}
-              </Badge>
+              <button
+                type="button"
+                key={cat}
+                onClick={() =>
+                  onAddFilter?.({ type: "category", value: cat })
+                }
+              >
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    categoryHL?.has(cat.toLowerCase()) &&
+                      "bg-highlight text-highlight-foreground",
+                  )}
+                >
+                  {cat}
+                </Badge>
+              </button>
             ))}
           </div>
         </Section>
@@ -178,57 +316,118 @@ function HostDetailBody({ host }: { host: HostRecord }) {
           <ul className="space-y-3">
             {host.ports
               .filter((p) => typeof p.port === "number")
-              .map((p) => (
-                <li key={`p-${p.protocol}-${p.port}`} className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      className={cn(
-                        "border-none font-mono",
-                        getPortColor(p.state_state),
+              .map((p) => {
+                const token = formatPort(p);
+                const isOpen = p.state_state === "open";
+                const portMatch = portHL?.has(token);
+                const serviceMatch =
+                  p.service_name &&
+                  serviceHL?.has(p.service_name.toLowerCase());
+                const productMatch =
+                  p.service_product &&
+                  productHL?.has(p.service_product.toLowerCase());
+                const portChip = (
+                  <Badge
+                    className={cn(
+                      "border-none font-mono",
+                      getPortColor(p.state_state),
+                      (portMatch || serviceMatch || productMatch) &&
+                        "ring-2 ring-yellow-500 dark:ring-orange-400",
+                    )}
+                  >
+                    {token}
+                  </Badge>
+                );
+                return (
+                  <li
+                    key={`p-${p.protocol}-${p.port}`}
+                    className="space-y-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      {isOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => onAddFilter?.({ value: token })}
+                        >
+                          {portChip}
+                        </button>
+                      ) : (
+                        portChip
                       )}
-                    >
-                      {formatPort(p)}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {p.state_state ?? "—"}
-                    </span>
-                    {p.service_name ? (
-                      <span className="text-xs">
-                        <span className="font-semibold">{p.service_name}</span>
-                        {p.service_product
-                          ? ` (${p.service_product}${
-                              p.service_version ? ` ${p.service_version}` : ""
-                            })`
-                          : null}
+                      <span className="text-xs text-muted-foreground">
+                        {p.state_state ?? "—"}
                       </span>
+                      {p.service_name ? (
+                        <span className="text-xs">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onAddFilter?.({
+                                type: "service",
+                                value: p.service_name as string,
+                              })
+                            }
+                            className={cn(
+                              "rounded px-1 font-semibold hover:underline",
+                              serviceMatch &&
+                                "bg-highlight text-highlight-foreground",
+                            )}
+                          >
+                            {p.service_name}
+                          </button>
+                          {p.service_product ? (
+                            <>
+                              {" ("}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onAddFilter?.({
+                                    type: "product",
+                                    value: p.service_product as string,
+                                  })
+                                }
+                                className={cn(
+                                  "rounded px-1 hover:underline",
+                                  productMatch &&
+                                    "bg-highlight text-highlight-foreground",
+                                )}
+                              >
+                                {p.service_product}
+                              </button>
+                              {p.service_version ? ` ${p.service_version}` : ""}
+                              {")"}
+                            </>
+                          ) : null}
+                        </span>
+                      ) : null}
+                    </div>
+                    {p.scripts && p.scripts.length > 0 ? (
+                      <ul className="space-y-1 pl-4 text-xs">
+                        {p.scripts.map((script) => (
+                          <li key={script.id}>
+                            {/*
+                              Open by default — Nmap script output is the
+                              highest-value content on the detail page,
+                              so make the user click to *hide* rather
+                              than to *reveal*.
+                            */}
+                            <details open>
+                              <summary className="cursor-pointer font-mono text-muted-foreground hover:text-foreground">
+                                {script.id}
+                              </summary>
+                              {script.output ? (
+                                <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/40 p-2 font-mono text-xs">
+                                  {script.output}
+                                </pre>
+                              ) : null}
+                            </details>
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
-                  </div>
-                  {p.scripts && p.scripts.length > 0 ? (
-                    <ul className="space-y-1 pl-4 text-xs">
-                      {p.scripts.map((script) => (
-                        <li key={script.id}>
-                          {/*
-                            Open by default — Nmap script output is the
-                            highest-value content on the detail page,
-                            so make the user click to *hide* rather
-                            than to *reveal*.
-                          */}
-                          <details open>
-                            <summary className="cursor-pointer font-mono text-muted-foreground hover:text-foreground">
-                              {script.id}
-                            </summary>
-                            {script.output ? (
-                              <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/40 p-2 font-mono text-xs">
-                                {script.output}
-                              </pre>
-                            ) : null}
-                          </details>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
           </ul>
         </Section>
       ) : null}
@@ -261,5 +460,31 @@ function KV({ label, children }: { label: string; children: React.ReactNode }) {
       </span>
       <span className="text-sm">{children}</span>
     </div>
+  );
+}
+
+/** Plain-text-styled clickable filter trigger. Used in the
+ *  ``Network`` section's ``KV`` rows where a full ``<Badge>`` would
+ *  visually overpower the surrounding labels. */
+function FilterChipText({
+  children,
+  highlighted,
+  onClick,
+}: {
+  children: React.ReactNode;
+  highlighted?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded px-1 hover:underline",
+        highlighted && "bg-highlight text-highlight-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }

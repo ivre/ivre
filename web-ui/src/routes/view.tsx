@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useMemo } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
@@ -12,6 +12,7 @@ import {
   buildHighlightMap,
   buildQueryFromFilters,
   parseFiltersFromQuery,
+  quoteValue,
   type Filter,
 } from "@/lib/filter";
 import { getSection } from "@/lib/sections";
@@ -36,6 +37,12 @@ function ViewRouteInner() {
   const section = getSection("view")!;
   const config = getConfig();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // ``addr`` is set when the route is ``/view/host/<addr>`` and
+  // ``undefined`` for ``/view``. Filter state is preserved across
+  // both via the URL search params (which react-router keeps when
+  // navigating between sibling routes).
+  const { addr: routeAddr } = useParams<{ addr?: string }>();
 
   const filters: Filter[] = useMemo(
     () => parseFiltersFromQuery(searchParams.get("q") ?? ""),
@@ -45,6 +52,11 @@ function ViewRouteInner() {
   const highlights = useMemo(() => buildHighlightMap(filters), [filters]);
 
   useFilterTitle(filters);
+
+  const searchSuffix = useMemo(() => {
+    const s = searchParams.toString();
+    return s ? `?${s}` : "";
+  }, [searchParams]);
 
   const setFilters = useCallback(
     (next: Filter[]) => {
@@ -84,15 +96,43 @@ function ViewRouteInner() {
     skip: 0,
   });
 
-  // Host detail state.
-  const [selectedAddr, setSelectedAddr] = useState<string | null>(null);
+  // Host detail. ``routeAddr`` (from ``/view/host/<addr>``) is the
+  // single source of truth for "which host is currently displayed
+  // in the sheet"; selecting a host or pressing prev/next is just a
+  // ``navigate()`` call, and closing the sheet navigates back to
+  // ``/view`` (preserving the search params).
   const selectedIndex = useMemo(
-    () =>
-      selectedAddr ? hosts.findIndex((h) => h.addr === selectedAddr) : -1,
-    [selectedAddr, hosts],
+    () => (routeAddr ? hosts.findIndex((h) => h.addr === routeAddr) : -1),
+    [routeAddr, hosts],
+  );
+  // For direct navigation to ``/view/host/<addr>`` (refresh, share
+  // link), the addr usually isn't in the in-memory results yet —
+  // fetch it as a one-host query.
+  const directHostQuery = useMemo(() => {
+    if (!routeAddr) return undefined;
+    if (selectedIndex >= 0) return undefined;
+    return `host:${quoteValue(routeAddr)}`;
+  }, [routeAddr, selectedIndex]);
+  const { data: directHostList = [] } = useHosts(
+    directHostQuery ? section.listEndpoint : undefined,
+    { q: directHostQuery, limit: 1, skip: 0 },
   );
   const selectedHost: HostRecord | null =
-    selectedIndex >= 0 ? hosts[selectedIndex] : null;
+    selectedIndex >= 0
+      ? hosts[selectedIndex]
+      : routeAddr && directHostList[0]
+        ? directHostList[0]
+        : null;
+
+  const goToHost = useCallback(
+    (a: string) => {
+      navigate(`/view/host/${encodeURIComponent(a)}${searchSuffix}`);
+    },
+    [navigate, searchSuffix],
+  );
+  const closeDetail = useCallback(() => {
+    navigate(`/view${searchSuffix}`);
+  }, [navigate, searchSuffix]);
 
   return (
     // Outer flex: tight ``py-2`` so the top/bottom margin matches
@@ -146,29 +186,31 @@ function ViewRouteInner() {
             error={error as Error | null}
             highlights={highlights}
             onAddFilter={addFilter}
-            onSelect={(h) => setSelectedAddr(h.addr)}
+            onSelect={(h) => goToHost(h.addr)}
           />
         </div>
       </div>
 
       <HostDetailSheet
         host={selectedHost}
-        open={selectedHost !== null}
+        open={Boolean(routeAddr) && selectedHost !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedAddr(null);
+          if (!open) closeDetail();
         }}
         hasPrev={selectedIndex > 0}
         hasNext={selectedIndex >= 0 && selectedIndex < hosts.length - 1}
         onPrev={() => {
           if (selectedIndex > 0) {
-            setSelectedAddr(hosts[selectedIndex - 1].addr);
+            goToHost(hosts[selectedIndex - 1].addr);
           }
         }}
         onNext={() => {
           if (selectedIndex >= 0 && selectedIndex < hosts.length - 1) {
-            setSelectedAddr(hosts[selectedIndex + 1].addr);
+            goToHost(hosts[selectedIndex + 1].addr);
           }
         }}
+        onAddFilter={addFilter}
+        highlights={highlights}
       />
     </div>
   );

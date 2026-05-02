@@ -40,3 +40,43 @@ test("section nav switches to a stub", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /RIR/i })).toBeVisible();
   await expect(page.getByText(/under construction/i)).toBeVisible();
 });
+
+test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
+  page,
+}) => {
+  // Mock the single-host fetch so the route renders something.
+  // ``page.route`` handlers stack LIFO and ``route.continue()`` forwards
+  // the request to the actual network (no backend in CI dev), so we
+  // dispatch from a single handler rather than chaining via
+  // ``route.fallback()``.
+  const sample = {
+    addr: "1.2.3.4",
+    infos: { country_code: "FR", country_name: "France" },
+    ports: [
+      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+    ],
+  };
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      if (q.includes("host:")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/x-ndjson",
+          body: JSON.stringify(sample) + "\n",
+        });
+      }
+      return route.fulfill({ status: 200, body: "" });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view/host/1.2.3.4");
+  await expect(
+    page.getByRole("heading", { name: "1.2.3.4" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /copy permalink/i }),
+  ).toBeVisible();
+});
