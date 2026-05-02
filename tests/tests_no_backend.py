@@ -1231,6 +1231,138 @@ class RegexComplexityTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# PostgresExplainTests -- defence-in-depth check that values
+# inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
+# per-type literal binding, not Python ``repr``.
+# ---------------------------------------------------------------------
+
+
+try:
+    import sqlalchemy as _sqlalchemy  # type: ignore[import-untyped]
+    from sqlalchemy.dialects import (
+        postgresql as _sqlalchemy_postgresql,  # type: ignore[import-untyped]
+    )
+
+    _HAVE_SQLALCHEMY = True
+except ImportError:
+    _HAVE_SQLALCHEMY = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class PostgresExplainTests(unittest.TestCase):
+    """Tests for the literal-binds quoting path used by
+    ``ivre.db.sql.postgres.PostgresDB.explain``.
+
+    The previous implementation built the ``EXPLAIN`` statement
+    by ``%``-interpolating ``repr(value)`` for each parameter,
+    which only coincidentally produced valid SQL for plain
+    strings and integers. This class pins the new contract: each
+    bind goes through SQLAlchemy's per-type literal processor.
+    """
+
+    def _compile(self, query):
+        return str(
+            query.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _users_table():
+        sa = _sqlalchemy
+        meta = sa.MetaData()
+        return sa.Table(
+            "users",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("name", sa.String),
+            sa.Column("blob", sa.LargeBinary),
+            sa.Column("active", sa.Boolean),
+            sa.Column("created", sa.DateTime),
+        )
+
+    def test_string_with_single_quote_is_escaped(self):
+        # The classic SQL-injection payload arrives as a string
+        # value: SQLAlchemy's literal_processor must double the
+        # embedded ``'`` so the value remains a string literal.
+        sa = _sqlalchemy
+        users = self._users_table()
+        sql = self._compile(
+            sa.select(users).where(users.c.name == "'; DROP TABLE users; --")
+        )
+        self.assertIn("'''; DROP TABLE users; --'", sql)
+        self.assertNotIn("DROP TABLE users; --'", sql.split("'''", 1)[0])
+
+    def test_none_is_emitted_as_NULL(self):
+        # ``repr(None)`` is ``'None'`` (a Python literal, not SQL).
+        # The literal-binds path must emit ``NULL`` instead.
+        sa = _sqlalchemy
+        users = self._users_table()
+        sql = self._compile(sa.select(users).where(users.c.name.is_(None)))
+        self.assertIn("IS NULL", sql.upper())
+        self.assertNotIn("'None'", sql)
+
+    def test_boolean_is_emitted_as_true_false(self):
+        sa = _sqlalchemy
+        users = self._users_table()
+        sql = self._compile(sa.select(users).where(users.c.active.is_(True)))
+        # PG dialect emits ``true`` / ``false`` (lowercase) as
+        # native boolean literals; never the Python ``True``.
+        self.assertNotIn("'True'", sql)
+        self.assertIn("true", sql.lower())
+
+    def test_integer_passthrough(self):
+        sa = _sqlalchemy
+        users = self._users_table()
+        sql = self._compile(sa.select(users).where(users.c.id == 42))
+        # Integer literal goes through unquoted.
+        self.assertIn("= 42", sql)
+
+    def test_no_pyformat_placeholders_remain(self):
+        # The compile result must contain no ``%(name)s`` markers
+        # — every parameter must be inlined as a literal.
+        sa = _sqlalchemy
+        users = self._users_table()
+        sql = self._compile(
+            sa.select(users)
+            .where(users.c.name == "alice")
+            .where(users.c.id == 7)
+            .where(users.c.active.is_(True))
+        )
+        self.assertNotRegex(sql, r"%\(\w+\)s")
+
+    def test_explain_function_does_not_use_repr(self):
+        # White-box: pin that the executable code no longer
+        # interpolates ``repr(value)`` into the EXPLAIN statement,
+        # and that it uses ``literal_binds`` plus
+        # ``exec_driver_sql``. AST-based so the docstring's
+        # historical reference to ``repr(value)`` is ignored.
+        import ast
+        from inspect import getsource
+        from textwrap import dedent
+
+        from ivre.db.sql import postgres as pgmod
+
+        src = dedent(getsource(pgmod.PostgresDB.explain))
+        tree = ast.parse(src)
+        repr_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "repr"
+        ]
+        self.assertEqual(repr_calls, [], "explain() should not call repr()")
+        # Sanity: the new control-flow markers are present.
+        self.assertIn("literal_binds", src)
+        self.assertIn("exec_driver_sql", src)
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 
