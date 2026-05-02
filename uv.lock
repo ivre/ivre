@@ -794,7 +794,7 @@ requires-dist = [
     { name = "sphinx-lint", marker = "extra == 'linting'" },
     { name = "sphinx-rtd-theme", marker = "extra == 'doc'" },
     { name = "sphinxcontrib-httpdomain", marker = "extra == 'doc'" },
-    { name = "sqlalchemy", marker = "extra == 'postgres'", specifier = "<2" },
+    { name = "sqlalchemy", marker = "extra == 'postgres'", specifier = ">=1.4,<2" },
 ]
 provides-extras = ["postgres", "elasticsearch", "gssapi-mongo", "gssapi-http", "screenshots", "mediawiki", "3d-traceroute", "plots", "ja3", "mcp", "linting", "doc"]
 

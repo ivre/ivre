@@ -111,12 +111,36 @@ class PostgresDB(SQLDB):
         return BulkInsert(self.db, size=size, retries=retries)
 
     def explain(self, req, **_):
-        req_comp = req.compile(dialect=postgresql.dialect())
-        arg_dic = {}
-        for k in req_comp.params:
-            arg_dic[k] = repr(req_comp.params[k])
-        req_cur = self.db.execute(text(f"EXPLAIN {req_comp.string % arg_dic}"))
-        return "\n".join(map(" ".join, req_cur.fetchall()))
+        """Return the PostgreSQL ``EXPLAIN`` output for a SQLAlchemy
+        query expression.
+
+        Parameter values are inlined into the SQL statement using
+        SQLAlchemy's per-type literal binding (``literal_binds``)
+        so each value goes through the column type's
+        ``literal_processor`` — strings get backslash-aware
+        single-quote escaping, bytes are emitted as ``E'\\x...'``,
+        datetimes are formatted with their proper PostgreSQL
+        cast, ``None`` is emitted as ``NULL``, booleans as ``TRUE``
+        / ``FALSE``, etc. This replaces an earlier approach that
+        used ``repr(value)`` to produce SQL literals, which only
+        coincidentally worked for plain strings and integers and
+        was brittle at best (e.g. ``repr(b"x")`` is ``b'x'``,
+        which is not valid PostgreSQL).
+
+        The compiled SQL is dispatched via ``exec_driver_sql`` so
+        that ``text()``'s bind-parameter parsing does not
+        reinterpret ``:`` characters that may appear inside string
+        literals or PostgreSQL ``::`` casts in the compiled
+        statement.
+        """
+        compiled = req.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+        sql = f"EXPLAIN {compiled}"
+        with self.db.connect() as conn:
+            rows = conn.exec_driver_sql(sql).fetchall()
+        return "\n".join(map(" ".join, rows))
 
 
 class BulkInsert:
