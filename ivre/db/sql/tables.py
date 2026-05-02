@@ -18,10 +18,6 @@
 
 """This sub-module contains SQL tables and columns definition."""
 
-import json
-import re
-import sqlite3
-
 from sqlalchemy import (
     Column,
     DateTime,
@@ -32,172 +28,24 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    event,
     func,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.engine import Engine
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.expression import BinaryExpression
-from sqlalchemy.sql.operators import custom_op, json_getitem_op
-from sqlalchemy.types import TypeDecorator, UserDefinedType
+from sqlalchemy.types import UserDefinedType
 
-from ivre import passive, utils, xmlnmap
-
-# sqlite
-
-
-@event.listens_for(Engine, "connect")
-def sqlite_engine_connect(dbapi_connection, connection_record):
-    if not isinstance(dbapi_connection, sqlite3.Connection):
-        return
-
-    def least(a, b):
-        return min(a, b)
-
-    dbapi_connection.create_function("least", 2, least)
-
-    def greatest(a, b):
-        return max(a, b)
-
-    dbapi_connection.create_function("greatest", 2, greatest)
-
-    def regexp(s, p):
-        return re.search(p, s) is not None
-
-    dbapi_connection.create_function("_REGEXP", 2, regexp)
-
-    def iregexp(s, p):
-        return re.search(p, s, re.IGNORECASE) is not None
-
-    dbapi_connection.create_function("_IREGEXP", 2, iregexp)
-
-    def access(d, k):
-        if k.startswith("$."):
-            # With sqlalchemy >= 1.3.0, this seems to be
-            # necessary. Please help me if you can.
-            k = json.loads(k[2:])
-        return json.dumps(json.loads(d).get(k), sort_keys=True)
-
-    dbapi_connection.create_function("_ACCESS", 2, access)
-
-    def access_astext(d, k):
-        return str(json.loads(d).get(k))
-
-    dbapi_connection.create_function("_ACCESS_TXT", 2, access_astext)
-
-    def has_key(d, k):
-        return k in json.loads(d) if json.loads(d) else False
-
-    dbapi_connection.create_function("_HAS_KEY", 2, has_key)
-
-
-@compiles(BinaryExpression, "sqlite")
-def extend_binary_expression(element, compiler, **kwargs):
-    if isinstance(element.operator, custom_op):
-        opstring = element.operator.opstring
-        if opstring == "~":
-            return compiler.process(func._REGEXP(element.left, element.right))
-        if opstring == "~*":
-            return compiler.process(func._IREGEXP(element.left, element.right))
-        if opstring == "->":
-            return compiler.process(func._ACCESS(element.left, element.right))
-        if opstring == "->>":
-            return compiler.process(func._ACCESS_TXT(element.left, element.right))
-        if opstring == "?":
-            return compiler.process(func._HAS_KEY(element.left, element.right))
-    # FIXME: Variant base type Comparator seems to be used here.
-    if element.operator is json_getitem_op:
-        return compiler.process(func._ACCESS(element.left, element.right))
-    return compiler.visit_binary(element)
-
+from ivre import passive, xmlnmap
 
 # Types
 
-
-class DefaultJSONB(UserDefinedType):
-    python_type = dict
-    cache_ok = False
-
-    def __init__(self):
-        self.__visit_name__ = "DefaultJSONB"
-
-    def get_col_spec(self):
-        return self.__visit_name__
-
-    @staticmethod
-    def bind_processor(dialect):
-        def process(value):
-            if value is not None:
-                value = json.dumps(value, sort_keys=True)
-            return value
-
-        return process
-
-    @staticmethod
-    def result_processor(dialect, coltype):
-        def process(value):
-            if value is not None:
-                value = json.loads(value)
-            return value
-
-        return process
-
-
-SQLJSONB = postgresql.JSONB().with_variant(DefaultJSONB(), "sqlite")
-
-
-class DefaultARRAY(TypeDecorator):
-    impl = Text
-    cache_ok = False
-
-    def __init__(self, item_type, *args, **kwargs):
-        TypeDecorator.__init__(self, *args, **kwargs)
-        self.item_type = item_type
-
-    @staticmethod
-    def process_bind_param(value, dialect):
-        if value is not None:
-            value = json.dumps(value, sort_keys=True)
-        return value
-
-    @staticmethod
-    def process_result_value(value, dialect):
-        if value is not None:
-            value = json.loads(value)
-        return value
+SQLJSONB = postgresql.JSONB()
 
 
 def SQLARRAY(item_type):
-    return postgresql.ARRAY(item_type).with_variant(DefaultARRAY(item_type), "sqlite")
+    return postgresql.ARRAY(item_type)
 
 
-class DefaultINET(UserDefinedType):
-    python_type = bytes
-    cache_ok = True
-
-    def __init__(self):
-        self.__visit_name__ = "VARCHAR(32)"
-
-    def get_col_spec(self):
-        return self.__visit_name__
-
-    def bind_processor(self, dialect):
-        def process(value):
-            return self.python_type(b"" if not value else utils.ip2bin(value))
-
-        return process
-
-    @staticmethod
-    def result_processor(dialect, coltype):
-        def process(value):
-            return None if not value else utils.bin2ip(value)
-
-        return process
-
-
-SQLINET = postgresql.INET().with_variant(DefaultINET(), "sqlite")
+SQLINET = postgresql.INET()
 
 
 class Point(UserDefinedType):

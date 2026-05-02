@@ -54,7 +54,6 @@ def main() -> None:
         "pycurl",
         "pymongo",
         "sqlalchemy",
-        "tinydb",
         "elasticsearch",
         "elasticsearch_dsl",
     ]:
