@@ -104,3 +104,123 @@ test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
     page.getByRole("button", { name: /copy permalink/i }),
   ).toBeVisible();
 });
+
+test("UserMenu is hidden when auth is disabled", async ({ page }) => {
+  // Default: ``window.config`` is unset (no backend) → auth_enabled
+  // defaults to false → the menu renders nothing.
+  await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /account menu/i }),
+  ).toHaveCount(0);
+});
+
+test("UserMenu shows Sign in when auth is enabled and the user is anonymous", async ({
+  page,
+}) => {
+  // Pre-set ``window.config`` so the React app sees auth as enabled
+  // before any component renders.
+  await page.addInitScript(() => {
+    (window as unknown as { config: { auth_enabled: boolean } }).config = {
+      auth_enabled: true,
+    };
+  });
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ authenticated: false }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: ["google", "oidc"],
+          magic_link: true,
+          provider_labels: { oidc: "Corp SSO" },
+        }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  const signInButton = page.getByRole("button", { name: /sign in/i });
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
+
+  // Dialog with provider buttons.
+  await expect(
+    page.getByRole("dialog", { name: /sign in to ivre/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /continue with google/i }),
+  ).toBeVisible();
+  // Operator-defined OIDC label is honoured.
+  await expect(
+    page.getByRole("button", { name: /continue with corp sso/i }),
+  ).toBeVisible();
+  // Magic-link form present when enabled server-side.
+  await expect(
+    page.getByRole("textbox", { name: /email me a sign-in link/i }),
+  ).toBeVisible();
+});
+
+test("UserMenu shows the user identity when authenticated", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    (window as unknown as { config: { auth_enabled: boolean } }).config = {
+      auth_enabled: true,
+    };
+  });
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "alice@example.com",
+          display_name: "Alice",
+          is_admin: true,
+          groups: ["staff"],
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: ["google"],
+          magic_link: false,
+        }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  const accountButton = page.getByRole("button", { name: /account menu/i });
+  await expect(accountButton).toBeVisible();
+  await expect(accountButton).toContainText("Alice");
+  await accountButton.click();
+  // Dropdown shows the email, an Admin shortcut (because is_admin),
+  // and a Sign out item.
+  await expect(page.getByText("alice@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: /admin/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: /sign out/i }),
+  ).toBeVisible();
+});
