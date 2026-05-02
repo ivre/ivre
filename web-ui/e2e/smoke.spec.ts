@@ -296,4 +296,20 @@ test("Passive section renders the timeline + record list", async ({ page }) => {
   await expect(
     page.getByLabel(/timeline of 2 passive observations/i),
   ).toBeVisible();
+
+  // Clicking a card's source chip adds the
+  // ``source:RECONTYPE:SOURCE`` tuple filter (passive's
+  // ``source`` is meaningful only relative to ``recontype``).
+  // The renderer quotes values containing a ``:`` literal, and
+  // the URL is then percent-encoded; check the decoded form
+  // rather than coupling to the wire shape.
+  await page
+    .getByRole("button", { name: /source:SERVER/i })
+    .first()
+    .click();
+  await expect(page).toHaveURL((url) =>
+    decodeURIComponent(url.toString()).includes(
+      'source:"HTTP_SERVER_HEADER:SERVER"',
+    ),
+  );
 });

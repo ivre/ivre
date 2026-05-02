@@ -1469,9 +1469,11 @@ class PassiveFltFromQueryTests(unittest.TestCase):
                 return non_empty[-1] if non_empty else _StubDB.flt_empty
 
             @staticmethod
-            def searchrecontype(value, neg=False):
-                _StubDB.calls.append(("searchrecontype", value, neg))
-                return {"recontype": value, "neg": neg}
+            def searchrecontype(rectype=None, source=None, neg=False):
+                _StubDB.calls.append(
+                    ("searchrecontype", rectype, source, neg),
+                )
+                return {"rectype": rectype, "source": source, "neg": neg}
 
             @staticmethod
             def searchsensor(value, neg=False):
@@ -1497,9 +1499,10 @@ class PassiveFltFromQueryTests(unittest.TestCase):
         self.assertEqual(unused, [])
         self.assertEqual(
             [c for c in dbase.calls if c[0] == "searchrecontype"],
-            [("searchrecontype", "DNS_ANSWER", False)],
+            [("searchrecontype", "DNS_ANSWER", None, False)],
         )
-        self.assertEqual(flt.get("recontype"), "DNS_ANSWER")
+        self.assertEqual(flt.get("rectype"), "DNS_ANSWER")
+        self.assertIsNone(flt.get("source"))
         self.assertFalse(flt.get("neg"))
 
     def test_sensor_invokes_searchsensor(self):
@@ -1517,7 +1520,7 @@ class PassiveFltFromQueryTests(unittest.TestCase):
         self._parse("-recontype:HTTP_SERVER_HEADER", dbase)
         self.assertEqual(
             [c for c in dbase.calls if c[0] == "searchrecontype"],
-            [("searchrecontype", "HTTP_SERVER_HEADER", True)],
+            [("searchrecontype", "HTTP_SERVER_HEADER", None, True)],
         )
 
     def test_recontype_falls_through_when_backend_lacks_helper(self):
@@ -1542,6 +1545,146 @@ class PassiveFltFromQueryTests(unittest.TestCase):
                 _LegacyDB, query, base_flt=_LegacyDB.flt_empty
             )
         self.assertEqual(unused, ["recontype=DNS_ANSWER"])
+
+    def test_source_with_colon_invokes_combined_searchrecontype(self):
+        # Tuple form: ``source:RECONTYPE:VALUE`` dispatches to
+        # ``searchrecontype(rectype=…, source=…)`` so the
+        # backend filters on both fields at once.
+        dbase = self._stub_dbase()
+        flt, _sortby, unused, *_ = self._parse(
+            "source:HTTP_SERVER_HEADER:SERVER", dbase
+        )
+        self.assertEqual(unused, [])
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchrecontype"],
+            [("searchrecontype", "HTTP_SERVER_HEADER", "SERVER", False)],
+        )
+        self.assertEqual(flt.get("rectype"), "HTTP_SERVER_HEADER")
+        self.assertEqual(flt.get("source"), "SERVER")
+
+    def test_source_without_colon_invokes_searchrecontype_source_only(self):
+        # Legacy single-value form. Routes through
+        # ``searchrecontype(source=…)`` rather than
+        # ``searchsource(…)`` (which is not implemented on
+        # ``DBPassive``).
+        dbase = self._stub_dbase()
+        flt, _sortby, unused, *_ = self._parse("source:cert", dbase)
+        self.assertEqual(unused, [])
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchrecontype"],
+            [("searchrecontype", None, "cert", False)],
+        )
+        self.assertIsNone(flt.get("rectype"))
+        self.assertEqual(flt.get("source"), "cert")
+        # Crucially, ``searchsource`` is *not* invoked on the
+        # passive path.
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchsource"],
+            [],
+        )
+
+    def test_negated_combined_source_propagates_neg(self):
+        dbase = self._stub_dbase()
+        self._parse("-source:SSL_SERVER:cert", dbase)
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchrecontype"],
+            [("searchrecontype", "SSL_SERVER", "cert", True)],
+        )
+
+    def test_searchrecontype_scalar_only_keeps_legacy_shape(self):
+        # Direct unit test of the static method: the
+        # ``recontype`` only positive case must produce the
+        # historical ``{"recontype": value}`` shape so existing
+        # query plans / indexes are unaffected.
+        from ivre.db.mongo import MongoDBPassive as M
+
+        self.assertEqual(
+            M.searchrecontype(rectype="DNS_ANSWER"), {"recontype": "DNS_ANSWER"}
+        )
+        self.assertEqual(
+            M.searchrecontype(rectype="DNS_ANSWER", neg=True),
+            {"recontype": {"$ne": "DNS_ANSWER"}},
+        )
+        # List of length > 1 → ``$in``; length 1 collapses to scalar.
+        self.assertEqual(
+            M.searchrecontype(rectype=["A", "B"]),
+            {"recontype": {"$in": ["A", "B"]}},
+        )
+        self.assertEqual(M.searchrecontype(rectype=["A"]), {"recontype": "A"})
+        # Negated list → ``$nin``.
+        self.assertEqual(
+            M.searchrecontype(rectype=["A", "B"], neg=True),
+            {"recontype": {"$nin": ["A", "B"]}},
+        )
+
+    def test_searchrecontype_combined_uses_and(self):
+        # Both ``rectype`` and ``source`` set: positive form is
+        # the AND, negative form wraps the AND in ``$nor``.
+        from ivre.db.mongo import MongoDBPassive as M
+
+        self.assertEqual(
+            M.searchrecontype(rectype="SSL_SERVER", source="cert"),
+            {"$and": [{"recontype": "SSL_SERVER"}, {"source": "cert"}]},
+        )
+        self.assertEqual(
+            M.searchrecontype(rectype="SSL_SERVER", source="cert", neg=True),
+            {"$nor": [{"$and": [{"recontype": "SSL_SERVER"}, {"source": "cert"}]}]},
+        )
+
+    def test_searchrecontype_source_only_via_searchsource_override(self):
+        # ``MongoDBPassive.searchsource`` exists (overrides the
+        # generic one inherited from ``MongoDB``) and delegates
+        # to ``searchrecontype(source=…)``.
+        from ivre.db.mongo import MongoDBPassive as M
+
+        self.assertEqual(M.searchsource("cert"), {"source": "cert"})
+        self.assertEqual(M.searchsource("cert", neg=True), {"source": {"$ne": "cert"}})
+        # Equivalent to ``searchrecontype(source=…)``.
+        self.assertEqual(M.searchsource("cert"), M.searchrecontype(source="cert"))
+
+    def test_searchrecontype_degenerate_returns_match_all_or_none(self):
+        # No fields specified: positive matches everything (the
+        # canonical empty filter), negative matches nothing
+        # (``searchnonexistent``).
+        from ivre.db.mongo import MongoDBPassive as M
+
+        self.assertEqual(M.searchrecontype(), {})
+        # Match-none filter: any non-empty dict that no real
+        # passive record can satisfy. We only assert it is
+        # non-empty so this test does not couple to the exact
+        # ``searchnonexistent`` implementation detail.
+        self.assertNotEqual(M.searchrecontype(neg=True), {})
+
+    def test_source_dispatch_falls_back_to_searchsource_on_active(self):
+        # View / Active backends do not expose ``searchrecontype``;
+        # the parser keeps using the legacy ``searchsource`` for
+        # those sections, with the colon-bearing value passed
+        # verbatim as a regex match (no tuple split).
+        from ivre.web import utils as webutils
+
+        class _ActiveDB:
+            calls: list = []
+            flt_empty = {}
+
+            @staticmethod
+            def flt_and(*args):
+                return args[-1] if args else _ActiveDB.flt_empty
+
+            @staticmethod
+            def searchsource(value, neg=False):
+                _ActiveDB.calls.append(("searchsource", value, neg))
+                return {"source": value, "neg": neg}
+
+        _ActiveDB.calls = []
+        with mock.patch.object(
+            webutils, "get_init_flt", return_value=_ActiveDB.flt_empty
+        ):
+            query = webutils.query_from_params({"q": "source:cert"})
+            webutils.flt_from_query(_ActiveDB, query, base_flt=_ActiveDB.flt_empty)
+        self.assertEqual(
+            _ActiveDB.calls,
+            [("searchsource", "cert", False)],
+        )
 
 
 # ---------------------------------------------------------------------

@@ -137,25 +137,42 @@ export function PassiveRecordCard({
             </button>
           ) : null}
           {record.source ? (
-            <button
-              type="button"
-              onClick={() =>
-                onAddFilter?.({
-                  type: "source",
-                  value: record.source as string,
-                })
-              }
-            >
-              <Badge
-                variant="outline"
-                className={cn(
-                  sourceHL?.has(record.source.toLowerCase()) &&
-                    "bg-highlight text-highlight-foreground",
-                )}
-              >
-                source:{record.source}
-              </Badge>
-            </button>
+            (() => {
+              // ``source`` on passive is meaningful only relative
+              // to ``recontype``; clicks add the
+              // ``source:RECONTYPE:SOURCE`` tuple filter
+              // (server-side: ``searchrecontype(rectype=…,
+              // source=…)``). Highlight matches either the bare
+              // source (legacy ``source:cert`` filter) or the
+              // composite (``source:SSL_SERVER:cert`` filter).
+              const compositeValue = `${record.recontype}:${record.source}`;
+              const lower = (record.source as string).toLowerCase();
+              const compositeLower = compositeValue.toLowerCase();
+              const isHighlighted = Boolean(
+                sourceHL?.has(lower) || sourceHL?.has(compositeLower),
+              );
+              return (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAddFilter?.({
+                      type: "source",
+                      value: compositeValue,
+                    })
+                  }
+                >
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      isHighlighted &&
+                        "bg-highlight text-highlight-foreground",
+                    )}
+                  >
+                    source:{record.source}
+                  </Badge>
+                </button>
+              );
+            })()
           ) : null}
           {record.port !== undefined ? (
             <button

@@ -121,6 +121,40 @@ describe("createFilter — tag", () => {
   });
 });
 
+describe("createFilter — source (passive (recontype, source) tuple)", () => {
+  it("tuple label produces a ``source:RECONTYPE:SOURCE`` filter", () => {
+    expect(
+      createFilter("source", ["DNS_ANSWER", "A-1.2.3.4-53"]),
+    ).toEqual({
+      type: "source",
+      value: "DNS_ANSWER:A-1.2.3.4-53",
+    });
+  });
+
+  it("scalar source label keeps the legacy single-value filter", () => {
+    expect(createFilter("source", "cert")).toEqual({
+      type: "source",
+      value: "cert",
+    });
+  });
+
+  it("single-element array falls through to the scalar path", () => {
+    expect(createFilter("source", ["cert"])).toEqual({
+      type: "source",
+      value: "cert",
+    });
+  });
+
+  it("recontype facet stays unchanged (single-value, no tuple)", () => {
+    // Active / Passive both use ``recontype`` as a single-value
+    // facet; it must NOT be treated as a tuple.
+    expect(createFilter("recontype", "DNS_ANSWER")).toEqual({
+      type: "recontype",
+      value: "DNS_ANSWER",
+    });
+  });
+});
+
 describe("createFilter — smb.* family", () => {
   it("smb.dnsdomain", () => {
     expect(createFilter("smb.dnsdomain", "EXAMPLE.LOCAL")).toEqual({
