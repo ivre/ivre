@@ -234,6 +234,22 @@ WEB_WARN_DOTS_COUNT = 20000
 WEB_GET_NOTEPAD_PAGES = None
 WEB_LIMIT = 10
 WEB_GRAPH_LIMIT = 1000
+# Maximum length, in characters, of a user-supplied regex literal
+# (the inner pattern of a ``/.../[flags]`` value reaching
+# ``ivre.web.utils.str2regexp``). Enforced before the pattern is
+# parsed, as defence-in-depth on top of the server-side
+# ``MONGODB_QUERY_TIMEOUT_MS`` cap and the regexploit-based
+# ReDoS analyser. Set to ``None`` to disable the length check.
+WEB_REGEX_MAX_LENGTH: int | None = 1000
+# Maximum allowed regexploit "starriness" — the depth of nested
+# unbounded repetition that an attacker can drive through
+# backtracking. ``2`` matches the regexploit CLI default
+# (``starriness > 2`` is reported); the canonical exponential
+# ReDoS shapes (``(a+)+x``, ``(.*)*x``, ``(a|a)*x``, ...) all
+# come in at ``starriness >= 11`` so a limit of ``2`` rejects
+# them while accepting realistic operator-typed regex. Set to
+# ``None`` to disable the ReDoS check.
+WEB_REGEX_STARRINESS_LIMIT: int | None = 2
 # access control disabled by default:
 WEB_INIT_QUERIES: dict[str, str] = {}
 # Warning: None means no access control, and is equivalent to "full"

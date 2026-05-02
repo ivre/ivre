@@ -1050,6 +1050,187 @@ class RirMcpToolsTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# RegexComplexityTests -- defence-in-depth budget for user-supplied
+# regex literals reaching MongoDB ``$regex``.
+# ---------------------------------------------------------------------
+
+
+class RegexComplexityTests(unittest.TestCase):
+    """Tests for ``ivre.web.utils.validate_regex_complexity`` and
+    the ``ivre.web.utils.str2regexp`` / ``str2regexpnone``
+    wrappers.
+
+    The validator is the regexploit-based ReDoS analyser sitting
+    in front of ``re.compile()`` and MongoDB's ``$regex``. It
+    complements the server-side ``MONGODB_QUERY_TIMEOUT_MS`` cap
+    put in place earlier: where the timeout bounds the worst-case
+    wall clock, this budget rejects patterns proven exploitable
+    by static analysis before they get a chance to run.
+    """
+
+    @staticmethod
+    def _validator():
+        return ivre.web.utils.validate_regex_complexity
+
+    def test_short_simple_regex_passes(self):
+        # Realistic patterns operators submit through the Web API.
+        validate = self._validator()
+        for ok in [
+            "^foo$",
+            "cdn\\.cloudflare\\.com",
+            "^192\\.168\\.",
+            "(GET|POST) ",
+            "[a-z]+",
+            "abc{2,5}",
+            "foo|bar|baz",
+            "a*b*c*d*e*f*",
+        ]:
+            with self.subTest(pattern=ok):
+                validate(ok)
+
+    def test_non_string_input_is_a_no_op(self):
+        # Defensive: callers may forward arbitrary JSON values.
+        validate = self._validator()
+        validate(None)  # type: ignore[arg-type]
+        validate(42)  # type: ignore[arg-type]
+
+    def test_length_cap(self):
+        validate = self._validator()
+        long_pattern = "a" * 200
+        validate(long_pattern, max_length=200)
+        with self.assertRaises(ValueError):
+            validate(long_pattern, max_length=199)
+
+    def test_length_cap_can_be_disabled(self):
+        validate = self._validator()
+        validate("x" * 100_000, max_length=None)
+
+    def test_starriness_check_can_be_disabled(self):
+        validate = self._validator()
+        # An exploitable pattern: regexploit reports starriness 11.
+        validate("(a+)+x", starriness_limit=None)
+
+    def test_starriness_threshold_is_tunable(self):
+        validate = self._validator()
+        # ``a*b*`` is non-exploitable (no killer); regexploit
+        # reports starriness 0 so even a strict limit accepts it.
+        validate("a*b*", starriness_limit=0)
+        # Adversarial example: ``(a+)+x`` is starriness 11.
+        with self.assertRaises(ValueError):
+            validate("(a+)+x", starriness_limit=2)
+
+    def test_canonical_evil_regexes_rejected(self):
+        # Classic nested-quantifier ReDoS shapes with a
+        # ``killer`` suffix — regexploit detects the pumping
+        # sequence in each.
+        validate = self._validator()
+        for evil in [
+            "(a+)+x",
+            "(a*)*x",
+            "(.*)*x",
+            "(?:a+)+x",
+            "(?:.*)+x",
+            "(.+)*x",
+            "(.*)+x",
+            # Quantified alternative with matching character
+            # class — regexploit picks this one up via its
+            # branch-expansion pass.
+            "([0-9]|[0-9]+)+x",
+            # The original Finding 5 report's example.
+            ".*(.*)*.*(.*)*.*(.*)*x",
+            "(?P<bad>a+)+x",
+        ]:
+            with self.subTest(pattern=evil):
+                with self.assertRaises(ValueError):
+                    validate(evil)
+
+    def test_known_limitations_are_pinned(self):
+        # Static analysis of regex ReDoS is undecidable in the
+        # general case; both regexploit and the previous
+        # hand-rolled walker have blind spots. The most notable
+        # is alternation-with-equal-branches (``(a|a)*x``,
+        # ``(a|aa)+x``): regexploit's branch expansion does not
+        # detect the pumping sequence here. The
+        # ``MONGODB_QUERY_TIMEOUT_MS`` server-side cap is the
+        # backstop for these cases. This test pins the contract
+        # so callers do not silently rely on a broader check.
+        validate = self._validator()
+        for limitation in ["(a|a)*x", "(a|aa)+x", "(\\w|\\d)+x"]:
+            with self.subTest(pattern=limitation):
+                # Should NOT raise — regexploit accepts these.
+                validate(limitation)
+
+    def test_unkilled_nested_quantifier_is_not_rejected(self):
+        # ``(a+)+`` and ``(.*)*`` without a killer suffix are
+        # *not* exploitable in practice — any input matches at
+        # the first attempt without backtracking. regexploit
+        # accepts them by design; the previous syntactic walker
+        # was over-conservative here. This test pins the new
+        # contract.
+        validate = self._validator()
+        validate("(a+)+")
+        validate("(a*)*")
+        validate("(.*)*")
+
+    def test_named_groups_are_walked(self):
+        # ``(?P<name>...)`` should be analysed normally; both
+        # benign and malicious named-group patterns work.
+        validate = self._validator()
+        validate("(?P<host>[a-z]+)\\.example")
+        with self.assertRaises(ValueError):
+            validate("(?P<bad>a+)+x")
+
+    def test_lookaround_is_walked(self):
+        validate = self._validator()
+        validate("foo(?=bar)")
+        validate("foo(?!bar)")
+        validate("(?<=foo)bar")
+        validate("(?<!foo)bar")
+
+    def test_invalid_regex_raises_value_error(self):
+        # Malformed patterns surface as ``ValueError`` (which
+        # Bottle turns into 400) rather than ``re.error``.
+        validate = self._validator()
+        for bad in ["[abc", "foo(", "(?P<bad)", "*invalid"]:
+            with self.subTest(pattern=bad):
+                with self.assertRaises(ValueError):
+                    validate(bad)
+
+    def test_web_wrapper_validates_regex_input(self):
+        webutils = ivre.web.utils
+
+        self.assertEqual(webutils.str2regexp("plain"), "plain")
+        # Valid regex passes through and yields a compiled pattern.
+        compiled = webutils.str2regexp("/^foo$/")
+        self.assertTrue(hasattr(compiled, "pattern"))
+        # Exploitable regex is rejected.
+        with self.assertRaises(ValueError):
+            webutils.str2regexp("/(a+)+x/")
+        # Length cap (use a freshly large pattern to exceed the
+        # default).
+        with self.assertRaises(ValueError):
+            webutils.str2regexp(
+                "/" + ("a" * (ivre.config.WEB_REGEX_MAX_LENGTH + 1)) + "/"
+            )
+
+    def test_web_wrapper_str2regexpnone_passes_dash_through(self):
+        webutils = ivre.web.utils
+
+        self.assertIs(webutils.str2regexpnone("-"), False)
+        with self.assertRaises(ValueError):
+            webutils.str2regexpnone("/(a+)+x/")
+
+    def test_web_wrapper_handles_trailing_flags(self):
+        webutils = ivre.web.utils
+
+        # Flags suffix should be stripped before length checks; a
+        # very long flags suffix would otherwise inflate ``len``.
+        compiled = webutils.str2regexp("/foo/i")
+        self.assertTrue(hasattr(compiled, "pattern"))
+        self.assertEqual(compiled.flags & re.IGNORECASE, re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 
