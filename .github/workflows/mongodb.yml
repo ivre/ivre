@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: ${{ !contains(github.ref, 'master')}}
 
 jobs:
-  build:
+  mongodb:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -66,7 +66,7 @@ jobs:
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
 
-    - run: cd tests && python tests.py
+    - run: cd tests && python tests.py --exclude 15_rir
       env:
         CI: true
         DB: mongo
@@ -84,9 +84,57 @@ jobs:
     - run: cat /tmp/webserver.log
       if: failure()
 
+  mongodb_rir:
+    # ``test_15_rir`` downloads the full RIPE inetnum dump (hundreds
+    # of MB) and inserts it; running it on each ``mongodb`` matrix
+    # entry was making MongoDB+Elasticsearch wall-clock noticeably
+    # longer. Splitting the RIR test into its own parallel job (and
+    # decoupling ``elastic`` from it via ``needs: mongodb``) keeps
+    # the total test coverage identical while shortening the
+    # critical path on the green-PR latency.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+        mongodb-version: ['7.0', '8.0']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.1
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+
+    - run: cd tests && python tests.py 15_rir
+      env:
+        CI: true
+        DB: mongo
+
+    - run: cat /tmp/webserver.log
+      if: failure()
+
   elastic:
     runs-on: ubuntu-24.04
-    needs: build
+    needs: mongodb
     strategy:
       fail-fast: false
       matrix:

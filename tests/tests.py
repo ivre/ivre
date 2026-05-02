@@ -5028,6 +5028,7 @@ class IvreTests(unittest.TestCase):
 TESTS = set(
     [
         "10_data",
+        "15_rir",
         "30_nmap",
         "40_passive",
         "50_view",
@@ -5079,6 +5080,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run IVRE tests")
     parser.add_argument("--samples", metavar="DIR", default="./samples/")
     parser.add_argument("--coverage", action="store_true")
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        choices=list(TESTS),
+        metavar="TEST",
+        help="Skip the named test (may be repeated; same choices as positional).",
+    )
     parser.add_argument("tests", nargs="*", choices=list(TESTS) + [[]])
     args = parser.parse_args()
     SAMPLES = args.samples
@@ -5089,6 +5098,13 @@ def parse_args():
             setattr(
                 IvreTests, test, unittest.skip("User request")(getattr(IvreTests, test))
             )
+    for test in args.exclude:
+        method = "test_%s" % test
+        setattr(
+            IvreTests,
+            method,
+            unittest.skip("--exclude %s" % test)(getattr(IvreTests, method)),
+        )
     sys.argv = [sys.argv[0]]
 
 
