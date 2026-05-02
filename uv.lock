@@ -710,6 +710,7 @@ dependencies = [
     { name = "defusedxml" },
     { name = "pymongo" },
     { name = "pyopenssl" },
+    { name = "regexploit" },
 ]
 
 [package.optional-dependencies]
@@ -786,6 +787,7 @@ requires-dist = [
     { name = "pylint", marker = "extra == 'linting'" },
     { name = "pymongo", specifier = ">=4.10" },
     { name = "pyopenssl", specifier = ">=16.1.0" },
+    { name = "regexploit", specifier = ">=1.0,<2" },
     { name = "rstcheck", extras = ["sphinx"], marker = "extra == 'linting'" },
     { name = "scapy", marker = "extra == 'ja3'" },
     { name = "sphinx", marker = "extra == 'doc'" },
@@ -1888,6 +1890,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/19/eb/ef32dcd2cb69b69bc0c3e55205bce94a7def48d495358946bc42186dcccc/regex-2026.4.4-cp314-cp314t-win32.whl", hash = "sha256:385edaebde5db5be103577afc8699fea73a0e36a734ba24870be7ffa61119d74", size = 275709, upload-time = "2026-04-03T20:56:20.996Z" },
     { url = "https://files.pythonhosted.org/packages/a0/86/c291bf740945acbf35ed7dbebf8e2eea2f3f78041f6bd7cdab80cb274dc0/regex-2026.4.4-cp314-cp314t-win_amd64.whl", hash = "sha256:5d354b18839328927832e2fa5f7c95b7a3ccc39e7a681529e1685898e6436d45", size = 285622, upload-time = "2026-04-03T20:56:23.641Z" },
     { url = "https://files.pythonhosted.org/packages/d5/e7/ec846d560ae6a597115153c02ca6138a7877a1748b2072d9521c10a93e58/regex-2026.4.4-cp314-cp314t-win_arm64.whl", hash = "sha256:af0384cb01a33600c49505c27c6c57ab0b27bf84a74e28524c92ca897ebdac9d", size = 275773, upload-time = "2026-04-03T20:56:26.07Z" },
+]
+
+[[package]]
+name = "regexploit"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/4c/fc58c4892615496d632404633d07ea098e075c68afeb0e0536e21c9babee/regexploit-1.0.0.tar.gz", hash = "sha256:1abd5f6a92fd0959ddf13c5e84246935d21c5cd173e8d38bcf58c24eb24cd36f", size = 72704, upload-time = "2021-03-11T14:32:38.95Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/0a/90dc0759b72d2d1b726dbcdbca2d044cd048f8089936f69c40dca474975f/regexploit-1.0.0-py3-none-any.whl", hash = "sha256:71918acbd0134989cf3928577f3e5a6e0ab1a57891293dc83bfef198fc9949c2", size = 79818, upload-time = "2021-03-11T14:32:37.392Z" },
 ]
 
 [[package]]

@@ -36,10 +36,139 @@ except ImportError:
 
 
 from bottle import request  # type: ignore
+from regexploit.ast.sre import SreOpParser  # type: ignore[import-untyped]
+from regexploit.redos import find as _regexploit_find  # type: ignore[import-untyped]
 
 from ivre import config, utils
 
 GET_NOTEPAD_PAGES = {}
+
+
+_REGEX_BUDGET_DEFAULT: object = object()
+
+
+def validate_regex_complexity(
+    pattern: str,
+    *,
+    max_length: int | None | object = _REGEX_BUDGET_DEFAULT,
+    starriness_limit: int | None | object = _REGEX_BUDGET_DEFAULT,
+) -> None:
+    """Validate a user-supplied regex pattern against the
+    ``WEB_REGEX_*`` complexity budget.
+
+    Raises ``ValueError`` if either budget is exceeded. The
+    function is designed to run before user-supplied regex
+    literals (e.g. arriving via the Web API ``q=`` parameter) are
+    compiled or forwarded to ``$regex``, as defence-in-depth on
+    top of the server-side ``MONGODB_QUERY_TIMEOUT_MS`` cap.
+
+    Two rules are enforced:
+
+      1. ``len(pattern) <= max_length`` — bounds the size of the
+         pattern fed to the analyser, the regex compiler and the
+         database.
+      2. The pattern's regexploit "starriness" must not exceed
+         ``starriness_limit``. starriness is the depth of nested
+         unbounded repetition that an attacker can drive through
+         backtracking; it is the standard exploitability metric
+         for nested-quantifier and alternation-overlap ReDoS
+         (``(a+)+x``, ``(a|a)*x``, ``(?:.*)*x``, ...). The
+         analysis is performed by the ``regexploit`` library
+         (Doyensec, Apache-2.0), which builds an AST from
+         CPython's own ``sre_parse`` output and searches for
+         pumping sequences with a "killer" suffix.
+
+    Defaults for ``max_length`` and ``starriness_limit`` are
+    pulled from ``ivre.config.WEB_REGEX_MAX_LENGTH`` /
+    ``ivre.config.WEB_REGEX_STARRINESS_LIMIT`` when the argument
+    is not passed. Passing the argument explicitly as ``None``
+    disables that specific check (this distinction matters for
+    callers that want to ignore the operator-configured default).
+
+    Note: regexploit's own dependence on ``sre_parse`` (which is
+    deprecated in CPython 3.11+ but still functional) is the only
+    reason this validator is not entirely future-proof. If
+    ``sre_parse`` is removed in a future Python release,
+    regexploit will need to migrate to ``re._parser`` first.
+    """
+    if not isinstance(pattern, str):
+        return
+
+    if max_length is _REGEX_BUDGET_DEFAULT:
+        max_length = config.WEB_REGEX_MAX_LENGTH
+    if starriness_limit is _REGEX_BUDGET_DEFAULT:
+        starriness_limit = config.WEB_REGEX_STARRINESS_LIMIT
+
+    if (
+        max_length is not None
+        and isinstance(max_length, int)
+        and len(pattern) > max_length
+    ):
+        raise ValueError(
+            f"Regex exceeds maximum length ({len(pattern)} > {max_length})"
+        )
+
+    if starriness_limit is None:
+        return
+
+    try:
+        parsed = SreOpParser().parse_sre(pattern)
+    except re.error as exc:
+        # Surface the same error class Python's ``re.compile``
+        # would have raised; it converts to a 400 in Bottle.
+        raise ValueError(f"Invalid regex pattern: {exc}") from exc
+
+    if parsed is None:
+        # Empty / no-op pattern; nothing to analyse.
+        return
+
+    if not isinstance(starriness_limit, int):
+        return
+
+    for finding in _regexploit_find(parsed):
+        if finding.starriness > starriness_limit:
+            raise ValueError(
+                "Regex pattern is vulnerable to ReDoS "
+                f"(starriness={finding.starriness}, "
+                f"limit={starriness_limit})"
+            )
+
+
+def _validate_user_regex(value: object) -> None:
+    """Validate a user-supplied ``str2regexp`` argument against the
+    ``WEB_REGEX_*`` complexity budget.
+
+    Only values that ``utils.str2regexp`` would interpret as a
+    regex (``"/.../[flags]"`` syntax) are checked. Plain string
+    values, the special ``"-"`` sentinel honoured by
+    ``str2regexpnone``, and non-string inputs pass through
+    unchanged. ``ValueError`` is raised on overflow; callers in
+    this module rely on Bottle's default 400-on-ValueError
+    behaviour to surface the rejection to the client.
+    """
+    if not isinstance(value, str):
+        return
+    if not value.startswith("/"):
+        return
+    inner = value[1:]
+    # Mirror the ``str2regexp`` rsplit so we validate the inner
+    # pattern rather than the trailing ``/flags`` block.
+    if "/" in inner:
+        inner, _flags = inner.rsplit("/", 1)
+    validate_regex_complexity(inner)
+
+
+def str2regexp(value: str) -> str | re.Pattern[str]:
+    """Validating wrapper over ``utils.str2regexp`` for inputs
+    arriving from the network. See ``_validate_user_regex``."""
+    _validate_user_regex(value)
+    return utils.str2regexp(value)  # type: ignore[no-any-return]
+
+
+def str2regexpnone(value: str) -> str | re.Pattern[str] | bool:
+    """Validating wrapper over ``utils.str2regexpnone``."""
+    _validate_user_regex(value)
+    return utils.str2regexpnone(value)  # type: ignore[no-any-return]
 
 
 def get_notepad_pages_localdokuwiki(pagesdir="/var/lib/dokuwiki/data/pages"):
@@ -291,33 +420,23 @@ def flt_from_query(dbase, query, base_flt=None):
                     flt, dbase.searchcountopenports(minn=vals[0], maxn=vals[1], neg=neg)
                 )
         elif param == "hostname":
-            flt = dbase.flt_and(
-                flt, dbase.searchhostname(utils.str2regexp(value), neg=neg)
-            )
+            flt = dbase.flt_and(flt, dbase.searchhostname(str2regexp(value), neg=neg))
         elif param == "domain":
-            flt = dbase.flt_and(
-                flt, dbase.searchdomain(utils.str2regexp(value), neg=neg)
-            )
+            flt = dbase.flt_and(flt, dbase.searchdomain(str2regexp(value), neg=neg))
         elif param == "category":
-            flt = dbase.flt_and(
-                flt, dbase.searchcategory(utils.str2regexp(value), neg=neg)
-            )
+            flt = dbase.flt_and(flt, dbase.searchcategory(str2regexp(value), neg=neg))
         elif param == "country" and hasattr(dbase, "searchcountry"):
             flt = dbase.flt_and(
                 flt, dbase.searchcountry(utils.str2list(value.upper()), neg=neg)
             )
         elif param == "city" and hasattr(dbase, "searchcity"):
-            flt = dbase.flt_and(flt, dbase.searchcity(utils.str2regexp(value), neg=neg))
+            flt = dbase.flt_and(flt, dbase.searchcity(str2regexp(value), neg=neg))
         elif param == "asnum" and hasattr(dbase, "searchasnum"):
             flt = dbase.flt_and(flt, dbase.searchasnum(utils.str2list(value), neg=neg))
         elif param == "asname" and hasattr(dbase, "searchasname"):
-            flt = dbase.flt_and(
-                flt, dbase.searchasname(utils.str2regexp(value), neg=neg)
-            )
+            flt = dbase.flt_and(flt, dbase.searchasname(str2regexp(value), neg=neg))
         elif param == "source":
-            flt = dbase.flt_and(
-                flt, dbase.searchsource(utils.str2regexp(value), neg=neg)
-            )
+            flt = dbase.flt_and(flt, dbase.searchsource(str2regexp(value), neg=neg))
         elif param == "timerange":
             flt = dbase.flt_and(
                 flt,
@@ -345,28 +464,26 @@ def flt_from_query(dbase, query, base_flt=None):
                 req, port = value.split(":", 1)
                 port = int(port)
                 flt = dbase.flt_and(
-                    flt, dbase.searchservice(utils.str2regexpnone(req), port=port)
+                    flt, dbase.searchservice(str2regexpnone(req), port=port)
                 )
             else:
-                flt = dbase.flt_and(
-                    flt, dbase.searchservice(utils.str2regexpnone(value))
-                )
+                flt = dbase.flt_and(flt, dbase.searchservice(str2regexpnone(value)))
         elif not neg and param == "product" and ":" in value:
             product = value.split(":", 2)
             if len(product) == 2:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=utils.str2regexpnone(product[1]),
-                        service=utils.str2regexpnone(product[0]),
+                        product=str2regexpnone(product[1]),
+                        service=str2regexpnone(product[0]),
                     ),
                 )
             else:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=utils.str2regexpnone(product[1]),
-                        service=utils.str2regexpnone(product[0]),
+                        product=str2regexpnone(product[1]),
+                        service=str2regexpnone(product[0]),
                         port=int(product[2]),
                     ),
                 )
@@ -376,18 +493,18 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=utils.str2regexpnone(product[1]),
-                        version=utils.str2regexpnone(product[2]),
-                        service=utils.str2regexpnone(product[0]),
+                        product=str2regexpnone(product[1]),
+                        version=str2regexpnone(product[2]),
+                        service=str2regexpnone(product[0]),
                     ),
                 )
             else:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=utils.str2regexpnone(product[1]),
-                        version=utils.str2regexpnone(product[2]),
-                        service=utils.str2regexpnone(product[0]),
+                        product=str2regexpnone(product[1]),
+                        version=str2regexpnone(product[2]),
+                        service=str2regexpnone(product[0]),
                         port=int(product[3]),
                     ),
                 )
@@ -396,14 +513,14 @@ def flt_from_query(dbase, query, base_flt=None):
             if len(value) == 1:
                 flt = dbase.flt_and(
                     flt,
-                    dbase.searchscript(name=utils.str2regexp(value[0]), neg=neg),
+                    dbase.searchscript(name=str2regexp(value[0]), neg=neg),
                 )
             else:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchscript(
-                        name=utils.str2regexp(value[0]),
-                        output=utils.str2regexp(value[1]),
+                        name=str2regexp(value[0]),
+                        output=str2regexp(value[1]),
                         neg=neg,
                     ),
                 )
@@ -417,7 +534,7 @@ def flt_from_query(dbase, query, base_flt=None):
         elif not neg and param == "authhttp":
             flt = dbase.flt_and(flt, dbase.searchhttpauth())
         elif not neg and param == "banner":
-            flt = dbase.flt_and(flt, dbase.searchbanner(utils.str2regexp(value)))
+            flt = dbase.flt_and(flt, dbase.searchbanner(str2regexp(value)))
         elif not neg and param == "cookie":
             flt = dbase.flt_and(flt, dbase.searchcookie(value))
         elif not neg and param == "file":
@@ -427,13 +544,13 @@ def flt_from_query(dbase, query, base_flt=None):
                 value = value.split(":", 1)
                 if len(value) == 1:
                     flt = dbase.flt_and(
-                        flt, dbase.searchfile(fname=utils.str2regexp(value[0]))
+                        flt, dbase.searchfile(fname=str2regexp(value[0]))
                     )
                 else:
                     flt = dbase.flt_and(
                         flt,
                         dbase.searchfile(
-                            fname=utils.str2regexp(value[1]),
+                            fname=str2regexp(value[1]),
                             scripts=value[0].split(","),
                         ),
                     )
@@ -450,7 +567,7 @@ def flt_from_query(dbase, query, base_flt=None):
         elif not neg and param == "geovision":
             flt = dbase.flt_and(flt, dbase.searchgeovision())
         elif param == "httptitle":
-            flt = dbase.flt_and(flt, dbase.searchhttptitle(utils.str2regexp(value)))
+            flt = dbase.flt_and(flt, dbase.searchhttptitle(str2regexp(value)))
         elif not neg and param == "nfs":
             flt = dbase.flt_and(flt, dbase.searchnfs())
         elif not neg and param in {"nis", "yp"}:
@@ -461,9 +578,7 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchmysqlemptypwd())
         elif not neg and param == "sshkey":
             if value:
-                flt = dbase.flt_and(
-                    flt, dbase.searchsshkey(output=utils.str2regexp(value))
-                )
+                flt = dbase.flt_and(flt, dbase.searchsshkey(output=str2regexp(value)))
             else:
                 flt = dbase.flt_and(flt, dbase.searchsshkey())
         elif not neg and param.startswith("sshkey."):
@@ -477,7 +592,7 @@ def flt_from_query(dbase, query, base_flt=None):
                     except (ValueError, TypeError):
                         pass
                 else:
-                    value = utils.str2regexp(value)
+                    value = str2regexp(value)
                 flt = dbase.flt_and(flt, dbase.searchsshkey(**{subfield: value}))
             else:
                 add_unused(neg, param, value)
@@ -508,7 +623,7 @@ def flt_from_query(dbase, query, base_flt=None):
                         cacert=cacert,
                         neg=neg,
                         **{
-                            subfield: utils.str2regexp(value),
+                            subfield: str2regexp(value),
                         },
                     ),
                 )
@@ -519,7 +634,7 @@ def flt_from_query(dbase, query, base_flt=None):
                         cacert=cacert,
                         neg=neg,
                         **{
-                            f"pk{subfield[7:]}": utils.str2regexp(value),
+                            f"pk{subfield[7:]}": str2regexp(value),
                         },
                     ),
                 )
@@ -530,35 +645,29 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchhttphdr())
             elif ":" in value:
                 name, value = value.split(":", 1)
-                name = utils.str2regexp(name.lower())
-                value = utils.str2regexp(value)
+                name = str2regexp(name.lower())
+                value = str2regexp(value)
                 flt = dbase.flt_and(flt, dbase.searchhttphdr(name=name, value=value))
             else:
                 flt = dbase.flt_and(
-                    flt, dbase.searchhttphdr(name=utils.str2regexp(value.lower()))
+                    flt, dbase.searchhttphdr(name=str2regexp(value.lower()))
                 )
         elif not neg and param == "httpapp":
             if value is None:
                 flt = dbase.flt_and(flt, dbase.searchhttpapp())
             elif ":" in value:
-                name, version = (
-                    utils.str2regexp(string) for string in value.split(":", 1)
-                )
+                name, version = (str2regexp(string) for string in value.split(":", 1))
                 flt = dbase.flt_and(
                     flt, dbase.searchhttpapp(name=name, version=version)
                 )
             else:
-                flt = dbase.flt_and(
-                    flt, dbase.searchhttpapp(name=utils.str2regexp(value))
-                )
+                flt = dbase.flt_and(flt, dbase.searchhttpapp(name=str2regexp(value)))
         elif not neg and param == "owa":
             flt = dbase.flt_and(flt, dbase.searchowa())
         elif param == "phpmyadmin":
             flt = dbase.flt_and(flt, dbase.searchphpmyadmin())
         elif not neg and param.startswith("smb."):
-            flt = dbase.flt_and(
-                flt, dbase.searchsmb(**{param[4:]: utils.str2regexp(value)})
-            )
+            flt = dbase.flt_and(flt, dbase.searchsmb(**{param[4:]: str2regexp(value)}))
         elif not neg and param.startswith("ntlm."):
             key = {
                 "name": "Target_Name",
@@ -573,9 +682,7 @@ def flt_from_query(dbase, query, base_flt=None):
             }
             flt = dbase.flt_and(
                 flt,
-                dbase.searchntlm(
-                    **{key.get(param[5:], param[5:]): utils.str2regexp(value)}
-                ),
+                dbase.searchntlm(**{key.get(param[5:], param[5:]): str2regexp(value)}),
             )
         elif not neg and param == "smbshare":
             flt = dbase.flt_and(
@@ -598,7 +705,7 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(
                 flt,
                 dbase.searchja3client(
-                    value_or_hash=(None if value is None else utils.str2regexp(value)),
+                    value_or_hash=(None if value is None else str2regexp(value)),
                     neg=neg,
                 ),
             )
@@ -606,7 +713,7 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(
                 flt,
                 dbase.searchja4client(
-                    value=(None if value is None else utils.str2regexp(value)),
+                    value=(None if value is None else str2regexp(value)),
                     neg=neg,
                 ),
             )
@@ -615,9 +722,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 # There are no additional arguments
                 flt = dbase.flt_and(flt, dbase.searchja3server(neg=neg))
             else:
-                split = [
-                    utils.str2regexp(v) if v else None for v in value.split(":", 1)
-                ]
+                split = [str2regexp(v) if v else None for v in value.split(":", 1)]
                 if len(split) == 1:
                     # Only a JA3 server is given
                     flt = dbase.flt_and(
@@ -642,14 +747,14 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchjarm(neg=neg))
             else:
                 flt = dbase.flt_and(
-                    flt, dbase.searchjarm(value=utils.str2regexp(value), neg=neg)
+                    flt, dbase.searchjarm(value=str2regexp(value), neg=neg)
                 )
         elif not neg and param in {"hassh", "hassh-client", "hassh-server"}:
             server = {"hassh": None, "hassh-client": False, "hassh-server": True}[param]
             flt = dbase.flt_and(
                 flt,
                 dbase.searchhassh(
-                    value_or_hash=(None if value is None else utils.str2regexp(value)),
+                    value_or_hash=(None if value is None else str2regexp(value)),
                     server=server,
                 ),
             )
@@ -657,16 +762,16 @@ def flt_from_query(dbase, query, base_flt=None):
             if value:
                 flt = dbase.flt_and(
                     flt,
-                    dbase.searchuseragent(useragent=utils.str2regexp(value), neg=neg),
+                    dbase.searchuseragent(useragent=str2regexp(value), neg=neg),
                 )
             else:
                 flt = dbase.flt_and(flt, dbase.searchuseragent())
         # OS fingerprint
         elif not neg and param == "os":
-            flt = dbase.flt_and(flt, dbase.searchos(utils.str2regexp(value)))
+            flt = dbase.flt_and(flt, dbase.searchos(str2regexp(value)))
         # device types
         elif not neg and param in {"devicetype", "devtype"}:
-            flt = dbase.flt_and(flt, dbase.searchdevicetype(utils.str2regexp(value)))
+            flt = dbase.flt_and(flt, dbase.searchdevicetype(str2regexp(value)))
         elif not neg and param in {"netdev", "networkdevice"}:
             flt = dbase.flt_and(flt, dbase.searchnetdev())
         elif not neg and param == "phonedev":
@@ -687,7 +792,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt,
                 dbase.searchscript(
                     name="ike-info",
-                    values={f"vendor_ids.{param[14:]}": utils.str2regexp(value)},
+                    values={f"vendor_ids.{param[14:]}": str2regexp(value)},
                 ),
             )
         elif not neg and param == "ike.notification":
@@ -695,7 +800,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt,
                 dbase.searchscript(
                     name="ike-info",
-                    values={"notification_type": utils.str2regexp(value)},
+                    values={"notification_type": str2regexp(value)},
                 ),
             )
         # sort
@@ -749,9 +854,9 @@ def flt_from_query(dbase, query, base_flt=None):
             else:
                 params = value.split(":", 1)
                 words = (
-                    [utils.str2regexp(elt) for elt in params[0].split(",")]
+                    [str2regexp(elt) for elt in params[0].split(",")]
                     if "," in params[0]
-                    else utils.str2regexp(params[0])
+                    else str2regexp(params[0])
                 )
                 if len(params) == 1:
                     flt = dbase.flt_and(
@@ -782,7 +887,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 cpe_kwargs = {}
                 cpe_fields = ["cpe_type", "vendor", "product", "version"]
                 for field, cpe_arg in zip(cpe_fields, value.split(":", 3)):
-                    cpe_kwargs[field] = utils.str2regexp(cpe_arg)
+                    cpe_kwargs[field] = str2regexp(cpe_arg)
                 flt = dbase.flt_and(flt, dbase.searchcpe(**cpe_kwargs))
             else:
                 flt = dbase.flt_and(flt, dbase.searchcpe())
@@ -792,14 +897,14 @@ def flt_from_query(dbase, query, base_flt=None):
                     tag_val, tag_info = value.split(":", 1)
                     tag = {}
                     if tag_val:
-                        tag["value"] = utils.str2regexp(tag_val)
+                        tag["value"] = str2regexp(tag_val)
                     if tag_info:
-                        tag["info"] = utils.str2regexp(tag_info)
+                        tag["info"] = str2regexp(tag_info)
                     flt = dbase.flt_and(flt, dbase.searchtag(tag, neg=neg))
                 else:
                     flt = dbase.flt_and(
                         flt,
-                        dbase.searchtag({"value": utils.str2regexp(value)}, neg=neg),
+                        dbase.searchtag({"value": str2regexp(value)}, neg=neg),
                     )
             else:
                 flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
@@ -906,7 +1011,7 @@ def parse_arg(data):
         return {k: parse_arg(v) for k, v in data.items()}
     try:
         func = {
-            "regexp": utils.str2regexp,
+            "regexp": str2regexp,
             "datetime": datetime.datetime.fromtimestamp,
         }[data["f"]]
     except KeyError:

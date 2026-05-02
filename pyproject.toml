@@ -47,6 +47,12 @@ dependencies = [
     "pymongo>=4.10",
     "pyOpenSSL>=16.1.0",
     "bottle",
+    # Static ReDoS analyser (Doyensec). Used by
+    # ``ivre.web.utils.validate_regex_complexity`` to reject
+    # user-supplied regex literals that would exhibit catastrophic
+    # backtracking when forwarded to MongoDB's ``$regex``. Pure
+    # Python, no transitive dependencies, Apache-2.0 licensed.
+    "regexploit>=1.0,<2",
 ]
 
 [project.optional-dependencies]
