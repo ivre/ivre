@@ -13,6 +13,12 @@ const BACKEND_URL = process.env.VITE_BACKEND_URL ?? "http://localhost:9000";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Emit relative asset URLs (``./assets/...``) instead of absolute
+  // ones (``/assets/...``). The bundle is mounted at ``/ui/`` by
+  // ``ivre httpd`` today, but operators may serve it from any
+  // sub-path (``/v2/``, ``/ng/``, the root, ...). Relative paths
+  // work in every case, mirroring the legacy ``web/static/`` layout.
+  base: "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
