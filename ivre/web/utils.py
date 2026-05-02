@@ -437,6 +437,18 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchasname(str2regexp(value), neg=neg))
         elif param == "source":
             flt = dbase.flt_and(flt, dbase.searchsource(str2regexp(value), neg=neg))
+        elif param == "recontype" and hasattr(dbase, "searchrecontype"):
+            # Passive-only: filter on a passive record's
+            # ``recontype`` (DNS_ANSWER, HTTP_SERVER_HEADER,
+            # SSL_SERVER, ...). Other backends do not expose
+            # ``searchrecontype`` and the param falls through to
+            # the unused list, which is the expected behaviour.
+            flt = dbase.flt_and(flt, dbase.searchrecontype(str2regexp(value), neg=neg))
+        elif param == "sensor" and hasattr(dbase, "searchsensor"):
+            # Passive-only: filter on the sensor name an
+            # observation came from. Same backend-gating rationale
+            # as ``recontype``.
+            flt = dbase.flt_and(flt, dbase.searchsensor(str2regexp(value), neg=neg))
         elif param == "timerange":
             flt = dbase.flt_and(
                 flt,

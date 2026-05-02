@@ -2,7 +2,7 @@
  * Read the IVRE Web UI configuration emitted by the legacy
  * ``/cgi/config`` script.
  *
- * The legacy backend serves ``/cgi/config`` as JavaScript that
+ * The backend serves ``/cgi/config`` as JavaScript that
  * mutates ``window.config``. Our ``index.html`` loads it via
  * ``<script src="/cgi/config">`` before the React entry, so by the
  * time any component renders, ``window.config`` (if reachable) is

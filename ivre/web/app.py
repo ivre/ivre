@@ -443,6 +443,24 @@ def get_distinct(subdb, field):
 
 
 def _convert_datetime_value(value):
+    """Coerce a passive-record datetime field to a Unix timestamp
+    (seconds since epoch) for JSON serialisation.
+
+    The fields covered by ``DBPassive.datetime_fields`` —
+    ``firstseen``, ``lastseen``, ``infos.not_after``,
+    ``infos.not_before`` — usually arrive here as
+    ``datetime.datetime`` instances (BSON Date for the MongoDB
+    backend), but real-world datasets also contain numeric
+    timestamps (older ingestion paths stored cert validity dates
+    as ``float`` seconds) and ISO-ish strings (cert dates emitted
+    by some Zeek scripts as ``"YYYY-MM-DD HH:MM:SS"``). All three
+    are accepted; anything else propagates as a ``TypeError`` so
+    we do not silently mangle unexpected input.
+    """
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        value = utils.all2datetime(value)
     return int(value.replace(tzinfo=datetime.timezone.utc).timestamp())
 
 
@@ -887,11 +905,11 @@ def get_passive():
         if not flt_params.datesasstrings:
             for field in db.passive.datetime_fields:
                 _set_datetime_field(db.passive, rec, field)
-        if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
-            "cert",
-            "cacert",
-        }:
-            rec["value"] = utils.encode_b64(rec["value"]).decode()
+        # Note: ``SSL_SERVER`` / ``SSL_CLIENT`` cert records
+        # arrive here with ``value`` already base64-encoded as a
+        # ``str`` — that conversion is the responsibility of the
+        # ``db.passive`` backend (``MongoDBPassive.internal2rec``
+        # for the production backend), not this route.
         if flt_params.fmt == "ndjson":
             yield f"{json.dumps(rec, default=utils.serialize)}\n"
         else:

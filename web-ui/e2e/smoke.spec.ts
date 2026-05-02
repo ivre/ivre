@@ -119,15 +119,21 @@ test("UserMenu is hidden when auth is disabled", async ({ page }) => {
 test("UserMenu shows Sign in when auth is enabled and the user is anonymous", async ({
   page,
 }) => {
-  // Pre-set ``window.config`` so the React app sees auth as enabled
-  // before any component renders.
-  await page.addInitScript(() => {
-    (window as unknown as { config: { auth_enabled: boolean } }).config = {
-      auth_enabled: true,
-    };
-  });
+  // Mock the legacy ``/cgi/config`` script tag to mutate the
+  // ``var config = {}`` declared inline in ``index.html`` —
+  // matches what the production backend does, and avoids the
+  // ``addInitScript`` ordering race that surfaced on Node 22
+  // when the bundle parse time pushed the init-script past the
+  // ``<script src="/cgi/config">`` tag.
   await page.route("**/cgi/**", (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
     if (url.pathname === "/cgi/auth/me") {
       return route.fulfill({
         status: 200,
@@ -175,13 +181,16 @@ test("UserMenu shows Sign in when auth is enabled and the user is anonymous", as
 test("UserMenu shows the user identity when authenticated", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    (window as unknown as { config: { auth_enabled: boolean } }).config = {
-      auth_enabled: true,
-    };
-  });
+  // Same race-free ``/cgi/config`` mock as the anonymous test.
   await page.route("**/cgi/**", (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
     if (url.pathname === "/cgi/auth/me") {
       return route.fulfill({
         status: 200,
@@ -222,5 +231,69 @@ test("UserMenu shows the user identity when authenticated", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: /sign out/i }),
+  ).toBeVisible();
+});
+
+test("Passive section renders the timeline + record list", async ({ page }) => {
+  // Two passive records: a 60-second-span DNS A answer with
+  // count=120 (density 2/s), and an instant HTTP server header
+  // with count=1 (density 1/s). The timeline should render two
+  // SVG elements (one ``<line>`` for the span, one ``<circle>``
+  // for the instant), and the cards should appear below.
+  const records = [
+    {
+      schema_version: 3,
+      recontype: "DNS_ANSWER",
+      rrtype: "A",
+      source: "A",
+      sensor: "TEST",
+      value: "example.com",
+      addr: "1.2.3.4",
+      count: 120,
+      firstseen: 1_700_000_000,
+      lastseen: 1_700_000_060,
+    },
+    {
+      schema_version: 3,
+      recontype: "HTTP_SERVER_HEADER",
+      source: "SERVER",
+      sensor: "TEST",
+      value: "Apache",
+      addr: "1.2.3.4",
+      port: 80,
+      count: 1,
+      firstseen: 1_700_000_500,
+      lastseen: 1_700_000_500,
+    },
+  ];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/passive") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: records.map((r) => JSON.stringify(r)).join("\n") + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/passive");
+
+  // The two records render as two cards. ``exact: true`` so we
+  // match only the card body, not the SVG ``<title>`` tooltip
+  // text on the corresponding timeline element.
+  await expect(
+    page.getByText("example.com → 1.2.3.4", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Apache", { exact: true })).toBeVisible();
+
+  // No "under construction" stub.
+  await expect(page.getByText(/under construction/i)).toHaveCount(0);
+
+  // The timeline widget is present (SR-only label) and contains
+  // the right number of plotted records.
+  await expect(
+    page.getByLabel(/timeline of 2 passive observations/i),
   ).toBeVisible();
 });

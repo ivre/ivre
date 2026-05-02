@@ -1363,6 +1363,188 @@ class PostgresExplainTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# PassiveDatetimeCoercionTests -- the ``/cgi/passive`` route's
+# datetime-to-timestamp helper must accept the three concrete
+# field shapes that show up in real datasets (datetime, numeric,
+# ISO string) so the route does not 500 mid-stream.
+# ---------------------------------------------------------------------
+
+
+class PassiveDatetimeCoercionTests(unittest.TestCase):
+    """Regression tests for ``ivre.web.app._convert_datetime_value``.
+
+    The helper used to assume ``datetime.datetime`` unconditionally
+    (it called ``value.replace(tzinfo=...).timestamp()``). Real
+    operator data turns out to mix the four datetime fields
+    declared by ``DBPassive.datetime_fields`` (``firstseen``,
+    ``lastseen``, ``infos.not_after``, ``infos.not_before``)
+    between ``datetime`` instances, ``float``/``int`` Unix
+    timestamps (older ingestion paths stored cert validity dates
+    as floats), and ``"YYYY-MM-DD HH:MM:SS"`` strings (some Zeek
+    scripts emit cert dates that way). Hitting any of the
+    non-datetime forms used to crash the streaming response with
+    ``AttributeError: 'float' object has no attribute 'replace'``,
+    which Bottle silently truncates because the response had
+    already started.
+    """
+
+    @staticmethod
+    def _convert():
+        from ivre.web import app as appmod
+
+        return appmod._convert_datetime_value  # pylint: disable=protected-access
+
+    def test_datetime_input(self):
+        convert = self._convert()
+        # 2024-01-02 10:00:00 UTC.
+        dt = datetime(2024, 1, 2, 10, 0, 0)
+        self.assertEqual(convert(dt), 1704189600)
+
+    def test_float_input_passes_through_as_int(self):
+        # The exact crash reported from the field: a passive cert
+        # ``infos.not_after`` is a Python ``float``.
+        convert = self._convert()
+        self.assertEqual(convert(1704189600.0), 1704189600)
+        self.assertEqual(convert(1704189600.999), 1704189600)
+
+    def test_int_input_passes_through(self):
+        convert = self._convert()
+        self.assertEqual(convert(1704189600), 1704189600)
+
+    def test_iso_like_string_is_parsed(self):
+        # ``"YYYY-MM-DD HH:MM:SS"`` (no timezone) is the legacy
+        # storage shape for some cert validity dates.
+        convert = self._convert()
+        result = convert("2024-01-02 10:00:00")
+        # The value is interpreted as UTC by the helper.
+        self.assertEqual(result, 1704189600)
+
+    def test_unknown_type_raises(self):
+        convert = self._convert()
+        with self.assertRaises((TypeError, AttributeError)):
+            convert(object())
+
+
+# ---------------------------------------------------------------------
+# PassiveFltFromQueryTests -- the ``recontype`` and ``sensor``
+# query parameters reach a real ``$regex`` clause rather than
+# falling through to ``flt_from_query``'s ``unused`` list.
+# ---------------------------------------------------------------------
+
+
+class PassiveFltFromQueryTests(unittest.TestCase):
+    """Regression tests for the Web API ``q=`` filter parser when
+    talking to ``db.passive``.
+
+    Background: ``flt_from_query`` used to recognise a long list
+    of params (``host``, ``net``, ``country``, ``asnum``,
+    ``source``, ...) but neither ``recontype`` nor ``sensor``,
+    even though both are first-class facet keys exposed by
+    ``/cgi/passive/top/<field>`` and rendered in the React
+    Passive section's facet sidebar. The result was that
+    clicking a facet row (or typing ``recontype:DNS_ANSWER`` in
+    the filter bar) appeared to do nothing — the URL changed,
+    the request fired, but the backend silently dropped the
+    token into the ``unused`` list. This class pins the
+    contract for the two passive-specific facet keys.
+    """
+
+    @staticmethod
+    def _stub_dbase():
+        # A minimal duck-typed stand-in for ``DBPassive`` that
+        # records the calls the parser makes to it. We do not
+        # want to depend on having a configured backend at test
+        # time (this file runs in the no-backend matrix).
+        from ivre.db import db as _db  # noqa: F401  pylint: disable=unused-import
+
+        class _StubDB:
+            calls: list = []
+            flt_empty = {"_marker": "empty"}
+
+            @staticmethod
+            def flt_and(*args):
+                # Last non-empty filter wins for the purposes of
+                # the assertions below.
+                non_empty = [a for a in args if a and a != _StubDB.flt_empty]
+                return non_empty[-1] if non_empty else _StubDB.flt_empty
+
+            @staticmethod
+            def searchrecontype(value, neg=False):
+                _StubDB.calls.append(("searchrecontype", value, neg))
+                return {"recontype": value, "neg": neg}
+
+            @staticmethod
+            def searchsensor(value, neg=False):
+                _StubDB.calls.append(("searchsensor", value, neg))
+                return {"sensor": value, "neg": neg}
+
+        _StubDB.calls = []
+        return _StubDB
+
+    def _parse(self, q, dbase):
+        from ivre.web import utils as webutils
+
+        # Bypass the global init filter — for the no-backend
+        # test we only want to know which ``searchXXX`` helpers
+        # the parser invokes.
+        with mock.patch.object(webutils, "get_init_flt", return_value=dbase.flt_empty):
+            query = webutils.query_from_params({"q": q})
+            return webutils.flt_from_query(dbase, query, base_flt=dbase.flt_empty)
+
+    def test_recontype_invokes_searchrecontype(self):
+        dbase = self._stub_dbase()
+        flt, _sortby, unused, *_ = self._parse("recontype:DNS_ANSWER", dbase)
+        self.assertEqual(unused, [])
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchrecontype"],
+            [("searchrecontype", "DNS_ANSWER", False)],
+        )
+        self.assertEqual(flt.get("recontype"), "DNS_ANSWER")
+        self.assertFalse(flt.get("neg"))
+
+    def test_sensor_invokes_searchsensor(self):
+        dbase = self._stub_dbase()
+        flt, _sortby, unused, *_ = self._parse("sensor:TEST", dbase)
+        self.assertEqual(unused, [])
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchsensor"],
+            [("searchsensor", "TEST", False)],
+        )
+        self.assertEqual(flt.get("sensor"), "TEST")
+
+    def test_negated_recontype_propagates_neg_flag(self):
+        dbase = self._stub_dbase()
+        self._parse("-recontype:HTTP_SERVER_HEADER", dbase)
+        self.assertEqual(
+            [c for c in dbase.calls if c[0] == "searchrecontype"],
+            [("searchrecontype", "HTTP_SERVER_HEADER", True)],
+        )
+
+    def test_recontype_falls_through_when_backend_lacks_helper(self):
+        # ``hasattr(dbase, 'searchrecontype')`` is the gate; a
+        # backend without the helper (the View / Active path)
+        # treats the token as unused, which is the expected
+        # legacy behaviour for those sections.
+        from ivre.web import utils as webutils
+
+        class _LegacyDB:
+            flt_empty = {}
+
+            @staticmethod
+            def flt_and(*args):
+                return args[-1] if args else _LegacyDB.flt_empty
+
+        with mock.patch.object(
+            webutils, "get_init_flt", return_value=_LegacyDB.flt_empty
+        ):
+            query = webutils.query_from_params({"q": "recontype:DNS_ANSWER"})
+            _, _, unused, *_ = webutils.flt_from_query(
+                _LegacyDB, query, base_flt=_LegacyDB.flt_empty
+            )
+        self.assertEqual(unused, ["recontype=DNS_ANSWER"])
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 

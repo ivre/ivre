@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DEFAULT_SECTION } from "@/lib/sections";
 
 import { ActiveRoute } from "./active";
+import { PassiveRoute } from "./passive-list";
 import { ViewRoute } from "./view";
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ const router = createHashRouter([
       { path: "view/host/:addr", element: <ViewRoute /> },
       { path: "active", element: <ActiveRoute /> },
       { path: "active/host/:addr", element: <ActiveRoute /> },
+      { path: "passive", element: <PassiveRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],

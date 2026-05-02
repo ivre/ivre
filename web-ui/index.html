@@ -9,12 +9,15 @@
   <body>
     <div id="root"></div>
     <!--
-      Legacy backend endpoint that emits ``var config = { … }`` — the
+      Backend endpoint that emits ``var config = { … }`` — the
       same script tag is used by the legacy AngularJS UI and lets us
       keep one source of truth for client-visible configuration.
       Loaded BEFORE the React entry so window.config is populated by
       the time any component renders.
     -->
+    <script type="text/javascript">
+      var config = {};
+    </script>
     <script src="/cgi/config"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
