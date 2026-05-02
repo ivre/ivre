@@ -24,12 +24,124 @@ concurrency:
   cancel-in-progress: ${{ !contains(github.ref, 'master')}}
 
 jobs:
-  build:
+  mongodb:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         # https://www.mongodb.com/docs/languages/python/pymongo-driver/current/compatibility/
+        python-version: ['3.12', '3.13', '3.14']
+        mongodb-version: ['7.0', '8.0']
+        # The (3.12, 7.0) cell is handled by the dedicated
+        # ``mongodb_dump`` job below: it runs the same test set but
+        # additionally produces the ``backup_nmap_passive`` artifact
+        # consumed by ``elastic``. Excluding it here lets ``elastic``
+        # depend on a single small job instead of the full matrix.
+        exclude:
+          - python-version: '3.12'
+            mongodb-version: '7.0'
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.1
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+
+    - run: cd tests && python tests.py --exclude 15_rir
+      env:
+        CI: true
+        DB: mongo
+
+    - run: cat /tmp/webserver.log
+      if: failure()
+
+  mongodb_dump:
+    # Dedicated single-cell variant of the ``mongodb`` matrix. Runs
+    # the same non-RIR test set on (Python 3.12, MongoDB 7.0) and
+    # additionally produces the ``backup_nmap_passive`` artifact that
+    # the ``elastic`` job restores via ``mongorestore``. Keeping this
+    # cell separate lets ``elastic`` depend only on the artifact
+    # producer instead of waiting on every ``mongodb`` matrix entry.
+    runs-on: ubuntu-24.04
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.1
+      with:
+        mongodb-version: '7.0'
+
+    - name: Install MongoDB tools (mongodump)
+      run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
+          sudo apt-get -q update
+          sudo apt-get -qy install mongodb-org-tools
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+
+    - run: cd tests && python tests.py --exclude 15_rir
+      env:
+        CI: true
+        DB: mongo
+        IVRE_DUMP_NMAP_PASSIVE: '1'
+
+    - name: Archive MongoDB dump artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: backup_nmap_passive
+        path: ./backup_nmap_passive.tar.bz2
+
+    - run: cat /tmp/webserver.log
+      if: failure()
+
+  mongodb_rir:
+    # ``test_15_rir`` downloads the full RIPE inetnum dump (hundreds
+    # of MB) and inserts it; running it on each ``mongodb`` matrix
+    # entry was making MongoDB+Elasticsearch wall-clock noticeably
+    # longer. Splitting the RIR test into its own parallel job (and
+    # decoupling ``elastic`` from the dump-producing job only) keeps
+    # the total test coverage identical while shortening the
+    # critical path on the green-PR latency.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
         python-version: ['3.12', '3.13', '3.14']
         mongodb-version: ['7.0', '8.0']
 
@@ -50,14 +162,6 @@ jobs:
       with:
         mongodb-version: ${{ matrix.mongodb-version }}
 
-    - name: Install MongoDB tools (mongodump)
-      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
-      run: |
-          wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc > /dev/null
-          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null
-          sudo apt-get -q update
-          sudo apt-get -qy install mongodb-org-tools
-
     - name: Install IVRE
       uses: ./.github/actions/install
 
@@ -66,27 +170,17 @@ jobs:
     - name: Initialize IVRE databases
       run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
 
-    - run: cd tests && python tests.py
+    - run: cd tests && python tests.py 15_rir
       env:
         CI: true
         DB: mongo
-        # Only the dump-producing matrix entry sets this; the test
-        # `test_50_dump_nmap_passive` is a no-op everywhere else.
-        IVRE_DUMP_NMAP_PASSIVE: ${{ (matrix.mongodb-version == '7.0' && matrix.python-version == '3.12') && '1' || '' }}
-
-    - name: Archive MongoDB dump artifacts
-      if: ${{ matrix.mongodb-version == '7.0' && matrix.python-version == '3.12' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: backup_nmap_passive
-        path: ./backup_nmap_passive.tar.bz2
 
     - run: cat /tmp/webserver.log
       if: failure()
 
   elastic:
     runs-on: ubuntu-24.04
-    needs: build
+    needs: mongodb_dump
     strategy:
       fail-fast: false
       matrix:
