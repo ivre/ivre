@@ -1,5 +1,7 @@
-import { LogIn, LogOut, User } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, User } from "lucide-react";
+import { useState } from "react";
 
+import { SignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,58 +11,119 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuthConfig, useAuthMe, useLogout } from "@/lib/auth";
 import { isAuthEnabled } from "@/lib/config";
 
 /**
  * Authentication menu slot for the AppShell's top-right corner.
  *
- * Behaviour:
- *  - When ``config.auth_enabled`` is false: renders nothing (the
- *    operator opted out of authentication entirely).
- *  - When auth is enabled and the user is anonymous: a ``Sign in``
- *    button. The actual sign-in flow against ``/cgi/auth/*`` is
- *    intentionally not wired in this PR — see PR-Auth.
- *  - When auth is enabled and the user is signed in: a dropdown
- *    with the user identity and a ``Sign out`` action.
+ * Three states, driven by ``window.config.auth_enabled`` (from
+ * ``/cgi/config``) and ``GET /cgi/auth/me``:
  *
- * The current implementation always falls into the "anonymous"
- * branch (no session check yet). ``PR-Auth`` will add the
- * ``/cgi/auth/check`` round-trip and populate the menu.
+ *  - ``auth_enabled === false``: nothing is rendered (the operator
+ *    opted out of authentication entirely).
+ *  - Authenticated: a dropdown showing the user's display name /
+ *    email, an admin shortcut when ``is_admin``, and a sign-out
+ *    action.
+ *  - Anonymous: a "Sign in" button that opens ``SignInDialog``.
+ *    The dialog pulls the available providers and magic-link
+ *    availability from ``GET /cgi/auth/config``.
  */
 export function UserMenu() {
   const authEnabled = isAuthEnabled();
+  // Hooks must run unconditionally; we no-op the queries by
+  // returning early after they're declared.
+  const meQuery = useAuthMe();
+  const configQuery = useAuthConfig();
+  const logoutMut = useLogout();
+  const [signInOpen, setSignInOpen] = useState(false);
 
   if (!authEnabled) {
     return null;
   }
 
-  // PR-Auth: replace this with a real session check
-  // (e.g. ``useQuery({ queryKey: ['session'], queryFn: ... })``).
-  const user: { name: string } | null = null;
+  // Loading: render nothing while the first ``/cgi/auth/me`` call
+  // is in flight to avoid the "Sign in" button briefly flashing on
+  // top of an already-authenticated session.
+  if (meQuery.isLoading) {
+    return null;
+  }
 
-  if (!user) {
+  const me = meQuery.data;
+  const authConfig = configQuery.data ?? {
+    enabled: false,
+    providers: [],
+    magic_link: false,
+  };
+
+  if (!me?.authenticated) {
     return (
-      <Button variant="ghost" size="sm" aria-label="Sign in" disabled>
-        <LogIn className="size-4" />
-        Sign in
-      </Button>
+      <>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Sign in"
+          onClick={() => setSignInOpen(true)}
+        >
+          <LogIn className="size-4" />
+          Sign in
+        </Button>
+        <SignInDialog
+          open={signInOpen}
+          onOpenChange={setSignInOpen}
+          authConfig={authConfig}
+        />
+      </>
     );
   }
+
+  const displayName = me.display_name ?? me.email ?? "";
+  const handleSignOut = () => {
+    logoutMut.mutate(undefined, {
+      onSettled: () => {
+        // Hard reload: drop any in-memory state from queries that
+        // were authorised and are about to start failing with 401
+        // now that the session cookie is gone.
+        window.location.reload();
+      },
+    });
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" aria-label="Account menu">
           <User className="size-4" />
-          {(user as { name: string }).name}
+          <span className="max-w-32 truncate">{displayName}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Account</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuLabel className="flex flex-col gap-0.5">
+          <span className="font-medium">{displayName}</span>
+          {me.email && me.email !== displayName ? (
+            <span className="text-xs font-normal text-muted-foreground">
+              {me.email}
+            </span>
+          ) : null}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
+        {me.is_admin ? (
+          <DropdownMenuItem asChild>
+            <a href="#/admin">
+              <ShieldCheck className="size-4" />
+              Admin
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            handleSignOut();
+          }}
+          disabled={logoutMut.isPending}
+        >
           <LogOut className="size-4" />
-          Sign out
+          {logoutMut.isPending ? "Signing out…" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
