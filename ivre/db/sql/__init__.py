@@ -3003,10 +3003,6 @@ class SQLDBPassive(SQLDB, DBPassive):
         )
 
     def _features_port_list(self, flt, yieldall, use_service, use_product, use_version):
-        # This is in SQLDBPassive because it **should** work with
-        # SQLite. However, because ACCESS_TXT does not work well with
-        # the result processor, it does not. This is a similar problem
-        # than .topvalues() with JSON fields.
         flt = self.flt_and(flt, self.searchport(-1, neg=True))
         if use_version:
             fields = [

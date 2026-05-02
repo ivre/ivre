@@ -50,8 +50,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tinydb = ["tinydb"]
-sqlite = ["sqlalchemy<2"]
 postgres = ["sqlalchemy<2", "psycopg2"]
 elasticsearch = ["elasticsearch", "elasticsearch-dsl"]
 gssapi-mongo = ["gssapi"]

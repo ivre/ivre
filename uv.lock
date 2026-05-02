@@ -761,12 +761,6 @@ postgres = [
 screenshots = [
     { name = "pillow" },
 ]
-sqlite = [
-    { name = "sqlalchemy" },
-]
-tinydb = [
-    { name = "tinydb" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -799,10 +793,8 @@ requires-dist = [
     { name = "sphinx-rtd-theme", marker = "extra == 'doc'" },
     { name = "sphinxcontrib-httpdomain", marker = "extra == 'doc'" },
     { name = "sqlalchemy", marker = "extra == 'postgres'", specifier = "<2" },
-    { name = "sqlalchemy", marker = "extra == 'sqlite'", specifier = "<2" },
-    { name = "tinydb", marker = "extra == 'tinydb'" },
 ]
-provides-extras = ["tinydb", "sqlite", "postgres", "elasticsearch", "gssapi-mongo", "gssapi-http", "screenshots", "mediawiki", "3d-traceroute", "plots", "ja3", "mcp", "linting", "doc"]
+provides-extras = ["postgres", "elasticsearch", "gssapi-mongo", "gssapi-http", "screenshots", "mediawiki", "3d-traceroute", "plots", "ja3", "mcp", "linting", "doc"]
 
 [[package]]
 name = "jinja2"
@@ -2265,15 +2257,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6d/90764092216fa560f6587f83bb70113a8ba510ba436c6476a2b47359057c/stevedore-5.7.0.tar.gz", hash = "sha256:31dd6fe6b3cbe921e21dcefabc9a5f1cf848cf538a1f27543721b8ca09948aa3", size = 516200, upload-time = "2026-02-20T13:27:06.765Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/69/06/36d260a695f383345ab5bbc3fd447249594ae2fa8dfd19c533d5ae23f46b/stevedore-5.7.0-py3-none-any.whl", hash = "sha256:fd25efbb32f1abb4c9e502f385f0018632baac11f9ee5d1b70f88cc5e22ad4ed", size = 54483, upload-time = "2026-02-20T13:27:05.561Z" },
-]
-
-[[package]]
-name = "tinydb"
-version = "4.8.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a0/79/4af51e2bb214b6ea58f857c51183d92beba85b23f7ba61c983ab3de56c33/tinydb-4.8.2.tar.gz", hash = "sha256:f7dfc39b8d7fda7a1ca62a8dbb449ffd340a117c1206b68c50b1a481fb95181d", size = 32566, upload-time = "2024-10-12T15:24:01.13Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/17/853354204e1ca022d6b7d011ca7f3206c4f8faa3cc743e92609b49c1d83f/tinydb-4.8.2-py3-none-any.whl", hash = "sha256:f97030ee5cbc91eeadd1d7af07ab0e48ceb04aa63d4a983adbaca4cba16e86c3", size = 24888, upload-time = "2024-10-12T15:23:59.833Z" },
 ]
 
 [[package]]

@@ -312,7 +312,7 @@ class IvreTests(unittest.TestCase):
 
     def _check_top_value_cli(self, name, field, count=10, command="", **kwargs):
         res, out, err = RUN(["ivre", command, "--top", field, "--limit", str(count)])
-        if DATABASE not in {"postgres", "sqlite"}:
+        if DATABASE != "postgres":
             # There is a warning in SQL backends (FIXME - SQLAlchemy update).
             self.assertFalse(err)
         self.assertEqual(res, 0)
@@ -740,9 +740,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(
             RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)[0], 0
         )
-        if DATABASE == "tinydb":
-            ivre.db.db.nmap.invalidate_cache()
-            self.restart_web_server()
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
         # Insertion / "test" insertion (JSON output)
@@ -1801,13 +1798,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
     def test_40_passive(self):
-        if DATABASE == "sqlite":
-            # Fetch data for auto tags
-            res, out, err = RUN(["ivre", "getwebdata"])
-            print(repr(err))
-            self.assertEqual(res, 0)
-            self.assertFalse(out, 0)
-
         if DATABASE == "postgres":
             # FIXME: tests are broken with PostgreSQL & --no-bulk
             bulk_mode = random.choice(["--bulk", "--local-bulk"])
@@ -1970,7 +1960,7 @@ class IvreTests(unittest.TestCase):
             ]
         )
         self.assertEqual(ret, 0)
-        if DATABASE not in {"postgres", "sqlite"}:
+        if DATABASE != "postgres":
             # There is a warning in SQL backends for unused argument.
             self.assertFalse(err)
         self.assertGreater(out.count(b"\n"), result)
@@ -2195,42 +2185,42 @@ class IvreTests(unittest.TestCase):
         # searchtimeago() method
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertNotEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertNotEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "10000000000"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0", "--count"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(out, b"0\n")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0", "--count"])
         self.assertEqual(res, 0)
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.check_value("passive_count", int(out))
@@ -2263,10 +2253,6 @@ class IvreTests(unittest.TestCase):
                 "useragent",
                 "useragent:/Windows/",
             ]:
-                if DATABASE == "sqlite" and field.startswith("domains"):
-                    # BUG in sqlite backend: cannot use topvalues with
-                    # JSON fields
-                    continue
                 valname = "passive_top_%s_%sdistinct" % (
                     field.replace(":", "_").replace("/", ""),
                     "" if distinct else "not_",
@@ -2281,10 +2267,6 @@ class IvreTests(unittest.TestCase):
 
         for base in ["", "-client", "-server"]:
             for field in ["", ".md5", ".sha1", ".sha256", ".raw"]:
-                if DATABASE == "sqlite" and field not in {"", ".md5"}:
-                    # BUG in sqlite backend: cannot use topvalues with
-                    # JSON fields
-                    continue
                 self.check_passive_top_value(
                     "passive_top_hassh%s%s"
                     % (
@@ -2300,10 +2282,6 @@ class IvreTests(unittest.TestCase):
             ("infos.sha1", "ja3cli_sha1"),
             ("infos.sha256", "ja3cli_sha256"),
         ]:
-            if DATABASE == "sqlite" and "." in field:
-                # BUG in sqlite backend: cannot use topvalues with
-                # JSON fields
-                continue
             for distinct in [True, False]:
                 cur = iter(
                     ivre.db.db.passive.topvalues(
@@ -2359,8 +2337,6 @@ class IvreTests(unittest.TestCase):
                                 break
                         else:
                             self.assertTrue(False)
-        # Delete the reference on the cursor to close the connection
-        # to the database (required for SQLite)
         del cur
 
         # JA3 server:
@@ -2467,7 +2443,7 @@ class IvreTests(unittest.TestCase):
         # CLI: --limit / --skip / --sort
         # Using --limit should prevent ipinfo from selecting tailfnew mode
         res, _, err = RUN(["ivre", "ipinfo", "--limit", "1"])
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
@@ -2475,7 +2451,7 @@ class IvreTests(unittest.TestCase):
         # lines
         for count in 5, 10:
             res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count), "--json"])
-            if DATABASE not in ["postgres", "sqlite"]:
+            if DATABASE != "postgres":
                 # There is a warning in postgresql for unused argument.
                 self.assertFalse(err)
             self.assertEqual(res, 0)
@@ -2497,7 +2473,7 @@ class IvreTests(unittest.TestCase):
                         "--json",
                     ]
                 )
-                if DATABASE not in ["postgres", "sqlite"]:
+                if DATABASE != "postgres":
                     # There is a warning in postgresql for unused argument.
                     self.assertFalse(err)
                 self.assertEqual(res, 0)
@@ -2506,26 +2482,26 @@ class IvreTests(unittest.TestCase):
                 for line in out:
                     json.loads(line)
         res, out1, err = RUN(["ivre", "ipinfo", "--limit", "1", "--json"])
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
         res, out2, err = RUN(
             ["ivre", "ipinfo", "--limit", "1", "--skip", "1", "--json"]
         )
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
         self.assertFalse(out1 == out2)
         # Test --sort
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "port"])
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE != "postgres":
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
@@ -2833,9 +2809,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertFalse(out)
 
-        if DATABASE == "tinydb":
-            ivre.db.db.passive.invalidate_cache()
-
         count = ivre.db.db.passive.count(
             ivre.db.db.passive.searchrecontype("DNS_BLACKLIST")
         )
@@ -2854,11 +2827,6 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(res, 0)
             self.assertFalse(err)
             self.check_value("passive_count_dnstype_%s" % dnstype, int(out))
-
-        if DATABASE == "sqlite":
-            # BUG in sqlite backend: same bug as "cannot use topvalues
-            # with JSON fields"
-            return
 
         columns, data = ivre.db.db.passive.features(use_service=False)
         ncolumns = len(columns)
@@ -2966,7 +2934,7 @@ class IvreTests(unittest.TestCase):
         res, out, err = RUN(["ivre", "ipinfo", "--delete", flt_str])
         self.assertEqual(res, 0)
         self.assertFalse(out)
-        if DATABASE not in {"postgres", "sqlite"}:
+        if DATABASE != "postgres":
             # There is a warning in SQL backends:
             #
             # ivre/db/sql/__init__.py:2576: SAWarning: Coercing CTE
@@ -3516,9 +3484,6 @@ class IvreTests(unittest.TestCase):
             ["ivre", "flow2db", os.path.join(os.getcwd(), "samples", "nfcapd")]
         )
         self.assertEqual(res, 0)
-        if DATABASE == "tinydb":
-            ivre.db.db.flow.invalidate_cache()
-            self.restart_web_server()
         self.check_flow_count_value("flow_count_netflow", {}, [], None)
 
         # Test fields option
@@ -5053,7 +5018,7 @@ class IvreTests(unittest.TestCase):
 
     def test_90_cleanup(self):
         # Clean DB
-        if DATABASE not in {"postgres", "sqlite"}:
+        if DATABASE != "postgres":
             # FIXME: for some reason, this does not terminate
             RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)
@@ -5084,14 +5049,6 @@ DATABASES = {
     # **excluded** tests
     "mongo": [],
     "postgres": ["15_rir", "60_flow"],
-    "sqlite": [
-        "15_rir",
-        "30_nmap",
-        "50_view",
-        "53_nmap_delete",
-        "55_view_delete",
-        "60_flow",
-    ],
     "elastic": [
         "15_rir",
         "30_nmap",
@@ -5112,7 +5069,6 @@ DATABASES = {
         "60_flow",
         "90_cleanup",
     ],
-    "tinydb": ["15_rir"],
 }
 
 

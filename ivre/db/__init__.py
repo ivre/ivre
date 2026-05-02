@@ -2272,7 +2272,6 @@ class DBNmap(DBActive):
         "mongodb": ("mongo", "MongoDBNmap"),
         "documentdb": ("document", "DocumentDBNmap"),
         "postgresql": ("sql.postgres", "PostgresDBNmap"),
-        "tinydb": ("tiny", "TinyDBNmap"),
     }
     content_handler = xmlnmap.Nmap2Txt
 
@@ -4214,7 +4213,6 @@ class DBView(DBActive):
         "mongodb": ("mongo", "MongoDBView"),
         "documentdb": ("document", "DocumentDBView"),
         "postgresql": ("sql.postgres", "PostgresDBView"),
-        "tinydb": ("tiny", "TinyDBView"),
     }
 
     def __init__(self):
@@ -4515,8 +4513,6 @@ class DBPassive(DB):
         "mongodb": ("mongo", "MongoDBPassive"),
         "documentdb": ("document", "DocumentDBPassive"),
         "postgresql": ("sql.postgres", "PostgresDBPassive"),
-        "sqlite": ("sql.sqlite", "SqliteDBPassive"),
-        "tinydb": ("tiny", "TinyDBPassive"),
     }
 
     def __init__(self, output=sys.stdout):
@@ -5223,7 +5219,7 @@ class DBRir(DB):
 class DBFlowMeta(type):
     """
     This metaclass aims to compute 'meta_desc' and 'list_fields' once for all
-    instances of MongoDBFlow and TinyDBFlow.
+    instances of MongoDBFlow and PostgresDBFlow.
     """
 
     def __new__(mcs, name, bases, attrs):
@@ -5266,7 +5262,6 @@ class DBFlow(DB):
         "mongodb": ("mongo", "MongoDBFlow"),
         "documentdb": ("document", "DocumentDBFlow"),
         "postgresql": ("sql.postgres", "PostgresDBFlow"),
-        "tinydb": ("tiny", "TinyDBFlow"),
     }
 
     @classmethod

@@ -54,8 +54,8 @@ Here are some examples:
 
 .. code:: python
 
-   DB_PASSIVE = "sqlite:////tmp/ivre.db"
-   DB_NMAP = "postgresql://ivre@localhost/ivre"
+   DB_PASSIVE = "postgresql://ivre@localhost/ivre"
+   DB_NMAP = "mongodb:///ivre"
    DB_VIEW = "elastic://192.168.0.1:9200/ivre"
    DB_DATA = "maxmind:///share/data/ivre/geoip"
 
