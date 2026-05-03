@@ -242,15 +242,76 @@ test("UserMenu shows the user identity when authenticated", async ({
   await expect(accountButton).toBeVisible();
   await expect(accountButton).toContainText("Alice");
   await accountButton.click();
-  // Dropdown shows the email, an Admin shortcut (because is_admin),
-  // and a Sign out item.
+  // Dropdown shows the email, the API-keys shortcut (any authed
+  // user), an Admin shortcut (because is_admin), and a Sign out
+  // item.
   await expect(page.getByText("alice@example.com")).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: /api keys/i }),
+  ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: /admin/i }),
   ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: /sign out/i }),
   ).toBeVisible();
+
+  // Account / admin pages must NOT appear in the section nav.
+  // The nav lives in a top-level <nav>; assert no link with the
+  // hash route ``#/admin`` or ``#/api-keys`` lives inside it.
+  const sectionNav = page.locator("header nav").first();
+  await expect(sectionNav.locator('a[href="#/admin"]')).toHaveCount(0);
+  await expect(sectionNav.locator('a[href="#/api-keys"]')).toHaveCount(0);
+});
+
+test("Non-admin user sees API keys in the menu but no Admin shortcut", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "bob@example.com",
+          is_admin: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: [],
+          magic_link: false,
+        }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /account menu/i }).click();
+
+  // API keys is always available to authenticated users …
+  await expect(
+    page.getByRole("menuitem", { name: /api keys/i }),
+  ).toBeVisible();
+  // … but Admin requires ``is_admin`` and must be absent here.
+  await expect(
+    page.getByRole("menuitem", { name: /admin/i }),
+  ).toHaveCount(0);
 });
 
 test("Passive section renders the timeline + record list", async ({ page }) => {
@@ -360,7 +421,10 @@ test("Admin section renders for admin users (users panel + API keys)", async ({
       last_login: null,
     },
   ];
-  const keys = [
+  // Two keys belonging to two different users — the admin
+  // panel hits the cross-user audit endpoint and must surface
+  // both rows with their owner email visible.
+  const adminKeys = [
     {
       key_hash: "h0",
       key_prefix: "ivre_aaaa",
@@ -368,6 +432,15 @@ test("Admin section renders for admin users (users panel + API keys)", async ({
       name: "ci-pipeline",
       created_at: "2024-01-02T10:00:00",
       last_used: null,
+      expires_at: null,
+    },
+    {
+      key_hash: "h1",
+      key_prefix: "ivre_bbbb",
+      user_email: "bob@example.com",
+      name: "dashboard",
+      created_at: "2024-02-01T08:00:00",
+      last_used: "2024-03-01T12:00:00",
       expires_at: null,
     },
   ];
@@ -411,11 +484,11 @@ test("Admin section renders for admin users (users panel + API keys)", async ({
         body: JSON.stringify(users),
       });
     }
-    if (url.pathname === "/cgi/auth/api-keys") {
+    if (url.pathname === "/cgi/auth/admin/api-keys") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(keys),
+        body: JSON.stringify(adminKeys),
       });
     }
     return route.fulfill({ status: 204 });
@@ -433,10 +506,16 @@ test("Admin section renders for admin users (users panel + API keys)", async ({
   await expect(page.getByText("Alice").first()).toBeVisible();
   await expect(page.getByText("bob@example.com").first()).toBeVisible();
 
-  // Switch to API keys tab — the listed key is visible.
+  // Switch to API keys tab — admin sees keys belonging to
+  // *every* user, with the owner email visible per row.
   await page.getByRole("tab", { name: /api keys/i }).click();
   await expect(page.getByText("ci-pipeline")).toBeVisible();
   await expect(page.getByText(/ivre_aaaa…/)).toBeVisible();
+  await expect(page.getByText("dashboard")).toBeVisible();
+  await expect(page.getByText(/ivre_bbbb…/)).toBeVisible();
+  // Owner emails appear in the rows (Alice's appears at least
+  // twice: once in the admin breadcrumb, once in the row).
+  await expect(page.getByText("bob@example.com")).toBeVisible();
 });
 
 test("Admin section gates non-admin users with a placeholder", async ({
@@ -484,6 +563,148 @@ test("Admin section gates non-admin users with a placeholder", async ({
   // (No assertion on requests because ``page.route`` would 204
   // them anyway — but the placeholder confirms the gate is
   // working.)
+});
+
+test("API-keys self-service page lists the user's own keys", async ({
+  page,
+}) => {
+  // Self-service path: any authenticated user (admin or not)
+  // sees their own keys via ``/cgi/auth/api-keys``. The page
+  // is reached from the user menu, never from the section nav.
+  const myKeys = [
+    {
+      key_hash: "self-h0",
+      key_prefix: "ivre_self",
+      user_email: "bob@example.com",
+      name: "personal-cli",
+      created_at: "2024-04-01T09:00:00",
+      last_used: "2024-04-15T11:00:00",
+      expires_at: null,
+    },
+  ];
+  let createCalls = 0;
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "bob@example.com",
+          is_admin: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: [],
+          magic_link: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/api-keys") {
+      if (route.request().method() === "POST") {
+        createCalls += 1;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            key: "ivre_secrettoken_xyz",
+            name: "new-cli",
+          }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(myKeys),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/api-keys");
+
+  // Heading + identity. ``bob@example.com`` also appears in the
+  // UserMenu trigger (top-right corner); scope to ``<main>`` so
+  // we assert specifically on the page body breadcrumb.
+  await expect(
+    page.getByRole("heading", { name: /^API keys$/, level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("main").getByText("bob@example.com"),
+  ).toBeVisible();
+
+  // Existing key rendered.
+  await expect(page.getByText("personal-cli")).toBeVisible();
+  await expect(page.getByText(/ivre_self…/)).toBeVisible();
+
+  // Create-key form: type a name, hit Create, the secret modal
+  // appears with the one-shot value (rendered inside a readonly
+  // ``<input>`` so we assert on the value attribute, not the
+  // text content).
+  await page
+    .getByRole("textbox", { name: /new api key name/i })
+    .fill("new-cli");
+  await page.getByRole("button", { name: /^Create$/ }).click();
+  await expect(
+    page.getByRole("heading", { name: /api key created/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /new api key value/i }),
+  ).toHaveValue("ivre_secrettoken_xyz");
+  expect(createCalls).toBe(1);
+});
+
+test("API-keys page gates anonymous users with a placeholder", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ authenticated: false }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: [],
+          magic_link: false,
+        }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/api-keys");
+  await expect(
+    page.getByText(/sign in to manage your api keys/i),
+  ).toBeVisible();
 });
 
 test("DNS section renders merged pseudo-records from /cgi/dns", async ({

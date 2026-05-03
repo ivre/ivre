@@ -1,7 +1,9 @@
 /**
- * Top-level sections of the Web UI. Each maps to one ``db.*``
- * purpose on the IVRE backend, plus an "Admin" stub for operator
- * controls.
+ * Data sections of the Web UI. Each maps to one ``db.*`` purpose
+ * on the IVRE backend (View, Active scans, Passive records, DNS
+ * merge, Flow, RIR). Account and admin pages (Admin, API keys)
+ * are *not* sections — they are pure routes registered in
+ * ``routes/root.tsx`` and reached from the user menu.
  */
 
 export type SectionId =
@@ -10,8 +12,7 @@ export type SectionId =
   | "passive"
   | "dns"
   | "flow"
-  | "rir"
-  | "admin";
+  | "rir";
 
 export interface SectionConfig {
   id: SectionId;
@@ -31,12 +32,9 @@ export interface SectionConfig {
   facets: readonly string[];
   /** Shape of the records returned by ``listEndpoint`` — drives
    *  which result list component to render. */
-  resultType: "hosts" | "passive" | "dns" | "rir" | "flow" | "admin";
-  /** When ``true``, the section is only useful when authentication
-   *  is enabled (e.g. Admin). */
-  requiresAuth?: boolean;
-  /** Marks the section as a stub during the M1 Stream B rollout —
-   *  the route renders an "Under construction" placeholder. */
+  resultType: "hosts" | "passive" | "dns" | "rir" | "flow";
+  /** Marks the section as a stub during the rollout — the route
+   *  renders an "Under construction" placeholder. */
   stub?: boolean;
 }
 
@@ -116,17 +114,6 @@ export const SECTIONS: readonly SectionConfig[] = [
     facets: [],
     resultType: "rir",
     stub: true,
-  },
-  {
-    id: "admin",
-    label: "Admin",
-    // Admin lives outside the data-list pattern: no list endpoint,
-    // no facets, no top values. The route renders user / API-key
-    // management against ``/cgi/auth/admin/*`` and
-    // ``/cgi/auth/api-keys``.
-    facets: [],
-    resultType: "admin",
-    requiresAuth: true,
   },
 ] as const;
 

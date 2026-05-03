@@ -1,4 +1,4 @@
-import { LogIn, LogOut, ShieldCheck, User } from "lucide-react";
+import { KeyRound, LogIn, LogOut, ShieldCheck, User } from "lucide-react";
 import { useState } from "react";
 
 import { SignInDialog } from "@/components/SignInDialog";
@@ -23,8 +23,9 @@ import { isAuthEnabled } from "@/lib/config";
  *  - ``auth_enabled === false``: nothing is rendered (the operator
  *    opted out of authentication entirely).
  *  - Authenticated: a dropdown showing the user's display name /
- *    email, an admin shortcut when ``is_admin``, and a sign-out
- *    action.
+ *    email, an "API keys" shortcut to the self-service
+ *    ``/api-keys`` page, an admin shortcut when ``is_admin``,
+ *    and a sign-out action.
  *  - Anonymous: a "Sign in" button that opens ``SignInDialog``.
  *    The dialog pulls the available providers and magic-link
  *    availability from ``GET /cgi/auth/config``.
@@ -107,6 +108,12 @@ export function UserMenu() {
           ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <a href="#/api-keys">
+            <KeyRound className="size-4" />
+            API keys
+          </a>
+        </DropdownMenuItem>
         {me.is_admin ? (
           <DropdownMenuItem asChild>
             <a href="#/admin">
@@ -115,6 +122,7 @@ export function UserMenu() {
             </a>
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();

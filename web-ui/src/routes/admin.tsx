@@ -1,7 +1,7 @@
 import { ShieldAlert } from "lucide-react";
 
+import { AdminApiKeysPanel } from "@/components/AdminApiKeysPanel";
 import { AdminUsersPanel } from "@/components/AdminUsersPanel";
-import { ApiKeysPanel } from "@/components/ApiKeysPanel";
 import {
   Tabs,
   TabsContent,
@@ -12,16 +12,21 @@ import { useAuthMe } from "@/lib/auth";
 import { isAuthEnabled } from "@/lib/config";
 
 /**
- * Admin section route. Two panels:
+ * Admin route. Two panels:
  *
  *  - **Users**: lists every user via ``/cgi/auth/admin/users``;
  *    quick toggles for ``is_active`` / ``is_admin``; an inline
  *    "Create user" form (PUT-as-upsert); a per-user dialog for
  *    display name / group membership.
- *  - **API keys**: lists the current user's keys via
- *    ``/cgi/auth/api-keys``; create a new key (response
- *    surfaces the secret once, in a copy-to-clipboard dialog);
- *    revoke an existing key.
+ *  - **API keys** (audit view): lists every API key issued to
+ *    every user via ``/cgi/auth/admin/api-keys``; admins can
+ *    revoke any key from here. The same admin (like every
+ *    other user) manages their own keys from the
+ *    ``/api-keys`` self-service page.
+ *
+ * The Admin route is reachable from the user menu only — it
+ * does not appear in the section nav (which is reserved for
+ * data sections: View / Active / Passive / DNS / ...).
  *
  * Access is guarded client-side: when ``window.config.auth_enabled``
  * is false, or when ``GET /cgi/auth/me`` returns
@@ -72,7 +77,7 @@ export function AdminRoute() {
           <AdminUsersPanel />
         </TabsContent>
         <TabsContent value="api-keys">
-          <ApiKeysPanel />
+          <AdminApiKeysPanel />
         </TabsContent>
       </Tabs>
     </div>

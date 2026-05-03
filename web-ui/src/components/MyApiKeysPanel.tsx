@@ -19,17 +19,21 @@ import {
   useCreateApiKey,
   useDeleteApiKey,
   type ApiKey,
-} from "@/lib/admin";
+} from "@/lib/api-keys";
 
 /**
- * API-key management panel. Lists the keys owned by the current
- * user (the backend's ``/cgi/auth/api-keys`` endpoint is
- * owner-scoped, so admins do not see other users' keys here);
- * adds a "Create new key" form whose response carries the
- * one-and-only-time-the-secret-is-shown value, surfaced through
- * a modal with copy-to-clipboard.
+ * Self-service API-key management panel. Lists the keys owned
+ * by the current user (the backend's ``/cgi/auth/api-keys``
+ * endpoint is owner-scoped); adds a "Create new key" form whose
+ * response carries the one-and-only-time-the-secret-is-shown
+ * value, surfaced through a modal with copy-to-clipboard.
+ *
+ * The cross-user audit panel (visible to admins on the Admin
+ * page) lives in ``AdminApiKeysPanel``; it talks to the
+ * ``/cgi/auth/admin/api-keys`` endpoint and shows a
+ * ``user_email`` column.
  */
-export function ApiKeysPanel() {
+export function MyApiKeysPanel() {
   const keysQuery = useApiKeys();
   const createMut = useCreateApiKey();
   const deleteMut = useDeleteApiKey();

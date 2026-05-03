@@ -10,6 +10,7 @@ import { DEFAULT_SECTION } from "@/lib/sections";
 
 import { ActiveRoute } from "./active";
 import { AdminRoute } from "./admin";
+import { ApiKeysRoute } from "./api-keys";
 import { DnsRoute } from "./dns";
 import { PassiveRoute } from "./passive-list";
 import { ViewRoute } from "./view";
@@ -46,7 +47,10 @@ const router = createHashRouter([
       // active scans + passive observations server-side; see
       // ``ivre/web/app.py``'s ``get_dns``.
       { path: "dns", element: <DnsRoute /> },
+      // Account / admin pages — reachable from the user menu
+      // only; intentionally absent from the section nav.
       { path: "admin", element: <AdminRoute /> },
+      { path: "api-keys", element: <ApiKeysRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],
