@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DEFAULT_SECTION } from "@/lib/sections";
 
 import { ActiveRoute } from "./active";
+import { AdminRoute } from "./admin";
 import { PassiveRoute } from "./passive-list";
 import { ViewRoute } from "./view";
 
@@ -40,6 +41,7 @@ const router = createHashRouter([
       { path: "active", element: <ActiveRoute /> },
       { path: "active/host/:addr", element: <ActiveRoute /> },
       { path: "passive", element: <PassiveRoute /> },
+      { path: "admin", element: <AdminRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],
