@@ -175,6 +175,23 @@ const SPECIAL_MAPPERS: Record<string, FieldMapper> = {
     return { type: "tag", value: asString(label) };
   },
 
+  // Passive ``top/source`` returns ``[recontype, source]`` tuples
+  // (mirroring how active ``top/product`` returns ``(service,
+  // product)``). The IVRE filter for the pair is
+  // ``source:RECONTYPE:SOURCE`` and dispatches server-side to
+  // ``searchrecontype(rectype=RECONTYPE, source=SOURCE)``. View
+  // / Active sections never receive tuple labels for ``source``,
+  // so the scalar branch keeps the legacy behaviour.
+  source: (label) => {
+    if (Array.isArray(label) && label.length >= 2) {
+      return {
+        type: "source",
+        value: `${asString(label[0])}:${asString(label[1])}`,
+      };
+    }
+    return { type: "source", value: firstString(label) };
+  },
+
   // ``domains`` returns the full hostname (e.g. ``foo.example.com``)
   // and we filter by the longest-prefix domain (``example.com``).
   // Without more context we treat the value as-is.

@@ -5370,6 +5370,26 @@ class MongoDBPassive(MongoDB, DBPassive):
                     flt, self.searchuseragent(useragent=utils.str2regexp(field[10:]))
                 )
             field = "value"
+        elif field == "source":
+            # On passive, ``source`` is meaningful only relative
+            # to ``recontype`` (e.g. ``"cert"`` belongs to
+            # ``SSL_SERVER`` or ``SSL_CLIENT``; ``"SERVER"``
+            # belongs to ``HTTP_SERVER_HEADER``; ``"A-…-53"``
+            # belongs to ``DNS_ANSWER``). Emit ``(recontype,
+            # source)`` tuples so the facet groups observations by
+            # the meaningful pair, mirroring how active
+            # ``top/product`` emits ``(service, product)``.
+            specialproj = {
+                "_id": 0,
+                "source": ["$recontype", "$source"],
+            }
+
+            def outputproc(x):  # noqa: F811
+                return {
+                    "count": x["count"],
+                    "_id": tuple(x["_id"]),
+                }
+
         pipeline = self._topvalues(
             field,
             flt=flt,
@@ -5405,25 +5425,72 @@ class MongoDBPassive(MongoDB, DBPassive):
         )
 
     @staticmethod
-    def searchrecontype(rectype, neg=False):
+    def _passive_field_clause(field, value):
+        """Build a positive (non-negated) MongoDB clause for a
+        passive field given a scalar, list, or compiled regex.
+        Helper for ``searchrecontype``."""
+        if isinstance(value, utils.REGEXP_T):
+            return {field: value}
+        if isinstance(value, list):
+            if len(value) == 1:
+                return {field: value[0]}
+            return {field: {"$in": value}}
+        return {field: value}
+
+    @staticmethod
+    def searchrecontype(rectype=None, source=None, neg=False):
+        """Filter (or filter out) passive records on the
+        ``(recontype, source)`` field pair.
+
+        Either or both of ``rectype`` and ``source`` may be supplied;
+        each accepts a single string, a list of strings, or a
+        compiled ``re.Pattern``. When both are supplied, the filter
+        is the conjunction; ``neg=True`` negates the conjunction
+        (i.e. ``NOT (recontype matches AND source matches)``).
+
+        Calling with both ``rectype`` and ``source`` set to
+        ``None`` is degenerate: the positive form matches every
+        record, the negated form matches none.
+
+        This is the only entry point for filtering by
+        ``recontype`` / ``source`` on the passive backend; the
+        inherited ``searchsource`` from ``MongoDB`` is overridden
+        to delegate here, so callers do not have to know which
+        field they are filtering on.
         """
-        Filters (if `neg` == True, filters out) one particular recontype.
-        """
-        if neg:
-            if isinstance(rectype, utils.REGEXP_T):
-                return {"recontype": {"$not": rectype}}
-            if isinstance(rectype, list):
-                if len(rectype) == 1:
-                    rectype = rectype[0]
-                else:
-                    return {"recontype": {"$nin": rectype}}
-            return {"recontype": {"$ne": rectype}}
-        if isinstance(rectype, list):
-            if len(rectype) == 1:
-                rectype = rectype[0]
-            else:
-                return {"recontype": {"$in": rectype}}
-        return {"recontype": rectype}
+        clauses = []
+        if rectype is not None:
+            clauses.append(MongoDBPassive._passive_field_clause("recontype", rectype))
+        if source is not None:
+            clauses.append(MongoDBPassive._passive_field_clause("source", source))
+        if not clauses:
+            # Degenerate call. Positive: match all; negative: match none.
+            return MongoDBPassive.searchnonexistent() if neg else {}
+        if len(clauses) == 1:
+            clause = clauses[0]
+            if not neg:
+                return clause
+            # Single-clause negation: emit the legacy ``$ne`` /
+            # ``$nin`` / ``$not`` shape so that simple
+            # recontype-only or source-only filters keep their
+            # historical query plan.
+            field, val = next(iter(clause.items()))
+            if isinstance(val, dict) and "$in" in val:
+                return {field: {"$nin": val["$in"]}}
+            if isinstance(val, utils.REGEXP_T):
+                return {field: {"$not": val}}
+            return {field: {"$ne": val}}
+        # Two clauses: conjunction. Negation flips the whole AND.
+        clause = {"$and": clauses}
+        return {"$nor": [clause]} if neg else clause
+
+    @staticmethod
+    def searchsource(src, neg=False):
+        """Inherited from ``MongoDB`` but overridden for passive:
+        a passive record's ``source`` is meaningful only relative
+        to its ``recontype``, so the search path is unified
+        through :meth:`searchrecontype`."""
+        return MongoDBPassive.searchrecontype(source=src, neg=neg)
 
     @staticmethod
     def searchsensor(sensor, neg=False):

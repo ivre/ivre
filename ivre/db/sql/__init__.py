@@ -3129,16 +3129,42 @@ class SQLDBPassive(SQLDB, DBPassive):
         return cls.flt_empty if neg else cls.searchnonexistent()
 
     @classmethod
-    def searchrecontype(cls, rectype, neg=False):
-        if isinstance(rectype, list):
-            if neg:
-                return PassiveFilter(
-                    main=(cls.tables.passive.recontype.notin_(rectype))
-                )
-            return PassiveFilter(main=cls.tables.passive.recontype.in_(rectype))
-        return PassiveFilter(
-            main=cls._searchstring_re(cls.tables.passive.recontype, rectype, neg=neg)
-        )
+    def _passive_field_clause(cls, column_, value):
+        """Build a positive (non-negated) SQLAlchemy clause for a
+        passive-table column given a list or scalar value."""
+        if isinstance(value, list):
+            return column_.in_(value)
+        return cls._searchstring_re(column_, value, neg=False)
+
+    @classmethod
+    def searchrecontype(cls, rectype=None, source=None, neg=False):
+        """Filter (or filter out) passive records on the
+        ``(recontype, source)`` field pair. See
+        :meth:`ivre.db.DBPassive.searchrecontype`. SQL mirror of
+        the MongoDB implementation; both fields share the same
+        scalar / list / regex acceptance and conjunction-negation
+        semantics.
+        """
+        clauses = []
+        if rectype is not None:
+            clauses.append(
+                cls._passive_field_clause(cls.tables.passive.recontype, rectype)
+            )
+        if source is not None:
+            clauses.append(cls._passive_field_clause(cls.tables.passive.source, source))
+        if not clauses:
+            # Degenerate call. Match-all positive, match-none negative.
+            return cls.flt_empty if not neg else cls.searchnonexistent()
+        combined = and_(*clauses) if len(clauses) > 1 else clauses[0]
+        return PassiveFilter(main=not_(combined) if neg else combined)
+
+    @classmethod
+    def searchsource(cls, src, neg=False):
+        """Inherited contract from ``DB`` but overridden for
+        passive: a passive record's ``source`` is meaningful only
+        relative to its ``recontype``, so the search path is
+        unified through :meth:`searchrecontype`."""
+        return cls.searchrecontype(source=src, neg=neg)
 
     @classmethod
     def searchdns(cls, name=None, reverse=False, dnstype=None, subdomains=False):

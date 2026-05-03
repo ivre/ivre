@@ -436,7 +436,32 @@ def flt_from_query(dbase, query, base_flt=None):
         elif param == "asname" and hasattr(dbase, "searchasname"):
             flt = dbase.flt_and(flt, dbase.searchasname(str2regexp(value), neg=neg))
         elif param == "source":
-            flt = dbase.flt_and(flt, dbase.searchsource(str2regexp(value), neg=neg))
+            if hasattr(dbase, "searchrecontype"):
+                # Passive: dispatch through the generalized
+                # ``searchrecontype``. ``source:RECONTYPE:VALUE``
+                # filters on the ``(recontype, source)`` pair;
+                # ``source:VALUE`` (no colon) filters on
+                # ``source`` alone. The View / Active branches
+                # below stay on the legacy ``searchsource`` path
+                # because their backends do not couple ``source``
+                # to a ``recontype``.
+                if ":" in value:
+                    rectype_str, src_str = value.split(":", 1)
+                    flt = dbase.flt_and(
+                        flt,
+                        dbase.searchrecontype(
+                            rectype=str2regexp(rectype_str),
+                            source=str2regexp(src_str),
+                            neg=neg,
+                        ),
+                    )
+                else:
+                    flt = dbase.flt_and(
+                        flt,
+                        dbase.searchrecontype(source=str2regexp(value), neg=neg),
+                    )
+            else:
+                flt = dbase.flt_and(flt, dbase.searchsource(str2regexp(value), neg=neg))
         elif param == "recontype" and hasattr(dbase, "searchrecontype"):
             # Passive-only: filter on a passive record's
             # ``recontype`` (DNS_ANSWER, HTTP_SERVER_HEADER,
