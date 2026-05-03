@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -41,6 +41,18 @@ from ivre.web import app as webapp
 
 @get("/")
 def server_index() -> None:
+    """Needed to redirect / to index.html"""
+    redirect("index.html")
+
+
+@get("/ui")
+def server_ui_index() -> None:
+    """Needed to redirect / to index.html"""
+    redirect("ui/index.html")
+
+
+@get("/ui/")
+def server_ui_index2() -> None:
     """Needed to redirect / to index.html"""
     redirect("index.html")
 
