@@ -1688,6 +1688,182 @@ class PassiveFltFromQueryTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# MongoDBSearchFieldTests -- the shared ``MongoDB._search_field``
+# helper and a sample of the search methods refactored to use it.
+# All assertions check the produced MongoDB expression literally;
+# the refactor is required to be wire-shape preserving (the file
+# has many hand-written ``$ne`` / ``$nin`` / ``$not`` ladders that
+# this helper now replaces, and the goal is an identical query).
+# ---------------------------------------------------------------------
+
+
+class MongoDBSearchFieldTests(unittest.TestCase):
+    """Pin the shared ``_search_field`` dispatch and the wire
+    shape of the search methods that delegate to it. Behaviour
+    must match the legacy hand-written ladders bit-for-bit so
+    DocumentDB and any external tooling inspecting
+    ``find().explain()`` output see no change."""
+
+    @staticmethod
+    def _M():
+        from ivre.db.mongo import MongoDB
+
+        return MongoDB
+
+    @staticmethod
+    def _MA():
+        from ivre.db.mongo import MongoDBActive
+
+        return MongoDBActive
+
+    @staticmethod
+    def _MV():
+        from ivre.db.mongo import MongoDBView
+
+        return MongoDBView
+
+    @staticmethod
+    def _MP():
+        from ivre.db.mongo import MongoDBPassive
+
+        return MongoDBPassive
+
+    @staticmethod
+    def _MR():
+        from ivre.db.mongo import MongoDBRir
+
+        return MongoDBRir
+
+    def test_search_field_scalar_positive(self):
+        self.assertEqual(self._M()._search_field("source", "X"), {"source": "X"})
+
+    def test_search_field_scalar_negative(self):
+        self.assertEqual(
+            self._M()._search_field("source", "X", neg=True),
+            {"source": {"$ne": "X"}},
+        )
+
+    def test_search_field_list_positive(self):
+        self.assertEqual(
+            self._M()._search_field("source", ["A", "B"]),
+            {"source": {"$in": ["A", "B"]}},
+        )
+
+    def test_search_field_list_negative(self):
+        self.assertEqual(
+            self._M()._search_field("source", ["A", "B"], neg=True),
+            {"source": {"$nin": ["A", "B"]}},
+        )
+
+    def test_search_field_list_of_one_collapses_to_scalar(self):
+        # The legacy ladders carefully collapse single-element
+        # lists down to scalar form; the helper preserves that so
+        # the wire shape never has redundant ``$in: [x]`` /
+        # ``$nin: [x]`` clauses.
+        self.assertEqual(
+            self._M()._search_field("source", ["A"]),
+            {"source": "A"},
+        )
+        self.assertEqual(
+            self._M()._search_field("source", ["A"], neg=True),
+            {"source": {"$ne": "A"}},
+        )
+
+    def test_search_field_regex_positive(self):
+        pat = re.compile("^foo")
+        self.assertEqual(
+            self._M()._search_field("source", pat),
+            {"source": pat},
+        )
+
+    def test_search_field_regex_negative(self):
+        pat = re.compile("^foo")
+        self.assertEqual(
+            self._M()._search_field("source", pat, neg=True),
+            {"source": {"$not": pat}},
+        )
+
+    def test_searchsource_active_delegates_to_helper(self):
+        self.assertEqual(self._MA().searchsource("X"), {"source": "X"})
+        self.assertEqual(
+            self._MA().searchsource(["A", "B"], neg=True),
+            {"source": {"$nin": ["A", "B"]}},
+        )
+
+    def test_searchcategory_legacy_shapes_preserved(self):
+        self.assertEqual(self._MA().searchcategory("X"), {"categories": "X"})
+        self.assertEqual(
+            self._MA().searchcategory(["A"], neg=True),
+            {"categories": {"$ne": "A"}},
+        )
+        self.assertEqual(
+            self._MA().searchcategory(["A", "B"]),
+            {"categories": {"$in": ["A", "B"]}},
+        )
+        pat = re.compile("admin")
+        self.assertEqual(
+            self._MA().searchcategory(pat, neg=True),
+            {"categories": {"$not": pat}},
+        )
+
+    def test_searchdomain_passes_regex_negation(self):
+        pat = re.compile("\\.example\\.com$")
+        self.assertEqual(
+            self._MA().searchdomain(pat, neg=True),
+            {"hostnames.domains": {"$not": pat}},
+        )
+
+    def test_searchcity_legacy_shapes_preserved(self):
+        # City lives on the View backend (GeoIP-enriched data).
+        self.assertEqual(
+            self._MV().searchcity("Carcassonne"),
+            {"infos.city": "Carcassonne"},
+        )
+        self.assertEqual(
+            self._MV().searchcity("Carcassonne", neg=True),
+            {"infos.city": {"$ne": "Carcassonne"}},
+        )
+
+    def test_searchasname_legacy_shapes_preserved(self):
+        # AS name lives on the View backend (GeoIP-enriched data).
+        pat = re.compile("Cloudflare")
+        self.assertEqual(self._MV().searchasname(pat), {"infos.as_name": pat})
+        self.assertEqual(
+            self._MV().searchasname(pat, neg=True),
+            {"infos.as_name": {"$not": pat}},
+        )
+
+    def test_searchsensor_passive_legacy_shapes_preserved(self):
+        self.assertEqual(self._MP().searchsensor("S"), {"sensor": "S"})
+        self.assertEqual(
+            self._MP().searchsensor(["A", "B"], neg=True),
+            {"sensor": {"$nin": ["A", "B"]}},
+        )
+
+    def test_searchsourcefile_rir_legacy_shapes_preserved(self):
+        # ``source_file`` filters live on the RIR backend (the
+        # provenance of inetnum dumps).
+        self.assertEqual(
+            self._MR().searchsourcefile("/tmp/scan.xml"),
+            {"source_file": "/tmp/scan.xml"},
+        )
+        self.assertEqual(
+            self._MR().searchsourcefile(["a", "b"]),
+            {"source_file": {"$in": ["a", "b"]}},
+        )
+
+    def test_searchsource_passive_routes_through_searchrecontype(self):
+        # Cross-check that the passive override still produces
+        # a single-field clause via the shared helper (no
+        # ``$nor`` wrapping for the bare-source case).
+        self.assertEqual(self._MP().searchsource("cert"), {"source": "cert"})
+        self.assertEqual(
+            self._MP().searchsource("cert", neg=True),
+            {"source": {"$ne": "cert"}},
+        )
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 

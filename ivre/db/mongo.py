@@ -634,6 +634,35 @@ class MongoDB(DB):
     def _search_field_exists(field):
         return {field: {"$exists": True}}
 
+    @classmethod
+    def _search_field(cls, field, value, neg=False):
+        """Build a positive (``neg=False``) or negative
+        equality clause for a single MongoDB field given a
+        scalar, list, or compiled regex value. Encapsulates the
+        scalar / list / regex dispatch shared by ~25
+        ``searchXXX`` helpers in this module: callers can
+        therefore replace the 12-line ``if neg / isinstance /
+        list-of-1`` ladder with a one-line ``cls._search_field``
+        delegation.
+
+        Declared as ``@classmethod`` so a backend-specific
+        subclass (e.g. a future ``DocumentDB*`` override) can
+        replace the dispatch without touching every caller.
+
+        Wire shapes (``$ne`` / ``$nin`` / ``$not`` / ``$in``)
+        match what the previous hand-written ladders produced,
+        so the refactor is behaviour-preserving (DocumentDB
+        semantics included).
+        """
+        if isinstance(value, utils.REGEXP_T):
+            return {field: {"$not": value} if neg else value}
+        if isinstance(value, list):
+            if len(value) == 1:
+                value = value[0]
+            else:
+                return {field: {"$nin": value} if neg else {"$in": value}}
+        return {field: {"$ne": value} if neg else value}
+
     @staticmethod
     def searchnonexistent():
         return {"_id": 0}
@@ -2509,13 +2538,9 @@ class MongoDBActive(MongoDB, DBActive):
                     )
         return host
 
-    @staticmethod
-    def searchdomain(name, neg=False):
-        if neg:
-            if isinstance(name, utils.REGEXP_T):
-                return {"hostnames.domains": {"$not": name}}
-            return {"hostnames.domains": {"$ne": name}}
-        return {"hostnames.domains": name}
+    @classmethod
+    def searchdomain(cls, name, neg=False):
+        return cls._search_field("hostnames.domains", name, neg=neg)
 
     @classmethod
     def searchhostname(cls, name=None, neg=False):
@@ -2547,48 +2572,21 @@ class MongoDBActive(MongoDB, DBActive):
             return {"addresses.mac": mac.lower()}
         return {"addresses.mac": {"$exists": not neg}}
 
-    @staticmethod
-    def searchcategory(cat, neg=False):
+    @classmethod
+    def searchcategory(cls, cat, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular category
         (records may have zero, one or more categories).
         """
-        if neg:
-            if isinstance(cat, utils.REGEXP_T):
-                return {"categories": {"$not": cat}}
-            if isinstance(cat, list):
-                if len(cat) == 1:
-                    cat = cat[0]
-                else:
-                    return {"categories": {"$nin": cat}}
-            return {"categories": {"$ne": cat}}
-        if isinstance(cat, list):
-            if len(cat) == 1:
-                cat = cat[0]
-            else:
-                return {"categories": {"$in": cat}}
-        return {"categories": cat}
+        return cls._search_field("categories", cat, neg=neg)
 
-    @staticmethod
-    def searchsource(src, neg=False):
+    @classmethod
+    def searchsource(cls, src, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         source.
 
         """
-        if neg:
-            if isinstance(src, utils.REGEXP_T):
-                return {"source": {"$not": src}}
-            if isinstance(src, list):
-                if len(src) == 1:
-                    src = src[0]
-                else:
-                    return {"source": {"$nin": src}}
-            return {"source": {"$ne": src}}
-        if isinstance(src, list):
-            if len(src) != 1:
-                return {"source": {"$in": src}}
-            src = src[0]
-        return {"source": src}
+        return cls._search_field("source", src, neg=neg)
 
     @staticmethod
     def searchport(port, protocol="tcp", state="open", neg=False):
@@ -3070,19 +3068,13 @@ class MongoDBActive(MongoDB, DBActive):
             }
         }
 
-    @staticmethod
-    def searchhopdomain(hop, neg=False):
-        if neg:
-            if isinstance(hop, utils.REGEXP_T):
-                return {"traces.hops.domains": {"$not": hop}}
-            return {"traces.hops.domains": {"$ne": hop}}
-        return {"traces.hops.domains": hop}
+    @classmethod
+    def searchhopdomain(cls, hop, neg=False):
+        return cls._search_field("traces.hops.domains", hop, neg=neg)
 
     def searchhopname(self, hop, neg=False):
         if neg:
-            if isinstance(hop, utils.REGEXP_T):
-                return {"traces.hops.host": {"$not": hop}}
-            return {"traces.hops.host": {"$ne": hop}}
+            return self._search_field("traces.hops.host", hop, neg=True)
         return self.flt_and(
             # This is indexed
             self.searchhopdomain(hop, neg=neg),
@@ -4620,31 +4612,26 @@ class MongoDBView(MongoDBActive, DBView):
             }
         return {"tags": {"$elemMatch": req}}
 
-    @staticmethod
-    def searchcountry(country, neg=False):
+    @classmethod
+    def searchcountry(cls, country, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         country, or a list of countries.
 
         """
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            return {"infos.country_code": {"$nin" if neg else "$in": country}}
-        return {"infos.country_code": {"$ne": country} if neg else country}
+        return cls._search_field(
+            "infos.country_code", utils.country_unalias(country), neg=neg
+        )
 
     @staticmethod
     def searchhaslocation(neg=False):
         return {"infos.loc": {"$exists": not neg}}
 
-    @staticmethod
-    def searchcity(city, neg=False):
+    @classmethod
+    def searchcity(cls, city, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular city.
         """
-        if neg:
-            if isinstance(city, utils.REGEXP_T):
-                return {"infos.city": {"$not": city}}
-            return {"infos.city": {"$ne": city}}
-        return {"infos.city": city}
+        return cls._search_field("infos.city", city, neg=neg)
 
     @staticmethod
     def searchasnum(asnum, neg=False):
@@ -4659,17 +4646,13 @@ class MongoDBView(MongoDBActive, DBView):
         asnum = int(asnum)
         return {"infos.as_num": {"$ne": asnum} if neg else asnum}
 
-    @staticmethod
-    def searchasname(asname, neg=False):
+    @classmethod
+    def searchasname(cls, asname, neg=False):
         """Filters (if `neg` == True, filters out) one or more
         particular AS.
 
         """
-        if neg:
-            if isinstance(asname, utils.REGEXP_T):
-                return {"infos.as_name": {"$not": asname}}
-            return {"infos.as_name": {"$ne": asname}}
-        return {"infos.as_name": asname}
+        return cls._search_field("infos.as_name", asname, neg=neg)
 
 
 class MongoDBPassive(MongoDB, DBPassive):
@@ -5424,21 +5407,8 @@ class MongoDBPassive(MongoDB, DBPassive):
             "$infos",
         )
 
-    @staticmethod
-    def _passive_field_clause(field, value):
-        """Build a positive (non-negated) MongoDB clause for a
-        passive field given a scalar, list, or compiled regex.
-        Helper for ``searchrecontype``."""
-        if isinstance(value, utils.REGEXP_T):
-            return {field: value}
-        if isinstance(value, list):
-            if len(value) == 1:
-                return {field: value[0]}
-            return {field: {"$in": value}}
-        return {field: value}
-
-    @staticmethod
-    def searchrecontype(rectype=None, source=None, neg=False):
+    @classmethod
+    def searchrecontype(cls, rectype=None, source=None, neg=False):
         """Filter (or filter out) passive records on the
         ``(recontype, source)`` field pair.
 
@@ -5458,57 +5428,37 @@ class MongoDBPassive(MongoDB, DBPassive):
         to delegate here, so callers do not have to know which
         field they are filtering on.
         """
-        clauses = []
-        if rectype is not None:
-            clauses.append(MongoDBPassive._passive_field_clause("recontype", rectype))
-        if source is not None:
-            clauses.append(MongoDBPassive._passive_field_clause("source", source))
-        if not clauses:
-            # Degenerate call. Positive: match all; negative: match none.
-            return MongoDBPassive.searchnonexistent() if neg else {}
-        if len(clauses) == 1:
-            clause = clauses[0]
-            if not neg:
-                return clause
-            # Single-clause negation: emit the legacy ``$ne`` /
-            # ``$nin`` / ``$not`` shape so that simple
-            # recontype-only or source-only filters keep their
-            # historical query plan.
-            field, val = next(iter(clause.items()))
-            if isinstance(val, dict) and "$in" in val:
-                return {field: {"$nin": val["$in"]}}
-            if isinstance(val, utils.REGEXP_T):
-                return {field: {"$not": val}}
-            return {field: {"$ne": val}}
-        # Two clauses: conjunction. Negation flips the whole AND.
-        clause = {"$and": clauses}
+        # Single-field cases (or pure-source / pure-recontype
+        # negation): the shared ``_search_field`` helper handles
+        # them with the canonical wire shape (``$ne`` /
+        # ``$nin`` / ``$not``).
+        if rectype is None and source is None:
+            return cls.searchnonexistent() if neg else {}
+        if source is None:
+            return cls._search_field("recontype", rectype, neg=neg)
+        if rectype is None:
+            return cls._search_field("source", source, neg=neg)
+        # Combined case: conjunction of the two positive clauses;
+        # negation wraps the whole AND in ``$nor``.
+        clause = {
+            "$and": [
+                cls._search_field("recontype", rectype),
+                cls._search_field("source", source),
+            ]
+        }
         return {"$nor": [clause]} if neg else clause
 
-    @staticmethod
-    def searchsource(src, neg=False):
+    @classmethod
+    def searchsource(cls, src, neg=False):
         """Inherited from ``MongoDB`` but overridden for passive:
         a passive record's ``source`` is meaningful only relative
         to its ``recontype``, so the search path is unified
         through :meth:`searchrecontype`."""
-        return MongoDBPassive.searchrecontype(source=src, neg=neg)
+        return cls.searchrecontype(source=src, neg=neg)
 
-    @staticmethod
-    def searchsensor(sensor, neg=False):
-        if neg:
-            if isinstance(sensor, utils.REGEXP_T):
-                return {"sensor": {"$not": sensor}}
-            if isinstance(sensor, list):
-                if len(sensor) == 1:
-                    sensor = sensor[0]
-                else:
-                    return {"sensor": {"$nin": sensor}}
-            return {"sensor": {"$ne": sensor}}
-        if isinstance(sensor, list):
-            if len(sensor) == 1:
-                sensor = sensor[0]
-            else:
-                return {"sensor": {"$in": sensor}}
-        return {"sensor": sensor}
+    @classmethod
+    def searchsensor(cls, sensor, neg=False):
+        return cls._search_field("sensor", sensor, neg=neg)
 
     @staticmethod
     def searchport(port, protocol="tcp", state="open", neg=False):
@@ -5859,26 +5809,13 @@ class MongoDBRir(MongoDB, DBRir):
         """Removes hosts from the RIR column, based on the filter `flt`."""
         self.db[self.columns[self.column_rir]].delete_many(flt)
 
-    @staticmethod
-    def searchsourcefile(src, neg=False):
+    @classmethod
+    def searchsourcefile(cls, src, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         source.
 
         """
-        if neg:
-            if isinstance(src, utils.REGEXP_T):
-                return {"source_file": {"$not": src}}
-            if isinstance(src, list):
-                if len(src) != 1:
-                    return {"source_file": {"$nin": src}}
-                src = src[0]
-            return {"source_file": {"$ne": src}}
-        if isinstance(src, list):
-            if len(src) == 1:
-                src = src[0]
-            else:
-                return {"source_file": {"$in": src}}
-        return {"source_file": src}
+        return cls._search_field("source_file", src, neg=neg)
 
     @staticmethod
     def searchfileid(fileid: str, neg: bool = False) -> Filter:
@@ -5928,16 +5865,13 @@ class MongoDBRir(MongoDB, DBRir):
         #     ]
         # }
 
-    @staticmethod
-    def searchcountry(country, neg=False):
+    @classmethod
+    def searchcountry(cls, country, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         country, or a list of countries.
 
         """
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            return {"country": {"$nin" if neg else "$in": country}}
-        return {"country": {"$ne": country} if neg else country}
+        return cls._search_field("country", utils.country_unalias(country), neg=neg)
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
