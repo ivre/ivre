@@ -18,6 +18,7 @@ import {
 } from "@tanstack/react-query";
 
 import { CGI_ROOT } from "@/lib/api";
+import { isAuthEnabled } from "@/lib/config";
 
 /** Shape returned by ``GET /cgi/auth/me``. */
 export interface AuthMe {
@@ -145,6 +146,11 @@ export function useAuthMe(): UseQueryResult<AuthMe> {
   return useQuery<AuthMe>({
     queryKey: AUTH_ME_KEY,
     queryFn: fetchAuthMe,
+    // Skip the fetch entirely when the operator has not enabled
+    // auth: ``/cgi/auth/me`` is not registered server-side in
+    // that case, so issuing the request would just produce a
+    // 404 in the access log on every page load.
+    enabled: isAuthEnabled(),
     // Identity rarely changes during a session; refetch on focus
     // so a sign-in/out in another tab is reflected reasonably fast.
     refetchOnWindowFocus: true,
@@ -156,6 +162,11 @@ export function useAuthConfig(): UseQueryResult<AuthConfig> {
   return useQuery<AuthConfig>({
     queryKey: AUTH_CONFIG_KEY,
     queryFn: fetchAuthConfig,
+    // Same rationale as ``useAuthMe``: ``/cgi/auth/config`` is
+    // not registered when ``WEB_AUTH_ENABLED`` is ``False``,
+    // and the menu code already short-circuits on the same
+    // ``isAuthEnabled()`` flag, so the request is wasted.
+    enabled: isAuthEnabled(),
     // Auth config is essentially static for the lifetime of the
     // tab; no need to refetch eagerly.
     refetchOnWindowFocus: false,
