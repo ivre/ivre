@@ -4792,8 +4792,11 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("view_features_versions_noyieldall_FRDE_ndata", len(data))
 
-        # Full-text
-        if DATABASE == "mongo":
+        # Full-text. Skipped on the AWS DocumentDB flavour: the
+        # backend has no text-index facility and no ``$text``
+        # operator. ``MongoDBView.searchtext`` would fail at
+        # query time on a real DocumentDB instance.
+        if DATABASE == "mongo" and BACKEND_FLAVOR != "documentdb":
             self.check_value(
                 "view_count_text_honeypot",
                 ivre.db.db.view.count(ivre.db.db.view.searchtext("honeypot")),
@@ -5072,6 +5075,24 @@ DATABASES = {
     ],
 }
 
+# Additional per-flavour exclusions layered on top of ``DATABASES``.
+# Set via the ``IVRE_BACKEND_FLAVOR`` env var to flag a Mongo-wire
+# backend whose surface differs from upstream MongoDB. Today the
+# only flavour is ``documentdb`` (AWS DocumentDB), which uses the
+# Mongo wire protocol but lacks full-text indexes (no ``$text``
+# operator and no ``"text"`` index type). Tests that depend on
+# those features are skipped when this flavour is set.
+BACKEND_FLAVORS = {
+    "documentdb": [
+        # ``MongoDBView.searchtext`` exercises ``$text`` /
+        # text-index features; DocumentDB has neither.
+        # The text-search assertions live inside ``test_50_view``,
+        # so we cannot skip the whole test method — instead the
+        # block at the call site checks ``BACKEND_FLAVOR`` and
+        # short-circuits.
+    ],
+}
+
 
 def parse_args():
     global SAMPLES, USE_COVERAGE
@@ -5109,8 +5130,9 @@ def parse_args():
 
 
 def parse_env():
-    global DATABASE, ELASTIC_INSERT_TEMPO
+    global DATABASE, BACKEND_FLAVOR, ELASTIC_INSERT_TEMPO
     DATABASE = os.getenv("DB")
+    BACKEND_FLAVOR = os.getenv("IVRE_BACKEND_FLAVOR")
     for test in DATABASES.get(DATABASE, []):
         test = "test_%s" % test
         setattr(
@@ -5118,6 +5140,15 @@ def parse_env():
             test,
             unittest.skip("Deactivated for database %r" % DATABASE)(
                 getattr(IvreTests, test),
+            ),
+        )
+    for test in BACKEND_FLAVORS.get(BACKEND_FLAVOR, []):
+        test = "test_%s" % test
+        setattr(
+            IvreTests,
+            test,
+            unittest.skip("Deactivated for backend flavour %r" % BACKEND_FLAVOR)(
+                getattr(IvreTests, test)
             ),
         )
     # Elasticsearch insertion is asynchronous, this hack "ensures" the

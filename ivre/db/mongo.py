@@ -3301,8 +3301,13 @@ class MongoDBActive(MongoDB, DBActive):
             addr = {"$add": ["$addr_1", 0x7FFF000100000000]}
             specialproj = {"_id": 0}
             if self.is_documentdb:
-                # AWS DocumentDB lacks $floor aggregation operator,
-                # just like MongoDB < 3.2
+                # AWS DocumentDB lacks the ``$floor`` aggregation
+                # operator (the original "just like MongoDB < 3.2"
+                # comment predates DocumentDB's claimed MongoDB
+                # 5.0 compatibility level — this branch may be
+                # removable once we have a real-DocumentDB CI
+                # lane to verify; for now the workaround is
+                # cheap and safe).
                 specialproj["addr"] = {
                     "$subtract": [
                         {"$divide": [addr, 2 ** (32 - mask)]},
@@ -5238,8 +5243,13 @@ class MongoDBPassive(MongoDB, DBPassive):
             addr = {"$add": ["$addr_1", 0x7FFF000100000000]}
             specialproj = {"_id": 0}
             if self.is_documentdb:
-                # AWS DocumentDB lacks $floor aggregation operator,
-                # just like MongoDB < 3.2
+                # AWS DocumentDB lacks the ``$floor`` aggregation
+                # operator (the original "just like MongoDB < 3.2"
+                # comment predates DocumentDB's claimed MongoDB
+                # 5.0 compatibility level — this branch may be
+                # removable once we have a real-DocumentDB CI
+                # lane to verify; for now the workaround is
+                # cheap and safe).
                 specialproj["addr"] = {
                     "$subtract": [
                         {"$divide": [addr, 2 ** (32 - mask)]},
