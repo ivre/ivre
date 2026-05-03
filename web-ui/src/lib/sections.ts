@@ -107,10 +107,13 @@ export const SECTIONS: readonly SectionConfig[] = [
   {
     id: "admin",
     label: "Admin",
+    // Admin lives outside the data-list pattern: no list endpoint,
+    // no facets, no top values. The route renders user / API-key
+    // management against ``/cgi/auth/admin/*`` and
+    // ``/cgi/auth/api-keys``.
     facets: [],
     resultType: "admin",
     requiresAuth: true,
-    stub: true,
   },
 ] as const;
 

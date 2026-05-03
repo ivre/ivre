@@ -332,3 +332,156 @@ test("Passive section renders the timeline + record list", async ({ page }) => {
     ),
   );
 });
+
+test("Admin section renders for admin users (users panel + API keys)", async ({
+  page,
+}) => {
+  // ``/cgi/config`` mocked to set ``window.config.auth_enabled = true``
+  // (matches the production ``var config = {}`` then
+  // ``config.auth_enabled = ...`` script body) so the new
+  // UserMenu / Admin gate sees auth as enabled. Then mock the
+  // admin endpoints with two-user / one-key fixtures.
+  const users = [
+    {
+      email: "alice@example.com",
+      display_name: "Alice",
+      is_admin: true,
+      is_active: true,
+      groups: ["staff"],
+      created_at: "2024-01-02T10:00:00",
+      last_login: "2024-03-15T09:30:00",
+    },
+    {
+      email: "bob@example.com",
+      is_admin: false,
+      is_active: true,
+      groups: [],
+      created_at: "2024-02-01T08:00:00",
+      last_login: null,
+    },
+  ];
+  const keys = [
+    {
+      key_hash: "h0",
+      key_prefix: "ivre_aaaa",
+      user_email: "alice@example.com",
+      name: "ci-pipeline",
+      created_at: "2024-01-02T10:00:00",
+      last_used: null,
+      expires_at: null,
+    },
+  ];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "alice@example.com",
+          display_name: "Alice",
+          is_admin: true,
+          groups: ["staff"],
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: ["google"],
+          magic_link: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/admin/users") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(users),
+      });
+    }
+    if (url.pathname === "/cgi/auth/api-keys") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(keys),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/admin");
+
+  // Page heading + admin user identity rendered.
+  await expect(
+    page.getByRole("heading", { name: /^Admin$/, level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText("alice@example.com").first()).toBeVisible();
+
+  // Users panel is the default tab — both users render.
+  await expect(page.getByText("Alice").first()).toBeVisible();
+  await expect(page.getByText("bob@example.com").first()).toBeVisible();
+
+  // Switch to API keys tab — the listed key is visible.
+  await page.getByRole("tab", { name: /api keys/i }).click();
+  await expect(page.getByText("ci-pipeline")).toBeVisible();
+  await expect(page.getByText(/ivre_aaaa…/)).toBeVisible();
+});
+
+test("Admin section gates non-admin users with a placeholder", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "bob@example.com",
+          is_admin: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: [],
+          magic_link: false,
+        }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/admin");
+  await expect(
+    page.getByText(/does not have admin privileges/i),
+  ).toBeVisible();
+  // The admin endpoints must not have been hit.
+  // (No assertion on requests because ``page.route`` would 204
+  // them anyway — but the placeholder confirms the gate is
+  // working.)
+});
