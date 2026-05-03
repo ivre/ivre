@@ -102,6 +102,31 @@ describe("section configs", () => {
     });
   });
 
+  describe("dns", () => {
+    const dns = getSection("dns")!;
+
+    it("is a real (non-stub) section with its own ``dns`` result type", () => {
+      expect(dns.stub).toBeFalsy();
+      expect(dns.resultType).toBe("dns");
+    });
+
+    it("hits ``/cgi/dns`` (the dedicated merge endpoint)", () => {
+      expect(dns.listEndpoint).toBe("/dns");
+    });
+
+    it("does not declare a top endpoint or facets (no facet sidebar)", () => {
+      // ``/cgi/dns`` does not expose a ``top/<field>``
+      // companion; the section's facet sidebar is therefore
+      // empty, and the FacetSidebar component renders nothing.
+      expect(dns.topEndpoint).toBeUndefined();
+      expect(dns.facets).toEqual([]);
+    });
+
+    it("does not declare a map endpoint", () => {
+      expect(dns.mapEndpoint).toBeUndefined();
+    });
+  });
+
   it("returns ``undefined`` for unknown section ids", () => {
     expect(getSection("nope")).toBeUndefined();
   });

@@ -480,6 +480,57 @@ timestamps</p></li>
 </dd></dl>
 
 <dl class="http get">
+<dt class="sig sig-object http" id="get--dns">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/dns</span></span><a class="headerlink" href="#get--dns" title="Link to this definition"></a></dt>
+<dd><p>Return a merged DNS view across the active scan database
+(<code class="docutils literal notranslate"><span class="pre">db.nmap</span></code>) and the passive observation database
+(<code class="docutils literal notranslate"><span class="pre">db.passive</span></code>).</p>
+<p>Each result is a pseudo-record keyed on <code class="docutils literal notranslate"><span class="pre">(name,</span> <span class="pre">addr)</span></code>:
+a single row aggregates every observation of that pair
+across both backends, with <code class="docutils literal notranslate"><span class="pre">count</span></code> being the sum of the
+per-source counts (<code class="docutils literal notranslate"><span class="pre">rec['count']</span></code> on the passive side,
+one per matching nmap document on the active side).
+<code class="docutils literal notranslate"><span class="pre">types</span></code> and <code class="docutils literal notranslate"><span class="pre">sources</span></code> are unions of the contributing
+backend values (e.g. <code class="docutils literal notranslate"><span class="pre">[&quot;A&quot;,</span> <span class="pre">&quot;PTR&quot;,</span> <span class="pre">&quot;user&quot;]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">[&quot;sensor1&quot;,</span> <span class="pre">&quot;scan-2024-Q1&quot;]</span></code>); <code class="docutils literal notranslate"><span class="pre">firstseen</span></code> /
+<code class="docutils literal notranslate"><span class="pre">lastseen</span></code> extend the union of the contributing
+intervals.</p>
+<p>Results are sorted <code class="docutils literal notranslate"><span class="pre">lastseen</span></code> descending, then <code class="docutils literal notranslate"><span class="pre">count</span></code>
+descending. The user’s <code class="docutils literal notranslate"><span class="pre">q=</span></code> filter is applied to <em>both</em>
+backends — tokens that are meaningful only on one side
+(e.g. <code class="docutils literal notranslate"><span class="pre">recontype:</span></code> on passive, <code class="docutils literal notranslate"><span class="pre">port:</span></code> on nmap) are
+silently dropped on the other via the standard
+<code class="docutils literal notranslate"><span class="pre">hasattr(dbase,</span> <span class="pre">&quot;searchXXX&quot;)</span></code> gate in
+<code class="docutils literal notranslate"><span class="pre">flt_from_query</span></code>.</p>
+<p>Note: the merge happens in-process; every contributing
+record is materialised before sorting and pagination. The
+server-side <code class="docutils literal notranslate"><span class="pre">MONGODB_QUERY_TIMEOUT_MS</span></code> cap bounds the
+worst-case request time. For deployments where this
+matters, a future change can introduce a materialised
+summary collection updated at ingest time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (filter, plus <code class="docutils literal notranslate"><span class="pre">skip</span></code>, <code class="docutils literal notranslate"><span class="pre">limit</span></code> meta-params)</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – emit ISO-ish date strings rather than Unix timestamps</p></li>
+<li><p><strong>format</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;json&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;ndjson&quot;</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Array of Objects<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object</strong> – pseudo-records as <code class="docutils literal notranslate"><span class="pre">{name,</span> <span class="pre">addr,</span> <span class="pre">count,</span> <span class="pre">firstseen,</span> <span class="pre">lastseen,</span> <span class="pre">types,</span> <span class="pre">sources}</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
 <dt class="sig sig-object http" id="get--rir">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/rir</span></span><a class="headerlink" href="#get--rir" title="Link to this definition"></a></dt>
 <dd><p>Get records from the RIR database.</p>

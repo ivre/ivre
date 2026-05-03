@@ -272,6 +272,50 @@ export async function fetchCoordinates(
   return (await response.json()) as CoordinatesResponse;
 }
 
+/** A merged DNS pseudo-record returned by ``GET /cgi/dns``. The
+ *  endpoint folds together every observation of a given
+ *  ``(name, addr)`` pair across the active scan database
+ *  (``db.nmap``) and the passive observation database
+ *  (``db.passive``). ``count`` is the sum of the per-source
+ *  counts; ``types`` and ``sources`` are unions across both
+ *  backends; ``firstseen`` / ``lastseen`` extend the union of
+ *  the contributing intervals. */
+export interface DnsRecord {
+  name: string;
+  addr: string;
+  count: number;
+  firstseen: number | string;
+  lastseen: number | string;
+  /** Hostname types that contributed to this row. Active
+   *  scans typically supply ``"A"`` / ``"AAAA"`` / ``"PTR"`` /
+   *  ``"user"`` / ``"ssl-cert-subject"`` etc; passive supplies
+   *  the DNS rrtype prefix (``"A"``, ``"AAAA"``, ``"CNAME"``,
+   *  ...). */
+  types: string[];
+  /** Where the observations came from: scan ``source`` strings
+   *  on the active side, ``sensor`` names on the passive side. */
+  sources: string[];
+}
+
+/** Fetch the merged DNS pseudo-record list as JSON. */
+export async function fetchDnsRecords(
+  params: ListParams = {},
+): Promise<DnsRecord[]> {
+  const url =
+    CGI_ROOT +
+    "/dns" +
+    qs({
+      q: params.q,
+      limit: params.limit,
+      skip: params.skip,
+      datesasstrings: params.datesasstrings ? 1 : undefined,
+      format: "json",
+    });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET ${url}`);
+  return (await response.json()) as DnsRecord[];
+}
+
 /* ------------------------------------------------------------------ */
 /* React Query hooks                                                  */
 /* ------------------------------------------------------------------ */
@@ -340,6 +384,17 @@ export function useCoordinates(
     queryKey: ["coordinates", mapEndpoint, params],
     queryFn: () => fetchCoordinates(mapEndpoint as string, params),
     enabled: Boolean(mapEndpoint),
+    ...options,
+  });
+}
+
+export function useDnsRecords(
+  params: ListParams,
+  options?: HookOptions<DnsRecord[]>,
+): UseQueryResult<DnsRecord[]> {
+  return useQuery<DnsRecord[]>({
+    queryKey: ["dns", params],
+    queryFn: () => fetchDnsRecords(params),
     ...options,
   });
 }

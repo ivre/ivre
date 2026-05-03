@@ -5582,23 +5582,32 @@ class MongoDBPassive(MongoDB, DBPassive):
         }
 
     @staticmethod
-    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False):
-        if isinstance(name, list):
-            if len(name) == 1:
-                name = name[0]
-            else:
-                name = {"$in": name}
+    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False, neg=False):
         res = {
             "recontype": "DNS_ANSWER",
         }
         if name is not None:
-            res[
-                (
-                    ("infos.domaintarget" if reverse else "infos.domain")
-                    if subdomains
-                    else ("targetval" if reverse else "value")
-                )
-            ] = name
+            field = (
+                ("infos.domaintarget" if reverse else "infos.domain")
+                if subdomains
+                else ("targetval" if reverse else "value")
+            )
+            if isinstance(name, list):
+                if len(name) == 1:
+                    name = name[0]
+                elif neg:
+                    res[field] = {"$nin": name}
+                    name = None
+                else:
+                    name = {"$in": name}
+            if name is not None:
+                if neg:
+                    if isinstance(name, utils.REGEXP_T):
+                        res[field] = {"$not": name}
+                    else:
+                        res[field] = {"$ne": name}
+                else:
+                    res[field] = name
         if dnstype is not None:
             res["source"] = re.compile(f"^{dnstype.upper()}-")
         return res
