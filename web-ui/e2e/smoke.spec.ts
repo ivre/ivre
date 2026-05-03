@@ -108,12 +108,31 @@ test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
 test("UserMenu is hidden when auth is disabled", async ({ page }) => {
   // Default: ``window.config`` is unset (no backend) → auth_enabled
   // defaults to false → the menu renders nothing.
+  //
+  // Track every ``/cgi/auth/*`` request so we can assert below
+  // that none was issued. The auth-related react-query hooks
+  // (``useAuthMe`` / ``useAuthConfig``) gate on
+  // ``isAuthEnabled()``; if either ever fires when auth is
+  // disabled, the operator's httpd access log gains a 404 per
+  // page load (``/cgi/auth/me`` and ``/cgi/auth/config`` are
+  // not registered server-side in that mode).
+  const authRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith("/cgi/auth/")) {
+      authRequests.push(url.pathname);
+    }
+  });
   await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
   await page.goto("/");
   await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /account menu/i }),
   ).toHaveCount(0);
+  // Give react-query a tick in case it would have fired an
+  // eager request (it should not — the queries are gated).
+  await page.waitForLoadState("networkidle");
+  expect(authRequests).toEqual([]);
 });
 
 test("UserMenu shows Sign in when auth is enabled and the user is anonymous", async ({
