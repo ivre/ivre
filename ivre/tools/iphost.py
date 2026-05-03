@@ -26,26 +26,7 @@ from re import Pattern
 from typing import Any
 
 from ivre.db import db
-from ivre.utils import serialize, str2regexp
-
-
-def merge_results(
-    result: dict[tuple[str, str], Any], new_result: dict[tuple[str, str], Any]
-) -> None:
-    for key, value in new_result.items():
-        cur_res = result.setdefault(
-            key,
-            {
-                "types": set(),
-                "sources": set(),
-                "firstseen": value["firstseen"],
-                "lastseen": value["lastseen"],
-            },
-        )
-        cur_res["types"].update(value["types"])
-        cur_res["sources"].update(value["sources"])
-        cur_res["firstseen"] = min(cur_res["firstseen"], value["firstseen"])
-        cur_res["lastseen"] = max(cur_res["lastseen"], value["lastseen"])
+from ivre.utils import merge_dns_results, serialize, str2regexp
 
 
 def serialize_sets(obj: Any) -> str | list:
@@ -110,7 +91,7 @@ def main() -> None:
         addr_or_name = str2regexp(addr_or_name)
         result: dict[tuple[str, str], Any] = {}
         for resolver in resolvers:
-            merge_results(result, resolver(addr_or_name))
+            merge_dns_results(result, resolver(addr_or_name))
         for (name, target), values in result.items():
             if args.json:
                 print(

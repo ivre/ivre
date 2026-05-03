@@ -1813,6 +1813,69 @@ class MongoDBSearchFieldTests(unittest.TestCase):
             {"hostnames.domains": {"$not": pat}},
         )
 
+    def test_searchdns_passive_negation_shapes(self):
+        # ``DBPassive.searchdomain`` / ``searchhostname`` /
+        # ``searchdns`` accept ``neg=True`` (regression: the
+        # ``flt_from_query`` filter parser calls them
+        # unconditionally with ``neg=neg``, so any backend that
+        # rejects the kwarg blows up the route — see ``/cgi/dns``
+        # which queries both active and passive backends with the
+        # same parsed filter set). The ``recontype == "DNS_ANSWER"``
+        # constraint stays positive so the result remains scoped
+        # to DNS records.
+        MP = self._MP()
+        # Scalar name + neg=True via searchdomain (subdomains=True).
+        self.assertEqual(
+            MP.searchdomain("example.com", neg=True),
+            {"recontype": "DNS_ANSWER", "infos.domain": {"$ne": "example.com"}},
+        )
+        # Regex name + neg=True via searchhostname (subdomains=False).
+        pat = re.compile("\\.example\\.com$")
+        self.assertEqual(
+            MP.searchhostname(pat, neg=True),
+            {"recontype": "DNS_ANSWER", "value": {"$not": pat}},
+        )
+        # List of one collapses to scalar.
+        self.assertEqual(
+            MP.searchdomain(["example.com"], neg=True),
+            {"recontype": "DNS_ANSWER", "infos.domain": {"$ne": "example.com"}},
+        )
+        # List of many uses ``$nin`` under negation, ``$in`` otherwise.
+        self.assertEqual(
+            MP.searchdomain(["a.com", "b.com"], neg=True),
+            {"recontype": "DNS_ANSWER", "infos.domain": {"$nin": ["a.com", "b.com"]}},
+        )
+        self.assertEqual(
+            MP.searchdomain(["a.com", "b.com"]),
+            {"recontype": "DNS_ANSWER", "infos.domain": {"$in": ["a.com", "b.com"]}},
+        )
+        # Positive (neg=False) shape unchanged from the historical form.
+        self.assertEqual(
+            MP.searchdomain("example.com"),
+            {"recontype": "DNS_ANSWER", "infos.domain": "example.com"},
+        )
+        self.assertEqual(
+            MP.searchhostname(pat),
+            {"recontype": "DNS_ANSWER", "value": pat},
+        )
+        # ``name=None`` (the "any DNS record" probe) ignores neg.
+        self.assertEqual(MP.searchhostname(neg=True), {"recontype": "DNS_ANSWER"})
+        # ``dnstype`` constraint stays positive even when negating
+        # the name (the user is asking "DNS A records that are
+        # not for example.com", not "any non-DNS-A record").
+        # ``re.Pattern`` objects compare by identity, so unpack
+        # the source pattern and compare it as a string.
+        flt = MP.searchdns(name="example.com", dnstype="A", neg=True)
+        source_re = flt.pop("source")
+        self.assertEqual(
+            flt,
+            {
+                "recontype": "DNS_ANSWER",
+                "value": {"$ne": "example.com"},
+            },
+        )
+        self.assertEqual(source_re.pattern, "^A-")
+
     def test_searchcity_legacy_shapes_preserved(self):
         # City lives on the View backend (GeoIP-enriched data).
         self.assertEqual(
@@ -1861,6 +1924,180 @@ class MongoDBSearchFieldTests(unittest.TestCase):
             self._MP().searchsource("cert", neg=True),
             {"source": {"$ne": "cert"}},
         )
+
+
+# ---------------------------------------------------------------------
+# DnsMergeTests -- the cross-backend ``(name, addr)`` pseudo-record
+# merge helper used by both the ``ivre iphost`` CLI and the
+# ``/cgi/dns`` web endpoint.
+# ---------------------------------------------------------------------
+
+
+class DnsMergeTests(unittest.TestCase):
+    """Tests for ``ivre.utils.merge_dns_results``: the helper
+    that folds two ``(name, addr) -> {types, sources, firstseen,
+    lastseen, count}`` mappings together. Both backends'
+    ``iter_dns`` methods produce inputs in this shape (active
+    via ``DBActive.iter_dns``, passive via
+    ``DBPassive.iter_dns``); the helper merges them by union-ing
+    the ``types`` / ``sources`` sets, summing the ``count``, and
+    extending the ``firstseen`` / ``lastseen`` interval.
+    """
+
+    @staticmethod
+    def _record(*, types, sources, firstseen, lastseen, count):
+        return {
+            "types": set(types),
+            "sources": set(sources),
+            "firstseen": firstseen,
+            "lastseen": lastseen,
+            "count": count,
+        }
+
+    def test_empty_merge_into_empty_is_no_op(self):
+        target: dict = {}
+        ivre.utils.merge_dns_results(target, {})
+        self.assertEqual(target, {})
+
+    def test_merge_into_empty_target_copies_each_key(self):
+        source = {
+            ("example.com", "1.2.3.4"): self._record(
+                types=["A"],
+                sources=["sensor1"],
+                firstseen=100,
+                lastseen=200,
+                count=5,
+            ),
+        }
+        target: dict = {}
+        ivre.utils.merge_dns_results(target, source)
+        self.assertEqual(set(target), {("example.com", "1.2.3.4")})
+        merged = target[("example.com", "1.2.3.4")]
+        self.assertEqual(merged["types"], {"A"})
+        self.assertEqual(merged["sources"], {"sensor1"})
+        self.assertEqual(merged["firstseen"], 100)
+        self.assertEqual(merged["lastseen"], 200)
+        self.assertEqual(merged["count"], 5)
+
+    def test_merge_unions_types_and_sources(self):
+        target = {
+            ("example.com", "1.2.3.4"): self._record(
+                types=["A"],
+                sources=["sensor1"],
+                firstseen=100,
+                lastseen=200,
+                count=5,
+            ),
+        }
+        ivre.utils.merge_dns_results(
+            target,
+            {
+                ("example.com", "1.2.3.4"): self._record(
+                    types=["PTR", "user"],
+                    sources=["scan-2024-Q1"],
+                    firstseen=50,
+                    lastseen=300,
+                    count=2,
+                ),
+            },
+        )
+        merged = target[("example.com", "1.2.3.4")]
+        self.assertEqual(merged["types"], {"A", "PTR", "user"})
+        self.assertEqual(merged["sources"], {"sensor1", "scan-2024-Q1"})
+
+    def test_merge_extends_firstseen_lastseen_interval(self):
+        target = {
+            ("example.com", "1.2.3.4"): self._record(
+                types=["A"],
+                sources=[],
+                firstseen=100,
+                lastseen=200,
+                count=1,
+            ),
+        }
+        ivre.utils.merge_dns_results(
+            target,
+            {
+                ("example.com", "1.2.3.4"): self._record(
+                    types=["A"],
+                    sources=[],
+                    firstseen=50,
+                    lastseen=150,
+                    count=1,
+                ),
+            },
+        )
+        merged = target[("example.com", "1.2.3.4")]
+        self.assertEqual(merged["firstseen"], 50)
+        self.assertEqual(merged["lastseen"], 200)
+
+    def test_merge_sums_count(self):
+        target = {
+            ("example.com", "1.2.3.4"): self._record(
+                types=["A"],
+                sources=[],
+                firstseen=100,
+                lastseen=200,
+                count=120,
+            ),
+        }
+        ivre.utils.merge_dns_results(
+            target,
+            {
+                ("example.com", "1.2.3.4"): self._record(
+                    types=["A"],
+                    sources=[],
+                    firstseen=100,
+                    lastseen=200,
+                    count=5,
+                ),
+            },
+        )
+        self.assertEqual(target[("example.com", "1.2.3.4")]["count"], 125)
+
+    def test_merge_keeps_disjoint_keys_separate(self):
+        target = {
+            ("a.example", "1.2.3.4"): self._record(
+                types=["A"],
+                sources=["sensor1"],
+                firstseen=100,
+                lastseen=200,
+                count=1,
+            ),
+        }
+        ivre.utils.merge_dns_results(
+            target,
+            {
+                ("b.example", "5.6.7.8"): self._record(
+                    types=["AAAA"],
+                    sources=["sensor2"],
+                    firstseen=300,
+                    lastseen=400,
+                    count=2,
+                ),
+            },
+        )
+        self.assertEqual(
+            set(target), {("a.example", "1.2.3.4"), ("b.example", "5.6.7.8")}
+        )
+
+    def test_merge_tolerates_records_without_count(self):
+        # Defensive: legacy callers (older ``iphost`` versions)
+        # may pass records lacking the ``count`` key. The helper
+        # treats them as ``count=0`` rather than raising.
+        target: dict = {}
+        ivre.utils.merge_dns_results(
+            target,
+            {
+                ("example.com", "1.2.3.4"): {
+                    "types": set(),
+                    "sources": set(),
+                    "firstseen": 100,
+                    "lastseen": 200,
+                },
+            },
+        )
+        self.assertEqual(target[("example.com", "1.2.3.4")]["count"], 0)
 
 
 # ---------------------------------------------------------------------

@@ -1,93 +1,13 @@
 /**
- * Passive-record helpers — date coercion, recontype-aware value
- * rendering, and the line-thickness math driving the timeline
- * widget.
+ * Passive-record helpers — recontype-aware value rendering.
+ *
+ * Time-series math (date coercion, density, stroke widths,
+ * compact range formatting) is shared with the other sections
+ * via :mod:`lib/timeline`; import ``timelineDateMs`` /
+ * ``timelineDensity`` / ``timelineStrokeWidths`` /
+ * ``formatTimelineRange`` from there.
  */
 import type { PassiveRecord } from "@/lib/api";
-
-/** Convert a passive record's ``firstseen`` / ``lastseen`` to
- *  milliseconds since the Unix epoch, regardless of whether the
- *  backend returned a number (default: seconds) or an ISO-ish
- *  string (when ``datesasstrings=1`` was requested). Returns
- *  ``NaN`` on parse failure so callers can filter out broken
- *  records without throwing. */
-export function passiveDateMs(value: number | string | undefined): number {
-  if (value === undefined || value === null) return Number.NaN;
-  if (typeof value === "number") {
-    // Heuristic: timestamps before 10^11 are seconds (anything up
-    // to year 5138); larger values are already milliseconds.
-    return value < 1e11 ? value * 1000 : value;
-  }
-  // ISO-ish string. The backend emits ``"2015-09-18 16:13:35.515000"``
-  // (space, no timezone). Replace the space with ``T`` so
-  // ``Date.parse`` treats it as ISO-8601; the absence of a timezone
-  // means the browser interprets it as local time, which matches
-  // the AngularJS UI's behaviour.
-  const iso = value.replace(" ", "T");
-  return Date.parse(iso);
-}
-
-/** A record's duration in seconds (``lastseen - firstseen``).
- *  Clamped to ``>= 0``; a record where both timestamps are
- *  identical reports ``0`` seconds. */
-export function passiveDurationSeconds(record: PassiveRecord): number {
-  const first = passiveDateMs(record.firstseen);
-  const last = passiveDateMs(record.lastseen);
-  if (Number.isNaN(first) || Number.isNaN(last)) return 0;
-  return Math.max(0, (last - first) / 1000);
-}
-
-/** Density = ``count / max(duration_seconds, 1)``. Higher density
- *  → the record concentrates more observations per unit time and
- *  is rendered as a thicker line on the timeline. The ``max(_, 1)``
- *  prevents division-by-zero on instant records (``firstseen ===
- *  lastseen``) and stops single-second records from dominating
- *  the scale. */
-export function passiveDensity(record: PassiveRecord): number {
-  return record.count / Math.max(passiveDurationSeconds(record), 1);
-}
-
-/** Map a list of records to ``[strokeWidth_px, ...]`` according
- *  to the design spec: width grows with ``count / duration``,
- *  normalised against the max density of the visible set, then
- *  mapped onto the closed interval ``[minWidth, maxWidth]``.
- *
- *  Deterministic on the empty input (returns ``[]``) and on a
- *  list whose densities are all equal (returns ``maxWidth`` for
- *  every record). */
-export function passiveStrokeWidths(
-  records: readonly PassiveRecord[],
-  options: { minWidth?: number; maxWidth?: number } = {},
-): number[] {
-  const minWidth = options.minWidth ?? 1;
-  const maxWidth = options.maxWidth ?? 8;
-  if (records.length === 0) return [];
-  const densities = records.map(passiveDensity);
-  const max = Math.max(...densities);
-  if (max <= 0) {
-    return records.map(() => minWidth);
-  }
-  return densities.map((d) => {
-    const normalised = d / max;
-    return minWidth + normalised * (maxWidth - minWidth);
-  });
-}
-
-/** Format a passive record's date range as a compact human
- *  string (``"2024-01-02 10:00 → 2024-03-15 09:30"``). Used in
- *  the card header. */
-export function formatPassiveRange(record: PassiveRecord): string {
-  const fmt = (ms: number): string => {
-    if (!Number.isFinite(ms)) return "?";
-    const d = new Date(ms);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return (
-      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-      ` ${pad(d.getHours())}:${pad(d.getMinutes())}`
-    );
-  };
-  return `${fmt(passiveDateMs(record.firstseen))} → ${fmt(passiveDateMs(record.lastseen))}`;
-}
 
 /* ------------------------------------------------------------------ */
 /* Recontype-aware value rendering                                    */

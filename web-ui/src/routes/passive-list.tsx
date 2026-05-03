@@ -4,8 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { PassiveRecordList } from "@/components/PassiveRecordList";
-import { PassiveTimeline } from "@/components/PassiveTimeline";
-import { usePassiveRecords } from "@/lib/api";
+import { Timeline } from "@/components/Timeline";
+import { type PassiveRecord, usePassiveRecords } from "@/lib/api";
 import { getConfig } from "@/lib/config";
 import {
   buildHighlightMap,
@@ -13,7 +13,9 @@ import {
   parseFiltersFromQuery,
   type Filter,
 } from "@/lib/filter";
+import { describePassiveValue } from "@/lib/passive";
 import { getSection } from "@/lib/sections";
+import { formatTimelineRange } from "@/lib/timeline";
 
 /**
  * Passive section route. Composes the filter bar, facet sidebar
@@ -128,11 +130,17 @@ function PassiveRouteInner() {
           <div className="lg:hidden">
             <FilterBar filters={filters} onFiltersChange={setFilters} />
           </div>
-          <PassiveTimeline
+          <Timeline
             records={records}
             hoveredIndex={hoveredIndex}
             onHover={setHoveredIndex}
             onSelect={scrollToCard}
+            getTitle={passiveTimelineTitle}
+            itemLabel={{
+              singular: "passive observation",
+              plural: "passive observations",
+            }}
+            emptyLabel="No passive observations to plot."
           />
           <PassiveRecordList
             records={records}
@@ -148,4 +156,19 @@ function PassiveRouteInner() {
       </div>
     </div>
   );
+}
+
+/** Per-row tooltip body for the passive timeline. Composed
+ *  outside the component so the memoised ``computeLayout`` in
+ *  ``<Timeline>`` reuses it across renders. */
+function passiveTimelineTitle(record: PassiveRecord, density: number): string {
+  const display = describePassiveValue(record);
+  const heading = display.heading
+    ? `${display.heading}: ${display.primary}`
+    : `${record.recontype}: ${record.value}`;
+  return [
+    heading,
+    formatTimelineRange(record),
+    `count=${record.count} · density≈${density.toFixed(3)}/s`,
+  ].join("\n");
 }

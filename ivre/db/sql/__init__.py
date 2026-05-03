@@ -3167,32 +3167,45 @@ class SQLDBPassive(SQLDB, DBPassive):
         return cls.searchrecontype(source=src, neg=neg)
 
     @classmethod
-    def searchdns(cls, name=None, reverse=False, dnstype=None, subdomains=False):
+    def searchdns(
+        cls, name=None, reverse=False, dnstype=None, subdomains=False, neg=False
+    ):
         if name is not None:
             if isinstance(name, list):
                 if len(name) == 1:
                     name = name[0]
                 else:
-                    return cls.flt_or(
+                    # ``neg`` distributes over the alternatives:
+                    # exclude all ``name`` values → require none
+                    # of them to match (logical AND of negations).
+                    combine = cls.flt_and if neg else cls.flt_or
+                    return combine(
                         *(
                             cls._searchdns(
                                 name=domain,
                                 reverse=reverse,
                                 dnstype=dnstype,
                                 subdomains=subdomains,
+                                neg=neg,
                             )
                             for domain in name
                         )
                     )
         return cls._searchdns(
-            name=name, reverse=reverse, dnstype=dnstype, subdomains=subdomains
+            name=name,
+            reverse=reverse,
+            dnstype=dnstype,
+            subdomains=subdomains,
+            neg=neg,
         )
 
     @classmethod
-    def _searchdns(cls, name=None, reverse=False, dnstype=None, subdomains=False):
+    def _searchdns(
+        cls, name=None, reverse=False, dnstype=None, subdomains=False, neg=False
+    ):
         cnd = cls.tables.passive.recontype == "DNS_ANSWER"
         if name is not None:
-            cnd &= (
+            name_cnd = (
                 (
                     cls.tables.passive.moreinfo[
                         "domaintarget" if reverse else "domain"
@@ -3210,6 +3223,7 @@ class SQLDBPassive(SQLDB, DBPassive):
                     name,
                 )
             )
+            cnd &= not_(name_cnd) if neg else name_cnd
         if dnstype is not None:
             cnd &= cls.tables.passive.source.op("~")(f"^{dnstype.upper()}-")
         return PassiveFilter(main=cnd)

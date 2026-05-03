@@ -1,16 +1,15 @@
 import { useMemo } from "react";
 
-import type { PassiveRecord } from "@/lib/api";
 import {
-  formatPassiveRange,
-  passiveDateMs,
-  passiveDensity,
-  passiveStrokeWidths,
-} from "@/lib/passive";
+  type TimelineRecord,
+  timelineDateMs,
+  timelineDensity,
+  timelineStrokeWidths,
+} from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 
-export interface PassiveTimelineProps {
-  records: readonly PassiveRecord[];
+export interface TimelineProps<R extends TimelineRecord> {
+  records: readonly R[];
   /** Index of the currently-hovered record. The corresponding
    *  line is rendered with full opacity; the rest are dimmed.
    *  ``null`` means "no hover". */
@@ -19,6 +18,23 @@ export interface PassiveTimelineProps {
   /** Optional click handler — used by the route to scroll the
    *  corresponding card into view. */
   onSelect?: (index: number) => void;
+  /** Per-row tooltip text. Receives the record and its computed
+   *  density (events per second) so the caller can format a
+   *  full multi-line ``<title>`` body. */
+  getTitle: (record: R, density: number) => string;
+  /** Singular/plural noun used for the screen-reader label
+   *  ("Timeline of N <plural> from <date> to <date>." /
+   *  "Timeline of 1 <singular>..."). Defaults to ``"record"`` /
+   *  ``"records"``. */
+  itemLabel?: { singular: string; plural: string };
+  /** Empty-state message shown when ``records`` is empty.
+   *  Defaults to ``"No observations to plot."``. */
+  emptyLabel?: string;
+  /** Stable id used as the ``aria-labelledby`` target for the
+   *  enclosing region. Defaults to ``"timeline-title"``; pass a
+   *  custom value if more than one Timeline is mounted on the
+   *  same page. */
+  titleId?: string;
 }
 
 const SVG_HEIGHT_PER_ROW = 6;
@@ -32,7 +48,7 @@ const MAX_LINE_WIDTH_PX = 8;
 const INSTANT_RADIUS_PX = 2.5;
 
 /**
- * Horizontal SVG timeline of passive records.
+ * Horizontal SVG timeline of time-ranged records.
  *
  * Each record is drawn as a horizontal line from its
  * ``firstseen`` to its ``lastseen``; the line's stroke-width is
@@ -48,29 +64,42 @@ const INSTANT_RADIUS_PX = 2.5;
  * The widget is purely visual — no axis labels are drawn. The
  * full date range of the visible set is reported as the
  * accessible title for screen readers. Hovering a row syncs with
- * the corresponding ``PassiveRecordCard`` via the parent's
- * ``hoveredIndex`` state.
+ * the corresponding card via the parent's ``hoveredIndex`` state.
+ *
+ * The component is record-shape-agnostic: any object exposing
+ * the three :type:`TimelineRecord` fields (``firstseen``,
+ * ``lastseen``, ``count``) can be plotted. The per-row tooltip
+ * is supplied by the caller via ``getTitle`` because the
+ * identity columns vary by section (passive: ``recontype: value``,
+ * DNS: ``name → addr``, ...).
  */
-export function PassiveTimeline({
+export function Timeline<R extends TimelineRecord>({
   records,
   hoveredIndex,
   onHover,
   onSelect,
-}: PassiveTimelineProps) {
-  const layout = useMemo(() => computeLayout(records), [records]);
+  getTitle,
+  itemLabel = { singular: "record", plural: "records" },
+  emptyLabel = "No observations to plot.",
+  titleId = "timeline-title",
+}: TimelineProps<R>) {
+  const layout = useMemo(
+    () => computeLayout(records, getTitle),
+    [records, getTitle],
+  );
 
   if (records.length === 0 || !layout) {
     return (
       <div className="rounded-md border border-border bg-muted/30 p-3 text-center text-xs italic text-muted-foreground">
-        No passive observations to plot.
+        {emptyLabel}
       </div>
     );
   }
 
   const { minMs, maxMs, rows, totalHeight } = layout;
-  const titleId = `passive-timeline-title`;
   const dateLabel = (ms: number) =>
     new Date(ms).toISOString().slice(0, 16).replace("T", " ");
+  const noun = records.length === 1 ? itemLabel.singular : itemLabel.plural;
 
   return (
     <div
@@ -79,8 +108,7 @@ export function PassiveTimeline({
       aria-labelledby={titleId}
     >
       <span id={titleId} className="sr-only">
-        Timeline of {records.length} passive observation
-        {records.length === 1 ? "" : "s"} from {dateLabel(minMs)} to{" "}
+        Timeline of {records.length} {noun} from {dateLabel(minMs)} to{" "}
         {dateLabel(maxMs)}.
       </span>
       <div className="mb-1 flex justify-between font-mono text-[10px] text-muted-foreground">
@@ -167,10 +195,13 @@ interface Layout {
   totalHeight: number;
 }
 
-function computeLayout(records: readonly PassiveRecord[]): Layout | null {
+function computeLayout<R extends TimelineRecord>(
+  records: readonly R[],
+  getTitle: (record: R, density: number) => string,
+): Layout | null {
   if (records.length === 0) return null;
-  const firsts = records.map((r) => passiveDateMs(r.firstseen));
-  const lasts = records.map((r) => passiveDateMs(r.lastseen));
+  const firsts = records.map((r) => timelineDateMs(r.firstseen));
+  const lasts = records.map((r) => timelineDateMs(r.lastseen));
   const valid = firsts
     .concat(lasts)
     .filter((n) => Number.isFinite(n)) as number[];
@@ -185,7 +216,7 @@ function computeLayout(records: readonly PassiveRecord[]): Layout | null {
     return SVG_PADDING_X + ((ms - minMs) / span) * usableWidth;
   };
 
-  const widths = passiveStrokeWidths(records, {
+  const widths = timelineStrokeWidths(records, {
     minWidth: MIN_LINE_WIDTH_PX,
     maxWidth: MAX_LINE_WIDTH_PX,
   });
@@ -194,14 +225,10 @@ function computeLayout(records: readonly PassiveRecord[]): Layout | null {
     const y = SVG_PADDING_Y + idx * SVG_HEIGHT_PER_ROW + SVG_HEIGHT_PER_ROW / 2;
     const x1 = xFor(firsts[idx]);
     const x2 = xFor(lasts[idx]);
-    const density = passiveDensity(rec);
-    const titleParts = [
-      `${rec.recontype}: ${rec.value}`,
-      formatPassiveRange(rec),
-      `count=${rec.count} · density≈${density.toFixed(3)}/s`,
-    ];
+    const density = timelineDensity(rec);
+    const title = getTitle(rec, density);
     if (Math.abs(x2 - x1) < 1e-6 || firsts[idx] === lasts[idx]) {
-      return { kind: "instant", cx: x1, y, title: titleParts.join("\n") };
+      return { kind: "instant", cx: x1, y, title };
     }
     return {
       kind: "line",
@@ -209,7 +236,7 @@ function computeLayout(records: readonly PassiveRecord[]): Layout | null {
       x2,
       y,
       strokeWidth: widths[idx],
-      title: titleParts.join("\n"),
+      title,
     };
   });
 

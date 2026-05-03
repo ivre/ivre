@@ -941,6 +941,135 @@ def get_passive_count():
 
 
 #
+# DNS (/dns/)
+#
+
+
+def _serialize_dns_record(rec, datesasstrings):
+    """Convert a merged DNS pseudo-record (sets, datetimes) into a
+    JSON-friendly dict."""
+    out = dict(rec)
+    out["types"] = sorted(out.get("types", ()))
+    out["sources"] = sorted(out.get("sources", ()))
+    for field in ("firstseen", "lastseen"):
+        value = out.get(field)
+        if value is None:
+            continue
+        if isinstance(value, datetime.datetime):
+            if datesasstrings:
+                out[field] = str(value)
+            else:
+                out[field] = int(
+                    value.replace(tzinfo=datetime.timezone.utc).timestamp()
+                )
+    return out
+
+
+@application.get("/dns")
+@check_referer
+def get_dns():
+    """Return a merged DNS view across the active scan database
+    (``db.nmap``) and the passive observation database
+    (``db.passive``).
+
+    Each result is a pseudo-record keyed on ``(name, addr)``:
+    a single row aggregates every observation of that pair
+    across both backends, with ``count`` being the sum of the
+    per-source counts (``rec['count']`` on the passive side,
+    one per matching nmap document on the active side).
+    ``types`` and ``sources`` are unions of the contributing
+    backend values (e.g. ``["A", "PTR", "user"]``,
+    ``["sensor1", "scan-2024-Q1"]``); ``firstseen`` /
+    ``lastseen`` extend the union of the contributing
+    intervals.
+
+    Results are sorted ``lastseen`` descending, then ``count``
+    descending. The user's ``q=`` filter is applied to *both*
+    backends — tokens that are meaningful only on one side
+    (e.g. ``recontype:`` on passive, ``port:`` on nmap) are
+    silently dropped on the other via the standard
+    ``hasattr(dbase, "searchXXX")`` gate in
+    ``flt_from_query``.
+
+    Note: the merge happens in-process; every contributing
+    record is materialised before sorting and pagination. The
+    server-side ``MONGODB_QUERY_TIMEOUT_MS`` cap bounds the
+    worst-case request time. For deployments where this
+    matters, a future change can introduce a materialised
+    summary collection updated at ingest time.
+
+    :query str q: query (filter, plus ``skip``, ``limit`` meta-params)
+    :query bool datesasstrings: emit ISO-ish date strings rather than Unix timestamps
+    :query str format: ``"json"`` (default) or ``"ndjson"``
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr object: pseudo-records as ``{name, addr, count, firstseen, lastseen, types, sources}``
+    """
+    raw_query = webutils.query_from_params(request.params)
+    # Extract limit / skip from the parsed query (they are the
+    # same regardless of backend; ``flt_from_query`` consumes
+    # them too, but we re-parse here so we own the pagination).
+    skip = 0
+    limit = None
+    for neg, param, value in raw_query:
+        if neg:
+            continue
+        if param == "skip":
+            skip = int(value)
+        elif param == "limit":
+            limit = int(value)
+    if limit is None:
+        limit = config.WEB_LIMIT
+    if config.WEB_MAXRESULTS is not None:
+        limit = min(limit, config.WEB_MAXRESULTS)
+
+    # Per-backend filters built from the same parsed query.
+    nmap_flt, _, _, _, _, _ = webutils.flt_from_query(db.nmap, raw_query)
+    passive_flt, _, _, _, _, _ = webutils.flt_from_query(db.passive, raw_query)
+
+    # Aggregate from each backend, merging into a single
+    # ``(name, addr) -> {types, sources, firstseen, lastseen,
+    # count}`` dict.
+    merged: dict = {}
+    utils.merge_dns_results(merged, db.nmap.iter_dns(flt=nmap_flt))
+    utils.merge_dns_results(merged, db.passive.iter_dns(flt=passive_flt))
+
+    # Sort lastseen DESC, count DESC. The lastseen tie-breaker
+    # surfaces frequently-observed pairs above one-shots when
+    # they were last seen at the same instant.
+    items = [
+        {"name": name, "addr": addr, **values}
+        for (name, addr), values in merged.items()
+    ]
+    items.sort(key=lambda r: (r["lastseen"], r["count"]), reverse=True)
+    items = items[skip : skip + limit]
+
+    datesasstrings = bool(request.params.get("datesasstrings"))
+    fmt = request.params.get("format") or "json"
+    if fmt not in {"json", "ndjson"}:
+        fmt = "json"
+    if fmt == "ndjson":
+        response.set_header("Content-Type", "application/x-ndjson")
+    else:
+        response.set_header("Content-Type", "application/json")
+    response.set_header("Content-Disposition", f'attachment; filename="IVRE-dns.{fmt}"')
+
+    serialized = [_serialize_dns_record(r, datesasstrings) for r in items]
+
+    if fmt == "ndjson":
+        for rec in serialized:
+            yield f"{json.dumps(rec, default=utils.serialize)}\n"
+    else:
+        yield "[\n"
+        for i, rec in enumerate(serialized):
+            yield "%s%s" % (
+                ",\n" if i else "",
+                json.dumps(rec, default=utils.serialize),
+            )
+        yield "\n]\n"
+
+
+#
 # RIR (/rir/)
 #
 

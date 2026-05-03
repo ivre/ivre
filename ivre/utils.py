@@ -870,6 +870,37 @@ def serialize(obj: Any) -> str:
     raise TypeError(f"Don't know what to do with {obj!r} ({type(obj)!r})")
 
 
+def merge_dns_results(
+    target: dict[tuple[str, str], dict[str, Any]],
+    source: dict[tuple[str, str], dict[str, Any]],
+) -> None:
+    """Merge a second ``(name, addr) → {types, sources, firstseen,
+    lastseen, count}`` mapping into ``target`` in place.
+
+    The merged keys union their ``types`` and ``sources`` sets,
+    extend the ``firstseen`` / ``lastseen`` interval, and sum the
+    ``count``. Used by both ``ivre.tools.iphost`` (CLI) and the
+    ``/cgi/dns`` web endpoint to combine the per-backend
+    ``iter_dns`` outputs into a single deduplicated view.
+    """
+    for key, value in source.items():
+        cur_res = target.setdefault(
+            key,
+            {
+                "types": set(),
+                "sources": set(),
+                "firstseen": value["firstseen"],
+                "lastseen": value["lastseen"],
+                "count": 0,
+            },
+        )
+        cur_res["types"].update(value.get("types", ()))
+        cur_res["sources"].update(value.get("sources", ()))
+        cur_res["firstseen"] = min(cur_res["firstseen"], value["firstseen"])
+        cur_res["lastseen"] = max(cur_res["lastseen"], value["lastseen"])
+        cur_res["count"] += value.get("count", 0)
+
+
 CLI_ARGPARSER = argparse.ArgumentParser(add_help=False)
 # DB
 CLI_ARGPARSER.add_argument(

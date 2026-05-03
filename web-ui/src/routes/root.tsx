@@ -10,6 +10,7 @@ import { DEFAULT_SECTION } from "@/lib/sections";
 
 import { ActiveRoute } from "./active";
 import { AdminRoute } from "./admin";
+import { DnsRoute } from "./dns";
 import { PassiveRoute } from "./passive-list";
 import { ViewRoute } from "./view";
 
@@ -41,6 +42,10 @@ const router = createHashRouter([
       { path: "active", element: <ActiveRoute /> },
       { path: "active/host/:addr", element: <ActiveRoute /> },
       { path: "passive", element: <PassiveRoute /> },
+      // DNS has its own ``/cgi/dns`` endpoint that merges
+      // active scans + passive observations server-side; see
+      // ``ivre/web/app.py``'s ``get_dns``.
+      { path: "dns", element: <DnsRoute /> },
       { path: "admin", element: <AdminRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },

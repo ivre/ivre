@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PassiveRecord } from "@/lib/api";
 import type { Filter, HighlightMap } from "@/lib/filter";
-import { describePassiveValue, formatPassiveRange } from "@/lib/passive";
+import { describePassiveValue } from "@/lib/passive";
+import { formatTimelineRange } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 
 export interface PassiveRecordCardProps {
@@ -73,7 +74,7 @@ export function PassiveRecordCard({
             <span className="rounded bg-muted px-1.5 py-0.5 font-mono">
               ×{record.count}
             </span>
-            <span className="font-mono">{formatPassiveRange(record)}</span>
+            <span className="font-mono">{formatTimelineRange(record)}</span>
           </div>
         </div>
 

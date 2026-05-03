@@ -485,3 +485,102 @@ test("Admin section gates non-admin users with a placeholder", async ({
   // them anyway — but the placeholder confirms the gate is
   // working.)
 });
+
+test("DNS section renders merged pseudo-records from /cgi/dns", async ({
+  page,
+}) => {
+  // The DNS section talks to a dedicated ``/cgi/dns`` endpoint
+  // that merges active + passive observations into a single
+  // ``(name, addr)`` pseudo-record stream. Mock that endpoint
+  // with two rows and assert they render with their type /
+  // source badges and merged ``×count``.
+  const dnsRecords = [
+    {
+      name: "example.com",
+      addr: "1.2.3.4",
+      count: 122,
+      firstseen: 1_700_000_000,
+      lastseen: 1_700_000_500,
+      types: ["A", "user"],
+      sources: ["scan-2024-Q1", "sensor1"],
+    },
+    {
+      name: "host.example.com",
+      addr: "1.2.3.5",
+      count: 1,
+      firstseen: 1_700_000_500,
+      lastseen: 1_700_000_500,
+      types: ["PTR"],
+      sources: ["sensor2"],
+    },
+  ];
+  const dnsQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/dns") {
+      dnsQueries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(dnsRecords),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/dns");
+
+  // Heading + both rows render.
+  await expect(
+    page.getByRole("heading", { name: /DNS answers/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^example\.com$/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^host\.example\.com$/ }),
+  ).toBeVisible();
+
+  // Type and source badges from the merge are visible.
+  await expect(page.getByText("A", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("user", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /scan-2024-Q1/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /sensor1/ }),
+  ).toBeVisible();
+
+  // Merged count.
+  await expect(page.getByText("×122")).toBeVisible();
+
+  // The endpoint received the user's (empty) ``q``.
+  expect(dnsQueries.length).toBeGreaterThan(0);
+  expect(dnsQueries[0]).toBe("");
+});
+
+test("DNS section forwards user-typed filters to /cgi/dns", async ({
+  page,
+}) => {
+  const dnsQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/dns") {
+      dnsQueries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/dns?q=hostname%3Aexample.com");
+  await page.waitForLoadState("networkidle");
+
+  expect(dnsQueries.length).toBeGreaterThan(0);
+  expect(dnsQueries[dnsQueries.length - 1]).toBe("hostname:example.com");
+});

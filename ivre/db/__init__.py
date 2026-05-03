@@ -39,7 +39,7 @@ from datetime import datetime, timedelta
 from functools import reduce
 from importlib import import_module
 from io import BytesIO
-from typing import Dict, Generator
+from typing import Any, Dict, Generator
 from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import build_opener
@@ -2153,10 +2153,75 @@ class DBActive(DB):
     def cmp_schema_version_host(_):
         return 0
 
+    def iter_dns(self, flt=None, types=None, hname_filter=None):
+        """Iterate every host matching ``flt`` and emit a
+        ``{(name, addr): {types, sources, firstseen, lastseen,
+        count}}`` mapping that aggregates hostname observations
+        from the active database.
+
+        ``count`` is incremented by one per ``(name, addr)`` pair
+        per source document — a single host record contributes at
+        most one observation per distinct hostname it carries
+        (matches the per-document semantics ``ivre iphost``
+        expects on the active side).
+
+        :param flt: backend filter; ``None`` means the empty
+                    filter, which is conjoined with
+                    ``searchhostname()`` so hosts without
+                    hostnames are skipped.
+        :param types: optional set of hostname types to keep
+                      (``{"A", "AAAA", "PTR"}`` for the
+                      historical iphost behaviour; ``None``
+                      accepts every type, including
+                      ``"user"`` and ``"ssl-cert-subject"``).
+        :param hname_filter: optional callable applied to each
+                             matching hostname object (legacy
+                             iphost-style sub-filter for
+                             addr-or-name lookups).
+        """
+        if flt is None:
+            flt = self.searchhostname()
+        else:
+            flt = self.flt_and(flt, self.searchhostname())
+        result: dict[tuple[str, str], dict[str, Any]] = {}
+        for rec in self.get(flt):
+            seen_in_rec: set[tuple[str, str]] = set()
+            for hname in rec.get("hostnames", []):
+                if types is not None and hname["type"] not in types:
+                    continue
+                if hname_filter is not None and not hname_filter(hname):
+                    continue
+                key = (hname["name"], rec["addr"])
+                cur_res = result.setdefault(
+                    key,
+                    {
+                        "types": set(),
+                        "sources": set(),
+                        "firstseen": rec["starttime"],
+                        "lastseen": rec["endtime"],
+                        "count": 0,
+                    },
+                )
+                cur_res["types"].add(hname["type"])
+                source = rec.get("source")
+                if isinstance(source, list):
+                    cur_res["sources"].update(source)
+                else:
+                    cur_res["sources"].add(source)
+                cur_res["firstseen"] = min(cur_res["firstseen"], rec["starttime"])
+                cur_res["lastseen"] = max(cur_res["lastseen"], rec["endtime"])
+                if key not in seen_in_rec:
+                    cur_res["count"] += 1
+                    seen_in_rec.add(key)
+        return result
+
     def getdns(self, addr_or_name, subdomains=False, dnstype=None):
-        result = (
-            {}
-        )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
+        """Return the ``{(name, addr): {…}}`` mapping for hosts
+        whose ``hostnames`` array carries the given address or
+        name. Restricts to the historical
+        ``{"A", "AAAA", "PTR"}`` type set; for the broader
+        web-DNS view, see :meth:`iter_dns`.
+        """
         if dnstype is not None:
             dnstype = dnstype.upper()
         if isinstance(addr_or_name, str) and (
@@ -2164,9 +2229,9 @@ class DBActive(DB):
             or utils.NETADDR.search(addr_or_name)
         ):
             if is_host:
-                flt = self.flt_and(self.searchhost(addr_or_name), self.searchhostname())
+                flt = self.searchhost(addr_or_name)
             else:
-                flt = self.flt_and(self.searchnet(addr_or_name), self.searchhostname())
+                flt = self.searchnet(addr_or_name)
 
             if dnstype is None:
 
@@ -2240,30 +2305,7 @@ class DBActive(DB):
                         and addr_or_name == hname["name"]
                     )
 
-        for rec in self.get(flt):
-            for hname in rec.get("hostnames", []):
-                if hname["type"] not in {"A", "AAAA", "PTR"}:
-                    continue
-                if not cond(hname):
-                    continue
-                cur_res = result.setdefault(
-                    (hname["name"], rec["addr"]),
-                    {
-                        "types": set(),
-                        "sources": set(),
-                        "firstseen": rec["starttime"],
-                        "lastseen": rec["endtime"],
-                    },
-                )
-                cur_res["types"].add(hname["type"])
-                source = rec.get("source")
-                if isinstance(source, list):
-                    cur_res["sources"].update(source)
-                else:
-                    cur_res["sources"].add(source)
-                cur_res["firstseen"] = min(cur_res["firstseen"], rec["starttime"])
-                cur_res["lastseen"] = max(cur_res["lastseen"], rec["endtime"])
-        return result
+        return self.iter_dns(flt=flt, types={"A", "AAAA", "PTR"}, hname_filter=cond)
 
 
 class DBNmap(DBActive):
@@ -4884,22 +4926,27 @@ class DBPassive(DB):
         return cls.flt_empty if neg else cls.searchnonexistent()
 
     @staticmethod
-    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False):
+    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False, neg=False):
         """Filters DNS records for domain `name` or type `dnstype`.
         `name` can be a string, a list or a regular expression.
         If `reverse` is set to True, filters reverse records.
         `dnstype` if specified, may be "A", "AAAA", "PTR".
         If `subdomains` is set to True, the filter will match any subdomains.
+        If `neg` is set to True, filters out records matching the
+        ``name`` predicate (the ``recontype == "DNS_ANSWER"`` and
+        ``dnstype`` constraints stay positive: backends return
+        DNS records whose name does *not* match, not arbitrary
+        non-DNS records).
         """
         raise NotImplementedError
 
     @classmethod
-    def searchdomain(cls, name):
-        return cls.searchdns(name=name, subdomains=True)
+    def searchdomain(cls, name, neg=False):
+        return cls.searchdns(name=name, subdomains=True, neg=neg)
 
     @classmethod
-    def searchhostname(cls, name=None):
-        return cls.searchdns(name=name, subdomains=False)
+    def searchhostname(cls, name=None, neg=False):
+        return cls.searchdns(name=name, subdomains=False, neg=neg)
 
     def get(self, spec, **kargs):
         """Queries the active column with the provided filter "spec",
@@ -4967,13 +5014,68 @@ class DBPassive(DB):
             flt, cls.searchval("value" if key == "md5" else f"infos.{key}", value)
         )
 
+    def iter_dns(self, flt=None, types=None):
+        """Iterate every passive ``DNS_ANSWER`` record matching
+        ``flt`` and emit a ``{(name, addr): {types, sources,
+        firstseen, lastseen, count}}`` mapping.
+
+        ``count`` aggregates the per-record ``count`` field
+        (passive observations are already deduplicated and
+        counted at ingest, so a single emitted record may
+        represent thousands of underlying packets).
+
+        :param flt: backend filter; ``None`` means the empty
+                    filter, which is conjoined with
+                    ``searchdns()`` so non-DNS records are
+                    skipped.
+        :param types: optional set of DNS record types to keep
+                      (``{"A", "AAAA", "PTR"}`` for the
+                      historical iphost behaviour; ``None``
+                      accepts every type seen in the data).
+        """
+        if flt is None:
+            flt = self.searchdns()
+        else:
+            flt = self.flt_and(flt, self.searchdns())
+        result: dict[tuple[str, str], dict[str, Any]] = {}
+        for rec in self.get(flt):
+            rrtype = rec["source"].split("-", 1)[0]
+            if types is not None and rrtype not in types:
+                continue
+            cur_res = result.setdefault(
+                (rec["value"], rec.get("addr", rec.get("targetval"))),
+                {
+                    "types": set(),
+                    "sources": set(),
+                    "firstseen": rec["firstseen"],
+                    "lastseen": rec["lastseen"],
+                    "count": 0,
+                },
+            )
+            cur_res["types"].add(rrtype)
+            cur_res["sources"].add(rec["sensor"])
+            cur_res["firstseen"] = min(cur_res["firstseen"], rec["firstseen"])
+            cur_res["lastseen"] = max(cur_res["lastseen"], rec["lastseen"])
+            cur_res["count"] += rec.get("count", 1)
+        return result
+
     def getdns(self, addr_or_name, subdomains=False, reverse=False, dnstype=None):
+        """Return the ``{(name, addr): {…}}`` mapping for
+        ``DNS_ANSWER`` records carrying the given address or
+        name. When ``dnstype`` is not given, every rrtype is
+        kept (matches the long-standing passive-DNS semantics:
+        CNAME, MX, NS, TXT, ... are all surfaced). When
+        ``dnstype`` is given, the existing
+        :meth:`searchdns` ``dnstype`` filter restricts the
+        backend query to that rrtype, so no further post-filter
+        is needed.
+        """
         # TODO: other names than from DNS (service, certificates)?
         if isinstance(addr_or_name, str) and utils.IPADDR.search(addr_or_name):
             flt = self.flt_and(
                 self.searchhost(addr_or_name), self.searchdns(dnstype=dnstype)
             )
-        if isinstance(addr_or_name, str) and utils.NETADDR.search(addr_or_name):
+        elif isinstance(addr_or_name, str) and utils.NETADDR.search(addr_or_name):
             flt = self.flt_and(
                 self.searchnet(addr_or_name), self.searchdns(dnstype=dnstype)
             )
@@ -4984,24 +5086,7 @@ class DBPassive(DB):
                 reverse=reverse,
                 dnstype=dnstype,
             )
-        result = (
-            {}
-        )  # {name: {types: {"A", "PTR", ...}, sources: {...}, firstseen: ..., lastseen: ...}}
-        for rec in self.get(flt):
-            cur_res = result.setdefault(
-                (rec["value"], rec.get("addr", rec.get("targetval"))),
-                {
-                    "types": set(),
-                    "sources": set(),
-                    "firstseen": rec["firstseen"],
-                    "lastseen": rec["lastseen"],
-                },
-            )
-            cur_res["types"].add(rec["source"].split("-", 1)[0])
-            cur_res["sources"].add(rec["sensor"])
-            cur_res["firstseen"] = min(cur_res["firstseen"], rec["firstseen"])
-            cur_res["lastseen"] = max(cur_res["lastseen"], rec["lastseen"])
-        return result
+        return self.iter_dns(flt=flt)
 
 
 class DBData(DB):

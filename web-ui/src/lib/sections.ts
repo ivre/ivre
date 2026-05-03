@@ -83,9 +83,22 @@ export const SECTIONS: readonly SectionConfig[] = [
   {
     id: "dns",
     label: "DNS",
+    // The DNS section talks to ``/cgi/dns`` — a dedicated
+    // endpoint that merges DNS observations from the active
+    // scan database (``db.nmap.iter_dns``) and the passive
+    // observation database (``db.passive.iter_dns``) into a
+    // single deduplicated stream of ``(name, addr)``
+    // pseudo-records. The merged shape carries summed counts,
+    // unioned ``types`` and ``sources`` sets, and extended
+    // ``firstseen`` / ``lastseen`` intervals; the route returns
+    // them sorted ``lastseen DESC, count DESC``.
+    //
+    // The endpoint is bespoke (no ``top/<field>`` companion is
+    // exposed today), so the section omits ``topEndpoint`` and
+    // therefore the FacetSidebar.
+    listEndpoint: "/dns",
     facets: [],
     resultType: "dns",
-    stub: true,
   },
   {
     id: "flow",
