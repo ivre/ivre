@@ -1,0 +1,135 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+# AWS DocumentDB compatibility check.
+#
+# DocumentDB is "almost first class" — operators deploying IVRE
+# on AWS-managed DocumentDB get every feature except full-text
+# search (the backend has no text-index facility and no ``$text``
+# operator). The four ``DocumentDB*`` classes in
+# ``ivre/db/document.py`` subclass the regular ``MongoDB*``
+# backends and set ``is_documentdb = True`` so the matching
+# workarounds in ``ivre/db/mongo.py`` (cursor-timeout flag,
+# ``$floor`` aggregation substitution, text-index omission)
+# activate.
+#
+# This workflow exercises every code path gated on
+# ``is_documentdb`` by selecting the ``DocumentDB*`` classes via
+# the ``documentdb://`` URL scheme and running the regular
+# backend test suite against MongoDB 5.0 — the API level AWS
+# DocumentDB currently claims compatibility with. Pinning to
+# 5.0 (rather than the newest 7.0/8.0) catches accidental use
+# of post-5.0 operators that would fail on a real DocumentDB
+# instance even though they work on upstream MongoDB.
+#
+# Limitations: vanilla MongoDB 5.0 still implements a superset
+# of AWS DocumentDB's surface — every operator AWS chose to
+# leave out of their reimplementation is still present here. So
+# this workflow catches IVRE-side regressions (a deleted
+# ``is_documentdb`` branch, a typo in a ``$floor``
+# substitution) but not new AWS-DocumentDB-specific gaps. A
+# real-AWS-DocumentDB CI lane is out of scope (no free tier,
+# no current sponsor); a separate workflow targeting
+# Microsoft's open-source DocumentDB project (a
+# PostgreSQL-based MongoDB-compatible engine — different
+# product from AWS DocumentDB despite the name collision) is
+# tracked separately. See E4.11 in the roadmap.
+
+name: DocumentDB compatibility tests
+
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
+jobs:
+  documentdb:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # One Python / MongoDB pair is enough for compat coverage:
+        # the workflow's purpose is to exercise the
+        # ``is_documentdb`` branches, not to repeat the full
+        # ``mongodb`` matrix. Pin to MongoDB 5.0 — the API level
+        # AWS DocumentDB currently claims compatibility with —
+        # so accidental use of post-5.0 operators is caught
+        # here even when the upstream ``mongodb`` job
+        # (``7.0`` / ``8.0``) lets them through.
+        python-version: ['3.12']
+        mongodb-version: ['5.0']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.12.1
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    # Force the ``DocumentDB*`` classes by swapping the URL
+    # scheme. Same connection target (the local MongoDB above);
+    # only the class hierarchy IVRE selects changes.
+    - name: Configure IVRE to use the DocumentDB backend classes
+      run: |
+        echo 'DB = "documentdb:///ivre"' >> ~/.ivre.conf
+        cat ~/.ivre.conf | grep -E '^DB '
+
+    - run: python -c 'import json, pymongo; print(json.dumps(pymongo.MongoClient().server_info(), indent=4))'
+
+    - name: Confirm IVRE picked the DocumentDB classes
+      run: |
+        python -c "
+        from ivre.db import db
+        for purpose in ['nmap', 'view', 'passive', 'flow']:
+            backend = getattr(db, purpose)
+            assert backend.is_documentdb, (
+                f'{purpose} backend {type(backend).__name__} does not set '
+                'is_documentdb=True — check the documentdb:// scheme '
+                'dispatch in ivre/db/__init__.py'
+            )
+            print(f'{purpose}: {type(backend).__name__} is_documentdb=True')
+        "
+
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+
+    # ``--exclude 15_rir`` mirrors the main mongodb job (RIR has
+    # its own dedicated job there). ``IVRE_BACKEND_FLAVOR`` adds
+    # the additional skips listed in ``BACKEND_FLAVORS`` and
+    # gates the inline ``searchtext`` block in
+    # ``test_50_view`` (DocumentDB has no ``$text``).
+    - run: cd tests && python tests.py --exclude 15_rir
+      env:
+        CI: true
+        DB: mongo
+        IVRE_BACKEND_FLAVOR: documentdb
+
+    - run: cat /tmp/webserver.log
+      if: failure()
