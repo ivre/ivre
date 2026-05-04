@@ -162,6 +162,37 @@ describe("section configs", () => {
     });
   });
 
+  describe("flow", () => {
+    const flow = getSection("flow")!;
+
+    it("is a real (non-stub) section with its own ``flow`` result type", () => {
+      expect(flow.stub).toBeFalsy();
+      expect(flow.resultType).toBe("flow");
+    });
+
+    it("hits ``/cgi/flows`` for the graph endpoint", () => {
+      // The flow route is structurally different from the
+      // other data sections \u2014 a single endpoint that
+      // returns a graph (``{nodes, edges}``), counts, or
+      // details depending on the JSON-encoded ``q=``.
+      expect(flow.listEndpoint).toBe("/flows");
+    });
+
+    it("does not declare a top endpoint or facets", () => {
+      // The flow route exposes no ``/cgi/flows/top/<field>``
+      // companion; the facet sidebar is therefore empty and
+      // the FilterBar is replaced by a dedicated dual-input
+      // (node-filters / edge-filters) panel \u2014 see
+      // ``components/FlowFilterPanel.tsx``.
+      expect(flow.topEndpoint).toBeUndefined();
+      expect(flow.facets).toEqual([]);
+    });
+
+    it("does not declare a map endpoint", () => {
+      expect(flow.mapEndpoint).toBeUndefined();
+    });
+  });
+
   it("returns ``undefined`` for unknown section ids", () => {
     expect(getSection("nope")).toBeUndefined();
   });

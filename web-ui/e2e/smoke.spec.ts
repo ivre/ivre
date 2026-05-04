@@ -32,14 +32,15 @@ test("app shell loads and lands on View", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("section nav switches to a stub", async ({ page }) => {
-  // ``flow`` is the last stub-state section; the others
-  // (View, Active, Passive, DNS, RIR) all have real routes.
+test("section nav reaches the catch-all stub for unknown ids", async ({
+  page,
+}) => {
+  // Every known section now has a real route; the stub is only
+  // reachable via direct navigation to an unknown section id
+  // (or via ``WEB_MODULES`` disabling a known one \u2014 covered
+  // by a separate spec).
   await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
-  await page.goto("/");
-  await page.getByRole("link", { name: "Flow" }).click();
-  await expect(page).toHaveURL(/#\/flow/);
-  await expect(page.getByRole("heading", { name: /Flow/i })).toBeVisible();
+  await page.goto("/#/madeupsection");
   await expect(page.getByText(/under construction/i)).toBeVisible();
 });
 
@@ -1051,4 +1052,100 @@ test("WEB_MODULES absent on /cgi/config keeps every section visible (back-compat
   for (const label of ["View", "Active", "Passive", "DNS", "RIR", "Flow"]) {
     await expect(sectionNav.getByRole("link", { name: label })).toBeVisible();
   }
+});
+
+test("Flow section renders the graph + counts and forwards filters as JSON q=", async ({
+  page,
+}) => {
+  // The /cgi/flows route takes a JSON-encoded q= and returns
+  // either a graph (default) or a counts object (q.count =
+  // true). The route makes both calls per refresh; mock both
+  // shapes and capture the queries to assert the dual-textarea
+  // serialises through to q.nodes / q.edges.
+  const graphPayload = {
+    nodes: [
+      {
+        id: "10.0.0.1",
+        label: "10.0.0.1",
+        labels: ["Host"],
+        x: 0.1,
+        y: 0.2,
+        data: { addr: "10.0.0.1" },
+      },
+      {
+        id: "10.0.0.2",
+        label: "10.0.0.2",
+        labels: ["Host"],
+        x: 0.7,
+        y: 0.8,
+        data: { addr: "10.0.0.2" },
+      },
+    ],
+    edges: [
+      {
+        id: "edge-1",
+        label: "tcp/443",
+        labels: ["Flow"],
+        source: "10.0.0.1",
+        target: "10.0.0.2",
+        data: { proto: "tcp", dport: 443, count: 5 },
+      },
+    ],
+  };
+  const countsPayload = { clients: 1, servers: 1, flows: 5 };
+  const captured: Array<{ q: string; count: boolean }> = [];
+
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/flows") {
+      const qRaw = url.searchParams.get("q") ?? "{}";
+      const q = JSON.parse(qRaw) as { count?: boolean };
+      captured.push({ q: qRaw, count: q.count === true });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(q.count === true ? countsPayload : graphPayload),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/flow");
+
+  // Heading + counts header rendered. The filter panel is
+  // rendered twice (desktop aside + lg:hidden mobile fallback),
+  // so scope assertions on the panel content to the desktop
+  // aside to avoid strict-mode multi-match.
+  await expect(
+    page.getByRole("heading", { name: /Flow graph/i }),
+  ).toBeVisible();
+  const aside = page.locator("aside").first();
+  await expect(aside.getByText("Clients")).toBeVisible();
+  await expect(aside.getByText("Servers")).toBeVisible();
+  await expect(aside.getByText("Flows", { exact: true })).toBeVisible();
+
+  // Graph canvas is mounted with the expected accessible label.
+  await expect(
+    page.getByLabel(/Flow graph \(2 nodes, 1 edges\)/i),
+  ).toBeVisible();
+
+  // The route fired both shapes (graph + counts).
+  expect(captured.length).toBeGreaterThanOrEqual(2);
+  expect(captured.some((c) => c.count === false)).toBe(true);
+  expect(captured.some((c) => c.count === true)).toBe(true);
+
+  // Type a node filter, hit Apply, assert the next graph
+  // request carries it in q.nodes. Scope the textbox / button
+  // lookups to the visible (desktop) aside.
+  const before = captured.length;
+  await aside
+    .getByRole("textbox", { name: /node filters/i })
+    .fill("addr =~ 10.0.0.0/24");
+  await aside.getByRole("button", { name: /^Apply$/ }).click();
+  await page.waitForLoadState("networkidle");
+  expect(captured.length).toBeGreaterThan(before);
+  const latest = JSON.parse(captured[captured.length - 1].q) as {
+    nodes?: string[];
+  };
+  expect(latest.nodes).toEqual(["addr =~ 10.0.0.0/24"]);
 });

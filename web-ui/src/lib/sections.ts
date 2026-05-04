@@ -101,10 +101,20 @@ export const SECTIONS: readonly SectionConfig[] = [
   {
     id: "flow",
     label: "Flow",
+    // The Flow section talks to ``/cgi/flows`` \u2014 a single
+    // route that takes a JSON-encoded ``q=`` carrying ``nodes``
+    // / ``edges`` filter lists (the ``flow.Query`` grammar:
+    // ``[ANY|ALL|ONE|LEN ][src.|dst.][meta.]<attr> [<op>
+    // <value>] [OR ...]``), plus mode (default / flow_map /
+    // talk_map), limit, skip, after/before, orderby, timeline,
+    // count. The same route returns either a graph
+    // (``{nodes, edges}``), a counts object
+    // (``{clients, servers, flows}``), or details for a single
+    // node / edge. There is no ``top/<field>`` companion, hence
+    // ``facets: []``.
     listEndpoint: "/flows",
     facets: [],
     resultType: "flow",
-    stub: true,
   },
   {
     id: "rir",
