@@ -2544,14 +2544,12 @@ class MongoDBActive(MongoDB, DBActive):
 
     @classmethod
     def searchhostname(cls, name=None, neg=False):
-        if neg:
-            if name is None:
-                return {"hostnames.domains": {"$exists": False}}
-            if isinstance(name, utils.REGEXP_T):
-                return {"hostnames.name": {"$not": name}}
-            return {"hostnames.name": {"$ne": name}}
         if name is None:
-            return {"hostnames.domains": {"$exists": True}}
+            # ``hostnames.domains`` is the indexed field; gate on
+            # its existence rather than ``hostnames.name``'s.
+            return {"hostnames.domains": {"$exists": not neg}}
+        if neg:
+            return cls._search_field("hostnames.name", name, neg=True)
         return cls.flt_and(
             # This is indexed
             cls.searchdomain(name, neg=neg),
@@ -4638,18 +4636,17 @@ class MongoDBView(MongoDBActive, DBView):
         """
         return cls._search_field("infos.city", city, neg=neg)
 
-    @staticmethod
-    def searchasnum(asnum, neg=False):
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
         """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
+        particular AS number(s). Accepts ``"AS1234"`` /
+        ``"1234"`` / ``1234`` / lists of either, plus regexes
+        \u2014 see :func:`_coerce_asnum`. Aligns the View backend's
+        input handling with the RIR backend's, so the
+        ``asnum:AS1234`` token from ``flt_from_query`` works
+        identically against both.
         """
-        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            return {
-                "infos.as_num": {"$nin" if neg else "$in": [int(val) for val in asnum]}
-            }
-        asnum = int(asnum)
-        return {"infos.as_num": {"$ne": asnum} if neg else asnum}
+        return cls._search_field("infos.as_num", _coerce_asnum(asnum), neg=neg)
 
     @classmethod
     def searchasname(cls, asname, neg=False):
@@ -5470,8 +5467,8 @@ class MongoDBPassive(MongoDB, DBPassive):
     def searchsensor(cls, sensor, neg=False):
         return cls._search_field("sensor", sensor, neg=neg)
 
-    @staticmethod
-    def searchport(port, protocol="tcp", state="open", neg=False):
+    @classmethod
+    def searchport(cls, port, protocol="tcp", state="open", neg=False):
         """Filters (if `neg` == True, filters out) records on the specified
         protocol/port.
 
@@ -5480,7 +5477,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             raise ValueError("Protocols other than TCP are not supported in passive")
         if state != "open":
             raise ValueError("Only open ports can be found in passive")
-        return {"port": {"$ne": port} if neg else port}
+        return cls._search_field("port", port, neg=neg)
 
     @staticmethod
     def searchservice(srv, port=None, protocol=None):
@@ -5581,8 +5578,10 @@ class MongoDBPassive(MongoDB, DBPassive):
             "value": useragent,
         }
 
-    @staticmethod
-    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False, neg=False):
+    @classmethod
+    def searchdns(
+        cls, name=None, reverse=False, dnstype=None, subdomains=False, neg=False
+    ):
         res = {
             "recontype": "DNS_ANSWER",
         }
@@ -5592,22 +5591,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                 if subdomains
                 else ("targetval" if reverse else "value")
             )
-            if isinstance(name, list):
-                if len(name) == 1:
-                    name = name[0]
-                elif neg:
-                    res[field] = {"$nin": name}
-                    name = None
-                else:
-                    name = {"$in": name}
-            if name is not None:
-                if neg:
-                    if isinstance(name, utils.REGEXP_T):
-                        res[field] = {"$not": name}
-                    else:
-                        res[field] = {"$ne": name}
-                else:
-                    res[field] = name
+            res.update(cls._search_field(field, name, neg=neg))
         if dnstype is not None:
             res["source"] = re.compile(f"^{dnstype.upper()}-")
         return res
@@ -5929,15 +5913,15 @@ class MongoDBRir(MongoDB, DBRir):
         """
         return cls._search_field("source_file", src, neg=neg)
 
-    @staticmethod
-    def searchfileid(fileid: str, neg: bool = False) -> Filter:
+    @classmethod
+    def searchfileid(cls, fileid, neg=False):
         """Filters (if `neg` == True, filters out) one particular
-        file id.
+        file id. Accepts a scalar (the typical operator-typed
+        SHA-256 hex digest), a list of digests, or a regex \u2014
+        delegated to :meth:`MongoDB._search_field`.
 
         """
-        if neg:
-            return {"source_hash": {"$ne": fileid}}
-        return {"source_hash": fileid}
+        return cls._search_field("source_hash", fileid, neg=neg)
 
     @classmethod
     def searchhost(cls, addr, neg=False):

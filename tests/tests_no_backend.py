@@ -1813,6 +1813,82 @@ class MongoDBSearchFieldTests(unittest.TestCase):
             {"hostnames.domains": {"$not": pat}},
         )
 
+    def test_searchhostname_active_negation_shapes(self):
+        # ``MongoDBActive.searchhostname``'s ``neg=True`` branch is
+        # the canonical scalar/regex/None ladder over
+        # ``hostnames.name`` (None means "no hostnames at all" via
+        # ``hostnames.domains.$exists``). Pinned here so the
+        # round-2 helper migration of that branch stays
+        # wire-shape-identical.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhostname(neg=True),
+            {"hostnames.domains": {"$exists": False}},
+        )
+        self.assertEqual(
+            MA.searchhostname("host.example.com", neg=True),
+            {"hostnames.name": {"$ne": "host.example.com"}},
+        )
+        pat = re.compile(r"\.example\.com$")
+        self.assertEqual(
+            MA.searchhostname(pat, neg=True),
+            {"hostnames.name": {"$not": pat}},
+        )
+
+    def test_searchasnum_view_coercion_shapes(self):
+        # ``MongoDBView.searchasnum`` accepts ``"AS1234"``, ``"1234"``,
+        # ``1234``, lists thereof, and a regex. Pinning *before* the
+        # round-2 migration that aligns View on the same
+        # ``_coerce_asnum`` helper RIR uses.
+        MV = self._MV()
+        self.assertEqual(MV.searchasnum("AS1234"), {"infos.as_num": 1234})
+        self.assertEqual(MV.searchasnum("1234"), {"infos.as_num": 1234})
+        self.assertEqual(MV.searchasnum(1234), {"infos.as_num": 1234})
+        self.assertEqual(
+            MV.searchasnum(["AS1234", "AS5678"]),
+            {"infos.as_num": {"$in": [1234, 5678]}},
+        )
+        self.assertEqual(
+            MV.searchasnum("AS1234", neg=True),
+            {"infos.as_num": {"$ne": 1234}},
+        )
+        self.assertEqual(
+            MV.searchasnum(["AS1234", "AS5678"], neg=True),
+            {"infos.as_num": {"$nin": [1234, 5678]}},
+        )
+        pat = re.compile(r"^12")
+        self.assertEqual(MV.searchasnum(pat), {"infos.as_num": pat})
+
+    def test_searchfileid_rir_scalar_shapes(self):
+        # ``MongoDBRir.searchfileid`` is a degenerate scalar +
+        # ``$ne`` ladder today. Pinning the wire shape *before*
+        # the round-2 migration to ``_search_field`` (which
+        # additionally lets callers pass lists / regexes — the
+        # widening is deliberate and lossless for the legacy
+        # scalar callers).
+        MR = self._MR()
+        self.assertEqual(MR.searchfileid("abc123"), {"source_hash": "abc123"})
+        self.assertEqual(
+            MR.searchfileid("abc123", neg=True),
+            {"source_hash": {"$ne": "abc123"}},
+        )
+
+    def test_searchport_passive_shapes(self):
+        # ``MongoDBPassive.searchport`` is the canonical scalar +
+        # ``$ne`` ladder against the ``port`` field, with two
+        # ``raise ValueError`` paths for the (currently
+        # unsupported) ``protocol != "tcp"`` and
+        # ``state != "open"`` arguments. Pinned before the
+        # round-2 migration that lifts the scalar branch onto
+        # ``_search_field``.
+        MP = self._MP()
+        self.assertEqual(MP.searchport(443), {"port": 443})
+        self.assertEqual(MP.searchport(443, neg=True), {"port": {"$ne": 443}})
+        with self.assertRaises(ValueError):
+            MP.searchport(443, protocol="udp")
+        with self.assertRaises(ValueError):
+            MP.searchport(443, state="closed")
+
     def test_searchdns_passive_negation_shapes(self):
         # ``DBPassive.searchdomain`` / ``searchhostname`` /
         # ``searchdns`` accept ``neg=True`` (regression: the
