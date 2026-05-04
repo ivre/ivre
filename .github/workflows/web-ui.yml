@@ -103,6 +103,12 @@ jobs:
         #     - radix-ui.com/...       Radix primitive doc URLs
         #     - reactrouter.com/...    react-router doc URLs
         #     - github.com/ungap/...   url-search-params polyfill comment
+        #     - en.wikipedia.org/wiki/MIT_License        \
+        #     - opensource.org/licenses/MIT              | license-link
+        #     - tldrlegal.com/license/mit-license        | comment lines
+        #     - jquery.org/license/                      | (cytoscape's
+        #     - github.com/jquery/jquery/...             | bundled
+        #     - engelschall.com                          / event subset)
         #
         #   Dev-only:
         #     - localhost*             dev server / proxy targets
@@ -121,6 +127,12 @@ jobs:
               | grep -vE '^https?://radix-ui\.com/' \
               | grep -vE '^https?://reactrouter\.com/' \
               | grep -vE '^https?://github\.com/ungap/' \
+              | grep -vE '^https?://en\.wikipedia\.org/wiki/MIT_License$' \
+              | grep -vE '^https?://opensource\.org/licenses/MIT$' \
+              | grep -vE '^https?://tldrlegal\.com/license/mit-license$' \
+              | grep -vE '^https?://jquery\.org/license/?$' \
+              | grep -vE '^https?://github\.com/jquery/jquery/' \
+              | grep -vE '^https?://engelschall\.com/?$' \
               | sort -u || true)
           if [ -n "$found" ]; then
               echo "External URLs leaked into the bundle:" >&2

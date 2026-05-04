@@ -402,6 +402,167 @@ export async function fetchRirRecords(
 }
 
 /* ------------------------------------------------------------------ */
+/* Flow records (graph)                                               */
+/* ------------------------------------------------------------------ */
+
+/** A node in the flow graph (one host). ``data`` carries the
+ *  identifying address plus first/last-seen timestamps. ``x`` /
+ *  ``y`` are random initial coordinates the backend assigns
+ *  per-response; the React layer uses them as a starting layout
+ *  hint and lets cytoscape's force layout converge from there. */
+export interface FlowNode {
+  id: string;
+  label: string;
+  labels: string[];
+  x: number;
+  y: number;
+  data: {
+    addr: string;
+    firstseen?: string | number;
+    lastseen?: string | number;
+    [k: string]: unknown;
+  };
+}
+
+/** An edge in the flow graph. ``label`` is one of:
+ *
+ *  - ``"<proto>/<dport>"`` (default mode, e.g. ``"tcp/443"``)
+ *  - ``"MERGED_FLOWS"`` (``flow_map`` mode — collapsed per
+ *    src/dst pair; ``data.flows`` carries the list of
+ *    contributing ``(proto, dport)`` tuples)
+ *  - ``"TALK"`` (``talk_map`` mode — collapsed per src/dst
+ *    pair; ``data.flows = ["TALK"]``)
+ *
+ *  See ``ivre/db/__init__.py`` ``_edge2json_*`` helpers for the
+ *  authoritative shapes. */
+export interface FlowEdge {
+  id: string;
+  label: string;
+  labels: string[];
+  source: string;
+  target: string;
+  data: {
+    proto?: string;
+    dport?: number;
+    sports?: number[];
+    type?: number;
+    codes?: number[];
+    count?: number;
+    cspkts?: number;
+    csbytes?: number;
+    scpkts?: number;
+    scbytes?: number;
+    firstseen?: string | number;
+    lastseen?: string | number;
+    addr_src?: string;
+    addr_dst?: string;
+    flows?: Array<[string, number] | string>;
+    meta?: { times?: Array<{ start: string | number; duration: number }> };
+    [k: string]: unknown;
+  };
+}
+
+/** Wire shape of ``GET /cgi/flows`` (default action). */
+export interface FlowGraph {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+/** Wire shape of ``GET /cgi/flows`` with ``q.count = true``. */
+export interface FlowCounts {
+  clients: number;
+  servers: number;
+  flows: number;
+}
+
+/** Edge-aggregation modes the backend supports.
+ *
+ *  - ``default``: each unique flow document is a separate edge.
+ *  - ``flow_map``: edges collapse per ``(src, dst)``;
+ *    ``data.flows`` carries every contributing ``(proto, dport)``.
+ *  - ``talk_map``: edges collapse per ``(src, dst)`` ignoring
+ *    everything below — a "who talks to whom" overview.
+ */
+export type FlowMode = "default" | "flow_map" | "talk_map";
+
+/** The JSON-encoded ``q=`` parameter the ``/cgi/flows`` route
+ *  consumes. ``nodes`` and ``edges`` are arrays of
+ *  ``flow.Query``-grammar filter strings (see the legacy
+ *  AngularJS UI's "Node filters" / "Edge filters" textareas).
+ *  ``before`` / ``after`` are ``"YYYY-MM-DD HH:MM"`` strings. */
+export interface FlowQuery {
+  nodes?: string[];
+  edges?: string[];
+  limit?: number;
+  skip?: number;
+  mode?: FlowMode;
+  count?: boolean;
+  orderby?: "src" | "dst" | "flow" | null;
+  timeline?: boolean;
+  before?: string;
+  after?: string;
+}
+
+/** Host-details payload returned by
+ *  ``GET /cgi/flows?action=details&q={type:"node",id:"<addr>"}``. */
+export interface FlowHostDetails {
+  elt: { addr: string; firstseen?: string; lastseen?: string };
+  in_flows: Array<[string, number] | string>;
+  out_flows: Array<[string, number] | string>;
+  clients: string[];
+  servers: string[];
+}
+
+/** Edge-details payload returned by
+ *  ``GET /cgi/flows?action=details&q={type:"edge",id:"<oid>"}``. */
+export interface FlowEdgeDetails {
+  elt: FlowEdge["data"];
+  meta?: Record<string, Record<string, unknown>>;
+}
+
+/** Build the URL for any ``/cgi/flows`` call. The route accepts
+ *  one parameter, ``q=``, JSON-encoded. ``action=details`` is
+ *  passed as a separate URL parameter, not folded into ``q``. */
+function flowUrl(query: object, action?: "details"): string {
+  const params: Record<string, string> = {
+    q: JSON.stringify(query),
+  };
+  if (action !== undefined) params.action = action;
+  return (
+    CGI_ROOT +
+    "/flows?" +
+    Object.entries(params)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join("&")
+  );
+}
+
+export async function fetchFlowGraph(query: FlowQuery): Promise<FlowGraph> {
+  const url = flowUrl({ ...query, count: false });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET /cgi/flows`);
+  return (await response.json()) as FlowGraph;
+}
+
+export async function fetchFlowCounts(query: FlowQuery): Promise<FlowCounts> {
+  const url = flowUrl({ ...query, count: true });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET /cgi/flows (count)`);
+  return (await response.json()) as FlowCounts;
+}
+
+export async function fetchFlowDetails(
+  type: "node" | "edge",
+  id: string,
+  query: FlowQuery = {},
+): Promise<FlowHostDetails | FlowEdgeDetails> {
+  const url = flowUrl({ ...query, type, id }, "details");
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET /cgi/flows (details)`);
+  return (await response.json()) as FlowHostDetails | FlowEdgeDetails;
+}
+
+/* ------------------------------------------------------------------ */
 /* React Query hooks                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -491,6 +652,41 @@ export function useRirRecords(
   return useQuery<RirRecord[]>({
     queryKey: ["rir", params],
     queryFn: () => fetchRirRecords(params),
+    ...options,
+  });
+}
+
+export function useFlowGraph(
+  query: FlowQuery,
+  options?: HookOptions<FlowGraph>,
+): UseQueryResult<FlowGraph> {
+  return useQuery<FlowGraph>({
+    queryKey: ["flow", "graph", query],
+    queryFn: () => fetchFlowGraph(query),
+    ...options,
+  });
+}
+
+export function useFlowCounts(
+  query: FlowQuery,
+  options?: HookOptions<FlowCounts>,
+): UseQueryResult<FlowCounts> {
+  return useQuery<FlowCounts>({
+    queryKey: ["flow", "counts", query],
+    queryFn: () => fetchFlowCounts(query),
+    ...options,
+  });
+}
+
+export function useFlowDetails(
+  type: "node" | "edge" | undefined,
+  id: string | undefined,
+  options?: HookOptions<FlowHostDetails | FlowEdgeDetails>,
+): UseQueryResult<FlowHostDetails | FlowEdgeDetails> {
+  return useQuery<FlowHostDetails | FlowEdgeDetails>({
+    queryKey: ["flow", "details", type, id],
+    queryFn: () => fetchFlowDetails(type as "node" | "edge", id as string),
+    enabled: Boolean(type && id),
     ...options,
   });
 }

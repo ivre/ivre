@@ -13,6 +13,7 @@ import { ActiveRoute } from "./active";
 import { AdminRoute } from "./admin";
 import { ApiKeysRoute } from "./api-keys";
 import { DnsRoute } from "./dns";
+import { FlowRoute } from "./flow";
 import { PassiveRoute } from "./passive-list";
 import { RirRoute } from "./rir";
 import { ViewRoute } from "./view";
@@ -76,6 +77,10 @@ const router = createHashRouter([
       // so a ``host:`` / ``net:`` filter surfaces the leaf
       // allocation at the top.
       { path: "rir", element: gateModule("rir", <RirRoute />) },
+      // Flow graph (Zeek / netflow / iptables ingestion). The
+      // ``/cgi/flows`` route returns a graph object; the
+      // FlowRoute renders it via cytoscape.
+      { path: "flow", element: gateModule("flow", <FlowRoute />) },
       // Account / admin pages — reachable from the user menu
       // only; intentionally absent from the section nav. Not
       // gated by ``WEB_MODULES`` (they have their own
