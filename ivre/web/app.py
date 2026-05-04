@@ -720,13 +720,35 @@ def post_nmap(subdb):
 @application.get("/flows")
 @check_referer
 def get_flow():
-    """Get special values from Nmap & View databases
+    """Get a flow graph, count, or details payload.
 
-    :query str q: query (including limit/skip, orderby, etc.)
-    :query str action: can be set to "details"
+    The query is JSON-encoded under the ``q`` URL parameter and
+    carries ``nodes`` / ``edges`` filter lists in the
+    ``flow.Query`` grammar plus the pagination / mode knobs
+    listed below. ``action=details`` returns details for a single
+    node or edge instead of a graph.
+
+    :query str q: JSON-encoded query object. Recognised keys:
+
+         - ``nodes``   list of node-filter clauses
+         - ``edges``   list of edge-filter clauses
+         - ``limit``   cap on returned edges; defaults to
+                       ``config.WEB_GRAPH_LIMIT`` (1000)
+         - ``skip``    pagination offset; defaults to ``0``
+         - ``mode``    ``default`` / ``flow_map`` / ``talk_map``
+         - ``count``   ``true`` returns ``{clients, servers,
+                       flows}`` instead of the graph
+         - ``orderby`` ``src`` / ``dst`` / ``flow`` (or unset)
+         - ``timeline`` ``true`` embeds ``data.meta.times`` per edge
+         - ``before`` / ``after``  ``"YYYY-MM-DD HH:MM"`` time bounds
+    :query str action: ``"details"`` to fetch
+                       ``host_details`` / ``flow_details`` for the
+                       node or edge id supplied in ``q.id``;
+                       ``q.type`` is ``"node"`` or ``"edge"``.
     :status 200: no error
     :status 400: invalid referer
-    :status 404: module is not exposed by this server
+    :status 404: module is not exposed by this server, or
+                 ``action=details`` and the entity does not exist
     :>json object: results
 
     """
@@ -739,7 +761,11 @@ def get_flow():
     utils.LOGGER.debug("Params: %r", dict(request.params))
     query = json.loads(request.params.get("q", "{}"))
     limit = query.get("limit", config.WEB_GRAPH_LIMIT)
-    skip = query.get("skip", config.WEB_GRAPH_LIMIT)
+    # Default ``skip`` to ``0`` (was historically the same as
+    # ``WEB_GRAPH_LIMIT`` \u2014 a copy-paste bug that made callers
+    # who omitted ``skip`` paginate past the entire result set).
+    # Clients that want a non-zero offset must set it explicitly.
+    skip = query.get("skip", 0)
     mode = query.get("mode", "default")
     count = query.get("count", False)
     orderby = query.get("orderby", None)

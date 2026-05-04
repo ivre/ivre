@@ -1134,6 +1134,17 @@ test("Flow section renders the graph + counts and forwards filters as JSON q=", 
   expect(captured.some((c) => c.count === false)).toBe(true);
   expect(captured.some((c) => c.count === true)).toBe(true);
 
+  // Pin: every initial request carries an explicit ``skip: 0``
+  // so the page renders correctly against older servers whose
+  // ``/cgi/flows`` route defaulted ``skip`` to
+  // ``WEB_GRAPH_LIMIT`` (a copy-paste bug \u2014 the route now
+  // defaults to 0, but old deployments still need this client
+  // workaround).
+  for (const cap of captured) {
+    const parsed = JSON.parse(cap.q) as { skip?: number };
+    expect(parsed.skip).toBe(0);
+  }
+
   // Type a node filter, hit Apply, assert the next graph
   // request carries it in q.nodes. Scope the textbox / button
   // lookups to the visible (desktop) aside.
