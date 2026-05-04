@@ -3892,6 +3892,13 @@ class IvreTests(unittest.TestCase):
         req.add_header("Referer", "http://%s:%d/" % (HTTPD_HOSTNAME, HTTPD_PORT))
         udesc = urlopen(req)
         self.assertEqual(udesc.getcode(), 200)
+        # ``modules`` is computed by ``ivre.web.modules.enabled_modules``
+        # at request time (intersection of ``WEB_MODULES`` and the
+        # backends configured in this test environment). Importing
+        # the helper here pins the same source of truth the route
+        # uses, so the test is robust to future module additions.
+        from ivre.web.modules import enabled_modules
+
         config_values = {
             "notesbase": ivre.config.WEB_NOTES_BASE,
             "dflt_limit": ivre.config.WEB_LIMIT,
@@ -3900,6 +3907,7 @@ class IvreTests(unittest.TestCase):
             "flow_time_precision": ivre.config.FLOW_TIME_PRECISION,
             "version": ivre.VERSION,
             "auth_enabled": ivre.config.WEB_AUTH_ENABLED,
+            "modules": enabled_modules(),
         }
         for line in udesc:
             if not line.startswith(b"config."):

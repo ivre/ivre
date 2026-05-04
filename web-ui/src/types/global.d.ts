@@ -16,6 +16,13 @@ declare global {
     version?: string;
     curver?: string;
     auth_enabled?: boolean;
+    /** Data sections this server exposes; intersection of
+     *  ``WEB_MODULES`` and the configured ``DB_<purpose>``
+     *  backends. ``undefined`` means "older server that does
+     *  not emit this field" — the React UI treats the absence
+     *  as "every section enabled" so legacy bundles keep
+     *  rendering as before. */
+    modules?: string[];
   }
 
   interface Window {

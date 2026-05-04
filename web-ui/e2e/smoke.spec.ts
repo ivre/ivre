@@ -981,3 +981,74 @@ test("RIR section forwards user-typed filters to /cgi/rir", async ({
   expect(queries.length).toBeGreaterThan(0);
   expect(queries[queries.length - 1]).toBe("country:FR");
 });
+
+test("WEB_MODULES allowlist hides disabled sections from the nav", async ({
+  page,
+}) => {
+  // ``/cgi/config`` sets ``config.modules = [...]``: only the
+  // listed sections are exposed by the server, and the React UI
+  // must filter the nav accordingly. Going directly to a
+  // disabled section's URL falls through to ``<SectionStub />``
+  // with the "not exposed" message.
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: 'config.modules = ["view", "active"];\n',
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+
+  const sectionNav = page.locator("header nav").first();
+  // Only the two enabled sections appear in the nav.
+  await expect(sectionNav.getByRole("link", { name: "View" })).toBeVisible();
+  await expect(sectionNav.getByRole("link", { name: "Active" })).toBeVisible();
+  // The four disabled ones (Passive / DNS / RIR / Flow) must NOT
+  // be in the nav.
+  await expect(sectionNav.getByRole("link", { name: "Passive" })).toHaveCount(
+    0,
+  );
+  await expect(sectionNav.getByRole("link", { name: "DNS" })).toHaveCount(0);
+  await expect(sectionNav.getByRole("link", { name: "RIR" })).toHaveCount(0);
+  await expect(sectionNav.getByRole("link", { name: "Flow" })).toHaveCount(0);
+
+  // Direct navigation to a disabled section reaches the stub
+  // with the "not exposed" copy (a different message from the
+  // generic "under construction" one used for sections that are
+  // enabled but not yet implemented, e.g. flow on master).
+  await page.goto("/#/passive");
+  await expect(page.getByText(/not exposed on this server/i)).toBeVisible();
+});
+
+test("WEB_MODULES absent on /cgi/config keeps every section visible (back-compat)", async ({
+  page,
+}) => {
+  // Older server: ``/cgi/config`` doesn't emit a ``modules``
+  // field. The React UI must keep showing every section
+  // unconditionally (otherwise upgrading the bundle without
+  // upgrading the server would drop the nav).
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        // No ``config.modules = [...]`` line — mimics an older
+        // server that has not yet learned about ``WEB_MODULES``.
+        body: "config.auth_enabled = false;\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  const sectionNav = page.locator("header nav").first();
+  for (const label of ["View", "Active", "Passive", "DNS", "RIR", "Flow"]) {
+    await expect(sectionNav.getByRole("link", { name: label })).toBeVisible();
+  }
+});

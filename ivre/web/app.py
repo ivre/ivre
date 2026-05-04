@@ -39,6 +39,7 @@ from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
 from ivre.web.base import application, check_referer
+from ivre.web.modules import enabled_modules, require_module
 
 #
 # Configuration
@@ -64,6 +65,13 @@ def get_config():
         ("flow_time_precision", config.FLOW_TIME_PRECISION),
         ("version", VERSION),
         ("auth_enabled", config.WEB_AUTH_ENABLED),
+        # ``modules`` is the canonically-ordered list of data
+        # sections this server exposes (intersection of
+        # ``WEB_MODULES`` and the configured ``DB_<purpose>``
+        # backends). Older bundles without the matching
+        # ``isModuleEnabled`` helper ignore the field and keep
+        # rendering every section, which preserves back-compat.
+        ("modules", enabled_modules()),
     ]:
         yield f"config.{key} = {json.dumps(value)};\n"
     yield f'fetch("https://ivre.rocks/version?{VERSION}").then(r=>r.text()).then(d=>config.curver=d).catch(()=>{{}});\n'
@@ -129,6 +137,18 @@ def get_base(dbase):
     )
 
 
+# Maps the ``subdb`` URL placeholder used by the polymorphic Nmap /
+# View / Passive / RIR routes to the corresponding ``WEB_MODULES``
+# name. ``scans`` is the legacy URL token for the Nmap (active)
+# database; the rest are 1:1 with the module names.
+_SUBDB_TO_MODULE = {
+    "scans": "active",
+    "view": "view",
+    "passive": "passive",
+    "rir": "rir",
+}
+
+
 @application.get(
     "/<subdb:re:scans|view>/<action:re:"
     "onlyips|ipsports|timeline|coordinates|countopenports|diffcats>"
@@ -150,9 +170,11 @@ def get_nmap_action(subdb, action):
     :query str format: "json" (the default), "ndjson" or "txt"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>jsonarr object: results
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
     preamble = "[\n"
@@ -315,9 +337,11 @@ def get_nmap_count(subdb):
     :query str f: filter
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>json int: count
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
     count = subdb.count(flt_params.flt)
@@ -341,10 +365,12 @@ def get_top(subdb, field):
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>jsonarr str label: field value
     :>jsonarr int value: count for this value
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -406,10 +432,12 @@ def get_distinct(subdb, field):
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>jsonarr str label: field value
     :>jsonarr int value: count for this value
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -502,9 +530,11 @@ def get_nmap(subdb):
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>jsonarr object: results
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     subdb_tool = "view" if subdb == "view" else "scancli"
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
@@ -662,9 +692,11 @@ def post_nmap(subdb):
     :form result: scan results (as XML or JSON files)
     :status 200: no error
     :status 400: invalid referer, source or username missing
+    :status 404: module is not exposed by this server
     :>json int count: number of inserted results
 
     """
+    require_module(_SUBDB_TO_MODULE[subdb])
     referer, source, categories, files = parse_form()
     count = import_files(subdb, source, categories, files)
     if request.params.get("output") == "html":
@@ -694,9 +726,11 @@ def get_flow():
     :query str action: can be set to "details"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: module is not exposed by this server
     :>json object: results
 
     """
+    require_module("flow")
     response.set_header("Content-Type", "application/json")
     response.set_header(
         "Content-Disposition", 'attachment; filename="IVRE-results.json"'
@@ -818,9 +852,11 @@ def get_passivedns(query):
     :query str type: specify the DNS query type
     :status 200: no error
     :status 400: invalid referer
+    :status 404: passive module is not exposed by this server
     :>json object: the result values (JSONL format: one JSON result per line)
 
     """
+    require_module("passive")
     subdomains = request.params.get("subdomains") is not None
     reverse = request.params.get("reverse") is not None
     utils.LOGGER.debug("passivedns: query: %r, subdomains: %r", query, subdomains)
@@ -876,9 +912,11 @@ def get_passive():
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer
+    :status 404: passive module is not exposed by this server
     :>jsonarr object: results
 
     """
+    require_module("passive")
     flt_params = get_base(db.passive)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
@@ -932,9 +970,11 @@ def get_passive_count():
     :query str f: filter
     :status 200: no error
     :status 400: invalid referer
+    :status 404: passive module is not exposed by this server
     :>json int: count
 
     """
+    require_module("passive")
     flt_params = get_base(db.passive)
     count = db.passive.count(flt_params.flt)
     return f"{count}\n"
@@ -1003,8 +1043,10 @@ def get_dns():
     :query str format: ``"json"`` (default) or ``"ndjson"``
     :status 200: no error
     :status 400: invalid referer
+    :status 404: dns module is not exposed by this server
     :>jsonarr object: pseudo-records as ``{name, addr, count, firstseen, lastseen, types, sources}``
     """
+    require_module("dns")
     raw_query = webutils.query_from_params(request.params)
     # Extract limit / skip from the parsed query (they are the
     # same regardless of backend; ``flt_from_query`` consumes
@@ -1023,16 +1065,20 @@ def get_dns():
     if config.WEB_MAXRESULTS is not None:
         limit = min(limit, config.WEB_MAXRESULTS)
 
-    # Per-backend filters built from the same parsed query.
-    nmap_flt, _, _, _, _, _ = webutils.flt_from_query(db.nmap, raw_query)
-    passive_flt, _, _, _, _, _ = webutils.flt_from_query(db.passive, raw_query)
-
-    # Aggregate from each backend, merging into a single
-    # ``(name, addr) -> {types, sources, firstseen, lastseen,
-    # count}`` dict.
+    # Aggregate from each available backend, merging into a
+    # single ``(name, addr) -> {types, sources, firstseen,
+    # lastseen, count}`` dict. Each backend is consulted only
+    # when ``db.<purpose>`` is wired — ``require_module("dns")``
+    # above guarantees that *at least one* of the two is
+    # present, but a partial deployment (only nmap, or only
+    # passive) is supported.
     merged: dict = {}
-    utils.merge_dns_results(merged, db.nmap.iter_dns(flt=nmap_flt))
-    utils.merge_dns_results(merged, db.passive.iter_dns(flt=passive_flt))
+    if db.nmap is not None:
+        nmap_flt, _, _, _, _, _ = webutils.flt_from_query(db.nmap, raw_query)
+        utils.merge_dns_results(merged, db.nmap.iter_dns(flt=nmap_flt))
+    if db.passive is not None:
+        passive_flt, _, _, _, _, _ = webutils.flt_from_query(db.passive, raw_query)
+        utils.merge_dns_results(merged, db.passive.iter_dns(flt=passive_flt))
 
     # Sort lastseen DESC, count DESC. The lastseen tie-breaker
     # surfaces frequently-observed pairs above one-shots when
@@ -1094,9 +1140,11 @@ def get_rir():
                        ``stop`` ascending (narrowest range first)
     :status 200: no error
     :status 400: invalid referer
+    :status 404: rir module is not exposed by this server
     :>jsonarr object: results
 
     """
+    require_module("rir")
     flt_params = get_base(db.rir)
     sortby = flt_params.sortby or [
         ("size", 1),
@@ -1140,9 +1188,11 @@ def get_rir_count():
     :query str f: filter
     :status 200: no error
     :status 400: invalid referer
+    :status 404: rir module is not exposed by this server
     :>json int: count
 
     """
+    require_module("rir")
     flt_params = get_base(db.rir)
     count = db.rir.count(flt_params.flt)
     return f"{count}\n"

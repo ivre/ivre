@@ -229,6 +229,17 @@ VIEW_MAX_HOSTNAMES_COUNT = 200
 
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
+# Web modules (data sections) to expose. ``None`` (default)
+# exposes every module whose underlying ``DB_<purpose>`` backend
+# is configured; a list (e.g. ``["view", "active", "rir"]``)
+# narrows the set further \u2014 the effective set is the
+# intersection of ``WEB_MODULES`` and the backends configured.
+# Disabled modules' routes return 404 and the React UI omits
+# their nav entries. Module names: ``"view"``, ``"active"``,
+# ``"passive"``, ``"dns"``, ``"rir"``, ``"flow"``. ``"dns"``
+# requires either ``db.nmap`` or ``db.passive``; the others
+# require their like-named backend.
+WEB_MODULES: list[str] | None = None
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT = 20000
 WEB_GET_NOTEPAD_PAGES = None
