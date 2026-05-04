@@ -106,6 +106,26 @@ export function DnsRoute() {
     <div className="flex w-full gap-6 px-6 py-2">
       <aside className="hidden w-[28rem] shrink-0 lg:block">
         <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] space-y-6 overflow-y-auto pr-2 pt-2">
+          {/*
+            Timeline lives in the left rail (mirroring the
+            world map's spot on the View section, and matching
+            the Active and Passive sections). Hovering a row
+            syncs with the corresponding card via
+            ``hoveredIndex``; clicking a row scrolls the card
+            into view.
+          */}
+          <Timeline
+            records={records}
+            hoveredIndex={hoveredIndex}
+            onHover={setHoveredIndex}
+            onSelect={scrollToCard}
+            getTitle={dnsTimelineTitle}
+            itemLabel={{
+              singular: "DNS record",
+              plural: "DNS records",
+            }}
+            emptyLabel="No DNS records to plot."
+          />
           <FilterBar filters={filters} onFiltersChange={setFilters} />
           <p className="text-xs text-muted-foreground">
             Filters apply to both the active (
@@ -146,34 +166,20 @@ export function DnsRoute() {
               No matching DNS records.
             </p>
           ) : (
-            <>
-              <Timeline
-                records={records}
-                hoveredIndex={hoveredIndex}
-                onHover={setHoveredIndex}
-                onSelect={scrollToCard}
-                getTitle={dnsTimelineTitle}
-                itemLabel={{
-                  singular: "DNS record",
-                  plural: "DNS records",
-                }}
-                emptyLabel="No DNS records to plot."
-              />
-              <div className="space-y-3">
-                {records.map((rec, idx) => (
-                  <DnsRecordCard
-                    key={`${rec.name}|${rec.addr}`}
-                    record={rec}
-                    highlights={highlights}
-                    onAddFilter={addFilter}
-                    highlighted={hoveredIndex === idx}
-                    onHover={() => setHoveredIndex(idx)}
-                    onLeave={() => setHoveredIndex(null)}
-                    innerRef={(el) => registerCardRef(idx, el)}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="space-y-3">
+              {records.map((rec, idx) => (
+                <DnsRecordCard
+                  key={`${rec.name}|${rec.addr}`}
+                  record={rec}
+                  highlights={highlights}
+                  onAddFilter={addFilter}
+                  highlighted={hoveredIndex === idx}
+                  onHover={() => setHoveredIndex(idx)}
+                  onLeave={() => setHoveredIndex(null)}
+                  innerRef={(el) => registerCardRef(idx, el)}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>

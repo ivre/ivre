@@ -63,6 +63,84 @@ test("Active section renders the host-list page (no world map)", async ({
   // label; raw scans aren't typically GeoIP-enriched so the Active
   // section omits it entirely.
   await expect(page.getByLabel(/world map/i)).toHaveCount(0);
+  // Active replaces the absent map with the scan-timeline widget
+  // in the same left-rail slot. Empty backend -> empty-state
+  // string from the Timeline component.
+  await expect(page.getByText(/no scans to plot/i)).toBeVisible();
+});
+
+test("Active section renders the scan timeline next to the host list", async ({
+  page,
+}) => {
+  // Two scans: a 60-second active scan and an instant blip
+  // (starttime == endtime). The Timeline should render a line
+  // for the first and a circle for the second; the SR-only
+  // accessibility label reports the total count.
+  const hosts = [
+    {
+      addr: "10.0.0.1",
+      starttime: "2024-01-02 10:00:00",
+      endtime: "2024-01-02 10:01:00",
+      // Active scan documents carry ``source`` as a plain
+      // string (only view records merge into an array). The
+      // card must render either form without blowing up; this
+      // also pins the regression where ``sources.map(...)``
+      // assumed an array unconditionally.
+      source: "scan-2024-Q1",
+      infos: { country_code: "FR", country_name: "France" },
+      ports: [
+        {
+          protocol: "tcp",
+          port: 22,
+          state_state: "open",
+          service_name: "ssh",
+        },
+      ],
+    },
+    {
+      addr: "10.0.0.2",
+      starttime: "2024-01-02 10:05:00",
+      endtime: "2024-01-02 10:05:00",
+      // Other shape: array. Both must round-trip through the
+      // card layer.
+      source: ["scan-2024-Q2"],
+      ports: [],
+    },
+  ];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/scans") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: hosts.map((h) => JSON.stringify(h)).join("\n") + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/active");
+
+  // Both hosts render as cards. Match the headings specifically
+  // so we don't accidentally pick up the SVG ``<title>`` tooltip
+  // text on the corresponding timeline element.
+  await expect(
+    page.getByRole("heading", { name: "10.0.0.1" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "10.0.0.2" }),
+  ).toBeVisible();
+
+  // The timeline widget is present in the left rail with the
+  // expected accessible label. ``itemLabel`` on the Timeline
+  // component pluralises "scan" -> "scans" for >1 records.
+  await expect(page.getByLabel(/timeline of 2 scans/i)).toBeVisible();
+
+  // Both forms of the ``source`` field render: the card
+  // surfaces them as click-to-filter chips, regardless of
+  // whether the wire shape was a string or an array.
+  await expect(page.getByRole("button", { name: /scan-2024-Q1/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /scan-2024-Q2/ })).toBeVisible();
 });
 
 test("direct navigation to /view/host/<addr> opens the detail sheet", async ({

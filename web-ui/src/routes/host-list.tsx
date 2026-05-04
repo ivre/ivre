@@ -1,10 +1,11 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { HostCardList } from "@/components/HostCardList";
 import { HostDetailSheet } from "@/components/HostDetailSheet";
+import { Timeline } from "@/components/Timeline";
 import { WorldMap } from "@/components/WorldMap";
 import { useHosts, type HostRecord } from "@/lib/api";
 import { getConfig } from "@/lib/config";
@@ -16,6 +17,7 @@ import {
   type Filter,
 } from "@/lib/filter";
 import { getSection, type SectionId } from "@/lib/sections";
+import { formatTimelineRange, type TimelineRecord } from "@/lib/timeline";
 
 export interface HostListRouteProps {
   /** Section to render. Drives the API endpoints, the facet list,
@@ -148,6 +150,64 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     navigate(`/${sectionId}${searchSuffix}`);
   }, [navigate, sectionId, searchSuffix]);
 
+  // Timeline ↔ card cross-highlight wiring. Active hosts have a
+  // ``starttime`` / ``endtime`` pair (ISO string or epoch); we
+  // project them into the generic :type:`TimelineRecord` shape
+  // (firstseen / lastseen / count) so the same ``<Timeline>``
+  // component used by Passive can plot them. Each row carries a
+  // back-reference to the underlying host so the per-row tooltip
+  // can surface the host's identity.
+  //
+  // The widget renders only on sections that don't already have
+  // a left-rail visualisation (View has the world map; Active
+  // gets the timeline). Sections may grow other widgets later;
+  // the gate is intentionally explicit per-section rather than
+  // "anything without a mapEndpoint".
+  const showTimeline = sectionId === "active";
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const registerCardRef = useCallback(
+    (index: number, el: HTMLDivElement | null) => {
+      cardRefs.current[index] = el;
+    },
+    [],
+  );
+  const scrollToCard = useCallback((index: number) => {
+    const el = cardRefs.current[index];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
+  const timelineRecords = useMemo<HostTimelineRow[]>(
+    () =>
+      showTimeline
+        ? hosts.map((h) => ({
+            // ``starttime`` / ``endtime`` come back as either a
+            // Unix-epoch number (seconds OR milliseconds; the
+            // Timeline auto-detects via ``timelineDateMs``) or an
+            // ISO-ish string (``"2015-09-18 16:13:35"``). Pass
+            // them through verbatim so the same auto-detection
+            // applies. Hosts without a starttime fall back to 0
+            // (1970) and stand out as obviously stale rather
+            // than crashing the layout.
+            firstseen: h.starttime ?? 0,
+            // Default endtime to starttime: a host with no
+            // recorded scan duration plots as an instant blip
+            // rather than an unbounded line.
+            lastseen: h.endtime ?? h.starttime ?? 0,
+            // Active scans don't carry a multiplicity, so each
+            // host counts as one observation. The Timeline's
+            // density math then reduces to ``1 / duration``,
+            // which renders short scans (instant blips) thicker
+            // and long observation windows thinner — useful at
+            // a glance.
+            count: 1,
+            host: h,
+          }))
+        : [],
+    [hosts, showTimeline],
+  );
+
   return (
     // Outer flex: tight ``py-2`` so the top/bottom margin matches
     // the visual weight of ``px-6`` on the sides. Sidebar on the
@@ -164,6 +224,18 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
         <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] space-y-6 overflow-y-auto pr-2 pt-2">
           {section.mapEndpoint ? (
             <WorldMap mapEndpoint={section.mapEndpoint} query={query} />
+          ) : null}
+          {showTimeline ? (
+            <Timeline
+              records={timelineRecords}
+              hoveredIndex={hoveredIndex}
+              onHover={setHoveredIndex}
+              onSelect={scrollToCard}
+              getTitle={hostTimelineTitle}
+              itemLabel={{ singular: "scan", plural: "scans" }}
+              emptyLabel="No scans to plot."
+              titleId="active-timeline-title"
+            />
           ) : null}
           <FilterBar filters={filters} onFiltersChange={setFilters} />
           <FacetSidebar
@@ -203,6 +275,9 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
             highlights={highlights}
             onAddFilter={addFilter}
             onSelect={(h) => goToHost(h.addr)}
+            hoveredIndex={showTimeline ? hoveredIndex : null}
+            onHover={showTimeline ? setHoveredIndex : undefined}
+            registerCardRef={showTimeline ? registerCardRef : undefined}
           />
         </div>
       </div>
@@ -230,4 +305,25 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
       />
     </div>
   );
+}
+
+/** A :type:`TimelineRecord`-shaped projection of a
+ *  :type:`HostRecord`, with a back-reference so the per-row
+ *  tooltip can surface the host identity without re-deriving
+ *  it. The Timeline component is generic over any record
+ *  satisfying the three required fields. */
+interface HostTimelineRow extends TimelineRecord {
+  host: HostRecord;
+}
+
+/** Per-row tooltip body for the active timeline. Surfaces the
+ *  host's address, the start → end range, and the computed
+ *  density (here scans-per-second; an instant scan reports
+ *  ``count / max(duration, 1)`` = ``1``). */
+function hostTimelineTitle(row: HostTimelineRow, density: number): string {
+  return [
+    row.host.addr,
+    formatTimelineRange(row),
+    `density≈${density.toFixed(3)}/s`,
+  ].join("\n");
 }
