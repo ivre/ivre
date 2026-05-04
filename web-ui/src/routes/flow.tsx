@@ -9,8 +9,15 @@ import {
   useFlowCounts,
   useFlowGraph,
 } from "@/lib/api";
-import { getConfig } from "@/lib/config";
 import { getSection } from "@/lib/sections";
+
+/** Default number of edges to render in the flow graph. Matches
+ *  ``WEB_GRAPH_LIMIT`` on the server and the legacy AngularJS
+ *  bundle's hard-coded ``query.limit = 1000``. The page-list
+ *  default (``WEB_LIMIT`` = 10, exposed as ``window.config
+ *  .dflt_limit``) is *not* the right default here \u2014 a
+ *  graph with 10 random edges is rarely useful. */
+const FLOW_DEFAULT_LIMIT = 1000;
 
 /**
  * Flow section route. The Flow surface is shaped differently
@@ -38,7 +45,6 @@ export function FlowRoute() {
 }
 
 function FlowRouteInner() {
-  const config = getConfig();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Applied filter (decoded from ``?q=``). The hook below
@@ -75,15 +81,29 @@ function FlowRouteInner() {
     setSearchParams(params, { replace: false });
   }, [draft, searchParams, setSearchParams]);
 
-  // Effective query for the data hooks: applied + the default
-  // ``limit`` from ``window.config`` (or the WEB_GRAPH_LIMIT
-  // server fallback the route picks if absent).
+  // Effective query for the data hooks: applied + sensible
+  // defaults so a fresh page load renders something useful even
+  // when the URL has no ``?q=``. The flow route's pagination is
+  // graph-scale (``WEB_GRAPH_LIMIT`` = 1000), not list-scale
+  // (``WEB_LIMIT`` = 10), so ``dflt_limit`` is *not* the right
+  // default here; pin to 1000 to match the legacy AngularJS
+  // bundle and the route's own ``WEB_GRAPH_LIMIT`` fallback.
+  //
+  // ``skip`` is forced to 0: older servers (pre-fix) defaulted
+  // ``skip`` to ``WEB_GRAPH_LIMIT`` when omitted \u2014 a
+  // copy-paste bug that made every initial page load skip
+  // past the entire result set, surfacing as
+  // ``"0 nodes, 0 edges. No flows match the current filter."``
+  // even when the counts header reported hundreds of flows.
+  // Sending ``skip=0`` explicitly bypasses the bug on those
+  // older servers; new servers default to 0 anyway.
   const effective = useMemo<FlowQuery>(
     () => ({
       ...applied,
-      limit: applied.limit ?? config.dflt_limit ?? 1000,
+      limit: applied.limit ?? FLOW_DEFAULT_LIMIT,
+      skip: applied.skip ?? 0,
     }),
-    [applied, config.dflt_limit],
+    [applied],
   );
 
   const graphQuery = useFlowGraph(effective);

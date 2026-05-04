@@ -333,19 +333,48 @@ timestamps</p></li>
 <dl class="http get">
 <dt class="sig sig-object http" id="get--flows">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/flows</span></span><a class="headerlink" href="#get--flows" title="Link to this definition"></a></dt>
-<dd><p>Get special values from Nmap &amp; View databases</p>
+<dd><p>Get a flow graph, count, or details payload.</p>
+<p>The query is JSON-encoded under the <code class="docutils literal notranslate"><span class="pre">q</span></code> URL parameter and
+carries <code class="docutils literal notranslate"><span class="pre">nodes</span></code> / <code class="docutils literal notranslate"><span class="pre">edges</span></code> filter lists in the
+<code class="docutils literal notranslate"><span class="pre">flow.Query</span></code> grammar plus the pagination / mode knobs
+listed below. <code class="docutils literal notranslate"><span class="pre">action=details</span></code> returns details for a single
+node or edge instead of a graph.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip, orderby, etc.)</p></li>
-<li><p><strong>action</strong> (<em>str</em>) – can be set to “details”</p></li>
+<li><p><strong>q</strong> (<em>str</em>) – <p>JSON-encoded query object. Recognised keys:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">nodes</span></code>   list of node-filter clauses</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">edges</span></code>   list of edge-filter clauses</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">limit</span></code>   cap on returned edges; defaults to</dt><dd><p><code class="docutils literal notranslate"><span class="pre">config.WEB_GRAPH_LIMIT</span></code> (1000)</p>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">skip</span></code>    pagination offset; defaults to <code class="docutils literal notranslate"><span class="pre">0</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>    <code class="docutils literal notranslate"><span class="pre">default</span></code> / <code class="docutils literal notranslate"><span class="pre">flow_map</span></code> / <code class="docutils literal notranslate"><span class="pre">talk_map</span></code></p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">count</span></code>   <code class="docutils literal notranslate"><span class="pre">true</span></code> returns <a href="#id1"><span class="problematic" id="id2">``</span></a>{clients, servers,</dt><dd><p>flows}`` instead of the graph</p>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">orderby</span></code> <code class="docutils literal notranslate"><span class="pre">src</span></code> / <code class="docutils literal notranslate"><span class="pre">dst</span></code> / <code class="docutils literal notranslate"><span class="pre">flow</span></code> (or unset)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timeline</span></code> <code class="docutils literal notranslate"><span class="pre">true</span></code> embeds <code class="docutils literal notranslate"><span class="pre">data.meta.times</span></code> per edge</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">before</span></code> / <code class="docutils literal notranslate"><span class="pre">after</span></code>  <code class="docutils literal notranslate"><span class="pre">&quot;YYYY-MM-DD</span> <span class="pre">HH:MM&quot;</span></code> time bounds</p></li>
+</ul>
+</p></li>
+<li><p><strong>action</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">&quot;details&quot;</span></code> to fetch
+<code class="docutils literal notranslate"><span class="pre">host_details</span></code> / <code class="docutils literal notranslate"><span class="pre">flow_details</span></code> for the
+node or edge id supplied in <code class="docutils literal notranslate"><span class="pre">q.id</span></code>;
+<code class="docutils literal notranslate"><span class="pre">q.type</span></code> is <code class="docutils literal notranslate"><span class="pre">&quot;node&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;edge&quot;</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
-<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – module is not exposed by this server</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – module is not exposed by this server, or
+<code class="docutils literal notranslate"><span class="pre">action=details</span></code> and the entity does not exist</p></li>
 </ul>
 </dd>
 <dt class="field-odd">Response JSON Object<span class="colon">:</span></dt>
