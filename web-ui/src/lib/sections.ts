@@ -109,11 +109,18 @@ export const SECTIONS: readonly SectionConfig[] = [
   {
     id: "rir",
     label: "RIR",
+    // The RIR section talks to ``/cgi/rir`` (records) and
+    // ``/cgi/rir/top/<field>`` (facet aggregations). Records
+    // come in two families: ``inet[6]num`` (with ``start``,
+    // ``stop``, ``netname``, ...) and ``aut-num`` (with
+    // ``aut-num`` int and ``as-name``). The default sort on
+    // ``/cgi/rir`` is narrowest-range first so a ``host:`` /
+    // ``net:`` / ``range:`` filter naturally surfaces the
+    // most-specific allocation at the top.
     listEndpoint: "/rir",
     topEndpoint: "/rir/top",
-    facets: [],
+    facets: ["country", "source_file"],
     resultType: "rir",
-    stub: true,
   },
 ] as const;
 

@@ -435,6 +435,13 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(flt, dbase.searchasnum(utils.str2list(value), neg=neg))
         elif param == "asname" and hasattr(dbase, "searchasname"):
             flt = dbase.flt_and(flt, dbase.searchasname(str2regexp(value), neg=neg))
+        elif param == "sourcefile" and hasattr(dbase, "searchsourcefile"):
+            # RIR-only today: filter on the basename of the source
+            # archive each record came from (e.g. ``ripe.db.inetnum.gz``).
+            # Other backends do not expose ``searchsourcefile`` and
+            # the param falls through to the unused list, which is the
+            # expected behaviour.
+            flt = dbase.flt_and(flt, dbase.searchsourcefile(str2regexp(value), neg=neg))
         elif param == "source":
             if hasattr(dbase, "searchrecontype"):
                 # Passive: dispatch through the generalized

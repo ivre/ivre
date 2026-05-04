@@ -58,6 +58,12 @@ const SIMPLE_FILTERS: Record<string, string> = {
   country: "country",
   asnum: "asnum",
   asname: "asname",
+  // RIR top fields use the underlying RPSL key names (with hyphens
+  // for ``aut-num`` / ``as-name``); map them to the user-facing
+  // filter tokens (``asnum:``, ``asname:``, ``sourcefile:``).
+  "aut-num": "asnum",
+  "as-name": "asname",
+  source_file: "sourcefile",
   source: "source",
   sensor: "sensor",
   category: "category",

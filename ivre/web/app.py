@@ -1079,19 +1079,36 @@ def get_dns():
 def get_rir():
     """Get records from the RIR database.
 
+    Records are sorted narrowest-first by default (most-specific
+    inet[6]num allocation at the top), so a ``host:`` / ``net:`` /
+    ``range:`` filter naturally surfaces the leaf record covering the
+    queried address. ``aut-num`` records (no range, no ``size``) sort
+    to the end. Pass ``?sortby=<field>`` (or ``?sortby=~<field>`` for
+    descending) to override.
+
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
     :query str format: "json" (the default) or "ndjson"
+    :query str sortby: optional sort field; default is ``size``
+                       ascending then ``start`` descending then
+                       ``stop`` ascending (narrowest range first)
     :status 200: no error
     :status 400: invalid referer
     :>jsonarr object: results
 
     """
     flt_params = get_base(db.rir)
+    sortby = flt_params.sortby or [
+        ("size", 1),
+        ("start_0", -1),
+        ("start_1", -1),
+        ("stop_0", 1),
+        ("stop_1", 1),
+    ]
     result = db.rir.get(
         flt_params.flt,
         skip=flt_params.skip,
-        sort=flt_params.sortby,
+        sort=sortby,
         fields=flt_params.fields,
     )
     if flt_params.fmt == "json":

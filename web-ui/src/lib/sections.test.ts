@@ -135,6 +135,33 @@ describe("section configs", () => {
     });
   });
 
+  describe("rir", () => {
+    const rir = getSection("rir")!;
+
+    it("is a real (non-stub) section with its own ``rir`` result type", () => {
+      expect(rir.stub).toBeFalsy();
+      expect(rir.resultType).toBe("rir");
+    });
+
+    it("hits ``/cgi/rir`` for the record list and ``/cgi/rir/top`` for facets", () => {
+      expect(rir.listEndpoint).toBe("/rir");
+      expect(rir.topEndpoint).toBe("/rir/top");
+    });
+
+    it("does not declare a map endpoint (RIR data carries no coordinates)", () => {
+      expect(rir.mapEndpoint).toBeUndefined();
+    });
+
+    it("declares the country and source_file facets", () => {
+      // ``country`` reuses the standard facet; ``source_file``
+      // (the basename of the RIR dump archive) is RIR-specific.
+      // Other RPSL fields are reachable via free-text or via
+      // direct tokens (``asnum:``, ``asname:``, ``sourcefile:``).
+      expect(rir.facets).toContain("country");
+      expect(rir.facets).toContain("source_file");
+    });
+  });
+
   it("returns ``undefined`` for unknown section ids", () => {
     expect(getSection("nope")).toBeUndefined();
   });

@@ -13,6 +13,7 @@ import { AdminRoute } from "./admin";
 import { ApiKeysRoute } from "./api-keys";
 import { DnsRoute } from "./dns";
 import { PassiveRoute } from "./passive-list";
+import { RirRoute } from "./rir";
 import { ViewRoute } from "./view";
 
 const queryClient = new QueryClient({
@@ -47,6 +48,11 @@ const router = createHashRouter([
       // active scans + passive observations server-side; see
       // ``ivre/web/app.py``'s ``get_dns``.
       { path: "dns", element: <DnsRoute /> },
+      // RIR records (RPSL inet[6]num + aut-num) from the
+      // regional dumps. Default sort is narrowest-range first
+      // so a ``host:`` / ``net:`` filter surfaces the leaf
+      // allocation at the top.
+      { path: "rir", element: <RirRoute /> },
       // Account / admin pages — reachable from the user menu
       // only; intentionally absent from the section nav.
       { path: "admin", element: <AdminRoute /> },

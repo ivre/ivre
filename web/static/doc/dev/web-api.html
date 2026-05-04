@@ -534,12 +534,21 @@ summary collection updated at ingest time.</p>
 <dt class="sig sig-object http" id="get--rir">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/rir</span></span><a class="headerlink" href="#get--rir" title="Link to this definition"></a></dt>
 <dd><p>Get records from the RIR database.</p>
+<p>Records are sorted narrowest-first by default (most-specific
+inet[6]num allocation at the top), so a <code class="docutils literal notranslate"><span class="pre">host:</span></code> / <code class="docutils literal notranslate"><span class="pre">net:</span></code> /
+<code class="docutils literal notranslate"><span class="pre">range:</span></code> filter naturally surfaces the leaf record covering the
+queried address. <code class="docutils literal notranslate"><span class="pre">aut-num</span></code> records (no range, no <code class="docutils literal notranslate"><span class="pre">size</span></code>) sort
+to the end. Pass <code class="docutils literal notranslate"><span class="pre">?sortby=&lt;field&gt;</span></code> (or <code class="docutils literal notranslate"><span class="pre">?sortby=~&lt;field&gt;</span></code> for
+descending) to override.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
 <li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
 <li><p><strong>format</strong> (<em>str</em>) – “json” (the default) or “ndjson”</p></li>
+<li><p><strong>sortby</strong> (<em>str</em>) – optional sort field; default is <code class="docutils literal notranslate"><span class="pre">size</span></code>
+ascending then <code class="docutils literal notranslate"><span class="pre">start</span></code> descending then
+<code class="docutils literal notranslate"><span class="pre">stop</span></code> ascending (narrowest range first)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>

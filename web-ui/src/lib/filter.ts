@@ -207,6 +207,7 @@ export const FILTER_TYPES = [
   "asnum",
   "asname",
   "source",
+  "sourcefile",
   "sensor",
   "type",
   "dataset",

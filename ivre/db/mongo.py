@@ -5792,11 +5792,31 @@ class MongoDBPassive(MongoDB, DBPassive):
         }
 
 
+def _coerce_asnum(asnum):
+    """Coerce an AS-number argument to the type the underlying
+    ``aut-num`` integer field uses. Accepts int / ``"AS1234"`` /
+    ``"1234"``, lists thereof, or a regex (passed through). Used by
+    :meth:`MongoDBRir.searchasnum`."""
+    if isinstance(asnum, utils.REGEXP_T):
+        return asnum
+    if isinstance(asnum, list):
+        return [_coerce_asnum(v) for v in asnum]
+    if isinstance(asnum, int):
+        return asnum
+    s = str(asnum).strip()
+    if s[:2].upper() == "AS":
+        s = s[2:]
+    return int(s)
+
+
 class MongoDBRir(MongoDB, DBRir):
     column_rir = 0
     schema_latest_versions = [
-        # rir
-        1,
+        # rir: v2 added the ``size`` field on inet[6]num records so the
+        # web layer can sort allocations narrowest-first without an
+        # aggregation pipeline. ``ivre rirlookup --update-schema``
+        # backfills the field on existing records.
+        2,
     ]
     indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # rir
@@ -5816,13 +5836,86 @@ class MongoDBRir(MongoDB, DBRir):
             ([("source_file", pymongo.ASCENDING)], {}),
             ([("source_hash", pymongo.ASCENDING)], {}),
             ([("schema_version", pymongo.ASCENDING)], {}),
+            ([("size", pymongo.ASCENDING)], {"sparse": True}),
             ([(fld, "text") for fld in DBRir.text_fields], {"name": "text"}),
         ],
+    ]
+    schema_migrations_indexes: list[dict[int, dict[str, list[Any]]]] = [
+        # rir
+        {
+            2: {
+                "ensure": [
+                    ([("size", pymongo.ASCENDING)], {"sparse": True}),
+                ],
+            },
+        },
     ]
 
     def __init__(self, url):
         super().__init__(url)
         self.columns = ["rir"]
+        self.schema_migrations = [
+            # rir
+            {
+                None: (1, self.__migrate_schema_rir_0_1),
+                1: (2, self.__migrate_schema_rir_1_2),
+            },
+        ]
+
+    def cmp_schema_version_rir(self, rec):
+        """Returns 0 if `rec`'s schema version matches the code's
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema())."""
+        return self.cmp_schema_version(self.column_rir, rec)
+
+    def migrate_schema(self, version):
+        """Process schema migrations on the RIR column starting from
+        ``version``."""
+        MongoDB.migrate_schema(self, self.column_rir, version)
+
+    @staticmethod
+    def __migrate_schema_rir_0_1(doc):
+        """Stamp records lacking ``schema_version`` with version 1.
+        Pre-v1 records were the same shape on the wire — only the
+        ``schema_version`` marker was missing — so this is a no-op
+        beyond setting the field."""
+        assert "schema_version" not in doc
+        doc["schema_version"] = 1
+        return doc
+
+    @classmethod
+    def __migrate_schema_rir_1_2(cls, doc):
+        """Backfill the ``size`` field on inet[6]num records. ``size``
+        is the number of addresses in the range, ``stop - start + 1``,
+        stored as ``bson.Decimal128`` so an IPv6 /0 (2**128 addresses)
+        round-trips losslessly. ``aut-num`` records have no range and
+        keep no ``size``."""
+        assert doc.get("schema_version") == 1
+        update = {"schema_version": 2}
+        size = cls._compute_rir_size(doc)
+        if size is not None:
+            update["size"] = size
+        return update
+
+    @staticmethod
+    def _compute_rir_size(doc):
+        """Return the inclusive address-count of an inet[6]num record's
+        range as ``bson.Decimal128``, or ``None`` for records that
+        carry no range (typically ``aut-num`` records)."""
+        try:
+            start_0 = doc["start_0"]
+            start_1 = doc["start_1"]
+            stop_0 = doc["stop_0"]
+            stop_1 = doc["stop_1"]
+        except KeyError:
+            return None
+        # Pack the (high, low) halves as IVRE does: high = bits 64..127,
+        # low = bits 0..63 (with the IPv4 bias applied at ip2internal
+        # time). The size is just (stop - start + 1) on the packed
+        # 128-bit integer.
+        start = ((start_0 + (1 << 63)) << 64) | (start_1 + (1 << 63))
+        stop = ((stop_0 + (1 << 63)) << 64) | (stop_1 + (1 << 63))
+        return bson.Decimal128(str(stop - start + 1))
 
     def remove_many(self, flt):
         """Removes hosts from the RIR column, based on the filter `flt`."""
@@ -5868,6 +5961,79 @@ class MongoDBRir(MongoDB, DBRir):
                 },
             ],
         }
+
+    @classmethod
+    def searchnet(cls, net, neg=False):
+        """Filters every record whose ``(start, stop)`` range overlaps
+        with ``net`` at all. Records that fully contain ``net``,
+        records fully contained in ``net``, and records overlapping on
+        either side all match.
+
+        Pair this filter with ``sort=[("size", 1)]`` (or pass no
+        ``?sortby=`` on the web ``/rir`` route, which defaults to it)
+        to surface the most specific allocation first.
+
+        ``neg=True`` is not supported (mirrors :meth:`searchhost`)."""
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        net_start, net_stop = utils.net2range(net)
+        s0, s1 = cls.ip2internal(net_start)
+        e0, e1 = cls.ip2internal(net_stop)
+        return cls._searchrange_overlap(s0, s1, e0, e1)
+
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
+        """Filters every record whose ``(start, stop)`` range overlaps
+        with the ``[start, stop]`` window. Same overlap semantics as
+        :meth:`searchnet`. ``neg=True`` is not supported."""
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        s0, s1 = cls.ip2internal(start)
+        e0, e1 = cls.ip2internal(stop)
+        return cls._searchrange_overlap(s0, s1, e0, e1)
+
+    @staticmethod
+    def _searchrange_overlap(s0, s1, e0, e1):
+        """Build the Mongo filter for ``record.start <= window.stop AND
+        record.stop >= window.start`` using the same dual-key compare
+        idiom as :meth:`searchhost`. Stays index-friendly on the
+        (start_0, stop_0, start_1, stop_1) compound index."""
+        return {
+            "$and": [
+                # record.start <= window.stop  (record starts at or
+                # before the window's last address)
+                {
+                    "$or": [
+                        {"start_0": {"$lt": e0}},
+                        {"$and": [{"start_0": e0}, {"start_1": {"$lte": e1}}]},
+                    ],
+                },
+                # record.stop >= window.start  (record stops at or
+                # after the window's first address)
+                {
+                    "$or": [
+                        {"stop_0": {"$gt": s0}},
+                        {"$and": [{"stop_0": s0}, {"stop_1": {"$gte": s1}}]},
+                    ],
+                },
+            ],
+        }
+
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
+        """Filters AS-number records (``aut-num`` records) by integer
+        AS number. Accepts a string (``"AS1234"`` / ``"1234"``), an
+        int, or a list of either; regexes pass through unchanged.
+        Strings are coerced to int so the filter matches the
+        underlying ``aut-num`` integer field."""
+        return cls._search_field("aut-num", _coerce_asnum(asnum), neg=neg)
+
+    @classmethod
+    def searchasname(cls, name, neg=False):
+        """Filters AS-number records (``aut-num`` records) by their
+        ``as-name`` text field. Accepts a string, a list, or a
+        regex."""
+        return cls._search_field("as-name", name, neg=neg)
         # This query is equivalent but slower with our indexes
         # return {
         #     "$and": [
@@ -5980,6 +6146,20 @@ class MongoDBRir(MongoDB, DBRir):
             skip=skip,
         )
 
+    def topvalues(self, field, flt=None, **kargs):
+        """Aggregate the most common values of ``field`` across the
+        RIR column. Supports the standard ``flt``, ``topnbr``,
+        ``least``, ``sort``, ``limit``, ``skip``, ``aggrflt``,
+        ``specialproj``, ``specialflt`` keyword arguments forwarded to
+        :meth:`_topvalues`. RIR records are flat dicts with no nested
+        arrays of interest (no ``addr``, no ``net``, no ``domains``
+        pseudo-fields), so no special-case rewriting is needed.
+
+        Useful fields: ``country``, ``source_file``, ``aut-num``,
+        ``as-name``, ``netname``, ``schema_version``."""
+        pipeline = self._topvalues(field, flt=flt, **kargs)
+        return self._aggregate(self.db[self.columns[self.column_rir]], pipeline)
+
     @staticmethod
     def start_bulk():
         return []
@@ -5993,6 +6173,14 @@ class MongoDBRir(MongoDB, DBRir):
         for fld in self.ipaddr_fields:
             if fld in rec:
                 rec[f"{fld}_0"], rec[f"{fld}_1"] = self.ip2internal(rec.pop(fld))
+        # ``size`` is the inclusive address-count of the range; pinned
+        # at insert so the web ``/rir`` route can sort narrowest-first
+        # without an aggregation pipeline. Stored as bson.Decimal128
+        # because IPv6 ranges can reach 2**128 (overflows int64).
+        # ``aut-num`` records carry no range and skip this.
+        size = self._compute_rir_size(rec)
+        if size is not None:
+            rec["size"] = size
         bulk.append(pymongo.InsertOne(rec))
         if len(bulk) >= config.MONGODB_BATCH_SIZE:
             utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", len(bulk))
