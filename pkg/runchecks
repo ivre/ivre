@@ -18,11 +18,11 @@
 
 # pip install -U '.[linting]'
 
-black -t py312 --check ./doc/conf.py ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "black OK"
+black -t py312 --check --extend-exclude="_version\.py" ./doc/conf.py ./tests/tests.py ./tests/tests_no_backend.py ./ivre/ ./pkg/stubs/ && echo "black OK"
 
-flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,E704,F821,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
+flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py ./tests/tests_no_backend.py && flake8 --ignore=E203,E501,E704,F821,W503 ./ivre/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi && echo "flake8 OK"
 
-bandit --severity-level high -r ./doc/conf.py ./tests/tests.py ./ivre/ ./pkg/stubs/ && echo "bandit OK"
+bandit --severity-level high -r ./doc/conf.py ./tests/tests.py ./tests/tests_no_backend.py ./ivre/ ./pkg/stubs/ && echo "bandit OK"
 
 # TODO: remove --follow-imports=skip
 MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tags,tools,types}/*.py ./ivre/{__init__,activecli,config,flow,geoiputils,graphroute,keys,plugins,utils,zgrabout}.py && echo "mypy OK"
@@ -35,7 +35,7 @@ pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init
 
 pylint -e all -d unused-argument,too-many-arguments,too-many-positional-arguments,missing-function-docstring,missing-class-docstring,missing-module-docstring,multiple-statements,invalid-name,too-few-public-methods ./pkg/stubs/*.pyi && echo "pylint stubs OK"
 
-isort --profile black --check-only ivre ./doc/conf.py ./tests/tests.py ./pkg/stubs/*.pyi && echo "isort OK"
+isort --profile black --check-only ivre ./doc/conf.py ./tests/tests.py ./tests/tests_no_backend.py ./pkg/stubs/*.pyi && echo "isort OK"
 
 rstcheck -r ./doc/ && echo "rstcheck OK"
 if ! find ./doc/ -type f -name '*.rst' -print0 | xargs -0 grep '[[:space:]]$'; then echo "trailing spaces OK"; else echo "!! trailing spaces !!"; false; fi
