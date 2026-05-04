@@ -59,6 +59,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#the-data-purpose">The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#web-server">Web server</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#paths">Paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#modules">Modules</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#notepad">Notepad</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#anti-csrf">Anti-CSRF</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#authentication-and-acls">Authentication and ACLs</a></li>
@@ -349,6 +350,33 @@ locale to use is set in <code class="docutils literal notranslate"><span class="
 <h3>Paths<a class="headerlink" href="#paths" title="Link to this heading"></a></h3>
 <p>Two variables (<code class="docutils literal notranslate"><span class="pre">WEB_STATIC_PATH</span></code> and <code class="docutils literal notranslate"><span class="pre">WEB_DOKU_PATH</span></code>) are used for
 the Web application; see <a class="reference internal" href="#paths-and-commands"><span class="std std-ref">Paths and commands</span></a>.</p>
+</section>
+<section id="modules">
+<h3>Modules<a class="headerlink" href="#modules" title="Link to this heading"></a></h3>
+<p>The Web UI exposes a fixed set of <em>data sections</em> — <code class="docutils literal notranslate"><span class="pre">view</span></code>,
+<code class="docutils literal notranslate"><span class="pre">active</span></code>, <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">dns</span></code>, <code class="docutils literal notranslate"><span class="pre">rir</span></code>, <code class="docutils literal notranslate"><span class="pre">flow</span></code> — each backed
+by one (or, for <code class="docutils literal notranslate"><span class="pre">dns</span></code>, two) <code class="docutils literal notranslate"><span class="pre">DB_&lt;purpose&gt;</span></code> backends. By
+default every section whose backend is configured is exposed; the
+React UI hides the others from the section nav and the matching
+<code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> routes return 404.</p>
+<p>Operators who want to narrow the exposed set further (for
+example, hide <code class="docutils literal notranslate"><span class="pre">flow</span></code> even though <code class="docutils literal notranslate"><span class="pre">DB_FLOW</span></code> is wired) can set
+<code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code> to an iterable of module names:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Expose only the View and RIR sections; the others are</span>
+<span class="c1"># hidden from the nav and their routes return 404 even if</span>
+<span class="c1"># their backends are configured.</span>
+<span class="n">WEB_MODULES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;view&quot;</span><span class="p">,</span> <span class="s2">&quot;rir&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Leaving <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code> at its default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) is equivalent
+to listing every known module — the effective set is then exactly
+the modules whose <code class="docutils literal notranslate"><span class="pre">DB_&lt;purpose&gt;</span></code> backend is configured. The
+<code class="docutils literal notranslate"><span class="pre">dns</span></code> module is the only cross-backend one: it is exposed as
+soon as either <code class="docutils literal notranslate"><span class="pre">DB_NMAP</span></code> or <code class="docutils literal notranslate"><span class="pre">DB_PASSIVE</span></code> is configured.</p>
+<p>Account / admin pages (the <code class="docutils literal notranslate"><span class="pre">Admin</span></code> page and the self-service
+<code class="docutils literal notranslate"><span class="pre">API</span> <span class="pre">keys</span></code> page) are <em>not</em> part of <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code>; they keep
+their own toggles (<code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> plus the <code class="docutils literal notranslate"><span class="pre">is_admin</span></code>
+flag on the user account).</p>
 </section>
 <section id="notepad">
 <h3>Notepad<a class="headerlink" href="#notepad" title="Link to this heading"></a></h3>

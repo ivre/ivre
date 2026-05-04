@@ -143,6 +143,38 @@ Paths
 Two variables (``WEB_STATIC_PATH`` and ``WEB_DOKU_PATH``) are used for
 the Web application; see :ref:`install/config:Paths and commands`.
 
+Modules
+~~~~~~~
+
+The Web UI exposes a fixed set of *data sections* — ``view``,
+``active``, ``passive``, ``dns``, ``rir``, ``flow`` — each backed
+by one (or, for ``dns``, two) ``DB_<purpose>`` backends. By
+default every section whose backend is configured is exposed; the
+React UI hides the others from the section nav and the matching
+``/cgi/`` routes return 404.
+
+Operators who want to narrow the exposed set further (for
+example, hide ``flow`` even though ``DB_FLOW`` is wired) can set
+``WEB_MODULES`` to an iterable of module names:
+
+.. code:: python
+
+   # Expose only the View and RIR sections; the others are
+   # hidden from the nav and their routes return 404 even if
+   # their backends are configured.
+   WEB_MODULES = ["view", "rir"]
+
+Leaving ``WEB_MODULES`` at its default (``None``) is equivalent
+to listing every known module — the effective set is then exactly
+the modules whose ``DB_<purpose>`` backend is configured. The
+``dns`` module is the only cross-backend one: it is exposed as
+soon as either ``DB_NMAP`` or ``DB_PASSIVE`` is configured.
+
+Account / admin pages (the ``Admin`` page and the self-service
+``API keys`` page) are *not* part of ``WEB_MODULES``; they keep
+their own toggles (``WEB_AUTH_ENABLED`` plus the ``is_admin``
+flag on the user account).
+
 Notepad
 ~~~~~~~
 

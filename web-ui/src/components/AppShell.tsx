@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { isModuleEnabled } from "@/lib/config";
 import { SECTIONS, type SectionConfig } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 
@@ -15,15 +16,22 @@ import { cn } from "@/lib/utils";
  * self-service API keys page — are surfaced exclusively through
  * ``UserMenu``; they are registered as routes in
  * ``routes/root.tsx`` but absent from ``SECTIONS``.
+ *
+ * Sections the server does not expose (``WEB_MODULES`` allowlist
+ * intersected with backend availability — see
+ * ``ivre/web/modules.py``) are filtered out of the visible nav
+ * via ``isModuleEnabled``. Direct URLs to disabled sections fall
+ * through to ``<SectionStub />`` with a "not exposed" message.
  */
 export function AppShell() {
+  const visibleSections = SECTIONS.filter((s) => isModuleEnabled(s.id));
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 w-full items-center gap-4 px-6">
           <Brand />
           <nav className="flex flex-1 items-center justify-center gap-1">
-            {SECTIONS.map((section) => (
+            {visibleSections.map((section) => (
               <SectionLink key={section.id} section={section} />
             ))}
           </nav>

@@ -2279,6 +2279,205 @@ class DnsMergeTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# WebModulesTests -- WEB_MODULES allowlist & per-module backend gating
+# ---------------------------------------------------------------------
+
+
+class WebModulesTests(unittest.TestCase):
+    """Pin the behaviour of ``ivre.web.modules`` (the helper that
+    decides which data sections the web layer exposes). The result
+    is the intersection of the operator's ``WEB_MODULES``
+    allowlist (``None`` means "all") and the
+    backends actually configured (``db.<purpose> is not None``).
+
+    The tests stub ``MetaDB`` properties directly so no real
+    backend connection is required.
+    """
+
+    _PURPOSES = ("view", "nmap", "passive", "rir", "flow", "data", "auth")
+
+    def setUp(self):
+        # Save state we mutate.
+        from ivre import config
+        from ivre.db import db
+
+        self._saved_web_modules = config.WEB_MODULES
+        # ``MetaDB`` caches each ``db.<purpose>`` result on
+        # ``self._<purpose>``. Save the existing values (most
+        # likely ``AttributeError`` in a fresh process) so we
+        # can restore them in tearDown.
+        self._saved_attrs: dict[str, object] = {}
+        for purpose in self._PURPOSES:
+            attr = f"_{purpose}"
+            if hasattr(db, attr):
+                self._saved_attrs[attr] = getattr(db, attr)
+        # Default presence: every purpose configured. Tests
+        # that need an absent backend call ``self._set(...)``.
+        for purpose in self._PURPOSES:
+            setattr(db, f"_{purpose}", _BACKEND_SENTINEL)
+
+    def tearDown(self):
+        from ivre import config
+        from ivre.db import db
+
+        config.WEB_MODULES = self._saved_web_modules
+        for purpose in self._PURPOSES:
+            attr = f"_{purpose}"
+            try:
+                delattr(db, attr)
+            except AttributeError:
+                pass
+            if attr in self._saved_attrs:
+                setattr(db, attr, self._saved_attrs[attr])
+
+    def _set(self, **presence):
+        """Force selected ``db.<purpose>`` properties to either
+        the test sentinel (``True``) or ``None`` (``False``)."""
+        from ivre.db import db
+
+        for purpose, present in presence.items():
+            setattr(db, f"_{purpose}", _BACKEND_SENTINEL if present else None)
+
+    def test_default_all_backends_present_returns_all(self):
+        from ivre import config
+        from ivre.web.modules import ALL_MODULES, enabled_modules
+
+        config.WEB_MODULES = None
+        self.assertEqual(enabled_modules(), list(ALL_MODULES))
+
+    def test_default_passive_absent_drops_passive_only(self):
+        # ``dns`` is the special case: it survives as long as
+        # *one* of nmap or passive is configured.
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = None
+        self._set(passive=False)
+        self.assertEqual(
+            enabled_modules(),
+            ["view", "active", "dns", "rir", "flow"],
+        )
+
+    def test_default_both_dns_backends_absent_drops_dns(self):
+        # Neither nmap nor passive => dns module disappears too.
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = None
+        self._set(nmap=False, passive=False)
+        self.assertEqual(enabled_modules(), ["view", "rir", "flow"])
+
+    def test_default_only_nmap_keeps_dns(self):
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = None
+        self._set(passive=False, view=False, rir=False, flow=False)
+        # Active alone keeps DNS alive (nmap branch of the
+        # cross-backend rule).
+        self.assertEqual(enabled_modules(), ["active", "dns"])
+
+    def test_default_only_passive_keeps_dns(self):
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = None
+        self._set(nmap=False, view=False, rir=False, flow=False)
+        # Passive alone keeps DNS alive (passive branch).
+        self.assertEqual(enabled_modules(), ["passive", "dns"])
+
+    def test_explicit_empty_list_returns_empty(self):
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = []
+        self.assertEqual(enabled_modules(), [])
+
+    def test_explicit_allowlist_intersects_with_backends(self):
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = ["view", "passive", "rir"]
+        self._set(passive=False)  # not in DBs
+        self.assertEqual(enabled_modules(), ["view", "rir"])
+
+    def test_explicit_allowlist_canonical_order(self):
+        # Order is canonical (the ``ALL_MODULES`` order), not the
+        # order the operator wrote in ``WEB_MODULES``. This makes
+        # the value emitted by ``/cgi/config`` diffable in
+        # operator runbooks and stable in tests.
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = ["rir", "view", "active"]
+        self.assertEqual(enabled_modules(), ["view", "active", "rir"])
+
+    def test_explicit_allowlist_unknown_name_filtered(self):
+        # Unknown module names in ``WEB_MODULES`` (typos, future
+        # modules an older deployment doesn't know about) are
+        # silently dropped — the canonical set is fixed by code,
+        # not by config.
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = ["view", "made-up-module"]
+        self.assertEqual(enabled_modules(), ["view"])
+
+    def test_is_module_enabled_consistent_with_enabled_modules(self):
+        from ivre import config
+        from ivre.web.modules import enabled_modules, is_module_enabled
+
+        config.WEB_MODULES = ["view", "rir"]
+        self._set(rir=False)
+        self.assertTrue(is_module_enabled("view"))
+        self.assertFalse(is_module_enabled("rir"))
+        self.assertFalse(is_module_enabled("active"))
+        # Sanity-check: ``is_module_enabled`` agrees with the
+        # ``enabled_modules`` set bit-for-bit.
+        for m in ("view", "active", "passive", "dns", "rir", "flow"):
+            self.assertEqual(
+                is_module_enabled(m),
+                m in enabled_modules(),
+            )
+
+    def test_require_module_aborts_404_when_disabled(self):
+        from ivre import config
+        from ivre.web.modules import require_module
+
+        config.WEB_MODULES = ["view"]
+
+        # ``require_module`` raises ``bottle.HTTPError`` (the
+        # type ``bottle.abort`` raises) with status 404 when the
+        # module is not exposed. The status code matters: 404
+        # makes a direct probe look like a missing endpoint.
+        try:
+            require_module("rir")
+        except Exception as exc:
+            self.assertEqual(getattr(exc, "status_code", None), 404)
+        else:
+            self.fail("require_module should have aborted")
+
+    def test_require_module_passes_when_enabled(self):
+        from ivre import config
+        from ivre.web.modules import require_module
+
+        config.WEB_MODULES = None
+        # No exception expected when every backend is wired.
+        require_module("view")
+
+
+class _BackendSentinel:
+    """Sentinel ``MetaDB.get_class`` returns when a given purpose
+    is "configured" in the test harness above. The web-module
+    helpers only check ``is not None`` so any non-None value
+    works — using a dedicated sentinel makes tracebacks clearer
+    if a test accidentally calls a method on the fake."""
+
+
+_BACKEND_SENTINEL = _BackendSentinel()
+
+
+# ---------------------------------------------------------------------
 # UtilsTests -- moved verbatim from tests/tests.py::IvreTests.test_utils
 # ---------------------------------------------------------------------
 
