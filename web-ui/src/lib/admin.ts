@@ -1,12 +1,23 @@
 /**
- * Wrappers over the admin / API-key endpoints exposed by
- * ``ivre/web/auth.py``:
+ * Admin-only hooks for the ``/cgi/auth/admin/*`` routes exposed
+ * by ``ivre/web/auth.py``:
  *
- *   - ``GET    /cgi/auth/admin/users``        — list (admin only)
- *   - ``PUT    /cgi/auth/admin/users/<email>``— upsert (admin only)
- *   - ``GET    /cgi/auth/api-keys``           — list (any authed user)
- *   - ``POST   /cgi/auth/api-keys``           — create (returns secret once)
- *   - ``DELETE /cgi/auth/api-keys/<key_hash>``— revoke (owner-scoped)
+ *   - ``GET    /cgi/auth/admin/users``            — list every user
+ *   - ``PUT    /cgi/auth/admin/users/<email>``    — upsert
+ *   - ``GET    /cgi/auth/admin/api-keys``         — list every key
+ *                                                  across every user
+ *                                                  (audit view)
+ *   - ``DELETE /cgi/auth/admin/api-keys/<hash>``  — revoke any user's
+ *                                                  key
+ *
+ * All admin routes go through a ``_ensure_admin`` check on the
+ * backend (returns 401 / 403 for anonymous / non-admin callers).
+ *
+ * Self-service API-key management — ``GET /cgi/auth/api-keys``,
+ * ``POST`` to create, ``DELETE`` to revoke one's own key — lives
+ * in :mod:`lib/api-keys`. The two surfaces share the
+ * :type:`ApiKey` shape but query different endpoints and have
+ * different auth gates.
  *
  * All routes are ``@check_referer``-protected; same-origin
  * ``fetch()`` with ``credentials: "same-origin"`` satisfies the
@@ -21,6 +32,7 @@ import {
 } from "@tanstack/react-query";
 
 import { CGI_ROOT } from "@/lib/api";
+import type { ApiKey } from "@/lib/api-keys";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -48,29 +60,6 @@ export interface AdminUserUpdate {
   is_admin?: boolean;
   groups?: string[];
   display_name?: string;
-}
-
-/** An API-key record as returned by ``GET /cgi/auth/api-keys``. The
- *  full key value is never returned; only the prefix (12 chars,
- *  for display) and the SHA-256 ``key_hash`` (the URL parameter
- *  for the DELETE endpoint). */
-export interface ApiKey {
-  key_hash: string;
-  key_prefix: string;
-  user_email?: string;
-  name: string;
-  created_at?: string;
-  last_used?: string | null;
-  expires_at?: string | null;
-}
-
-/** Body returned by ``POST /cgi/auth/api-keys``. The ``key`` is
- *  the one and only time the full secret crosses the wire — the
- *  caller must surface it to the user immediately and not store
- *  it. */
-export interface ApiKeyCreated {
-  key: string;
-  name: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -106,27 +95,15 @@ export async function updateAdminUser(
   await ensureOk(r, `PUT ${url}`);
 }
 
-export async function fetchApiKeys(): Promise<ApiKey[]> {
-  const url = `${CGI_ROOT}/auth/api-keys`;
+export async function fetchAdminApiKeys(): Promise<ApiKey[]> {
+  const url = `${CGI_ROOT}/auth/admin/api-keys`;
   const r = await fetch(url, { credentials: "same-origin" });
   await ensureOk(r, `GET ${url}`);
   return (await r.json()) as ApiKey[];
 }
 
-export async function createApiKey(name: string): Promise<ApiKeyCreated> {
-  const url = `${CGI_ROOT}/auth/api-keys`;
-  const r = await fetch(url, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-  await ensureOk(r, `POST ${url}`);
-  return (await r.json()) as ApiKeyCreated;
-}
-
-export async function deleteApiKey(keyHash: string): Promise<void> {
-  const url = `${CGI_ROOT}/auth/api-keys/${encodeURIComponent(keyHash)}`;
+export async function adminDeleteApiKey(keyHash: string): Promise<void> {
+  const url = `${CGI_ROOT}/auth/admin/api-keys/${encodeURIComponent(keyHash)}`;
   const r = await fetch(url, {
     method: "DELETE",
     credentials: "same-origin",
@@ -139,7 +116,7 @@ export async function deleteApiKey(keyHash: string): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 const ADMIN_USERS_KEY = ["admin", "users"] as const;
-const API_KEYS_KEY = ["admin", "api-keys"] as const;
+const ADMIN_API_KEYS_KEY = ["admin", "api-keys"] as const;
 
 export function useAdminUsers(): UseQueryResult<AdminUser[]> {
   return useQuery<AdminUser[]>({
@@ -168,35 +145,25 @@ export function useUpdateAdminUser(): UseMutationResult<
   });
 }
 
-export function useApiKeys(): UseQueryResult<ApiKey[]> {
+export function useAdminApiKeys(): UseQueryResult<ApiKey[]> {
   return useQuery<ApiKey[]>({
-    queryKey: API_KEYS_KEY,
-    queryFn: fetchApiKeys,
+    queryKey: ADMIN_API_KEYS_KEY,
+    queryFn: fetchAdminApiKeys,
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });
 }
 
-export function useCreateApiKey(): UseMutationResult<
-  ApiKeyCreated,
+export function useAdminDeleteApiKey(): UseMutationResult<
+  void,
   Error,
   string
 > {
   const queryClient = useQueryClient();
-  return useMutation<ApiKeyCreated, Error, string>({
-    mutationFn: (name) => createApiKey(name),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: API_KEYS_KEY });
-    },
-  });
-}
-
-export function useDeleteApiKey(): UseMutationResult<void, Error, string> {
-  const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (keyHash) => deleteApiKey(keyHash),
+    mutationFn: (keyHash) => adminDeleteApiKey(keyHash),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: API_KEYS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ADMIN_API_KEYS_KEY });
     },
   });
 }

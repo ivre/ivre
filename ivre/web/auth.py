@@ -399,9 +399,10 @@ def delete_api_key(key_hash: str) -> str:
 # --- Admin routes ---
 
 
-@application.get("/auth/admin/users")
-@check_referer
-def admin_list_users() -> str:
+def _ensure_admin() -> None:
+    """Abort the request with 401/403 unless the caller is an
+    authenticated admin. Centralises the gate shared by every
+    ``/auth/admin/*`` route."""
     user = webutils.get_user()
     if user is None:
         abort(401, "Authentication required")
@@ -410,6 +411,12 @@ def admin_list_users() -> str:
     user_doc = db.auth.get_user_by_email(user)
     if not user_doc or not user_doc.get("is_admin"):
         abort(403, "Admin access required")
+
+
+@application.get("/auth/admin/users")
+@check_referer
+def admin_list_users() -> str:
+    _ensure_admin()
     users = db.auth.list_users()
     for u in users:
         u.pop("_id", None)
@@ -421,17 +428,47 @@ def admin_list_users() -> str:
     return json.dumps(users)
 
 
+@application.get("/auth/admin/api-keys")
+@check_referer
+def admin_list_api_keys() -> str:
+    """Admin audit view: list every API key across every user.
+    The full secret is never stored, so the response carries the
+    same fields as the owner-scoped ``GET /auth/api-keys`` plus
+    the ``user_email`` of each key's owner (already in the
+    underlying record)."""
+    _ensure_admin()
+    keys = db.auth.list_api_keys()
+    for key in keys:
+        key.pop("_id", None)
+        if "created_at" in key:
+            key["created_at"] = key["created_at"].isoformat()
+        if "last_used" in key and key["last_used"]:
+            key["last_used"] = key["last_used"].isoformat()
+        if "expires_at" in key and key["expires_at"]:
+            key["expires_at"] = key["expires_at"].isoformat()
+    response.content_type = "application/json"
+    return json.dumps(keys)
+
+
+@application.delete("/auth/admin/api-keys/<key_hash>")
+@check_referer
+def admin_delete_api_key(key_hash: str) -> str:
+    """Admin revocation path: delete any user's key by hash. The
+    owner-scoped ``DELETE /auth/api-keys/<key_hash>`` path stays
+    available for users to revoke their own keys without admin
+    privileges."""
+    _ensure_admin()
+    deleted = db.auth.delete_api_key(key_hash)
+    if not deleted:
+        abort(404, "API key not found")
+    response.content_type = "application/json"
+    return json.dumps({"status": "ok"})
+
+
 @application.put("/auth/admin/users/<email:path>")
 @check_referer
 def admin_update_user(email: str) -> str:
-    user = webutils.get_user()
-    if user is None:
-        abort(401, "Authentication required")
-    if db.auth is None:
-        abort(500, "Authentication backend not configured")
-    user_doc = db.auth.get_user_by_email(user)
-    if not user_doc or not user_doc.get("is_admin"):
-        abort(403, "Admin access required")
+    _ensure_admin()
     try:
         data = json.loads(request.body.read())
     except (json.JSONDecodeError, AttributeError):

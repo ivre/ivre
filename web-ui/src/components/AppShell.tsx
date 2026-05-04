@@ -2,7 +2,6 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
-import { isAuthEnabled } from "@/lib/config";
 import { SECTIONS, type SectionConfig } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 
@@ -11,23 +10,20 @@ import { cn } from "@/lib/utils";
  * theme toggle and user menu on the right. The active route is
  * rendered through ``<Outlet />`` (react-router).
  *
- * Sections marked ``requiresAuth`` are filtered out of the visible
- * nav when ``config.auth_enabled`` is false. This applies to the
- * ``Admin`` tab today.
+ * The section nav is reserved for *data* sections (View, Active,
+ * Passive, DNS, Flow, RIR). Account / admin pages — Admin, the
+ * self-service API keys page — are surfaced exclusively through
+ * ``UserMenu``; they are registered as routes in
+ * ``routes/root.tsx`` but absent from ``SECTIONS``.
  */
 export function AppShell() {
-  const authEnabled = isAuthEnabled();
-  const visible: readonly SectionConfig[] = SECTIONS.filter(
-    (s) => !s.requiresAuth || authEnabled,
-  );
-
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 w-full items-center gap-4 px-6">
           <Brand />
           <nav className="flex flex-1 items-center justify-center gap-1">
-            {visible.map((section) => (
+            {SECTIONS.map((section) => (
               <SectionLink key={section.id} section={section} />
             ))}
           </nav>

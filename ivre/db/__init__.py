@@ -5807,7 +5807,11 @@ class DBAuth(DB):
     def validate_api_key(self, key):
         raise NotImplementedError
 
-    def list_api_keys(self, user_email):
+    def list_api_keys(self, user_email=None):
+        """List API key records. When ``user_email`` is given,
+        restrict to keys owned by that user (the self-service
+        path); when ``None``, return every key across every
+        owner (the admin audit path)."""
         raise NotImplementedError
 
     def delete_api_key(self, key_hash):

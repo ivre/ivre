@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  createApiKey,
-  deleteApiKey,
+  adminDeleteApiKey,
+  fetchAdminApiKeys,
   fetchAdminUsers,
-  fetchApiKeys,
   updateAdminUser,
 } from "./admin";
 
@@ -93,11 +92,11 @@ describe("updateAdminUser", () => {
   });
 });
 
-describe("fetchApiKeys", () => {
-  it("hits ``/cgi/auth/api-keys`` and parses the JSON array", async () => {
+describe("fetchAdminApiKeys", () => {
+  it("hits the cross-user audit endpoint and parses the JSON array", async () => {
     const sample = [
       {
-        key_hash: "abc123",
+        key_hash: "abc",
         key_prefix: "ivre_aaaa",
         user_email: "alice@example.com",
         name: "ci-pipeline",
@@ -105,56 +104,50 @@ describe("fetchApiKeys", () => {
         last_used: null,
         expires_at: null,
       },
+      {
+        key_hash: "def",
+        key_prefix: "ivre_bbbb",
+        user_email: "bob@example.com",
+        name: "dashboard",
+        created_at: "2024-02-01T08:00:00",
+        last_used: "2024-03-01T12:00:00",
+        expires_at: null,
+      },
     ];
-    mockFetch(
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify(sample), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
-      ),
-    );
-    expect(await fetchApiKeys()).toEqual(sample);
-  });
-});
-
-describe("createApiKey", () => {
-  it("POSTs the name and returns the one-shot ``{key, name}`` body", async () => {
     const spy = vi.fn(
       async () =>
-        new Response(
-          JSON.stringify({ key: "ivre_secrettoken123", name: "ci" }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+        new Response(JSON.stringify(sample), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
     );
     mockFetch(spy);
 
-    const out = await createApiKey("ci");
-    expect(out).toEqual({ key: "ivre_secrettoken123", name: "ci" });
+    const out = await fetchAdminApiKeys();
+    expect(out).toEqual(sample);
+    // The admin variant is intentionally a separate URL from the
+    // owner-scoped ``/cgi/auth/api-keys`` — see ``lib/api-keys``.
     expect(spy).toHaveBeenCalledWith(
-      "/cgi/auth/api-keys",
-      expect.objectContaining({
-        method: "POST",
-        credentials: "same-origin",
-        body: JSON.stringify({ name: "ci" }),
-      }),
+      "/cgi/auth/admin/api-keys",
+      expect.objectContaining({ credentials: "same-origin" }),
     );
   });
 
-  it("throws on non-2xx", async () => {
-    mockFetch(vi.fn(async () => new Response("bad", { status: 400 })));
-    await expect(createApiKey("")).rejects.toThrow(/POST.*api-keys.*400/);
+  it("throws on a non-2xx response", async () => {
+    mockFetch(vi.fn(async () => new Response("nope", { status: 403 })));
+    await expect(fetchAdminApiKeys()).rejects.toThrow(
+      /admin\/api-keys.*403/,
+    );
   });
 });
 
-describe("deleteApiKey", () => {
-  it("DELETEs ``/cgi/auth/api-keys/<key_hash>`` URL-encoded", async () => {
+describe("adminDeleteApiKey", () => {
+  it("DELETEs the admin variant URL with the key hash URL-encoded", async () => {
     const spy = vi.fn(async () => new Response('{"status":"ok"}'));
     mockFetch(spy);
-    await deleteApiKey("abc123/with weird chars");
+    await adminDeleteApiKey("abc/with weird chars");
     expect(spy).toHaveBeenCalledWith(
-      "/cgi/auth/api-keys/abc123%2Fwith%20weird%20chars",
+      "/cgi/auth/admin/api-keys/abc%2Fwith%20weird%20chars",
       expect.objectContaining({
         method: "DELETE",
         credentials: "same-origin",
@@ -164,8 +157,8 @@ describe("deleteApiKey", () => {
 
   it("throws on non-2xx", async () => {
     mockFetch(vi.fn(async () => new Response("not found", { status: 404 })));
-    await expect(deleteApiKey("xyz")).rejects.toThrow(
-      /DELETE.*api-keys.*404/,
+    await expect(adminDeleteApiKey("xyz")).rejects.toThrow(
+      /DELETE.*admin\/api-keys.*404/,
     );
   });
 });

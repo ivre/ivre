@@ -7316,12 +7316,9 @@ class MongoDBAuth(MongoDB, DBAuth):
         )
         return self.get_user_by_email(api_key["user_email"])
 
-    def list_api_keys(self, user_email):
-        return list(
-            self.db[self.columns[self.column_api_keys]].find(
-                {"user_email": user_email},
-            )
-        )
+    def list_api_keys(self, user_email=None):
+        flt = {} if user_email is None else {"user_email": user_email}
+        return list(self.db[self.columns[self.column_api_keys]].find(flt))
 
     def delete_api_key(self, key_hash, user_email=None):
         flt = {"key_hash": key_hash}

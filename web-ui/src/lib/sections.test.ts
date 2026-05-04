@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import { getSection, SECTIONS } from "./sections";
 
 describe("section configs", () => {
-  it("defines all known sections", () => {
+  it("defines all known data sections", () => {
     const ids = SECTIONS.map((s) => s.id);
+    // Account / admin pages (Admin, API keys) are intentionally
+    // *not* listed here — they are pure routes registered in
+    // ``routes/root.tsx`` and surfaced via the user menu only.
     expect(ids).toEqual([
       "view",
       "active",
@@ -12,8 +15,13 @@ describe("section configs", () => {
       "dns",
       "flow",
       "rir",
-      "admin",
     ]);
+  });
+
+  it("does not list Admin or API keys (those are user-menu-only routes)", () => {
+    const ids = SECTIONS.map((s) => s.id) as readonly string[];
+    expect(ids).not.toContain("admin");
+    expect(ids).not.toContain("api-keys");
   });
 
   describe("view", () => {
