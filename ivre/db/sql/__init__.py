@@ -287,16 +287,54 @@ class SQLDB(DB):
         return self.base_filter()
 
     def drop(self):
-        for table in reversed(self.tables):
-            table.__table__.drop(bind=self.db, checkfirst=True)
+        with self.db.begin() as conn:
+            for table in reversed(self.tables):
+                table.__table__.drop(bind=conn, checkfirst=True)
 
     def create(self):
-        for table in self.tables:
-            table.__table__.create(bind=self.db, checkfirst=True)
+        with self.db.begin() as conn:
+            for table in self.tables:
+                table.__table__.create(bind=conn, checkfirst=True)
 
     def init(self):
         self.drop()
         self.create()
+
+    def _read(self, stmt):
+        """Execute a read statement and return the materialised list
+        of result rows. Wraps the legacy ``Engine.execute(stmt)``
+        idiom in a 2.x-style ``with engine.connect()`` block so the
+        migration to SQLAlchemy 2.x reduces to one helper call per
+        legacy site.
+
+        Returns the rows eagerly so callers can iterate without
+        keeping the underlying connection open. Streamed reads
+        (large cursors) should use :meth:`_read_iter` instead.
+        """
+        with self.db.connect() as conn:
+            return conn.execute(stmt).fetchall()
+
+    def _read_iter(self, stmt):
+        """Like :meth:`_read` but yields rows one at a time, holding
+        the connection open for the duration of the iteration. Use
+        for unbounded / large result sets where eager
+        materialisation would be wasteful."""
+        with self.db.connect() as conn:
+            yield from conn.execute(stmt)
+
+    def _read_one(self, stmt):
+        """Execute a read statement and return the first row, or
+        ``None`` if the result set is empty."""
+        with self.db.connect() as conn:
+            return conn.execute(stmt).fetchone()
+
+    def _write(self, stmt):
+        """Execute a write statement (INSERT / UPDATE / DELETE) inside
+        a transactional block. Returns the result object so callers
+        can read ``rowcount`` / ``inserted_primary_key`` /
+        ``fetchone()[0]`` etc."""
+        with self.db.begin() as conn:
+            return conn.execute(stmt)
 
     def explain(self, req, **_):
         """This method calls the SQL EXPLAIN statement to retrieve database
@@ -411,7 +449,7 @@ class SQLDB(DB):
 
     @staticmethod
     def _distinct_req(field, flt):
-        return flt.query(select([field.distinct()]).select_from(flt.select_from))
+        return flt.query(select(field.distinct()).select_from(flt.select_from))
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None, **kargs):
         """This method produces a generator of distinct values for a given
@@ -448,7 +486,10 @@ class SQLDB(DB):
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return (next(iter(res.values())) for res in self.db.execute(req))
+        # ``Row.values()`` was deprecated in SQLAlchemy 1.4 and
+        # removed in 2.x; use the ``_mapping`` view instead. Both
+        # major versions accept this form.
+        return (next(iter(res._mapping.values())) for res in self._read_iter(req))
 
     @staticmethod
     def _flt_and(cond1, cond2):
@@ -470,7 +511,7 @@ class SQLDB(DB):
                 [idfield.label("id"), func.unnest(field).label("field")]
             ).cte("base1")
             base2 = (
-                select([column("id", Integer)])
+                select(column("id", Integer))
                 .select_from(base1)
                 .where(column("field").op(operator)(value))
             )
@@ -751,7 +792,7 @@ class ActiveFilter(Filter):
         if self.main is not None:
             req = req.where(self.main)
         for incl, subflt in self.hostname:
-            base = select([self.tables.hostname.scan]).where(subflt)
+            base = select(self.tables.hostname.scan).where(subflt)
             if incl:
                 req = req.where(self.tables.scan.id.in_(base))
             else:
@@ -761,7 +802,7 @@ class ActiveFilter(Filter):
         for subflt in self.category:
             req = req.where(
                 exists(
-                    select([1])
+                    select(1)
                     .select_from(
                         join(
                             self.tables.category, self.tables.association_scan_category
@@ -778,17 +819,17 @@ class ActiveFilter(Filter):
             if incl:
                 req = req.where(
                     exists(
-                        select([1])
+                        select(1)
                         .select_from(self.tables.port)
                         .where(subflt)
                         .where(self.tables.port.scan == self.tables.scan.id)
                     )
                 )
             else:
-                base = select([self.tables.port.scan]).where(subflt)
+                base = select(self.tables.port.scan).where(subflt)
                 req = req.where(self.tables.scan.id.notin_(base))
         for incl, subflt in self.script:
-            subreq = select([1]).select_from(join(self.tables.script, self.tables.port))
+            subreq = select(1).select_from(join(self.tables.script, self.tables.port))
             if isinstance(subflt, tuple):
                 for selectfrom in subflt[1]:
                     subreq = subreq.select_from(selectfrom)
@@ -801,7 +842,7 @@ class ActiveFilter(Filter):
             else:
                 req = req.where(not_(exists(subreq)))
         for incl, subflt in self.tag:
-            base = select([self.tables.tag.scan]).where(subflt)
+            base = select(self.tables.tag.scan).where(subflt)
             if incl:
                 req = req.where(self.tables.scan.id.in_(base))
             else:
@@ -809,7 +850,7 @@ class ActiveFilter(Filter):
         for subflt in self.trace:
             req = req.where(
                 exists(
-                    select([1])
+                    select(1)
                     .select_from(join(self.tables.trace, self.tables.hop))
                     .where(subflt)
                     .where(self.tables.trace.scan == self.tables.scan.id)
@@ -943,7 +984,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "http-headers"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if "http-headers" not in rec.data:
                 try:
                     data = xmlnmap.add_http_headers_data(
@@ -956,7 +997,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -968,7 +1009,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=9))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=9))
         return len(failed)
 
     def _migrate_schema_9_10(self):
@@ -992,7 +1033,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "s7-info"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if "s7-info" in rec.data:
                 try:
                     data = xmlnmap.change_s7_info_keys(rec.data["s7-info"])
@@ -1003,7 +1044,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1015,7 +1056,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=10))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=10))
         return len(failed)
 
     def _migrate_schema_10_11(self):
@@ -1047,7 +1088,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name.in_(["fcrdns", "rpcinfo"])))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name in rec.data:
                 migr_func = {
                     "fcrdns": xmlnmap.change_fcrdns_migrate,
@@ -1062,7 +1103,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1074,7 +1115,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=12))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=12))
         return len(failed)
 
     def _migrate_schema_12_13(self):
@@ -1104,7 +1145,7 @@ class SQLDBActive(SQLDB, DBActive):
                 )
             )
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name in rec.data:
                 migr_func = {
                     "ms-sql-info": xmlnmap.change_ms_sql_info,
@@ -1119,7 +1160,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1131,7 +1172,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=13))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=13))
         return len(failed)
 
     def _migrate_schema_13_14(self):
@@ -1163,7 +1204,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name.in_(scripts)))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name in rec.data:
                 migr_func = (
                     xmlnmap.change_ssh_hostkey
@@ -1179,7 +1220,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1191,7 +1232,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=14))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=14))
         return len(failed)
 
     def _migrate_schema_14_15(self):
@@ -1217,7 +1258,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "http-git"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name in rec.data:
                 try:
                     data = xmlnmap.change_http_git(rec.data[rec.name])
@@ -1228,7 +1269,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1240,7 +1281,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=15))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=15))
         return len(failed)
 
     def _migrate_schema_15_16(self):
@@ -1266,7 +1307,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "http-server-header"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             updated = False
             if "http-server-header" in rec.data:
                 data = rec.data["http-server-header"]
@@ -1291,7 +1332,7 @@ class SQLDBActive(SQLDB, DBActive):
                 else:
                     updated = True
             if updated:
-                self.db.execute(
+                self._write(
                     update(self.tables.script)
                     .where(
                         and_(
@@ -1303,7 +1344,7 @@ class SQLDBActive(SQLDB, DBActive):
                 )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=16))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=16))
         return len(failed)
 
     def _migrate_schema_17_18(self):
@@ -1328,7 +1369,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "ssh2-enum-algos"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name in rec.data:
                 try:
                     output, data = xmlnmap.change_ssh2_enum_algos(
@@ -1342,7 +1383,7 @@ class SQLDBActive(SQLDB, DBActive):
                     failed.add(rec.id)
                 else:
                     if data:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1354,7 +1395,7 @@ class SQLDBActive(SQLDB, DBActive):
                         )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=18))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=18))
         return len(failed)
 
     def _migrate_schema_18_19(self):
@@ -1381,7 +1422,7 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(and_(cond, self.tables.script.name == "smb-os-discovery"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if rec.name == "smb-os-discovery":
                 if rec.name in rec.data:
                     try:
@@ -1399,7 +1440,7 @@ class SQLDBActive(SQLDB, DBActive):
                             }
                         else:
                             data = {"smb-os-discovery": smb["smb-os-discovery"]}
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -1409,7 +1450,7 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(output=smb["output"], data=data)
                         )
-                        self.db.execute(
+                        self._write(
                             insert(self.tables.script).values(
                                 port=rec.port,
                                 name=ntlm["id"],
@@ -1420,7 +1461,7 @@ class SQLDBActive(SQLDB, DBActive):
                 elif rec.name.endswith("-ntlm-info"):
                     script = {"id": rec.name, "output": rec.output, rec.name: rec.data}
                     xmlnmap.post_ntlm_info(script, {}, {})
-                    self.db.execute(
+                    self._write(
                         update(self.tables.script)
                         .where(
                             and_(
@@ -1436,23 +1477,23 @@ class SQLDBActive(SQLDB, DBActive):
                     )
         if failed:
             cond = and_(cond, self.tables.scan.id.notin_(failed))
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=19))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=19))
         return len(failed)
 
     def count(self, flt, **_):
-        return self.db.execute(
-            flt.query(select([func.count()])).select_from(flt.select_from)
-        ).fetchone()[0]
+        return self._read_one(
+            flt.query(select(func.count())).select_from(flt.select_from)
+        )[0]
 
     @staticmethod
     def _distinct_req(field, flt):
         flt = flt.copy()
         return flt.query(
-            select([field.distinct()]).select_from(flt.select_from_base(field.parent))
+            select(field.distinct()).select_from(flt.select_from_base(field.parent))
         )
 
     def _get_open_port_count(self, flt, limit=None, skip=None):
-        req = flt.query(select([self.tables.scan.id]))
+        req = flt.query(select(self.tables.scan.id))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -1460,7 +1501,7 @@ class SQLDBActive(SQLDB, DBActive):
         base = req.cte("base")
         return (
             {"addr": rec[2], "starttime": rec[1], "openports": {"count": rec[0]}}
-            for rec in self.db.execute(
+            for rec in self._read_iter(
                 select(
                     [
                         func.count(self.tables.port.id),
@@ -1496,7 +1537,7 @@ class SQLDBActive(SQLDB, DBActive):
             req = req.limit(limit)
         return (
             {"_id": Point().result_processor(None, None)(rec[1]), "count": rec[0]}
-            for rec in self.db.execute(
+            for rec in self._read_iter(
                 req.group_by(self.tables.scan.info["coordinates"].astext)
             )
         )
@@ -1537,7 +1578,7 @@ class SQLDBActive(SQLDB, DBActive):
 
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
         req = self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields)
-        for scanrec in self.db.execute(req):
+        for scanrec in self._read_iter(req):
             rec = {}
             (
                 rec["_id"],
@@ -1558,20 +1599,20 @@ class SQLDBActive(SQLDB, DBActive):
             if not rec["infos"]:
                 del rec["infos"]
             categories = (
-                select([self.tables.association_scan_category.category])
+                select(self.tables.association_scan_category.category)
                 .where(self.tables.association_scan_category.scan == rec["_id"])
                 .cte("categories")
             )
             rec["categories"] = [
                 cat[0]
-                for cat in self.db.execute(
-                    select([self.tables.category.name]).where(
+                for cat in self._read_iter(
+                    select(self.tables.category.name).where(
                         self.tables.category.id == categories.c.category
                     )
                 )
             ]
             tags = {}
-            for tag in self.db.execute(
+            for tag in self._read_iter(
                 select(
                     [self.tables.tag.value, self.tables.tag.type, self.tables.tag.info]
                 ).where(self.tables.tag.scan == rec["_id"])
@@ -1586,8 +1627,8 @@ class SQLDBActive(SQLDB, DBActive):
                     dict(tag, info=sorted(tag["info"])) if "info" in tag else tag
                     for tag in (tags[key] for key in sorted(tags))
                 ]
-            for port in self.db.execute(
-                select([self.tables.port]).where(self.tables.port.scan == rec["_id"])
+            for port in self._read_iter(
+                select(self.tables.port).where(self.tables.port.scan == rec["_id"])
             ):
                 recp = {}
                 (
@@ -1617,7 +1658,7 @@ class SQLDBActive(SQLDB, DBActive):
                 for fld, value in list(recp.items()):
                     if value is None:
                         del recp[fld]
-                for script in self.db.execute(
+                for script in self._read_iter(
                     select(
                         [
                             self.tables.script.name,
@@ -1640,21 +1681,26 @@ class SQLDBActive(SQLDB, DBActive):
                                     pass
                     recp.setdefault("scripts", []).append(data)
                 rec.setdefault("ports", []).append(recp)
-            for trace in self.db.execute(
-                select([self.tables.trace]).where(self.tables.trace.scan == rec["_id"])
+            for trace in self._read_iter(
+                select(self.tables.trace).where(self.tables.trace.scan == rec["_id"])
             ):
                 curtrace = {}
                 rec.setdefault("traces", []).append(curtrace)
-                curtrace["port"] = trace["port"]
-                curtrace["protocol"] = trace["protocol"]
+                # ``Row.__getitem__(str)`` was deprecated in 1.4
+                # and removed in 2.x; access via ``Row._mapping``
+                # works on both major versions.
+                trace_map = trace._mapping
+                curtrace["port"] = trace_map["port"]
+                curtrace["protocol"] = trace_map["protocol"]
                 curtrace["hops"] = []
-                for hop in self.db.execute(
-                    select([self.tables.hop])
-                    .where(self.tables.hop.trace == trace["id"])
+                for hop in self._read_iter(
+                    select(self.tables.hop)
+                    .where(self.tables.hop.trace == trace_map["id"])
                     .order_by(self.tables.hop.ttl)
                 ):
+                    hop_map = hop._mapping
                     values = {
-                        key: hop[key]
+                        key: hop_map[key]
                         for key in ["ipaddr", "ttl", "rtt", "host", "domains"]
                     }
                     try:
@@ -1662,13 +1708,14 @@ class SQLDBActive(SQLDB, DBActive):
                     except ValueError:
                         pass
                     curtrace["hops"].append(values)
-            for hostname in self.db.execute(
-                select([self.tables.hostname]).where(
+            for hostname in self._read_iter(
+                select(self.tables.hostname).where(
                     self.tables.hostname.scan == rec["_id"]
                 )
             ):
+                hostname_map = hostname._mapping
                 rec.setdefault("hostnames", []).append(
-                    {key: hostname[key] for key in ["name", "type", "domains"]}
+                    {key: hostname_map[key] for key in ["name", "type", "domains"]}
                 )
             yield rec
 
@@ -1677,17 +1724,15 @@ class SQLDBActive(SQLDB, DBActive):
         .get().
 
         """
-        self.db.execute(
-            delete(self.tables.scan).where(self.tables.scan.id == host["_id"])
-        )
+        self._write(delete(self.tables.scan).where(self.tables.scan.id == host["_id"]))
 
     def remove_many(self, flt):
         """Removes the host scan result. `flt` must be a valid NmapFilter()
         instance.
 
         """
-        base = flt.query(select([self.tables.scan.id])).cte("base")
-        self.db.execute(delete(self.tables.scan).where(self.tables.scan.id.in_(base)))
+        base = flt.query(select(self.tables.scan.id)).cte("base")
+        self._write(delete(self.tables.scan).where(self.tables.scan.id.in_(base)))
 
     _topstructure = namedtuple(
         "topstructure", ["base", "fields", "where", "group_by", "extraselectfrom"]
@@ -1874,8 +1919,8 @@ class SQLDBActive(SQLDB, DBActive):
     def searchcountopenports(cls, minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
-        req = select([column("scan", Integer)]).select_from(
-            select([cls.tables.port.scan.label("scan"), func.count().label("count")])
+        req = select(column("scan", Integer)).select_from(
+            select(cls.tables.port.scan.label("scan"), func.count().label("count"))
             .where(cls.tables.port.state == "open")
             .group_by(cls.tables.port.scan)
             .alias("pcnt")
@@ -2228,7 +2273,7 @@ class SQLDBActive(SQLDB, DBActive):
                         "~*" if (fname.flags & re.IGNORECASE) else "~"
                     )(fname.pattern)
                 base2 = (
-                    select([column("port", Integer)])
+                    select(column("port", Integer))
                     .select_from(base1)
                     .where(where_clause)
                 )
@@ -2684,19 +2729,17 @@ class SQLDBPassive(SQLDB, DBPassive):
     base_filter = PassiveFilter
 
     def count(self, flt):
-        return self.db.execute(
-            flt.query(select([func.count()]).select_from(flt.select_from))
-        ).fetchone()[0]
+        return self._read_one(
+            flt.query(select(func.count()).select_from(flt.select_from))
+        )[0]
 
     def remove(self, spec_or_id):
         if not isinstance(spec_or_id, Filter):
             spec_or_id = self.searchobjectid(spec_or_id)
         base = spec_or_id.query(
-            select([self.tables.passive.id]).select_from(spec_or_id.select_from)
+            select(self.tables.passive.id).select_from(spec_or_id.select_from)
         ).cte("base")
-        self.db.execute(
-            delete(self.tables.passive).where(self.tables.passive.id.in_(base))
-        )
+        self._write(delete(self.tables.passive).where(self.tables.passive.id.in_(base)))
 
     def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
         if fields is not None:
@@ -2735,8 +2778,13 @@ class SQLDBPassive(SQLDB, DBPassive):
 
         """
         req = self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields)
-        for rec in self.db.execute(req):
-            rec = {key: value for key, value in rec.items() if value is not None}
+        for rec in self._read_iter(req):
+            # ``Row.items()`` was deprecated in 1.4 and removed
+            # in 2.x; ``Row._mapping`` exposes the same dict-style
+            # interface on both major versions.
+            rec = {
+                key: value for key, value in rec._mapping.items() if value is not None
+            }
             try:
                 rec["addr"] = self.internal2ip(rec["addr"])
             except (KeyError, ValueError):
@@ -2999,7 +3047,7 @@ class SQLDBPassive(SQLDB, DBPassive):
                 "count": result[0],
                 "_id": outputproc(result[1:] if len(result) > 2 else result[1]),
             }
-            for result in self.db.execute(req.order_by(order).limit(topnbr))
+            for result in self._read_iter(req.order_by(order).limit(topnbr))
         )
 
     def _features_port_list(self, flt, yieldall, use_service, use_product, use_version):
@@ -3027,10 +3075,10 @@ class SQLDBPassive(SQLDB, DBPassive):
         req = flt.query(select(fields).group_by(*fields))
         if not yieldall:
             req = req.order_by(*(nulls_first(fld) for fld in fields))
-            return self.db.execute(req)
+            return self._read_iter(req)
         # results will be modified, we cannot keep a RowProxy
         # instance, so we convert the results to lists
-        return (list(rec) for rec in self.db.execute(req))
+        return (list(rec) for rec in self._read_iter(req))
 
     @classmethod
     def searchnonexistent(cls):
