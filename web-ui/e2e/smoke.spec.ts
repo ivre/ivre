@@ -33,11 +33,13 @@ test("app shell loads and lands on View", async ({ page }) => {
 });
 
 test("section nav switches to a stub", async ({ page }) => {
+  // ``flow`` is the last stub-state section; the others
+  // (View, Active, Passive, DNS, RIR) all have real routes.
   await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
   await page.goto("/");
-  await page.getByRole("link", { name: "RIR" }).click();
-  await expect(page).toHaveURL(/#\/rir/);
-  await expect(page.getByRole("heading", { name: /RIR/i })).toBeVisible();
+  await page.getByRole("link", { name: "Flow" }).click();
+  await expect(page).toHaveURL(/#\/flow/);
+  await expect(page.getByRole("heading", { name: /Flow/i })).toBeVisible();
   await expect(page.getByText(/under construction/i)).toBeVisible();
 });
 
@@ -882,4 +884,100 @@ test("DNS section forwards user-typed filters to /cgi/dns", async ({
 
   expect(dnsQueries.length).toBeGreaterThan(0);
   expect(dnsQueries[dnsQueries.length - 1]).toBe("hostname:example.com");
+});
+
+test("RIR section renders inet[6]num and aut-num records", async ({
+  page,
+}) => {
+  // One inet[6]num record (a /24 — should collapse to its CIDR
+  // form in the headline) and one aut-num record. The card
+  // exposes a "Show more" toggle revealing the RPSL key/value
+  // table for any extra fields the dump carried.
+  const records = [
+    {
+      schema_version: 2,
+      start: "192.0.2.0",
+      stop: "192.0.2.255",
+      size: 256,
+      netname: "EXAMPLE-NET",
+      descr: "Example Allocation",
+      country: "FR",
+      org: "Example Org",
+      source_file: "ripe.db.inetnum.gz",
+      "mnt-by": "EXAMPLE-MNT",
+      status: "ASSIGNED PA",
+    },
+    {
+      schema_version: 2,
+      "aut-num": 64512,
+      "as-name": "EXAMPLE-AS",
+      descr: "Example Autonomous System",
+      country: "FR",
+      source_file: "ripe.db.aut-num.gz",
+    },
+  ];
+  const queries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/rir") {
+      queries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(records),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/rir");
+
+  // Heading + count.
+  await expect(
+    page.getByRole("heading", { name: /RIR records/i }),
+  ).toBeVisible();
+
+  // inet[6]num headline collapses to the /24 CIDR (no
+  // ``— stop`` form); badges surface country and netname.
+  await expect(page.getByText("192.0.2.0/24")).toBeVisible();
+  await expect(page.getByText(/netname:.*EXAMPLE-NET/i)).toBeVisible();
+
+  // aut-num headline.
+  await expect(page.getByRole("button", { name: /^AS64512$/ })).toBeVisible();
+  await expect(page.getByText(/as-name:.*EXAMPLE-AS/i)).toBeVisible();
+
+  // The "Show more" toggle reveals the extra RPSL fields
+  // (``mnt-by``, ``status``) that aren't in the visible badges.
+  const showMore = page.getByRole("button", { name: /show more/i }).first();
+  await showMore.click();
+  await expect(page.getByText("mnt-by:")).toBeVisible();
+  await expect(page.getByText("EXAMPLE-MNT")).toBeVisible();
+
+  // The endpoint received the user's (empty) ``q``.
+  expect(queries.length).toBeGreaterThan(0);
+  expect(queries[0]).toBe("");
+});
+
+test("RIR section forwards user-typed filters to /cgi/rir", async ({
+  page,
+}) => {
+  const queries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/rir") {
+      queries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/rir?q=country%3AFR");
+  await page.waitForLoadState("networkidle");
+
+  expect(queries.length).toBeGreaterThan(0);
+  expect(queries[queries.length - 1]).toBe("country:FR");
 });

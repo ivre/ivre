@@ -29,7 +29,12 @@ from ivre.db import db
 from ivre.utils import merge_dns_results, serialize, str2regexp
 
 
-def serialize_sets(obj: Any) -> str | list:
+def serialize_sets(obj: Any) -> Any:
+    # ``json.dumps``'s ``default=`` callable may return any
+    # JSON-serialisable value (str, int, list, dict, ...).
+    # ``serialize`` itself widened to ``-> Any`` so it can
+    # express the int / string variants emitted for
+    # ``bson.Decimal128`` values.
     if isinstance(obj, set):
         return sorted(obj)
     return serialize(obj)

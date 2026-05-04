@@ -26,7 +26,7 @@ from typing import Dict
 
 from ivre.config import RIR_PATH
 from ivre.db import DBRir, db
-from ivre.utils import CLI_ARGPARSER, range2nets, str2list
+from ivre.utils import CLI_ARGPARSER, range2nets, serialize, str2list
 
 
 def printrec_full(rec: Dict[str, str]) -> None:
@@ -61,7 +61,10 @@ def printrec_json(rec: Dict[str, str]) -> None:
         del rec["_id"]
     except KeyError:
         pass
-    print(json.dumps(rec))
+    # ``default=serialize`` so non-trivial values (e.g. the
+    # ``bson.Decimal128`` ``size`` field added in schema v2) round-trip
+    # to JSON without crashing.
+    print(json.dumps(rec, default=serialize))
 
 
 def printrec_short(rec: Dict[str, str]) -> None:

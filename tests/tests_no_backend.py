@@ -1933,6 +1933,184 @@ class MongoDBSearchFieldTests(unittest.TestCase):
 # ---------------------------------------------------------------------
 
 
+class MongoDBRirSearchTests(unittest.TestCase):
+    """Pin the wire shape of the RIR-specific search methods on
+    ``MongoDBRir`` (``searchnet``, ``searchrange``, ``searchasnum``,
+    ``searchasname``, ``searchsourcefile``) and the schema-v1→v2
+    ``size`` backfill. The active assertion target is the Mongo
+    filter dict / Decimal128 value, so no backend connection is
+    required.
+    """
+
+    @staticmethod
+    def _MR():
+        from ivre.db.mongo import MongoDBRir
+
+        return MongoDBRir
+
+    def test_searchsourcefile_uses_search_field(self):
+        # Wire shape pinned bit-for-bit; ``searchsourcefile`` is a
+        # one-line delegation to the ``_search_field`` helper, which
+        # in turn dispatches the scalar/list/regex/neg ladder.
+        MR = self._MR()
+        self.assertEqual(
+            MR.searchsourcefile("ripe.db.inetnum.gz"),
+            {"source_file": "ripe.db.inetnum.gz"},
+        )
+        self.assertEqual(
+            MR.searchsourcefile("apnic.db.inetnum.gz", neg=True),
+            {"source_file": {"$ne": "apnic.db.inetnum.gz"}},
+        )
+        pat = re.compile(r"^ripe\.")
+        self.assertEqual(
+            MR.searchsourcefile(pat),
+            {"source_file": pat},
+        )
+
+    def test_searchnet_overlap_semantics(self):
+        # ``searchnet`` matches every record whose ``(start, stop)``
+        # range overlaps with the queried network at all (not just
+        # records that fully contain it). The filter is composed of
+        # two AND-ed clauses: ``record.start <= net.stop`` and
+        # ``record.stop >= net.start``, each expressed via the
+        # dual-key compare idiom that stays index-friendly on
+        # (start_0, stop_0, start_1, stop_1).
+        MR = self._MR()
+        flt = MR.searchnet("192.0.2.0/24")
+        self.assertIn("$and", flt)
+        clauses = flt["$and"]
+        self.assertEqual(len(clauses), 2)
+        # First clause: record.start <= net.stop (192.0.2.255).
+        # Second clause: record.stop >= net.start (192.0.2.0).
+        # Both must use $or with start_0/stop_0 dual-key compares.
+        for clause in clauses:
+            self.assertIn("$or", clause)
+        # neg=True is rejected (mirrors searchhost); the route /
+        # web layer should never reach this with neg=True.
+        with self.assertRaises(ValueError):
+            MR.searchnet("192.0.2.0/24", neg=True)
+
+    def test_searchrange_overlap_semantics(self):
+        # Two-endpoint form of the overlap query. Same shape as
+        # ``searchnet`` (both delegate to ``_searchrange_overlap``).
+        MR = self._MR()
+        flt = MR.searchrange("10.0.0.1", "10.0.0.255")
+        self.assertIn("$and", flt)
+        with self.assertRaises(ValueError):
+            MR.searchrange("10.0.0.1", "10.0.0.255", neg=True)
+
+    def test_searchasnum_coerces_string_and_list(self):
+        # ``aut-num`` is stored as int; the helper accepts the common
+        # operator-typed forms ("AS1234", "1234", 1234, lists) and
+        # coerces them. Regex passes through unchanged.
+        MR = self._MR()
+        self.assertEqual(MR.searchasnum("AS1234"), {"aut-num": 1234})
+        self.assertEqual(MR.searchasnum("1234"), {"aut-num": 1234})
+        self.assertEqual(MR.searchasnum(1234), {"aut-num": 1234})
+        self.assertEqual(
+            MR.searchasnum(["AS1234", "AS5678"]),
+            {"aut-num": {"$in": [1234, 5678]}},
+        )
+        self.assertEqual(
+            MR.searchasnum("AS1234", neg=True),
+            {"aut-num": {"$ne": 1234}},
+        )
+        pat = re.compile(r"^12")
+        self.assertEqual(MR.searchasnum(pat), {"aut-num": pat})
+
+    def test_searchasname_uses_search_field(self):
+        MR = self._MR()
+        self.assertEqual(MR.searchasname("Cloudflare"), {"as-name": "Cloudflare"})
+        self.assertEqual(
+            MR.searchasname("Cloudflare", neg=True),
+            {"as-name": {"$ne": "Cloudflare"}},
+        )
+        pat = re.compile(r"Cloud")
+        self.assertEqual(MR.searchasname(pat), {"as-name": pat})
+
+    def test_compute_rir_size_inetnum_v4(self):
+        # /24 IPv4: 256 addresses (inclusive). Round-trip the IVRE
+        # internal-IP halves through ``_compute_rir_size`` and
+        # check the Decimal128 value.
+        import bson
+
+        MR = self._MR()
+        start_0, start_1 = MR.ip2internal("192.0.2.0")
+        stop_0, stop_1 = MR.ip2internal("192.0.2.255")
+        size = MR._compute_rir_size(
+            {
+                "start_0": start_0,
+                "start_1": start_1,
+                "stop_0": stop_0,
+                "stop_1": stop_1,
+            }
+        )
+        self.assertIsInstance(size, bson.Decimal128)
+        self.assertEqual(int(size.to_decimal()), 256)
+
+    def test_compute_rir_size_inetnum_v4_single_host(self):
+        # /32 single-host: size == 1.
+        MR = self._MR()
+        start_0, start_1 = MR.ip2internal("192.0.2.42")
+        stop_0, stop_1 = MR.ip2internal("192.0.2.42")
+        size = MR._compute_rir_size(
+            {
+                "start_0": start_0,
+                "start_1": start_1,
+                "stop_0": stop_0,
+                "stop_1": stop_1,
+            }
+        )
+        self.assertEqual(int(size.to_decimal()), 1)
+
+    def test_compute_rir_size_inet6num_huge_range(self):
+        # IPv6 /48: 2**80 addresses. Decimal128 has 34-decimal-digit
+        # precision; 2**80 = 1208925819614629174706176 (22 digits)
+        # fits losslessly. Confirms we don't accidentally truncate.
+        MR = self._MR()
+        start_0, start_1 = MR.ip2internal("2001:db8::")
+        stop_0, stop_1 = MR.ip2internal("2001:db8:0:ffff:ffff:ffff:ffff:ffff")
+        size = MR._compute_rir_size(
+            {
+                "start_0": start_0,
+                "start_1": start_1,
+                "stop_0": stop_0,
+                "stop_1": stop_1,
+            }
+        )
+        self.assertEqual(int(size.to_decimal()), 2**80)
+
+    def test_compute_rir_size_autnum_returns_none(self):
+        # ``aut-num`` records carry no range and therefore no
+        # ``size``. The helper signals this with ``None``; the
+        # sparse index on ``size`` then ignores them.
+        MR = self._MR()
+        self.assertIsNone(MR._compute_rir_size({"aut-num": 1234, "as-name": "Example"}))
+
+    def test_serialize_decimal128_small_value_as_int(self):
+        # Wire shape for the new ``size`` field: small enough to be
+        # a JS-safe integer → emit as a JSON number directly.
+        import bson
+
+        from ivre import utils
+
+        self.assertEqual(utils.serialize(bson.Decimal128("256")), 256)
+        # 2**32 (a /0 IPv4 range) — well within JS safe integer.
+        self.assertEqual(utils.serialize(bson.Decimal128(str(2**32))), 2**32)
+
+    def test_serialize_decimal128_huge_value_as_string(self):
+        # IPv6 ranges wider than /74 overflow JS safe integer
+        # (2**53 - 1) and would silently lose precision if emitted
+        # as a JSON number; downgrade to a string in that case.
+        import bson
+
+        from ivre import utils
+
+        out = utils.serialize(bson.Decimal128(str(2**80)))
+        self.assertIsInstance(out, str)
+        self.assertEqual(int(out), 2**80)
+
+
 class DnsMergeTests(unittest.TestCase):
     """Tests for ``ivre.utils.merge_dns_results``: the helper
     that folds two ``(name, addr) -> {types, sources, firstseen,

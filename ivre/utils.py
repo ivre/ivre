@@ -67,6 +67,7 @@ except ImportError:
 else:
     USE_PIL = True
 try:
+    import bson
     from bson.regex import Regex as BsonRegex
 except ImportError:
     USE_BSON = False
@@ -858,7 +859,7 @@ def recursive_filelisting(
                 yield os.path.join(root, leaffile)
 
 
-def serialize(obj: Any) -> str:
+def serialize(obj: Any) -> Any:
     """Return a JSON-compatible representation for `obj`"""
     regexp_types = (REGEXP_T, BsonRegex) if USE_BSON else REGEXP_T
     if isinstance(obj, regexp_types):
@@ -867,6 +868,18 @@ def serialize(obj: Any) -> str:
         return str(obj)
     if isinstance(obj, bytes):
         return obj.decode()
+    if USE_BSON and isinstance(obj, bson.Decimal128):
+        # JSON has no decimal type. Render small values (<= the JS
+        # safe integer range) as a plain int so JS clients get a
+        # native ``number``; render larger values (e.g. IPv6 range
+        # sizes wider than /74) as a string to avoid the silent
+        # precision loss that ``Number(JSON.parse(...))`` would
+        # introduce. The web RIR section uses this for the ``size``
+        # field on inet[6]num records.
+        as_int = int(obj.to_decimal())
+        if -(2**53 - 1) <= as_int <= 2**53 - 1:
+            return as_int
+        return str(as_int)
     raise TypeError(f"Don't know what to do with {obj!r} ({type(obj)!r})")
 
 

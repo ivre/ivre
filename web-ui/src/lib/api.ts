@@ -321,6 +321,87 @@ export async function fetchDnsRecords(
 }
 
 /* ------------------------------------------------------------------ */
+/* RIR records                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Common provenance fields every RIR record carries. The dump
+ *  format is RPSL: keys may appear in any order and many are
+ *  optional. We type the well-known ones explicitly and fall
+ *  back to ``unknown`` for the rest via the index signature. */
+interface RirRecordCommon {
+  schema_version?: number;
+  source_file?: string;
+  source_hash?: string;
+  source?: string;
+  country?: string;
+  descr?: string | string[];
+  org?: string | string[];
+  remarks?: string | string[];
+  notify?: string | string[];
+  /** Anything else the source dump carried (``mnt-by``, ``status``,
+   *  ``language``, ``created``, ``last-modified``, ...). The card
+   *  renders these via a generic key/value table. */
+  [key: string]: unknown;
+}
+
+/** ``inet[6]num`` record: a contiguous IP range with an optional
+ *  network name and free-form description. ``size`` (number of
+ *  addresses, inclusive) is added at insert time on schema v2;
+ *  emitted as a JSON ``number`` for the common case and as a
+ *  decimal-string when the value exceeds JS safe-integer range
+ *  (IPv6 ranges wider than /74). */
+export interface RirInetNum extends RirRecordCommon {
+  start: string;
+  stop: string;
+  netname?: string;
+  size?: number | string;
+}
+
+/** ``aut-num`` record: an Autonomous System number. Note the
+ *  hyphenated keys — accessed via bracket syntax in TypeScript
+ *  (``record["aut-num"]``, ``record["as-name"]``) because the
+ *  underlying RPSL dump preserves the hyphens. */
+export interface RirAutNum extends RirRecordCommon {
+  "aut-num": number;
+  "as-name"?: string;
+}
+
+/** Discriminated union: every record from ``/cgi/rir`` is one
+ *  family or the other. Discriminate by the presence of either
+ *  ``start`` (inet[6]num) or ``aut-num`` (AS records). */
+export type RirRecord = RirInetNum | RirAutNum;
+
+/** Type-guard: ``true`` for inet[6]num records. */
+export function isRirInetNum(rec: RirRecord): rec is RirInetNum {
+  return typeof (rec as RirInetNum).start === "string";
+}
+
+/** Type-guard: ``true`` for ``aut-num`` records. */
+export function isRirAutNum(rec: RirRecord): rec is RirAutNum {
+  return typeof (rec as RirAutNum)["aut-num"] === "number";
+}
+
+/** Fetch the RIR record list. The backend default sort is
+ *  narrowest-range first; pass an explicit ``sortby=`` in the
+ *  query string to override. */
+export async function fetchRirRecords(
+  params: ListParams = {},
+): Promise<RirRecord[]> {
+  const url =
+    CGI_ROOT +
+    "/rir" +
+    qs({
+      q: params.q,
+      limit: params.limit,
+      skip: params.skip,
+      format: "json",
+    });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET ${url}`);
+  return (await response.json()) as RirRecord[];
+}
+
+/* ------------------------------------------------------------------ */
 /* React Query hooks                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -399,6 +480,17 @@ export function useDnsRecords(
   return useQuery<DnsRecord[]>({
     queryKey: ["dns", params],
     queryFn: () => fetchDnsRecords(params),
+    ...options,
+  });
+}
+
+export function useRirRecords(
+  params: ListParams,
+  options?: HookOptions<RirRecord[]>,
+): UseQueryResult<RirRecord[]> {
+  return useQuery<RirRecord[]>({
+    queryKey: ["rir", params],
+    queryFn: () => fetchRirRecords(params),
     ...options,
   });
 }
