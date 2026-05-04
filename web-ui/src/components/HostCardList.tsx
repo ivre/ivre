@@ -9,6 +9,17 @@ export interface HostCardListProps {
   highlights?: HighlightMap;
   onAddFilter?: (filter: Filter) => void;
   onSelect?: (host: HostRecord) => void;
+  /** Index of the currently-hovered host (synced with the
+   *  section's ``<Timeline>``). ``null`` means "no hover". */
+  hoveredIndex?: number | null;
+  /** Two-way hover sync: a card's pointer-enter / pointer-leave
+   *  pushes the index back to the parent so the timeline mirrors
+   *  the highlight. */
+  onHover?: (index: number | null) => void;
+  /** DOM-ref registry: the parent collects card refs by index so
+   *  it can ``scrollIntoView`` when the user clicks a timeline
+   *  row. */
+  registerCardRef?: (index: number, el: HTMLDivElement | null) => void;
 }
 
 export function HostCardList({
@@ -18,6 +29,9 @@ export function HostCardList({
   highlights,
   onAddFilter,
   onSelect,
+  hoveredIndex = null,
+  onHover,
+  registerCardRef,
 }: HostCardListProps) {
   if (loading) {
     return <ListMessage>Loading…</ListMessage>;
@@ -34,13 +48,19 @@ export function HostCardList({
   }
   return (
     <div className="space-y-3">
-      {hosts.map((host) => (
+      {hosts.map((host, idx) => (
         <HostCard
           key={host.addr}
           host={host}
           highlights={highlights}
           onAddFilter={onAddFilter}
           onSelect={onSelect}
+          highlighted={hoveredIndex === idx}
+          onHover={onHover ? () => onHover(idx) : undefined}
+          onLeave={onHover ? () => onHover(null) : undefined}
+          innerRef={
+            registerCardRef ? (el) => registerCardRef(idx, el) : undefined
+          }
         />
       ))}
     </div>

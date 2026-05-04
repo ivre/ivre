@@ -159,7 +159,14 @@ function HostDetailBody({
 }) {
   const country = host.infos?.country_code;
   const asNum = host.infos?.as_num;
-  const sources = host.source ?? [];
+  // ``source`` is a single string on active scan documents
+  // and an array on view records — see ``HostRecord``. Coerce
+  // here rather than crashing in ``sources.map()`` below.
+  const sources: string[] = Array.isArray(host.source)
+    ? host.source
+    : host.source
+      ? [host.source]
+      : [];
   const countryHL = highlights?.get("country");
   const asnumHL = highlights?.get("asnum");
   const sourceHL = highlights?.get("source");

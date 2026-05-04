@@ -45,7 +45,11 @@ function qs(params: Record<string, string | number | undefined>): string {
 export interface HostRecord {
   addr: string;
   status?: string;
-  source?: string[];
+  /** Provenance string. Active scan documents (``db.nmap``)
+   *  store it as a single string; the view (``db.view``)
+   *  merges multiple scan sources into an array. Consumers
+   *  must accept either form. */
+  source?: string | string[];
   starttime?: string | number;
   endtime?: string | number;
   infos?: {

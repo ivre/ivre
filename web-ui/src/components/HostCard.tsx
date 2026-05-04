@@ -23,6 +23,19 @@ export interface HostCardProps {
   onSelect?: (host: HostRecord) => void;
   /** Map of currently-active typed filters used for highlighting. */
   highlights?: HighlightMap;
+  /** ``true`` when the corresponding row in the section's
+   *  ``<Timeline>`` is currently hovered. Adds an orange ring
+   *  around the card to mirror the highlight (same convention as
+   *  :type:`PassiveRecordCardProps`). */
+  highlighted?: boolean;
+  /** Pointer-enter callback — used by the route to sync the
+   *  hover state back to the timeline. */
+  onHover?: () => void;
+  /** Pointer-leave callback. */
+  onLeave?: () => void;
+  /** DOM ref forwarded by the parent so the timeline can
+   *  ``scrollIntoView`` the card on click. */
+  innerRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function HostCard({
@@ -30,12 +43,26 @@ export function HostCard({
   onAddFilter,
   onSelect,
   highlights,
+  highlighted,
+  onHover,
+  onLeave,
+  innerRef,
 }: HostCardProps) {
   const country = host.infos?.country_code;
   const countryName = host.infos?.country_name ?? country;
   const asNum = host.infos?.as_num;
   const asName = host.infos?.as_name;
-  const sources = host.source ?? [];
+  // Coerce ``source`` to an array. Active scan documents
+  // (``db.nmap``) store it as a single string; view records
+  // (``db.view``) carry the merged array. The TypeScript type
+  // declares it as ``string[]?`` but the wire shape is wider, so
+  // we accept either form here rather than crashing in
+  // ``sources.map()`` below.
+  const sources: string[] = Array.isArray(host.source)
+    ? host.source
+    : host.source
+      ? [host.source]
+      : [];
 
   const countryHL = highlights?.get("country");
   const asnumHL = highlights?.get("asnum");
@@ -58,7 +85,15 @@ export function HostCard({
     // ``py-0`` overrides shadcn's default ``py-6`` on Card itself so
     // the inside-card padding comes solely from ``<CardContent>``'s
     // ``p-4`` (1 rem all around) — no stacked top/bottom dead space.
-    <Card className="border-gray-200/60 py-0 shadow-none transition-shadow hover:shadow-sm dark:border-blue-950/60">
+    <Card
+      ref={innerRef}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      className={cn(
+        "border-gray-200/60 py-0 shadow-none transition-shadow hover:shadow-sm dark:border-blue-950/60",
+        highlighted && "ring-2 ring-orange-400 dark:ring-orange-300",
+      )}
+    >
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-4">
           <h3 className="font-mono text-lg font-semibold">{host.addr}</h3>

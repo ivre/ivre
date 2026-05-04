@@ -106,6 +106,24 @@ function PassiveRouteInner() {
     <div className="flex w-full gap-6 px-6 py-2">
       <aside className="hidden w-[28rem] shrink-0 lg:block">
         <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] space-y-6 overflow-y-auto pr-2 pt-2">
+          {/*
+            Timeline lives in the left rail (mirroring the world
+            map's spot in the View section). Hovering a row syncs
+            with the corresponding card via ``hoveredIndex``;
+            clicking a row scrolls the card into view.
+          */}
+          <Timeline
+            records={records}
+            hoveredIndex={hoveredIndex}
+            onHover={setHoveredIndex}
+            onSelect={scrollToCard}
+            getTitle={passiveTimelineTitle}
+            itemLabel={{
+              singular: "passive observation",
+              plural: "passive observations",
+            }}
+            emptyLabel="No passive observations to plot."
+          />
           <FilterBar filters={filters} onFiltersChange={setFilters} />
           <FacetSidebar
             section={section}
@@ -130,18 +148,6 @@ function PassiveRouteInner() {
           <div className="lg:hidden">
             <FilterBar filters={filters} onFiltersChange={setFilters} />
           </div>
-          <Timeline
-            records={records}
-            hoveredIndex={hoveredIndex}
-            onHover={setHoveredIndex}
-            onSelect={scrollToCard}
-            getTitle={passiveTimelineTitle}
-            itemLabel={{
-              singular: "passive observation",
-              plural: "passive observations",
-            }}
-            emptyLabel="No passive observations to plot."
-          />
           <PassiveRecordList
             records={records}
             loading={isLoading}
