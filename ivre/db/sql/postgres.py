@@ -66,8 +66,15 @@ from ivre.db.sql import (
     SQLDBView,
 )
 
-# Workaround an SQLAlchemy regression
-del TupleType.result_processor
+# Workaround an SQLAlchemy 1.4 regression where ``TupleType``
+# carries a result_processor that mangles tuple result rows.
+# The class-level attribute is absent on 2.x (the regression
+# is gone); guard the ``del`` so the import succeeds on both
+# major versions.
+try:
+    del TupleType.result_processor
+except AttributeError:
+    pass
 
 
 class PostgresDB(SQLDB):
@@ -238,7 +245,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             )
             .where(and_(cond, self.tables.script.name == "ssl-cert"))
         )
-        for rec in self.db.execute(req):
+        for rec in self._read_iter(req):
             if "ssl-cert" in rec.data:
                 if "pem" in rec.data["ssl-cert"]:
                     data = "".join(
@@ -251,7 +258,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                             "Cannot parse certificate %r", data, exc_info=True
                         )
                     else:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -267,7 +274,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     except KeyError:
                         pass
                     else:
-                        self.db.execute(
+                        self._write(
                             update(self.tables.script)
                             .where(
                                 and_(
@@ -284,7 +291,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                                 }
                             )
                         )
-        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=11))
+        self._write(update(self.tables.scan).where(cond).values(schema_version=11))
         return 0
 
     def start_store_hosts(self):
@@ -303,7 +310,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         self.bulk = None
 
     def _get_ips_ports(self, flt, limit=None, skip=None):
-        req = flt.query(select([self.tables.scan.id]))
+        req = flt.query(select(self.tables.scan.id))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -319,7 +326,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     )
                 ],
             }
-            for rec in self.db.execute(
+            for rec in self._read_iter(
                 select(
                     [
                         func.array_agg(
@@ -382,7 +389,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         if flt is None:
             flt = self.flt_empty
-        base = flt.query(select([self.tables.scan.id]).select_from(flt.select_from))
+        base = flt.query(select(self.tables.scan.id).select_from(flt.select_from))
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
@@ -426,17 +433,17 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             info = field[11:]
             return (
                 {"count": result[0], "_id": result[1]}
-                for result in self.db.execute(
-                    select([func.count().label("count"), column("cnt")])
+                for result in self._read_iter(
+                    select(func.count().label("count"), column("cnt"))
                     .select_from(
-                        select([func.count().label("cnt")])
+                        select(func.count().label("cnt"))
                         .select_from(self.tables.port)
                         .where(
                             and_(
                                 self.tables.port.state == info,
                                 # self.tables.port.scan.in_(base),
                                 exists(
-                                    select([1])
+                                    select(1)
                                     .select_from(base)
                                     .where(self.tables.port.scan == base.c.id)
                                 ),
@@ -453,7 +460,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         elif field.startswith("portlist:"):
             # Deux options pour filtrer:
             #   -1- self.tables.port.scan.in_(base),
-            #   -2- exists(select([1])\
+            #   -2- exists(select(1)\
             #       .select_from(base)\
             #       .where(
             #         self.tables.port.scan == base.c.id
@@ -477,8 +484,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         )
                     ],
                 }
-                for result in self.db.execute(
-                    select([func.count().label("count"), column("ports")])
+                for result in self._read_iter(
+                    select(func.count().label("count"), column("ports"))
                     .select_from(
                         select(
                             [
@@ -500,7 +507,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                             and_(
                                 self.tables.port.state == info,
                                 self.tables.port.scan.in_(base),
-                                # exists(select([1])\
+                                # exists(select(1)\
                                 #        .select_from(base)\
                                 #        .where(
                                 #            self.tables.port.scan == base.c.id
@@ -950,10 +957,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             subfield = field[8:]
             field = "hostnames.domains"
             base1 = (
-                select([func.unnest(self.tables.hostname.domains).label("domains")])
+                select(func.unnest(self.tables.hostname.domains).label("domains"))
                 .where(
                     exists(
-                        select([1])
+                        select(1)
                         .select_from(base)
                         .where(self.tables.hostname.scan == base.c.id)
                     )
@@ -963,8 +970,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             if subfield.isdigit():
                 return (
                     {"count": result[1], "_id": result[0]}
-                    for result in self.db.execute(
-                        select([base1.c.domains, func.count().label("count")])
+                    for result in self._read_iter(
+                        select(base1.c.domains, func.count().label("count"))
                         .where(
                             base1.c.domains.op("~")(
                                 "^([^\\.]+\\.){%d}[^\\.]+$" % (int(subfield) - 1)
@@ -980,8 +987,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 flt = self.flt_and(flt, self.searchdomain(subfield))
                 return (
                     {"count": result[1], "_id": result[0]}
-                    for result in self.db.execute(
-                        select([base1.c.domains, func.count().label("count")])
+                    for result in self._read_iter(
+                        select(base1.c.domains, func.count().label("count"))
                         .where(
                             base1.c.domains.op("~")(
                                 "^([^\\.]+\\.){%d}%s$"
@@ -999,8 +1006,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             flt = self.flt_and(flt, self.searchdomain(subfield))
             return (
                 {"count": result[1], "_id": result[0]}
-                for result in self.db.execute(
-                    select([base1.c.domains, func.count().label("count")])
+                for result in self._read_iter(
+                    select(base1.c.domains, func.count().label("count"))
                     .where(base1.c.domains.op("~")(f"\\.{re.escape(subfield)}$"))
                     .group_by(base1.c.domains)
                     .order_by(order)
@@ -1219,21 +1226,19 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         }
         if field.base == self.tables.scan:
             req = flt.query(
-                select([func.count().label("count")] + field.fields)
+                select(func.count().label("count"), *field.fields)
                 .select_from(self.tables.scan)
                 .group_by(*field.fields)
             )
         else:
-            req = select([func.count().label("count")] + field.fields).select_from(
+            req = select(func.count().label("count"), *field.fields).select_from(
                 s_from[field.base]
             )
             if field.extraselectfrom is not None:
                 req = req.select_from(field.extraselectfrom)
             req = req.group_by(
                 *(field.fields if field.group_by is None else field.group_by)
-            ).where(
-                exists(select([1]).select_from(base).where(where_clause[field.base]))
-            )
+            ).where(exists(select(1).select_from(base).where(where_clause[field.base])))
         if field.where is not None:
             req = req.where(field.where)
         if outputproc is None:
@@ -1242,20 +1247,20 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     "count": result[0],
                     "_id": result[1:] if len(result) > 2 else result[1],
                 }
-                for result in self.db.execute(req.order_by(order).limit(topnbr))
+                for result in self._read_iter(req.order_by(order).limit(topnbr))
             )
         return (
             {
                 "count": result[0],
                 "_id": outputproc(result[1:] if len(result) > 2 else result[1]),
             }
-            for result in self.db.execute(req.order_by(order).limit(topnbr))
+            for result in self._read_iter(req.order_by(order).limit(topnbr))
         )
 
     def _features_port_list(self, flt, yieldall, use_service, use_product, use_version):
-        base = flt.query(
-            select([self.tables.scan.id]).select_from(flt.select_from)
-        ).cte("base")
+        base = flt.query(select(self.tables.scan.id).select_from(flt.select_from)).cte(
+            "base"
+        )
         if use_version:
             fields = [
                 self.tables.port.port,
@@ -1279,7 +1284,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             .where(
                 and_(
                     exists(
-                        select([1])
+                        select(1)
                         .select_from(base)
                         .where(self.tables.port.scan == base.c.id)
                     ),
@@ -1290,17 +1295,17 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         )
         if not yieldall:
             req = req.order_by(*(nulls_first(fld) for fld in fields))
-            return self.db.execute(req)
+            return self._read_iter(req)
         # results will be modified, we cannot keep a RowProxy
         # instance, so we convert the results to lists
-        return (list(rec) for rec in self.db.execute(req))
+        return (list(rec) for rec in self._read_iter(req))
 
     def _features_port_get(
         self, features, flt, yieldall, use_service, use_product, use_version
     ):
-        base = flt.query(
-            select([self.tables.scan.id]).select_from(flt.select_from)
-        ).cte("base")
+        base = flt.query(select(self.tables.scan.id).select_from(flt.select_from)).cte(
+            "base"
+        )
         if use_version:
             fields = [
                 cast(self.tables.port.port, String),
@@ -1322,7 +1327,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         else:
             fields = [self.tables.port.port]
         n_features = len(features)
-        for addr, cur_features in self.db.execute(
+        for addr, cur_features in self._read_iter(
             select(
                 [
                     self.tables.scan.id,
@@ -1334,7 +1339,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             .where(
                 and_(
                     exists(
-                        select([1])
+                        select(1)
                         .select_from(base)
                         .where(self.tables.port.scan == base.c.id)
                     ),
@@ -1355,12 +1360,12 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             yield (addr, currec)
         # add features for addresses without open ports
         base2 = flt.query(
-            select([func.distinct(self.tables.port.scan).label("scan")])
+            select(func.distinct(self.tables.port.scan).label("scan"))
             .select_from(flt.select_from)
             .where(
                 and_(
                     exists(
-                        select([1])
+                        select(1)
                         .select_from(base)
                         .where(self.tables.port.scan == base.c.id)
                     ),
@@ -1369,14 +1374,14 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 )
             )
         ).cte("base2")
-        for (addr,) in self.db.execute(
+        for (addr,) in self._read_iter(
             flt.query(
-                select([func.distinct(self.tables.scan.addr)])
+                select(func.distinct(self.tables.scan.addr))
                 .select_from(flt.select_from)
                 .where(
                     not_(
                         exists(
-                            select([1])
+                            select(1)
                             .select_from(base2)
                             .where(self.tables.scan.id == base2.c.scan)
                         )
@@ -1395,7 +1400,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         source = host.get("source", "")
         host_tstart = utils.all2datetime(host["starttime"])
         host_tstop = utils.all2datetime(host["endtime"])
-        scanid = self.db.execute(
+        scanid = self._write(
             postgresql.insert(self.tables.scan)
             .values(
                 addr=addr,
@@ -1413,14 +1418,14 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         ).fetchone()[0]
         for category in host.get("categories", []):
             insrt = postgresql.insert(self.tables.category)
-            catid = self.db.execute(
+            catid = self._write(
                 insrt.values(name=category)
                 .on_conflict_do_update(
                     index_elements=["name"], set_={"name": insrt.excluded.name}
                 )
                 .returning(self.tables.category.id)
             ).fetchone()[0]
-            self.db.execute(
+            self._write(
                 postgresql.insert(self.tables.association_scan_category)
                 .values(scan=scanid, category=catid)
                 .on_conflict_do_nothing()
@@ -1451,7 +1456,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                 port["state"] = port.pop("state_state")
             if "state_reason_ip" in port:
                 port["state_reason_ip"] = self.ip2internal(port["state_reason_ip"])
-            portid = self.db.execute(
+            portid = self._write(
                 insert(self.tables.port)
                 .values(scan=scanid, **port)
                 .returning(self.tables.port.id)
@@ -1473,7 +1478,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                     )
                 )
         for trace in host.get("traces", []):
-            traceid = self.db.execute(
+            traceid = self._write(
                 insert(self.tables.trace)
                 .values(scan=scanid, port=trace.get("port"), protocol=trace["protocol"])
                 .returning(self.tables.trace.id)
@@ -1532,7 +1537,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
         host_tstart = utils.all2datetime(host["starttime"])
         host_tstop = utils.all2datetime(host["endtime"])
         insrt = postgresql.insert(self.tables.scan)
-        scanid, scan_tstop = self.db.execute(
+        scanid, scan_tstop = self._write(
             insrt.values(
                 addr=addr,
                 source=source,
@@ -1564,14 +1569,14 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
         newest = scan_tstop <= host_tstop
         for category in host.get("categories", []):
             insrt = postgresql.insert(self.tables.category)
-            catid = self.db.execute(
+            catid = self._write(
                 insrt.values(name=category)
                 .on_conflict_do_update(
                     index_elements=["name"], set_={"name": insrt.excluded.name}
                 )
                 .returning(self.tables.category.id)
             ).fetchone()[0]
-            self.db.execute(
+            self._write(
                 postgresql.insert(self.tables.association_scan_category)
                 .values(scan=scanid, category=catid)
                 .on_conflict_do_nothing()
@@ -1591,7 +1596,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
             if "state_reason_ip" in port:
                 port["state_reason_ip"] = self.ip2internal(port["state_reason_ip"])
             insrt = postgresql.insert(self.tables.port)
-            portid = self.db.execute(
+            portid = self._write(
                 insrt.values(scan=scanid, **port)
                 .on_conflict_do_update(
                     index_elements=["scan", "port", "protocol"],
@@ -1645,7 +1650,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                         .on_conflict_do_nothing()
                     )
         for trace in host.get("traces", []):
-            traceid = self.db.execute(
+            traceid = self._write(
                 postgresql.insert(self.tables.trace)
                 .values(scan=scanid, port=trace.get("port"), protocol=trace["protocol"])
                 .on_conflict_do_nothing()
@@ -1756,7 +1761,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 index_where=self.tables.passive.addr == None,  # noqa: E711
                 set_=upsert,
             )
-        self.db.execute(stmt)
+        self._write(stmt)
 
     def insert_or_update_bulk(
         self, specs, getinfos=None, separated_timestamps=True, replacecount=False
@@ -1795,7 +1800,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 if config.DEBUG_DB:
                     count_upserted = fdesc.count
             insrt = postgresql.insert(self.tables.passive)
-            self.db.execute(
+            self._write(
                 insrt.from_select(
                     [
                         column(col)
@@ -1883,7 +1888,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                     },
                 )
             )
-            self.db.execute(
+            self._write(
                 insrt.from_select(
                     [
                         column(col)
@@ -1971,7 +1976,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                     },
                 )
             )
-            self.db.execute(delete(tmp))
+            self._write(delete(tmp))
             if config.DEBUG_DB:
                 stop_time = time.time()
                 time_spent = stop_time - start_time
@@ -2013,7 +2018,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         else:
             fields = [self.tables.passive.port]
         n_features = len(features)
-        for addr, cur_features in self.db.execute(
+        for addr, cur_features in self._read_iter(
             flt.query(
                 select(
                     [
