@@ -28,6 +28,7 @@ databases.
 import datetime
 import re
 import time
+from typing import Any
 
 from sqlalchemy import (
     ARRAY,
@@ -161,53 +162,63 @@ class BulkInsert:
         """
         self.db = db
         self.start_time = time.time()
-        self.commited_counts = {}
+        self.commited_counts: dict[str, int] = {}
         self.size = config.POSTGRES_BATCH_SIZE if size is None else size
         self.retries = retries
         self.conn = db.connect()
         self.trans = self.conn.begin()
-        self.queries = {}
+        # Per-template queue: ``key -> (parameterless Insert,
+        # list[params_dict])``. Identical SQL templates accumulate
+        # their params for a single executemany on commit.
+        self.queries: dict[str, tuple[Any, list[dict[str, Any]]]] = {}
 
-    def append(self, query):
-        query._set_bind(self.db)
-        s_query = str(query)
-        try:
-            params = query._values.items()
-        except KeyError:
-            params = query.parameters
-            query.parameters = None
-        else:
-            params = {
-                key: value.value if hasattr(value, "value") else None
-                for key, value in params
-            }
-            query._values = None
-        self.queries.setdefault(s_query, (query, []))[1].append(params)
-        if len(self.queries[s_query][1]) >= self.size:
-            self.commit(query=s_query)
+    def append(self, stmt, params):
+        """Queue a single row for executemany insertion.
 
-    def commit(self, query=None, renew=True):
-        if query is None:
+        ``stmt`` is a *parameterless* :class:`~sqlalchemy.sql.dml.Insert`
+        (or ``postgresql.insert``) over the target table. ``params``
+        is a ``dict[str, Any]`` of column-to-value bindings for one
+        row. Identical SQL strings (same target table, same bind-name
+        set) batch into a single ``Connection.execute(stmt, [params,
+        ...])`` call on commit.
+
+        Replaces the legacy 1.x signature ``append(query)`` where
+        ``query`` was a values-bound ``insert(...).values(**params)``;
+        the values are now passed alongside the template so we don't
+        depend on the private ``Insert._values`` / ``Insert.parameters``
+        attributes that were renamed / removed in SQLAlchemy 2.x.
+        """
+        key = str(stmt)
+        self.queries.setdefault(key, (stmt, []))[1].append(params)
+        if len(self.queries[key][1]) >= self.size:
+            self.commit(key=key)
+
+    def commit(self, key=None, renew=True):
+        if key is None:
             last = len(self.queries) - 1
-            for i, q_query in enumerate(list(self.queries)):
-                self.commit(query=q_query, renew=True if i < last else renew)
+            for i, q_key in enumerate(list(self.queries)):
+                self.commit(key=q_key, renew=True if i < last else renew)
             return
-        q_query, params = self.queries.pop(query)
-        self.conn.execute(q_query, *params)
+        stmt, params = self.queries.pop(key)
+        # ``Connection.execute(stmt, list_of_param_dicts)`` is
+        # SQLAlchemy's executemany form on both 1.4 and 2.x and the
+        # supported public replacement for the 1.x positional unpack
+        # ``conn.execute(stmt, *params_list)``.
+        self.conn.execute(stmt, params)
         self.trans.commit()
         newtime = time.time()
         l_params = len(params)
         try:
-            self.commited_counts[query] += l_params
+            self.commited_counts[key] += l_params
         except KeyError:
-            self.commited_counts[query] = l_params
+            self.commited_counts[key] = l_params
         rate = float(l_params) / (newtime - self.start_time)
-        utils.LOGGER.debug("DB:%s", query)
+        utils.LOGGER.debug("DB:%s", key)
         utils.LOGGER.debug(
             "DB:%d inserts, %f/sec (total %d)",
             l_params,
             rate,
-            self.commited_counts[query],
+            self.commited_counts[key],
         )
         if renew:
             self.start_time = newtime
@@ -233,12 +244,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         cond = self.tables.scan.schema_version == 10
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -328,22 +337,20 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             }
             for rec in self._read_iter(
                 select(
-                    [
-                        func.array_agg(
-                            postgresql.aggregate_order_by(
-                                tuple_(
-                                    self.tables.port.protocol,
-                                    self.tables.port.port,
-                                    self.tables.port.state,
-                                ).label("a"),
-                                tuple_(
-                                    self.tables.port.protocol, self.tables.port.port
-                                ).label("a"),
-                            )
-                        ).label("ports"),
-                        self.tables.scan.time_start,
-                        self.tables.scan.addr,
-                    ]
+                    func.array_agg(
+                        postgresql.aggregate_order_by(
+                            tuple_(
+                                self.tables.port.protocol,
+                                self.tables.port.port,
+                                self.tables.port.state,
+                            ).label("a"),
+                            tuple_(
+                                self.tables.port.protocol, self.tables.port.port
+                            ).label("a"),
+                        )
+                    ).label("ports"),
+                    self.tables.scan.time_start,
+                    self.tables.scan.addr,
                 )
                 .select_from(join(self.tables.port, self.tables.scan))
                 .group_by(self.tables.scan.addr, self.tables.scan.time_start)
@@ -488,20 +495,18 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     select(func.count().label("count"), column("ports"))
                     .select_from(
                         select(
-                            [
-                                func.array_agg(
-                                    postgresql.aggregate_order_by(
-                                        tuple_(
-                                            self.tables.port.protocol,
-                                            self.tables.port.port,
-                                        ).label("a"),
-                                        tuple_(
-                                            self.tables.port.protocol,
-                                            self.tables.port.port,
-                                        ).label("a"),
-                                    )
-                                ).label("ports"),
-                            ]
+                            func.array_agg(
+                                postgresql.aggregate_order_by(
+                                    tuple_(
+                                        self.tables.port.protocol,
+                                        self.tables.port.port,
+                                    ).label("a"),
+                                    tuple_(
+                                        self.tables.port.protocol,
+                                        self.tables.port.port,
+                                    ).label("a"),
+                                )
+                            ).label("ports"),
                         )
                         .where(
                             and_(
@@ -1279,7 +1284,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         else:
             fields = [self.tables.port.port]
         req = (
-            select(fields)
+            select(*fields)
             .group_by(*fields)
             .where(
                 and_(
@@ -1329,10 +1334,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         n_features = len(features)
         for addr, cur_features in self._read_iter(
             select(
-                [
-                    self.tables.scan.id,
-                    func.array_agg(func.distinct(postgresql.array(fields))),
-                ]
+                self.tables.scan.id,
+                func.array_agg(func.distinct(postgresql.array(fields))),
             )
             .select_from(join(self.tables.scan, self.tables.port))
             .group_by(self.tables.scan.id)
@@ -1433,14 +1436,14 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         for tag in host.get("tags", []):
             if "info" not in tag:
                 self.bulk.append(
-                    postgresql.insert(self.tables.tag).values(scan=scanid, **tag)
+                    postgresql.insert(self.tables.tag),
+                    {"scan": scanid, **tag},
                 )
             else:
                 for info in tag["info"]:
                     self.bulk.append(
-                        postgresql.insert(self.tables.tag).values(
-                            scan=scanid, **dict(tag, info=info)
-                        )
+                        postgresql.insert(self.tables.tag),
+                        {"scan": scanid, **dict(tag, info=info)},
                     )
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
@@ -1473,9 +1476,13 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                             elif isinstance(cert[fld], str):
                                 cert[fld] = utils.all2datetime(cert[fld]).timestamp()
                 self.bulk.append(
-                    insert(self.tables.script).values(
-                        port=portid, name=name, output=output, data=script
-                    )
+                    insert(self.tables.script),
+                    {
+                        "port": portid,
+                        "name": name,
+                        "output": output,
+                        "data": script,
+                    },
                 )
         for trace in host.get("traces", []):
             traceid = self._write(
@@ -1486,23 +1493,25 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             for hop in trace.get("hops"):
                 hop["ipaddr"] = self.ip2internal(hop["ipaddr"])
                 self.bulk.append(
-                    insert(self.tables.hop).values(
-                        trace=traceid,
-                        ipaddr=self.ip2internal(hop["ipaddr"]),
-                        ttl=hop["ttl"],
-                        rtt=None if hop["rtt"] == "--" else hop["rtt"],
-                        host=hop.get("host"),
-                        domains=hop.get("domains"),
-                    )
+                    insert(self.tables.hop),
+                    {
+                        "trace": traceid,
+                        "ipaddr": self.ip2internal(hop["ipaddr"]),
+                        "ttl": hop["ttl"],
+                        "rtt": None if hop["rtt"] == "--" else hop["rtt"],
+                        "host": hop.get("host"),
+                        "domains": hop.get("domains"),
+                    },
                 )
         for hostname in host.get("hostnames", []):
             self.bulk.append(
-                insert(self.tables.hostname).values(
-                    scan=scanid,
-                    domains=hostname.get("domains"),
-                    name=hostname.get("name"),
-                    type=hostname.get("type"),
-                )
+                insert(self.tables.hostname),
+                {
+                    "scan": scanid,
+                    "domains": hostname.get("domains"),
+                    "name": hostname.get("name"),
+                    "type": hostname.get("type"),
+                },
             )
         utils.LOGGER.debug("HOST STORED: %r", scanid)
         return scanid
@@ -1618,36 +1627,42 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                 if newest:
                     insrt = postgresql.insert(self.tables.script)
                     self.bulk.append(
-                        insrt.values(
-                            port=portid, name=name, output=output, data=script
-                        ).on_conflict_do_update(
+                        insrt.on_conflict_do_update(
                             index_elements=["port", "name"],
                             set_={
                                 "output": insrt.excluded.output,
                                 "data": insrt.excluded.data,
                             },
-                        )
+                        ),
+                        {
+                            "port": portid,
+                            "name": name,
+                            "output": output,
+                            "data": script,
+                        },
                     )
                 else:
                     insrt = postgresql.insert(self.tables.script)
                     self.bulk.append(
-                        insrt.values(
-                            port=portid, name=name, output=output, data=script
-                        ).on_conflict_do_nothing()
+                        insrt.on_conflict_do_nothing(),
+                        {
+                            "port": portid,
+                            "name": name,
+                            "output": output,
+                            "data": script,
+                        },
                     )
         for tag in host.get("tags", []):
             if "info" not in tag:
                 self.bulk.append(
-                    postgresql.insert(self.tables.tag)
-                    .values(scan=scanid, **tag)
-                    .on_conflict_do_nothing()
+                    postgresql.insert(self.tables.tag).on_conflict_do_nothing(),
+                    {"scan": scanid, **tag},
                 )
             else:
                 for info in tag["info"]:
                     self.bulk.append(
-                        postgresql.insert(self.tables.tag)
-                        .values(scan=scanid, **dict(tag, info=info))
-                        .on_conflict_do_nothing()
+                        postgresql.insert(self.tables.tag).on_conflict_do_nothing(),
+                        {"scan": scanid, **dict(tag, info=info)},
                     )
         for trace in host.get("traces", []):
             traceid = self._write(
@@ -1659,25 +1674,25 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
             for hop in trace.get("hops"):
                 hop["ipaddr"] = self.ip2internal(hop["ipaddr"])
                 self.bulk.append(
-                    postgresql.insert(self.tables.hop).values(
-                        trace=traceid,
-                        ipaddr=self.ip2internal(hop["ipaddr"]),
-                        ttl=hop["ttl"],
-                        rtt=None if hop["rtt"] == "--" else hop["rtt"],
-                        host=hop.get("host"),
-                        domains=hop.get("domains"),
-                    )
+                    postgresql.insert(self.tables.hop),
+                    {
+                        "trace": traceid,
+                        "ipaddr": self.ip2internal(hop["ipaddr"]),
+                        "ttl": hop["ttl"],
+                        "rtt": None if hop["rtt"] == "--" else hop["rtt"],
+                        "host": hop.get("host"),
+                        "domains": hop.get("domains"),
+                    },
                 )
         for hostname in host.get("hostnames", []):
             self.bulk.append(
-                postgresql.insert(self.tables.hostname)
-                .values(
-                    scan=scanid,
-                    domains=hostname.get("domains"),
-                    name=hostname.get("name"),
-                    type=hostname.get("type"),
-                )
-                .on_conflict_do_nothing()
+                postgresql.insert(self.tables.hostname).on_conflict_do_nothing(),
+                {
+                    "scan": scanid,
+                    "domains": hostname.get("domains"),
+                    "name": hostname.get("name"),
+                    "type": hostname.get("type"),
+                },
             )
         utils.LOGGER.debug("VIEW STORED: %r", scanid)
         return scanid
@@ -1822,13 +1837,11 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         ]
                     ],
                     select(
-                        [
-                            tmp.columns["addr"],
-                            func.sum_(tmp.columns["count"]),
-                            func.min_(tmp.columns["firstseen"]),
-                            func.max_(tmp.columns["lastseen"]),
-                        ]
-                        + [
+                        tmp.columns["addr"],
+                        func.sum_(tmp.columns["count"]),
+                        func.min_(tmp.columns["firstseen"]),
+                        func.max_(tmp.columns["lastseen"]),
+                        *(
                             tmp.columns[col]
                             for col in [
                                 "sensor",
@@ -1840,7 +1853,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
-                        ]
+                        ),
                     )
                     .where(tmp.columns["addr"] != None)  # noqa: E711
                     .group_by(
@@ -1910,13 +1923,11 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         ]
                     ],
                     select(
-                        [
-                            tmp.columns["addr"],
-                            func.sum_(tmp.columns["count"]),
-                            func.min_(tmp.columns["firstseen"]),
-                            func.max_(tmp.columns["lastseen"]),
-                        ]
-                        + [
+                        tmp.columns["addr"],
+                        func.sum_(tmp.columns["count"]),
+                        func.min_(tmp.columns["firstseen"]),
+                        func.max_(tmp.columns["lastseen"]),
+                        *(
                             tmp.columns[col]
                             for col in [
                                 "sensor",
@@ -1928,7 +1939,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
-                        ]
+                        ),
                     )
                     .where(tmp.columns["addr"] == None)  # noqa: E711
                     .group_by(
@@ -2021,10 +2032,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         for addr, cur_features in self._read_iter(
             flt.query(
                 select(
-                    [
-                        self.tables.passive.addr,
-                        func.array_agg(func.distinct(postgresql.array(fields))),
-                    ]
+                    self.tables.passive.addr,
+                    func.array_agg(func.distinct(postgresql.array(fields))),
                 ).group_by(self.tables.passive.addr)
             )
         ):

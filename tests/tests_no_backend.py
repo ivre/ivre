@@ -1530,6 +1530,69 @@ class PostgresExplainTests(unittest.TestCase):
         self.assertIn("literal_binds", src)
         self.assertIn("exec_driver_sql", src)
 
+    def test_inet_literal_renders_with_cast(self):
+        # SQLAlchemy 2.0 dropped the default ``literal_processor``
+        # for ``postgresql.INET``; without a replacement,
+        # ``PostgresDB.explain()`` raises ``CompileError: No
+        # literal value renderer is available for literal value
+        # "'192.0.2.1'" with datatype INET``. The
+        # ``ivre.db.sql.tables.INETLiteral`` subclass restores
+        # the renderer; pin both the renderer's existence and
+        # the rendered form ('192.0.2.1'::inet).
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLINET
+
+        meta = sa.MetaData()
+        hosts = sa.Table(
+            "hosts",
+            meta,
+            sa.Column("addr", SQLINET),
+        )
+        sql = self._compile(sa.select(hosts).where(hosts.c.addr == "192.0.2.1"))
+        # Quoted IP value, explicit ``::inet`` cast, no
+        # ``%(name)s`` placeholder remaining.
+        self.assertIn("'192.0.2.1'::inet", sql)
+        self.assertNotRegex(sql, r"%\(\w+\)s")
+
+    def test_inet_literal_escapes_single_quote(self):
+        # Defence-in-depth: any value reaching the renderer must
+        # have ``'`` doubled before being inlined as a SQL
+        # literal. The PG driver / column type rejects garbage
+        # at write time, but if a malformed string ever reached
+        # the literal-binds path the renderer must not break out
+        # of the string literal.
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLINET
+
+        meta = sa.MetaData()
+        hosts = sa.Table(
+            "hosts",
+            meta,
+            sa.Column("addr", SQLINET),
+        )
+        sql = self._compile(
+            sa.select(hosts).where(hosts.c.addr == "'; DROP TABLE hosts; --")
+        )
+        # The single quote is doubled inside the string literal.
+        self.assertIn("'''; DROP TABLE hosts; --'", sql)
+        self.assertNotIn("DROP TABLE hosts; --'::inet", sql.split("'''", 1)[0])
+
+    def test_inet_literal_none_renders_NULL(self):
+        # ``None`` must render as the SQL keyword ``NULL`` (not
+        # the Python literal ``'None'`` quoted as a string).
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLINET
+
+        meta = sa.MetaData()
+        hosts = sa.Table(
+            "hosts",
+            meta,
+            sa.Column("addr", SQLINET),
+        )
+        sql = self._compile(sa.select(hosts).where(hosts.c.addr.is_(None)))
+        self.assertIn("IS NULL", sql.upper())
+        self.assertNotIn("'None'", sql)
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of

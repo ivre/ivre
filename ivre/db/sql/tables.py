@@ -45,7 +45,38 @@ def SQLARRAY(item_type):
     return postgresql.ARRAY(item_type)
 
 
-SQLINET = postgresql.INET()
+class INETLiteral(postgresql.INET):
+    """``postgresql.INET`` with a ``literal_processor`` so that
+    queries inlined via ``.compile(literal_binds=True)`` (notably
+    ``PostgresDB.explain``) render IP values as
+    ``'192.0.2.1'::inet`` instead of raising
+    ``sqlalchemy.exc.CompileError: No literal value renderer
+    is available for literal value '...' with datatype INET``.
+
+    SQLAlchemy 1.x shipped a default literal processor that
+    rendered ``INET`` values as plain strings; SQLAlchemy 2.x
+    removed it (see release notes / sqlalchemy/sqlalchemy#9521).
+    Pinned by ``PostgresExplainTests.test_inet_literal_renders_with_cast``.
+    """
+
+    cache_ok = True
+
+    def literal_processor(self, dialect):  # type: ignore[override]
+        def process(value):
+            if value is None:
+                return "NULL"
+            # The column rejects non-IP values at write time, but
+            # belt-and-suspenders quote-escape the textual form
+            # before inlining (a malformed value would fail the
+            # ``::inet`` cast at SQL execution time anyway, with
+            # no privilege escalation).
+            escaped = str(value).replace("'", "''")
+            return f"'{escaped}'::inet"
+
+        return process
+
+
+SQLINET = INETLiteral()
 
 
 class Point(UserDefinedType):
