@@ -1900,6 +1900,83 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         positive, _clause = flt.tag[0]
         self.assertFalse(positive)
 
+    def test_searchstring_re_inarray_regex_positive(self):
+        # ``SQLDB._searchstring_re_inarray`` over an array column
+        # with a regex value returns ``idfield IN (subquery)``
+        # where the subquery unnests the array and filters on the
+        # regex match. The PostgreSQL ``~`` operator (``~*`` for
+        # case-insensitive) is the regex matcher.
+        sa = _sqlalchemy
+        from ivre.db.sql import SQLDB
+
+        meta = sa.MetaData()
+        scan = sa.Table(
+            "scan",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column(
+                "source", _sqlalchemy_postgresql.ARRAY(sa.String), nullable=False
+            ),
+        )
+        clause = SQLDB._searchstring_re_inarray(
+            scan.c.id, scan.c.source, re.compile("^source-")
+        )
+        sql = self._compile(clause)
+        self.assertIn("scan.id IN", sql)
+        self.assertIn("WHERE field ~ '^source-'", sql)
+
+    def test_searchstring_re_inarray_regex_negative(self):
+        # M4.0.3: the negative regex path used to ``raise
+        # ValueError("Not implemented")``. The fix mirrors the
+        # positive form via ``idfield.notin_(base2)``: rows whose
+        # array contains zero elements matching the regex (plus
+        # rows with empty or NULL arrays) match. Pin the SQL
+        # primitive so any future rewrite preserves the
+        # contract.
+        sa = _sqlalchemy
+        from ivre.db.sql import SQLDB
+
+        meta = sa.MetaData()
+        scan = sa.Table(
+            "scan",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column(
+                "source", _sqlalchemy_postgresql.ARRAY(sa.String), nullable=False
+            ),
+        )
+        clause = SQLDB._searchstring_re_inarray(
+            scan.c.id, scan.c.source, re.compile("^source-"), neg=True
+        )
+        sql = self._compile(clause)
+        # ``NOT IN`` (with parentheses inserted by SA) over the
+        # subquery built from the unnest CTE.
+        self.assertIn("NOT IN", sql)
+        self.assertIn("WHERE field ~ '^source-'", sql)
+
+    def test_searchstring_re_inarray_regex_negative_case_insensitive(self):
+        # Case-insensitive regex (``re.I``) must use the
+        # PostgreSQL ``~*`` operator for the unnest filter, with
+        # the negative path still wrapping in ``NOT IN``.
+        sa = _sqlalchemy
+        from ivre.db.sql import SQLDB
+
+        meta = sa.MetaData()
+        scan = sa.Table(
+            "scan",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column(
+                "source", _sqlalchemy_postgresql.ARRAY(sa.String), nullable=False
+            ),
+        )
+        clause = SQLDB._searchstring_re_inarray(
+            scan.c.id, scan.c.source, re.compile("^source-", re.I), neg=True
+        )
+        sql = self._compile(clause)
+        self.assertIn("NOT IN", sql)
+        self.assertIn("WHERE field ~* '^source-'", sql)
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
