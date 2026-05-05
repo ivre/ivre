@@ -1531,7 +1531,13 @@ class SQLDBActive(SQLDB, DBActive):
                 .select_from(join(self.tables.port, self.tables.scan))
                 .where(self.tables.port.state == "open")
                 .group_by(self.tables.scan.addr, self.tables.scan.time_start)
-                .where(self.tables.scan.id.in_(base))
+                # Wrap the CTE in an explicit ``select(...)`` for
+                # ``.in_(...)``: SQLAlchemy 2.x emits ``SAWarning:
+                # Coercing CTE object into a select() for use in
+                # IN()`` when a CTE is passed directly. Same fix
+                # applied to ``SQLDBActive.remove_many`` and
+                # ``SQLDBPassive.remove`` below.
+                .where(self.tables.scan.id.in_(select(base.c.id)))
             )
         )
 
@@ -1745,7 +1751,12 @@ class SQLDBActive(SQLDB, DBActive):
 
         """
         base = flt.query(select(self.tables.scan.id)).cte("base")
-        self._write(delete(self.tables.scan).where(self.tables.scan.id.in_(base)))
+        # ``.in_(select(base.c.id))`` instead of ``.in_(base)``:
+        # SA 2.x emits ``SAWarning: Coercing CTE object into a
+        # select() for use in IN()`` when a CTE is passed directly.
+        self._write(
+            delete(self.tables.scan).where(self.tables.scan.id.in_(select(base.c.id)))
+        )
 
     _topstructure = namedtuple(
         "topstructure", ["base", "fields", "where", "group_by", "extraselectfrom"]
@@ -2751,7 +2762,14 @@ class SQLDBPassive(SQLDB, DBPassive):
         base = spec_or_id.query(
             select(self.tables.passive.id).select_from(spec_or_id.select_from)
         ).cte("base")
-        self._write(delete(self.tables.passive).where(self.tables.passive.id.in_(base)))
+        # ``.in_(select(base.c.id))`` instead of ``.in_(base)``:
+        # SA 2.x emits ``SAWarning: Coercing CTE object into a
+        # select() for use in IN()`` when a CTE is passed directly.
+        self._write(
+            delete(self.tables.passive).where(
+                self.tables.passive.id.in_(select(base.c.id))
+            )
+        )
 
     def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
         if fields is not None:

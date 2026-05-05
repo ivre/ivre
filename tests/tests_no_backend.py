@@ -1977,6 +1977,75 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         self.assertIn("NOT IN", sql)
         self.assertIn("WHERE field ~* '^source-'", sql)
 
+    def test_remove_paths_do_not_emit_cte_coercion_sawarning(self):
+        # M4.0.1: SQLAlchemy 2.x emits ``SAWarning: Coercing CTE
+        # object into a select() for use in IN()`` when a CTE is
+        # passed directly to ``Column.in_(...)``. Three sites in
+        # ``ivre/db/sql/__init__.py`` historically did this:
+        #
+        #   - ``SQLDBActive._get_open_port_count``
+        #   - ``SQLDBActive.remove_many``
+        #   - ``SQLDBPassive.remove``
+        #
+        # Each was adjusted to wrap the CTE in
+        # ``select(base.c.id)`` before the ``.in_(...)``. Pin the
+        # silence by AST-walking the source for any
+        # ``.in_(<bare-name>)`` where the name was bound to a CTE
+        # in the same function. The test is white-box; it
+        # documents the contract so a future refactor can't
+        # regress it.
+        import ast
+        from inspect import getsource
+        from textwrap import dedent
+
+        from ivre.db.sql import SQLDBActive, SQLDBPassive
+
+        for fn in [
+            SQLDBActive._get_open_port_count,
+            SQLDBActive.remove_many,
+            SQLDBPassive.remove,
+        ]:
+            with self.subTest(method=fn.__qualname__):
+                src = dedent(getsource(fn))
+                tree = ast.parse(src)
+                # Find variables bound to ``....cte(...)``.
+                cte_names = set()
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Assign) and isinstance(
+                        node.value, ast.Call
+                    ):
+                        # Look for a chain ending in ``.cte(...)``.
+                        call = node.value
+                        if (
+                            isinstance(call.func, ast.Attribute)
+                            and call.func.attr == "cte"
+                        ):
+                            for tgt in node.targets:
+                                if isinstance(tgt, ast.Name):
+                                    cte_names.add(tgt.id)
+                # Every ``.in_(<Name>)`` call where the name is in
+                # ``cte_names`` must be flagged. (We allow
+                # ``.in_(select(<Name>.c.<col>))`` -- the wrapped
+                # form.)
+                bad = []
+                for node in ast.walk(tree):
+                    if (
+                        isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "in_"
+                        and len(node.args) == 1
+                        and isinstance(node.args[0], ast.Name)
+                        and node.args[0].id in cte_names
+                    ):
+                        bad.append(ast.unparse(node))
+                self.assertEqual(
+                    bad,
+                    [],
+                    f"{fn.__qualname__}: a CTE is passed bare to .in_(...); "
+                    f"wrap it in select(<cte>.c.<column>) to silence "
+                    f"SQLAlchemy 2.x's SAWarning. Offending calls: {bad}",
+                )
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
