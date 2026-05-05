@@ -1595,6 +1595,156 @@ class PostgresExplainTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBSearchFieldTests -- pin the shared ``_search_field``
+# dispatch on the SQL backends and the wire shape of the
+# search methods that delegate to it. Mirrors
+# ``MongoDBSearchFieldTests`` /
+# ``ElasticDBSearchFieldTests`` so a reader sees a
+# consistent helper-shape across all three backends.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBSearchFieldTests(unittest.TestCase):
+    """Behaviour-pin for ``ivre.db.sql.SQLDB._search_field``
+    and the ``SQLDBNmap.searchsource`` migration that delegates
+    to it.
+
+    The previous implementation hand-rolled a scalar / list /
+    regex ladder per call site (round-2 SQL audit follow-up
+    flagged ``SQLDBNmap.searchsource``). The shared helper
+    matches the wire-shape contract of
+    :meth:`MongoDB._search_field` so a regex / list / scalar
+    accept-shape is identical across backends, with one
+    deliberate change vs. the legacy SQL ladder: a
+    single-element list now collapses to ``field = 'A'``
+    instead of emitting ``field IN ('A')``. The two forms have
+    identical query plans on PostgreSQL.
+    """
+
+    @staticmethod
+    def _compile(clause):
+        # Inline binds via the PostgreSQL dialect so the
+        # rendered string is human-readable and stable across
+        # SA versions (1.4 / 2.0).
+        return str(
+            clause.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _scan_source_column():
+        sa = _sqlalchemy
+        meta = sa.MetaData()
+        scan = sa.Table("scan", meta, sa.Column("source", sa.String))
+        return scan.c.source
+
+    def _SQLDB(self):  # noqa: N802 -- factory accessor
+        from ivre.db.sql import SQLDB
+
+        return SQLDB
+
+    def test_scalar_positive(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, "X"))
+        self.assertEqual(sql, "scan.source = 'X'")
+
+    def test_scalar_negative(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, "X", neg=True))
+        self.assertEqual(sql, "scan.source != 'X'")
+
+    def test_list_positive(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, ["A", "B"]))
+        self.assertEqual(sql, "scan.source IN ('A', 'B')")
+
+    def test_list_negative(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, ["A", "B"], neg=True))
+        # SQLAlchemy parenthesises NOT IN; assert on the
+        # SQL primitive instead of strict equality so the
+        # exact parenthesisation is not over-pinned.
+        self.assertIn("NOT IN", sql)
+        self.assertIn("('A', 'B')", sql)
+
+    def test_list_of_one_collapses_to_scalar(self):
+        # Behaviour change vs. legacy ``searchsource``: a
+        # single-element list now emits ``= 'A'`` not
+        # ``IN ('A')``. PG plans them identically; the
+        # rewrite matches Mongo / Elastic semantics.
+        col = self._scan_source_column()
+        self.assertEqual(
+            self._compile(self._SQLDB()._search_field(col, ["A"])),
+            "scan.source = 'A'",
+        )
+        self.assertEqual(
+            self._compile(self._SQLDB()._search_field(col, ["A"], neg=True)),
+            "scan.source != 'A'",
+        )
+
+    def test_regex_positive(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, re.compile("^foo")))
+        self.assertEqual(sql, "scan.source ~ '^foo'")
+
+    def test_regex_case_insensitive(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, re.compile("^foo", re.I)))
+        # PostgreSQL ``~*`` is the case-insensitive POSIX-regex
+        # operator (vs. ``~`` for case-sensitive).
+        self.assertEqual(sql, "scan.source ~* '^foo'")
+
+    def test_regex_negative(self):
+        col = self._scan_source_column()
+        sql = self._compile(
+            self._SQLDB()._search_field(col, re.compile("^foo"), neg=True)
+        )
+        self.assertIn("NOT", sql)
+        self.assertIn("scan.source ~ '^foo'", sql)
+
+    def test_map_scalar(self):
+        # ``map_=str`` mirrors ``SQLDBActive.searchasnum`` --
+        # AS numbers are stored as text, callers pass ints.
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, 1234, map_=str))
+        self.assertEqual(sql, "scan.source = '1234'")
+
+    def test_map_list(self):
+        col = self._scan_source_column()
+        sql = self._compile(self._SQLDB()._search_field(col, [1, 2, 3], map_=str))
+        self.assertEqual(sql, "scan.source IN ('1', '2', '3')")
+
+    def test_map_with_regex_raises(self):
+        # ``map_`` is an element-wise coercion; pairing it with
+        # a compiled regex pattern is undefined and rejected
+        # explicitly so callers don't get silently-broken
+        # filters at query time.
+        col = self._scan_source_column()
+        with self.assertRaises(TypeError):
+            self._SQLDB()._search_field(col, re.compile("foo"), map_=str)
+
+    def test_searchsource_nmap_delegates_to_helper(self):
+        # End-to-end: the ``SQLDBNmap.searchsource`` migration
+        # produces the same SQL as a direct
+        # ``_search_field`` call on the ``scan.source`` column.
+        # We compare the two ``.main`` clauses bit-for-bit so
+        # the round-2 follow-up is pinned end-to-end.
+        from ivre.db.sql import SQLDBNmap
+
+        nmap_filter = SQLDBNmap.searchsource(["A", "B"], neg=True)
+        direct = SQLDBNmap._search_field(
+            SQLDBNmap.tables.scan.source, ["A", "B"], neg=True
+        )
+        self.assertEqual(self._compile(nmap_filter.main), self._compile(direct))
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

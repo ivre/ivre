@@ -531,6 +531,53 @@ class SQLDB(DB):
             return field != value
         return field == value
 
+    @classmethod
+    def _search_field(cls, field, value, neg=False, map_=None):
+        """Build a positive (``neg=False``) or negative equality
+        clause for a single SQL column given a scalar, list, or
+        compiled regex value. Encapsulates the scalar / list /
+        regex dispatch shared by the various ``searchXXX``
+        helpers on the SQL backends.
+
+        Mirrors :meth:`MongoDB._search_field` so a caller that
+        moves between backends sees the same accept-shape for
+        ``value``. For list values, a single-element list
+        collapses to scalar form (``field == v``) instead of
+        emitting a redundant ``IN ('v')`` -- matching the wire
+        shape Mongo's helper produces.
+
+        ``map_`` is an optional per-element coercion (default
+        ``None`` / identity). Used by ``searchasnum`` to
+        stringify integer AS numbers stored as text in the
+        JSONB-as-text column. ``map_`` and a regex value are
+        mutually exclusive (a compiled pattern has nothing for
+        a per-element coercion to operate on); passing both
+        raises ``TypeError``.
+
+        Declared as ``@classmethod`` so a backend-specific
+        subclass (e.g. a future SQLite backend) can replace the
+        regex-operator dispatch by overriding
+        ``_searchstring_re`` without touching every caller.
+        """
+        if isinstance(value, utils.REGEXP_T):
+            if map_ is not None:
+                raise TypeError(
+                    "_search_field: map_ is incompatible with a regex value"
+                )
+            return cls._searchstring_re(field, value, neg=neg)
+        if not isinstance(value, str) and hasattr(value, "__iter__"):
+            if map_ is not None:
+                value = [map_(elt) for elt in value]
+            else:
+                value = list(value)
+            if len(value) == 1:
+                value = value[0]
+            else:
+                return field.notin_(value) if neg else field.in_(value)
+        elif map_ is not None:
+            value = map_(value)
+        return field != value if neg else field == value
+
     @staticmethod
     def _searchstring_list(field, value, neg=False, map_=None):
         if not isinstance(value, str) and hasattr(value, "__iter__"):
@@ -2471,12 +2518,8 @@ class SQLDBNmap(SQLDBActive, DBNmap):
 
     @classmethod
     def searchsource(cls, src, neg=False):
-        if isinstance(src, list):
-            if neg:
-                return cls.base_filter(main=cls.tables.scan.source.notin_(src))
-            return cls.base_filter(main=cls.tables.scan.source.in_(src))
         return cls.base_filter(
-            main=cls._searchstring_re(cls.tables.scan.source, src, neg=neg)
+            main=cls._search_field(cls.tables.scan.source, src, neg=neg)
         )
 
 
