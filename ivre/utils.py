@@ -53,6 +53,7 @@ from urllib.parse import urlparse
 from urllib.request import build_opener
 
 try:
+    from cryptography import x509 as _x509
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
     from OpenSSL import crypto as osslc
 except ImportError:
@@ -2233,6 +2234,33 @@ if USE_PYOPENSSL:
             components.append((k, v))
         return "/".join(f"{kv[0]}={kv[1]}" for kv in components), dict(components)
 
+    def _format_san_general_name(name: "_x509.GeneralName") -> str:
+        """Format a single ``cryptography.x509`` ``GeneralName`` (one
+        entry of a ``SubjectAlternativeName`` extension) the same way
+        ``str(<pyOpenSSL X509Extension>)`` used to render it -- the
+        OpenSSL CLI ``v2i_GENERAL_NAME`` form, e.g. ``DNS:...``,
+        ``IP Address:...``, ``email:...``, ``URI:...``.
+
+        Pinned by ``CertExtensionFormatTests`` in
+        ``tests/tests_no_backend.py``. Mirrors RFC 5280 4.2.1.6
+        ``GeneralName`` choices.
+        """
+        if isinstance(name, _x509.DNSName):
+            return f"DNS:{name.value}"
+        if isinstance(name, _x509.IPAddress):
+            return f"IP Address:{name.value}"
+        if isinstance(name, _x509.RFC822Name):
+            return f"email:{name.value}"
+        if isinstance(name, _x509.UniformResourceIdentifier):
+            return f"URI:{name.value}"
+        if isinstance(name, _x509.DirectoryName):
+            return f"DirName:{name.value.rfc4514_string()}"
+        if isinstance(name, _x509.RegisteredID):
+            return f"Registered ID:{name.value.dotted_string}"
+        if isinstance(name, _x509.OtherName):
+            return f"othername:{name.type_id.dotted_string}"
+        return str(name)
+
     def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
             algorithm) in an handy-to-index-and-query form.
@@ -2251,20 +2279,44 @@ if USE_PYOPENSSL:
             return result
         result["subject_text"], result["subject"] = _parse_subject(data.get_subject())
         result["issuer_text"], result["issuer"] = _parse_subject(data.get_issuer())
-        for i in range(data.get_extension_count()):
-            ext = data.get_extension(i)
-            if ext.get_short_name() == b"subjectAltName":
-                try:
-                    # XXX str() / encoding
-                    result["san"] = [x.strip() for x in str(ext).split(", ")]
-                except Exception:
-                    LOGGER.warning(
-                        "Cannot decode subjectAltName %r for %r",
-                        ext,
-                        result["subject_text"],
-                        exc_info=True,
-                    )
-                break
+        # ``X509.get_extension(i)`` was deprecated in pyOpenSSL 23.3
+        # and removed in pyOpenSSL 26.x; route the lookup through
+        # ``cryptography`` instead via the ``X509.to_cryptography``
+        # bridge (available since pyOpenSSL 17.1). The bridge re-parses
+        # the DER through ``cryptography``'s strict ASN.1 parser, which
+        # rejects malformed (but real-world-observed) certificates that
+        # pyOpenSSL's looser parser used to tolerate -- e.g.
+        # ``InvalidVersion: 3 is not a valid X509 version``,
+        # ``ValueError: error parsing asn1 value: ParseError ...
+        # Time::UtcTime``, ``BasicConstraints::ca`` ``EncodedDefault``,
+        # ``DuplicateExtension``. Catch broadly here: a failure of
+        # SAN extraction must not skip the pubkey / serial / dates
+        # block below (downstream consumers, notably
+        # ``ivre getmoduli``, rely on ``result["pubkey"]["exponent"]``
+        # being populated even for not-quite-spec-compliant certs).
+        san_ext = None
+        try:
+            san_ext = data.to_cryptography().extensions.get_extension_for_class(
+                _x509.SubjectAlternativeName
+            )
+        except _x509.ExtensionNotFound:
+            pass
+        except Exception:
+            LOGGER.info(
+                "Cannot parse certificate via cryptography for SAN lookup: %r",
+                result["subject_text"],
+                exc_info=True,
+            )
+        if san_ext is not None:
+            try:
+                result["san"] = [_format_san_general_name(gn) for gn in san_ext.value]
+            except Exception:
+                LOGGER.warning(
+                    "Cannot decode subjectAltName %r for %r",
+                    san_ext,
+                    result["subject_text"],
+                    exc_info=True,
+                )
         result["self_signed"] = result["issuer_text"] == result["subject_text"]
         try:
             not_before = _parse_datetime(data.get_notBefore())
