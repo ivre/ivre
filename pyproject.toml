@@ -60,7 +60,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = ["sqlalchemy>=1.4,<2", "psycopg2"]
+postgres = ["sqlalchemy>=2,<3", "psycopg2"]
 elasticsearch = ["elasticsearch", "elasticsearch-dsl"]
 gssapi-mongo = ["gssapi"]
 gssapi-http = ["pycurl"]
