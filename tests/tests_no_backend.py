@@ -1715,6 +1715,61 @@ class CertExtensionFormatTests(unittest.TestCase):
         info = utils.get_cert_info(cert.public_bytes(_cert_serialization.Encoding.DER))
         self.assertNotIn("san", info)
 
+    def test_get_cert_info_continues_when_to_cryptography_raises(self) -> None:
+        """If ``X509.to_cryptography()`` raises -- because
+        ``cryptography``'s strict ASN.1 parser rejects a malformed
+        but pyOpenSSL-tolerated cert (real-world examples include
+        ``InvalidVersion: 3 is not a valid X509 version``,
+        ``ParseError ... Time::UtcTime``, ``BasicConstraints::ca``
+        ``EncodedDefault``) -- the SAN lookup must be skipped
+        without aborting the rest of ``get_cert_info``.
+
+        Critical invariant: ``result["pubkey"]["exponent"]`` and
+        ``result["pubkey"]["modulus"]`` must still be populated
+        for RSA keys, because ``ivre getmoduli`` (the consumer
+        exercised by ``test_30_nmap`` in ``tests/tests.py``)
+        reads ``key["exponent"]`` and crashes with ``KeyError`` on
+        a missing field.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert([_cert_x509.DNSName("example.com")])
+        # Patch ``X509.to_cryptography`` at the class level so the
+        # call inside ``get_cert_info`` raises the same ``ValueError``
+        # the strict ``cryptography`` ASN.1 parser would emit on a
+        # malformed real-world cert.
+        with mock.patch.object(
+            _cert_osslc.X509,
+            "to_cryptography",
+            side_effect=ValueError(
+                "simulated cryptography ASN.1 parse error on malformed cert"
+            ),
+        ):
+            info = utils.get_cert_info(der)
+        # SAN absent (lookup failed and was skipped).
+        self.assertNotIn("san", info)
+        # Pubkey block fully populated -- this is the field
+        # ``getmoduli`` requires.
+        self.assertIn("pubkey", info)
+        self.assertIn("type", info["pubkey"])
+        self.assertEqual(info["pubkey"]["type"], "rsa")
+        self.assertIn("exponent", info["pubkey"])
+        self.assertIn("modulus", info["pubkey"])
+        self.assertIn("bits", info["pubkey"])
+        # Subject / issuer / serial / dates also recovered.
+        # ``_parse_subject`` maps short OIDs (``CN``) to their long
+        # form (``commonName``) via the ``_CERTKEYS`` table and joins
+        # components with ``/``; for a single-component DN there is
+        # no leading ``/``.
+        self.assertEqual(info["subject_text"], "commonName=test.example.com")
+        self.assertEqual(info["issuer_text"], "commonName=test.example.com")
+        self.assertIn("serial_number", info)
+        self.assertIn("version", info)
+
 
 # ---------------------------------------------------------------------
 # PassiveDatetimeCoercionTests -- the ``/cgi/passive`` route's

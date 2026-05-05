@@ -2282,14 +2282,32 @@ if USE_PYOPENSSL:
         # ``X509.get_extension(i)`` was deprecated in pyOpenSSL 23.3
         # and removed in pyOpenSSL 26.x; route the lookup through
         # ``cryptography`` instead via the ``X509.to_cryptography``
-        # bridge (available since pyOpenSSL 17.1).
+        # bridge (available since pyOpenSSL 17.1). The bridge re-parses
+        # the DER through ``cryptography``'s strict ASN.1 parser, which
+        # rejects malformed (but real-world-observed) certificates that
+        # pyOpenSSL's looser parser used to tolerate -- e.g.
+        # ``InvalidVersion: 3 is not a valid X509 version``,
+        # ``ValueError: error parsing asn1 value: ParseError ...
+        # Time::UtcTime``, ``BasicConstraints::ca`` ``EncodedDefault``,
+        # ``DuplicateExtension``. Catch broadly here: a failure of
+        # SAN extraction must not skip the pubkey / serial / dates
+        # block below (downstream consumers, notably
+        # ``ivre getmoduli``, rely on ``result["pubkey"]["exponent"]``
+        # being populated even for not-quite-spec-compliant certs).
+        san_ext = None
         try:
             san_ext = data.to_cryptography().extensions.get_extension_for_class(
                 _x509.SubjectAlternativeName
             )
         except _x509.ExtensionNotFound:
             pass
-        else:
+        except Exception:
+            LOGGER.info(
+                "Cannot parse certificate via cryptography for SAN lookup: %r",
+                result["subject_text"],
+                exc_info=True,
+            )
+        if san_ext is not None:
             try:
                 result["san"] = [_format_san_general_name(gn) for gn in san_ext.value]
             except Exception:
