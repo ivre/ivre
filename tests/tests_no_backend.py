@@ -1783,6 +1783,63 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         sql = self._compile(SQLDBView.searchasnum([1, 2, 3]).main)
         self.assertIn("'1', '2', '3'", sql)
 
+    def test_searchja4client_passive_canonical_value(self):
+        # M4.0.4: ``SQLDBPassive.searchja4client`` mirrors
+        # ``MongoDBPassive.searchja4client`` (mongo.py:5655).
+        # Passing the canonical string form
+        # (``ja4_a_ja4_b_ja4_c``) must split out the indexed
+        # components and constrain each via the
+        # ``moreinfo`` JSONB column.
+        from ivre.db.sql import SQLDBPassive
+
+        flt = SQLDBPassive.searchja4client(value="t13d1715h2_5b57614c22b0_93c9c6ee0ce4")
+        sql = self._compile(flt.main)
+        self.assertIn("passive.recontype = 'SSL_CLIENT'", sql)
+        self.assertIn("passive.source = 'ja4'", sql)
+        self.assertIn("passive.value = 't13d1715h2_5b57614c22b0_93c9c6ee0ce4'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_b') = '5b57614c22b0'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_c') = '93c9c6ee0ce4'", sql)
+
+    def test_searchja4client_passive_individual_components(self):
+        # Individual ``ja4_*`` parameters bypass parsing; each
+        # constrains exactly one ``moreinfo`` JSONB key.
+        from ivre.db.sql import SQLDBPassive
+
+        flt = SQLDBPassive.searchja4client(ja4_a="t13d1715h2", ja4_b="5b57614c22b0")
+        sql = self._compile(flt.main)
+        self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_b') = '5b57614c22b0'", sql)
+        # ``ja4_c`` not constrained when not passed; check the
+        # short bare key is absent (ignoring ``ja4_c1_raw`` /
+        # ``ja4_c2_raw`` substrings which would false-positive).
+        scrubbed = sql.replace("ja4_c1_raw", "").replace("ja4_c2_raw", "")
+        self.assertNotIn("'ja4_c'", scrubbed)
+
+    def test_searchja4client_passive_raw_splits_c1_c2(self):
+        # The ``raw`` parameter splits ``ja4_c_raw`` further
+        # into ``ja4_c1_raw`` / ``ja4_c2_raw`` when it contains
+        # an underscore.
+        from ivre.db.sql import SQLDBPassive
+
+        flt = SQLDBPassive.searchja4client(raw="t13d1715h2_002f,0035_aaaaaa_bbbbbb")
+        sql = self._compile(flt.main)
+        self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_b_raw') = '002f,0035'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_c1_raw') = 'aaaaaa'", sql)
+        self.assertIn("(passive.moreinfo ->> 'ja4_c2_raw') = 'bbbbbb'", sql)
+
+    def test_searchja4client_passive_neg_wraps_in_not(self):
+        # ``neg=True`` wraps the whole AND-chain in
+        # ``not_(...)`` -- one NOT around the conjunction, not
+        # one per condition.
+        from ivre.db.sql import SQLDBPassive
+
+        flt = SQLDBPassive.searchja4client(ja4_a="t13d1715h2", neg=True)
+        sql = self._compile(flt.main)
+        self.assertTrue(sql.startswith("NOT ("))
+        self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
