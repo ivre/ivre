@@ -786,7 +786,7 @@ requires-dist = [
     { name = "pycurl", marker = "extra == 'gssapi-http'" },
     { name = "pylint", marker = "extra == 'linting'" },
     { name = "pymongo", specifier = ">=4.10" },
-    { name = "pyopenssl", specifier = ">=16.1.0" },
+    { name = "pyopenssl", specifier = ">=17.1.0" },
     { name = "regexploit", specifier = ">=1.0,<2" },
     { name = "rstcheck", extras = ["sphinx"], marker = "extra == 'linting'" },
     { name = "scapy", marker = "extra == 'ja3'" },

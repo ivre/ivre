@@ -45,7 +45,11 @@ dependencies = [
     "cryptography",
     "defusedxml",
     "pymongo>=4.10",
-    "pyOpenSSL>=16.1.0",
+    # ``X509.to_cryptography`` is used in ``ivre.utils.get_cert_info``
+    # for the SubjectAlternativeName lookup; it landed in
+    # pyOpenSSL 17.1.0 (the legacy ``X509.get_extension`` /
+    # ``get_extension_count`` index loop was removed in 26.x).
+    "pyOpenSSL>=17.1.0",
     "bottle",
     # Static ReDoS analyser (Doyensec). Used by
     # ``ivre.web.utils.validate_regex_complexity`` to reject

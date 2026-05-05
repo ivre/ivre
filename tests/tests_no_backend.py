@@ -1532,6 +1532,191 @@ class PostgresExplainTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# CertExtensionFormatTests -- pin the format of
+# ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
+# the migration off pyOpenSSL's removed ``X509.get_extension(i)``
+# index loop. Each entry must keep the OpenSSL CLI ``v2i_GENERAL_NAME``
+# shape ("DNS:foo", "IP Address:1.2.3.4", "email:a@b", "URI:...")
+# so downstream consumers (``ivre.active.data.cert_lines``, the
+# ``ssl-cert`` script output renderer, etc.) keep working.
+# ---------------------------------------------------------------------
+
+
+try:
+    import datetime as _cert_datetime
+    import ipaddress as _cert_ipaddress
+
+    from cryptography import x509 as _cert_x509  # type: ignore[import-untyped]
+    from cryptography.hazmat.primitives import (
+        hashes as _cert_hashes,  # type: ignore[import-untyped]
+    )
+    from cryptography.hazmat.primitives import (
+        serialization as _cert_serialization,  # type: ignore[import-untyped]
+    )
+    from cryptography.hazmat.primitives.asymmetric import (
+        rsa as _cert_rsa,  # type: ignore[import-untyped]
+    )
+    from cryptography.x509.oid import (
+        NameOID as _cert_NameOID,  # type: ignore[import-untyped]
+    )
+
+    _HAVE_CRYPTOGRAPHY = True
+except ImportError:
+    _HAVE_CRYPTOGRAPHY = False
+
+try:
+    # ``cryptography`` alone is not enough -- ``ivre.utils.get_cert_info``
+    # is only defined when ``USE_PYOPENSSL`` is true.
+    from OpenSSL import (  # type: ignore[import-untyped] # noqa: F401
+        crypto as _cert_osslc,
+    )
+
+    _HAVE_PYOPENSSL = True
+except ImportError:
+    _HAVE_PYOPENSSL = False
+
+
+@unittest.skipUnless(
+    _HAVE_CRYPTOGRAPHY and _HAVE_PYOPENSSL,
+    "cryptography and pyOpenSSL are required for CertExtensionFormatTests",
+)
+class CertExtensionFormatTests(unittest.TestCase):
+    """Pin the SAN-string format produced by
+    ``ivre.utils.get_cert_info`` and the standalone
+    ``_format_san_general_name`` helper.
+
+    Background: pyOpenSSL 26.x removed ``X509.get_extension(i)``
+    (deprecated since 23.3); ``ivre.utils.get_cert_info`` used to
+    iterate that legacy API and call ``str(ext)`` to get the
+    ``"DNS:..., IP Address:..."`` text. The migration routes the
+    lookup through ``X509.to_cryptography()`` and rebuilds the
+    same strings from the typed ``GeneralName`` objects, so this
+    class pins each subtype's expected output shape and the
+    end-to-end ``get_cert_info(cert)["san"]`` list ordering.
+    """
+
+    @staticmethod
+    def _build_cert(general_names: "list") -> bytes:
+        """Build a self-signed DER cert with the given list of
+        ``cryptography.x509`` ``GeneralName`` objects in its
+        ``SubjectAlternativeName`` extension."""
+        key = _cert_rsa.generate_private_key(65537, 2048)
+        subject = issuer = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "test.example.com")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        builder = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(_cert_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .add_extension(
+                _cert_x509.SubjectAlternativeName(general_names), critical=False
+            )
+        )
+        cert = builder.sign(key, _cert_hashes.SHA256())
+        return cert.public_bytes(_cert_serialization.Encoding.DER)
+
+    def test_format_helper_dns(self) -> None:
+        from ivre.utils import _format_san_general_name
+
+        self.assertEqual(
+            _format_san_general_name(_cert_x509.DNSName("example.com")),
+            "DNS:example.com",
+        )
+
+    def test_format_helper_ipv4(self) -> None:
+        from ivre.utils import _format_san_general_name
+
+        self.assertEqual(
+            _format_san_general_name(
+                _cert_x509.IPAddress(_cert_ipaddress.IPv4Address("192.0.2.1"))
+            ),
+            "IP Address:192.0.2.1",
+        )
+
+    def test_format_helper_email(self) -> None:
+        from ivre.utils import _format_san_general_name
+
+        self.assertEqual(
+            _format_san_general_name(_cert_x509.RFC822Name("admin@example.com")),
+            "email:admin@example.com",
+        )
+
+    def test_format_helper_uri(self) -> None:
+        from ivre.utils import _format_san_general_name
+
+        self.assertEqual(
+            _format_san_general_name(
+                _cert_x509.UniformResourceIdentifier("https://example.com/")
+            ),
+            "URI:https://example.com/",
+        )
+
+    def test_format_helper_registered_id(self) -> None:
+        from ivre.utils import _format_san_general_name
+
+        self.assertEqual(
+            _format_san_general_name(
+                _cert_x509.RegisteredID(_cert_x509.ObjectIdentifier("1.2.3.4"))
+            ),
+            "Registered ID:1.2.3.4",
+        )
+
+    def test_get_cert_info_san_dns_and_ip(self) -> None:
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert(
+            [
+                _cert_x509.DNSName("example.com"),
+                _cert_x509.DNSName("www.example.com"),
+                _cert_x509.IPAddress(_cert_ipaddress.IPv4Address("192.0.2.1")),
+            ]
+        )
+        info = utils.get_cert_info(der)
+        self.assertEqual(
+            info["san"],
+            [
+                "DNS:example.com",
+                "DNS:www.example.com",
+                "IP Address:192.0.2.1",
+            ],
+        )
+
+    def test_get_cert_info_san_missing(self) -> None:
+        # No SAN extension at all -> ``result`` must NOT contain
+        # the ``"san"`` key (downstream code uses ``"san" in info``
+        # as the presence check).
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        # Build a SAN-less cert by overriding ``_build_cert`` inline.
+        key = _cert_rsa.generate_private_key(65537, 2048)
+        subject = issuer = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "no-san.example")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        cert = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(_cert_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .sign(key, _cert_hashes.SHA256())
+        )
+        info = utils.get_cert_info(cert.public_bytes(_cert_serialization.Encoding.DER))
+        self.assertNotIn("san", info)
+
+
+# ---------------------------------------------------------------------
 # PassiveDatetimeCoercionTests -- the ``/cgi/passive`` route's
 # datetime-to-timestamp helper must accept the three concrete
 # field shapes that show up in real datasets (datetime, numeric,
