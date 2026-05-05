@@ -3529,6 +3529,14 @@ class SQLDBPassive(SQLDB, DBPassive):
                     base &= (
                         cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == r_c_raw
                     )
+                    # ``== ""`` builds a SQL ``= ''`` clause, not
+                    # a Python boolean check; disable pylint's
+                    # implicit-booleaness suggestion (would invert
+                    # the SA BinaryExpression's polarity). The
+                    # disable goes on the line where the
+                    # comparison's left operand sits, which is
+                    # where pylint attributes the message.
+                    # pylint: disable-next=use-implicit-booleaness-not-comparison-to-string
                     base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == ""
             except (KeyError, ValueError, IndexError):
                 utils.LOGGER.warning("Invalid JA4 raw value %r", raw, exc_info=True)
@@ -3547,6 +3555,11 @@ class SQLDBPassive(SQLDB, DBPassive):
                 base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == c2
             else:
                 base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == ja4_c_raw
+                # ``== ""`` builds a SQL ``= ''`` clause; see the
+                # comment above the matching line in the ``raw``
+                # branch for why pylint's implicit-booleaness
+                # suggestion is wrong here.
+                # pylint: disable-next=use-implicit-booleaness-not-comparison-to-string
                 base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == ""
         if ja4_c1_raw is not None:
             base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == ja4_c1_raw
