@@ -1840,6 +1840,66 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         self.assertTrue(sql.startswith("NOT ("))
         self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
 
+    def test_searchtag_lifted_to_sqldbactive(self):
+        # M4.0.5: ``searchtag`` was previously defined only on
+        # ``SQLDBView``. Both ``SQLDBView`` and ``SQLDBNmap`` have
+        # a ``tag`` table in ``tables`` and a ``base_filter``
+        # (``ActiveFilter`` subclass) that accepts the ``tag=``
+        # keyword, so the implementation lifts cleanly to
+        # ``SQLDBActive`` and both backends inherit it.
+        from ivre.db.sql import SQLDBActive, SQLDBNmap, SQLDBView
+
+        # Method is owned by ``SQLDBActive`` (not duplicated on
+        # the subclasses).
+        self.assertIs(SQLDBNmap.searchtag.__func__, SQLDBActive.searchtag.__func__)
+        self.assertIs(SQLDBView.searchtag.__func__, SQLDBActive.searchtag.__func__)
+
+    def test_searchtag_nmap_produces_nmap_filter(self):
+        # ``SQLDBNmap.searchtag(value)`` builds a ``NmapFilter``
+        # with a ``(positive, value-equality)`` entry on the
+        # ``tag`` axis. Pin both the filter type and the entry
+        # shape so the lift cannot accidentally degrade the
+        # NmapFilter into a base ActiveFilter.
+        from ivre.db.sql import SQLDBNmap
+        from ivre.db.sql.tables import N_Tag
+
+        flt = SQLDBNmap.searchtag("CDN")
+        self.assertEqual(type(flt).__name__, "NmapFilter")
+        # One entry: (True, <equality clause>).
+        self.assertEqual(len(flt.tag), 1)
+        positive, clause = flt.tag[0]
+        self.assertTrue(positive)
+        # The clause references the Nmap tag table's ``value``
+        # column (not the View tag table).
+        sql = self._compile(clause)
+        self.assertIn("n_tag.value = 'CDN'", sql)
+        self.assertEqual(N_Tag.__tablename__, "n_tag")
+
+    def test_searchtag_nmap_with_dict_constrains_multiple_keys(self):
+        # Passing a dict (e.g.
+        # ``{"value": "CDN", "info": "Cloudflare"}``) constrains
+        # multiple ``tag`` columns AND-ed together.
+        from ivre.db.sql import SQLDBNmap
+
+        flt = SQLDBNmap.searchtag({"value": "CDN", "info": "Cloudflare"})
+        self.assertEqual(len(flt.tag), 1)
+        positive, clause = flt.tag[0]
+        self.assertTrue(positive)
+        sql = self._compile(clause)
+        self.assertIn("n_tag.value = 'CDN'", sql)
+        self.assertIn("n_tag.info = 'Cloudflare'", sql)
+
+    def test_searchtag_nmap_neg(self):
+        # ``neg=True`` flips the polarity flag on the tag entry
+        # (the per-axis evaluator handles the inversion); the
+        # value clause itself stays positive.
+        from ivre.db.sql import SQLDBNmap
+
+        flt = SQLDBNmap.searchtag("CDN", neg=True)
+        self.assertEqual(len(flt.tag), 1)
+        positive, _clause = flt.tag[0]
+        self.assertFalse(positive)
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of

@@ -1842,6 +1842,30 @@ class SQLDBActive(SQLDB, DBActive):
         )
 
     @classmethod
+    def searchtag(cls, tag=None, neg=False):
+        """Filters (if `neg` == True, filters out) one particular tag (records
+        may have zero, one or more tags).
+
+        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
+        `{"value": value, "info": info}`).
+
+        Lifted to ``SQLDBActive`` so both ``SQLDBNmap`` and
+        ``SQLDBView`` inherit it -- both backends have a ``tag``
+        table in their ``tables`` namespace and accept the ``tag=``
+        keyword on their ``base_filter`` (``ActiveFilter`` and its
+        subclasses, ``ivre/db/sql/__init__.py:725``).
+        """
+        if not tag:
+            return cls.base_filter(tag=[(not neg, True)])
+        if not isinstance(tag, dict):
+            tag = {"value": tag}
+        req = [
+            cls._searchstring_re(getattr(cls.tables.tag, key), value)
+            for key, value in tag.items()
+        ]
+        return cls.base_filter(tag=[(not neg, and_(*req))])
+
+    @classmethod
     def searchport(cls, port, protocol="tcp", state="open", neg=False):
         """Filters (if `neg` == True, filters out) records with
         specified protocol/port at required state. Be aware that when
@@ -2568,25 +2592,6 @@ class SQLDBView(SQLDBActive, DBView):
                 cls.tables.scan.id, cls.tables.scan.source, src, neg=neg
             )
         )
-
-    @classmethod
-    def searchtag(cls, tag=None, neg=False):
-        """Filters (if `neg` == True, filters out) one particular tag (records
-        may have zero, one or more tags).
-
-        `tag` may be the value (as a str) or the tag (as a Tag, e.g.:
-        `{"value": value, "info": info}`).
-
-        """
-        if not tag:
-            return cls.base_filter(tag=[(not neg, True)])
-        if not isinstance(tag, dict):
-            tag = {"value": tag}
-        req = [
-            cls._searchstring_re(getattr(cls.tables.tag, key), value)
-            for key, value in tag.items()
-        ]
-        return cls.base_filter(tag=[(not neg, and_(*req))])
 
     @classmethod
     def searchcountry(cls, country, neg=False):
