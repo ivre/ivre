@@ -578,20 +578,6 @@ class SQLDB(DB):
             value = map_(value)
         return field != value if neg else field == value
 
-    @staticmethod
-    def _searchstring_list(field, value, neg=False, map_=None):
-        if not isinstance(value, str) and hasattr(value, "__iter__"):
-            if map_ is not None:
-                value = [map_(elt) for elt in value]
-            if neg:
-                return field.notin_(value)
-            return field.in_(value)
-        if map_ is not None:
-            value = map_(value)
-        if neg:
-            return field != value
-        return field == value
-
     @classmethod
     def _searchcert(
         cls,
@@ -2610,7 +2596,7 @@ class SQLDBView(SQLDBActive, DBView):
         """
         country = utils.country_unalias(country)
         return cls.base_filter(
-            main=cls._searchstring_list(
+            main=cls._search_field(
                 cls.tables.scan.info["country_code"].astext, country, neg=neg
             )
         )
@@ -2634,7 +2620,7 @@ class SQLDBView(SQLDBActive, DBView):
 
         """
         return cls.base_filter(
-            main=cls._searchstring_list(
+            main=cls._search_field(
                 cls.tables.scan.info["as_num"], asnum, neg=neg, map_=str
             )
         )
