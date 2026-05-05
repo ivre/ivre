@@ -1284,7 +1284,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         else:
             fields = [self.tables.port.port]
         req = (
-            select(fields)
+            select(*fields)
             .group_by(*fields)
             .where(
                 and_(

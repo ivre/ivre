@@ -3039,7 +3039,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             ]
         else:
             fields = [self.tables.passive.port]
-        req = flt.query(select(fields).group_by(*fields))
+        req = flt.query(select(*fields).group_by(*fields))
         if not yieldall:
             req = req.order_by(*(nulls_first(fld) for fld in fields))
             return self._read_iter(req)
