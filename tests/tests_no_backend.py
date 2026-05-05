@@ -1743,6 +1743,46 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         )
         self.assertEqual(self._compile(nmap_filter.main), self._compile(direct))
 
+    def test_searchcountry_view_delegates_to_helper(self):
+        # ``SQLDBView.searchcountry`` migrated from the legacy
+        # ``_searchstring_list`` helper to the unified
+        # ``_search_field`` helper. The migration is internal:
+        # same accept-shape (scalar / list -- regex is rejected
+        # earlier in the pipeline by ``utils.country_unalias``),
+        # same emitted SQL, just routed through one helper. Pin
+        # both list and scalar paths bit-for-bit against direct
+        # ``_search_field`` calls.
+        from ivre.db.sql import SQLDBView
+
+        col = SQLDBView.tables.scan.info["country_code"].astext
+        # ``country_unalias`` is the identity on uppercase
+        # 2-letter codes, so the comparison is bit-for-bit.
+        for value in ("FR", ["FR", "DE"], ["FR"]):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    self._compile(SQLDBView.searchcountry(value).main),
+                    self._compile(SQLDBView._search_field(col, value)),
+                )
+
+    def test_searchasnum_view_preserves_str_coercion(self):
+        # ``SQLDBView.searchasnum`` historically called
+        # ``_searchstring_list(map_=str)`` to stringify integer
+        # AS numbers stored in the JSONB-as-text
+        # ``info.as_num`` column. The migration to
+        # ``_search_field(map_=str)`` must preserve this:
+        # callers passing an int / list-of-int still produce
+        # quoted-string clauses.
+        from ivre.db.sql import SQLDBView
+
+        # Scalar int.
+        sql = self._compile(SQLDBView.searchasnum(1234).main)
+        # The JSONB getitem expression on the LHS quotes the
+        # key, so we only assert on the RHS literal.
+        self.assertIn("'1234'", sql)
+        # List of ints.
+        sql = self._compile(SQLDBView.searchasnum([1, 2, 3]).main)
+        self.assertIn("'1', '2', '3'", sql)
+
 
 # ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
