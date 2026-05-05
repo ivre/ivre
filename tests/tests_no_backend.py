@@ -1231,6 +1231,175 @@ class RegexComplexityTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBSearchFieldTests -- pin the wire shape of the Elastic
+# ``_search_field`` helper extraction (the round-2 follow-up that
+# consolidates the scalar / list / regex / neg ladder on the
+# Elasticsearch backend, mirroring ``MongoDB._search_field``).
+# ---------------------------------------------------------------------
+
+
+try:
+    import elasticsearch_dsl as _elasticsearch_dsl  # type: ignore[import-untyped]
+
+    _HAVE_ELASTICSEARCH_DSL = True
+    _ = _elasticsearch_dsl  # silence unused-import lint
+except ImportError:
+    _HAVE_ELASTICSEARCH_DSL = False
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBSearchFieldTests(unittest.TestCase):
+    """Pin the ``ElasticDB._search_field`` dispatch and the wire
+    shape of the search methods that delegate to it. The four
+    migrated methods (``searchcategory``, ``searchcountry``,
+    ``searchasnum``, ``searchasname``) must produce the exact
+    same Elasticsearch ``Query`` body the legacy hand-written
+    ladders did, so the wire stays compatible across the
+    refactor.
+
+    Asserts via ``Query.to_dict()`` (the canonical wire-shape
+    accessor) so the comparison is independent of
+    ``elasticsearch_dsl`` internal class identity.
+    """
+
+    @staticmethod
+    def _ED():
+        from ivre.db.elastic import ElasticDB
+
+        return ElasticDB
+
+    @staticmethod
+    def _EV():
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView
+
+    def test_search_field_scalar_positive(self):
+        ED = self._ED()
+        q = ED._search_field("categories", "admin")
+        self.assertEqual(q.to_dict(), {"match": {"categories": "admin"}})
+
+    def test_search_field_scalar_negation(self):
+        ED = self._ED()
+        q = ED._search_field("categories", "admin", neg=True)
+        # ``~`` on a leaf query is wrapped in a ``bool.must_not``.
+        self.assertEqual(
+            q.to_dict(),
+            {"bool": {"must_not": [{"match": {"categories": "admin"}}]}},
+        )
+
+    def test_search_field_list_uses_terms(self):
+        ED = self._ED()
+        q = ED._search_field("categories", ["a", "b"])
+        self.assertEqual(q.to_dict(), {"terms": {"categories": ["a", "b"]}})
+
+    def test_search_field_list_of_one_collapses_to_match(self):
+        # ``len(value) == 1`` collapses to the scalar ``match``
+        # form, matching the Mongo backend's ``[x]`` -> ``x``
+        # collapse and keeping the wire output minimal.
+        ED = self._ED()
+        q = ED._search_field("categories", ["solo"])
+        self.assertEqual(q.to_dict(), {"match": {"categories": "solo"}})
+
+    def test_search_field_regex_uses_regexp(self):
+        # The pattern is rewritten by ``_get_pattern`` to match
+        # Elasticsearch's anchored-by-default semantics: a Python
+        # /admin/ becomes /.*admin.*/ on the wire.
+        ED = self._ED()
+        pat = re.compile("admin")
+        q = ED._search_field("categories", pat)
+        self.assertEqual(q.to_dict(), {"regexp": {"categories": ".*admin.*"}})
+
+    def test_searchcategory_legacy_shape_preserved(self):
+        # Wire shape pinned bit-for-bit against the pre-refactor
+        # method body. ``searchcategory`` is defined on
+        # ``ElasticDBActive``; the View backend inherits it so
+        # we exercise it through ``_EV()``.
+        EV = self._EV()
+        self.assertEqual(
+            EV.searchcategory("admin").to_dict(),
+            {"match": {"categories": "admin"}},
+        )
+        self.assertEqual(
+            EV.searchcategory(["a", "b"]).to_dict(),
+            {"terms": {"categories": ["a", "b"]}},
+        )
+        pat = re.compile("admin")
+        self.assertEqual(
+            EV.searchcategory(pat).to_dict(),
+            {"regexp": {"categories": ".*admin.*"}},
+        )
+        self.assertEqual(
+            EV.searchcategory("admin", neg=True).to_dict(),
+            {"bool": {"must_not": [{"match": {"categories": "admin"}}]}},
+        )
+
+    def test_searchcountry_unaliases_then_delegates(self):
+        # ``utils.country_unalias`` maps a few historical aliases
+        # ('UK' -> 'GB' etc.); the helper sees the canonical
+        # value. Test on a plain code (no aliasing applied) to
+        # pin the wire shape; the aliasing itself is tested by
+        # ``utils`` tests.
+        EV = self._EV()
+        self.assertEqual(
+            EV.searchcountry("FR").to_dict(),
+            {"match": {"infos.country_code": "FR"}},
+        )
+        self.assertEqual(
+            EV.searchcountry(["FR", "US"]).to_dict(),
+            {"terms": {"infos.country_code": ["FR", "US"]}},
+        )
+        self.assertEqual(
+            EV.searchcountry("FR", neg=True).to_dict(),
+            {"bool": {"must_not": [{"match": {"infos.country_code": "FR"}}]}},
+        )
+
+    def test_searchasnum_int_coercion_preserved(self):
+        # ``int()`` coercion of every element is kept; behaviour
+        # matches the pre-refactor method bit-for-bit. Strings
+        # like ``"AS1234"`` still raise ``ValueError`` (the
+        # backend has no ``_coerce_asnum`` equivalent today).
+        EV = self._EV()
+        self.assertEqual(
+            EV.searchasnum("1234").to_dict(),
+            {"match": {"infos.as_num": 1234}},
+        )
+        self.assertEqual(
+            EV.searchasnum(1234).to_dict(),
+            {"match": {"infos.as_num": 1234}},
+        )
+        self.assertEqual(
+            EV.searchasnum(["1234", "5678"]).to_dict(),
+            {"terms": {"infos.as_num": [1234, 5678]}},
+        )
+        self.assertEqual(
+            EV.searchasnum(1234, neg=True).to_dict(),
+            {"bool": {"must_not": [{"match": {"infos.as_num": 1234}}]}},
+        )
+        with self.assertRaises(ValueError):
+            EV.searchasnum("AS1234")
+
+    def test_searchasname_regex_and_scalar_preserved(self):
+        EV = self._EV()
+        self.assertEqual(
+            EV.searchasname("Cloudflare").to_dict(),
+            {"match": {"infos.as_name": "Cloudflare"}},
+        )
+        pat = re.compile("Cloud")
+        self.assertEqual(
+            EV.searchasname(pat).to_dict(),
+            {"regexp": {"infos.as_name": ".*Cloud.*"}},
+        )
+        self.assertEqual(
+            EV.searchasname("Cloudflare", neg=True).to_dict(),
+            {"bool": {"must_not": [{"match": {"infos.as_name": "Cloudflare"}}]}},
+        )
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.

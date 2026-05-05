@@ -176,6 +176,40 @@ class ElasticDB(DB):
             )
         return pattern
 
+    @classmethod
+    def _search_field(cls, field, value, neg=False):
+        """Build the canonical Elasticsearch query for ``field``
+        against ``value`` with optional negation. Mirrors the
+        ``MongoDB._search_field`` helper on the Mongo side: a
+        single dispatch over the four input shapes the IVRE web
+        filter language can produce.
+
+        - ``value`` is a regex (``utils.REGEXP_T``) → ``regexp``
+          query (the pattern is rewritten via :meth:`_get_pattern`
+          to match Elasticsearch's anchored-by-default semantics).
+        - ``value`` is a list of length one → ``match`` query on
+          the single element (collapses to the scalar shape so
+          the wire output stays comparable to the legacy
+          ``terms``-with-one-element form would).
+        - ``value`` is a list of more elements → ``terms`` query.
+        - ``value`` is a scalar → ``match`` query.
+
+        ``neg=True`` wraps the result in ``~`` (a ``bool``
+        ``must_not`` clause).
+        """
+        if isinstance(value, utils.REGEXP_T):
+            res = Q("regexp", **{field: cls._get_pattern(value)})
+        elif isinstance(value, list):
+            if len(value) == 1:
+                res = Q("match", **{field: value[0]})
+            else:
+                res = Q("terms", **{field: value})
+        else:
+            res = Q("match", **{field: value})
+        if neg:
+            return ~res
+        return res
+
     @staticmethod
     def _flt_and(cond1, cond2):
         return cond1 & cond2
@@ -1296,15 +1330,7 @@ return result;
         Filters (if `neg` == True, filters out) one particular category
         (records may have zero, one or more categories).
         """
-        if isinstance(cat, list):
-            res = Q("terms", categories=cat)
-        elif isinstance(cat, utils.REGEXP_T):
-            res = Q("regexp", categories=cls._get_pattern(cat))
-        else:
-            res = Q("match", categories=cat)
-        if neg:
-            return ~res
-        return res
+        return cls._search_field("categories", cat, neg=neg)
 
     @staticmethod
     def searchopenport(neg=False):
@@ -1681,34 +1707,31 @@ class ElasticDBView(ElasticDBActive, DBView):
             )
         return Q("nested", path="tags", query=cls.flt_and(*all_res))
 
-    @staticmethod
-    def searchcountry(country, neg=False):
+    @classmethod
+    def searchcountry(cls, country, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         country, or a list of countries.
 
         """
-        country = utils.country_unalias(country)
-        if isinstance(country, list):
-            res = Q("terms", infos__country_code=country)
-        else:
-            res = Q("match", infos__country_code=country)
-        if neg:
-            return ~res
-        return res
+        return cls._search_field(
+            "infos.country_code", utils.country_unalias(country), neg=neg
+        )
 
-    @staticmethod
-    def searchasnum(asnum, neg=False):
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
         """Filters (if `neg` == True, filters out) one or more
-        particular AS number(s).
-
+        particular AS number(s). The legacy form coerced every
+        element to ``int(...)`` blindly; preserve that here so
+        ``"AS1234"``-prefixed strings still raise the same
+        ``ValueError`` they did before \u2014 callers that want
+        the prefix-stripping shape can pre-process via the
+        ``MongoDB`` backend's ``_coerce_asnum`` mirror.
         """
         if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
-            res = Q("terms", infos__as_num=[int(val) for val in asnum])
+            asnum = [int(val) for val in asnum]
         else:
-            res = Q("match", infos__as_num=int(asnum))
-        if neg:
-            return ~res
-        return res
+            asnum = int(asnum)
+        return cls._search_field("infos.as_num", asnum, neg=neg)
 
     @classmethod
     def searchasname(cls, asname, neg=False):
@@ -1716,13 +1739,7 @@ class ElasticDBView(ElasticDBActive, DBView):
         particular AS.
 
         """
-        if isinstance(asname, utils.REGEXP_T):
-            res = Q("regexp", infos__as_name=cls._get_pattern(asname))
-        else:
-            res = Q("match", infos__as_name=asname)
-        if neg:
-            return ~res
-        return res
+        return cls._search_field("infos.as_name", asname, neg=neg)
 
     def getlocations(self, flt):
         query = {
