@@ -555,7 +555,7 @@ class SQLDB(DB):
         raises ``TypeError``.
 
         Declared as ``@classmethod`` so a backend-specific
-        subclass (e.g. a future SQLite backend) can replace the
+        subclass (e.g. a future DuckDB backend) can replace the
         regex-operator dispatch by overriding
         ``_searchstring_re`` without touching every caller.
         """
