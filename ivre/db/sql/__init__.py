@@ -507,9 +507,9 @@ class SQLDB(DB):
                 raise ValueError("Not implemented")
             operator = "~*" if (value.flags & re.IGNORECASE) else "~"
             value = value.pattern
-            base1 = select(
-                [idfield.label("id"), func.unnest(field).label("field")]
-            ).cte("base1")
+            base1 = select(idfield.label("id"), func.unnest(field).label("field")).cte(
+                "base1"
+            )
             base2 = (
                 select(column("id", Integer))
                 .select_from(base1)
@@ -972,12 +972,10 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1021,12 +1019,10 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1075,13 +1071,11 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1127,13 +1121,11 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1191,13 +1183,11 @@ class SQLDBActive(SQLDB, DBActive):
         scripts.append("ssh-hostkey")
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1245,13 +1235,11 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1295,12 +1283,10 @@ class SQLDBActive(SQLDB, DBActive):
         failed = []
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1356,13 +1342,11 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1409,13 +1393,11 @@ class SQLDBActive(SQLDB, DBActive):
         failed = set()
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.name,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.name,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -1503,11 +1485,9 @@ class SQLDBActive(SQLDB, DBActive):
             {"addr": rec[2], "starttime": rec[1], "openports": {"count": rec[0]}}
             for rec in self._read_iter(
                 select(
-                    [
-                        func.count(self.tables.port.id),
-                        self.tables.scan.time_start,
-                        self.tables.scan.addr,
-                    ]
+                    func.count(self.tables.port.id),
+                    self.tables.scan.time_start,
+                    self.tables.scan.addr,
                 )
                 .select_from(join(self.tables.port, self.tables.scan))
                 .where(self.tables.port.state == "open")
@@ -1523,10 +1503,8 @@ class SQLDBActive(SQLDB, DBActive):
     def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
             select(
-                [
-                    func.count(self.tables.scan.id),
-                    self.tables.scan.info["coordinates"].astext,
-                ]
+                func.count(self.tables.scan.id),
+                self.tables.scan.info["coordinates"].astext,
             ).where(
                 self.tables.scan.info.has_key("coordinates")  # noqa: W601
             ),
@@ -1552,18 +1530,16 @@ class SQLDBActive(SQLDB, DBActive):
             utils.LOGGER.warning("Argument 'fields' provided but unused")
         req = flt.query(
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.scan.addr,
-                    self.tables.scan.source,
-                    self.tables.scan.info,
-                    self.tables.scan.time_start,
-                    self.tables.scan.time_stop,
-                    self.tables.scan.state,
-                    self.tables.scan.state_reason,
-                    self.tables.scan.state_reason_ttl,
-                    self.tables.scan.schema_version,
-                ]
+                self.tables.scan.id,
+                self.tables.scan.addr,
+                self.tables.scan.source,
+                self.tables.scan.info,
+                self.tables.scan.time_start,
+                self.tables.scan.time_stop,
+                self.tables.scan.state,
+                self.tables.scan.state_reason,
+                self.tables.scan.state_reason_ttl,
+                self.tables.scan.schema_version,
             ).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -1614,7 +1590,7 @@ class SQLDBActive(SQLDB, DBActive):
             tags = {}
             for tag in self._read_iter(
                 select(
-                    [self.tables.tag.value, self.tables.tag.type, self.tables.tag.info]
+                    self.tables.tag.value, self.tables.tag.type, self.tables.tag.info
                 ).where(self.tables.tag.scan == rec["_id"])
             ):
                 rect = {}
@@ -1660,11 +1636,9 @@ class SQLDBActive(SQLDB, DBActive):
                         del recp[fld]
                 for script in self._read_iter(
                     select(
-                        [
-                            self.tables.script.name,
-                            self.tables.script.output,
-                            self.tables.script.data,
-                        ]
+                        self.tables.script.name,
+                        self.tables.script.output,
+                        self.tables.script.data,
                     ).where(self.tables.script.port == portid)
                 ):
                     data = {
@@ -2248,16 +2222,14 @@ class SQLDBActive(SQLDB, DBActive):
             if isinstance(fname, (utils.REGEXP_T, list)):
                 base1 = (
                     select(
-                        [
-                            cls.tables.script.port,
+                        cls.tables.script.port,
+                        func.jsonb_array_elements(
                             func.jsonb_array_elements(
-                                func.jsonb_array_elements(
-                                    cls.tables.script.data["ls"]["volumes"]
-                                ).op("->")("files")
-                            )
-                            .op("->>")("filename")
-                            .label("filename"),
-                        ]
+                                cls.tables.script.data["ls"]["volumes"]
+                            ).op("->")("files")
+                        )
+                        .op("->>")("filename")
+                        .label("filename"),
                     )
                     .where(
                         cls.tables.script.data.op("@>")(
@@ -2746,22 +2718,20 @@ class SQLDBPassive(SQLDB, DBPassive):
             utils.LOGGER.warning("Argument 'fields' provided but unused")
         req = flt.query(
             select(
-                [
-                    self.tables.passive.id.label("_id"),
-                    self.tables.passive.addr,
-                    self.tables.passive.sensor,
-                    self.tables.passive.count,
-                    self.tables.passive.firstseen,
-                    self.tables.passive.lastseen,
-                    self.tables.passive.port,
-                    self.tables.passive.recontype,
-                    self.tables.passive.source,
-                    self.tables.passive.targetval,
-                    self.tables.passive.value,
-                    self.tables.passive.info,
-                    self.tables.passive.moreinfo,
-                    self.tables.passive.schema_version,
-                ]
+                self.tables.passive.id.label("_id"),
+                self.tables.passive.addr,
+                self.tables.passive.sensor,
+                self.tables.passive.count,
+                self.tables.passive.firstseen,
+                self.tables.passive.lastseen,
+                self.tables.passive.port,
+                self.tables.passive.recontype,
+                self.tables.passive.source,
+                self.tables.passive.targetval,
+                self.tables.passive.value,
+                self.tables.passive.info,
+                self.tables.passive.moreinfo,
+                self.tables.passive.schema_version,
             ).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -3012,14 +2982,12 @@ class SQLDBPassive(SQLDB, DBPassive):
         if more_filter is None:
             req = flt.query(
                 select(
-                    [
-                        (
-                            func.count()
-                            if distinct
-                            else func.sum(self.tables.passive.count)
-                        ).label("count")
-                    ]
-                    + field
+                    (
+                        func.count()
+                        if distinct
+                        else func.sum(self.tables.passive.count)
+                    ).label("count"),
+                    *field,
                 )
                 .select_from(flt.select_from)
                 .group_by(*field)
@@ -3027,20 +2995,19 @@ class SQLDBPassive(SQLDB, DBPassive):
         else:
             base1 = flt.query(
                 select(
-                    [
-                        (
-                            func.count()
-                            if distinct
-                            else func.sum(self.tables.passive.count)
-                        ).label("count")
-                    ]
-                    + field
+                    (
+                        func.count()
+                        if distinct
+                        else func.sum(self.tables.passive.count)
+                    ).label("count"),
+                    *field,
                 )
                 .select_from(flt.select_from)
                 .group_by(*field)
             ).cte("base1")
             req = select(
-                [base1.c.count] + [getattr(base1.c, fld.name) for fld in field]
+                base1.c.count,
+                *(getattr(base1.c, fld.name) for fld in field),
             ).where(more_filter(base1.c))
         return (
             {

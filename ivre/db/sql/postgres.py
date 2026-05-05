@@ -244,12 +244,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         cond = self.tables.scan.schema_version == 10
         req = (
             select(
-                [
-                    self.tables.scan.id,
-                    self.tables.script.port,
-                    self.tables.script.output,
-                    self.tables.script.data,
-                ]
+                self.tables.scan.id,
+                self.tables.script.port,
+                self.tables.script.output,
+                self.tables.script.data,
             )
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
@@ -339,22 +337,20 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             }
             for rec in self._read_iter(
                 select(
-                    [
-                        func.array_agg(
-                            postgresql.aggregate_order_by(
-                                tuple_(
-                                    self.tables.port.protocol,
-                                    self.tables.port.port,
-                                    self.tables.port.state,
-                                ).label("a"),
-                                tuple_(
-                                    self.tables.port.protocol, self.tables.port.port
-                                ).label("a"),
-                            )
-                        ).label("ports"),
-                        self.tables.scan.time_start,
-                        self.tables.scan.addr,
-                    ]
+                    func.array_agg(
+                        postgresql.aggregate_order_by(
+                            tuple_(
+                                self.tables.port.protocol,
+                                self.tables.port.port,
+                                self.tables.port.state,
+                            ).label("a"),
+                            tuple_(
+                                self.tables.port.protocol, self.tables.port.port
+                            ).label("a"),
+                        )
+                    ).label("ports"),
+                    self.tables.scan.time_start,
+                    self.tables.scan.addr,
                 )
                 .select_from(join(self.tables.port, self.tables.scan))
                 .group_by(self.tables.scan.addr, self.tables.scan.time_start)
@@ -499,20 +495,18 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     select(func.count().label("count"), column("ports"))
                     .select_from(
                         select(
-                            [
-                                func.array_agg(
-                                    postgresql.aggregate_order_by(
-                                        tuple_(
-                                            self.tables.port.protocol,
-                                            self.tables.port.port,
-                                        ).label("a"),
-                                        tuple_(
-                                            self.tables.port.protocol,
-                                            self.tables.port.port,
-                                        ).label("a"),
-                                    )
-                                ).label("ports"),
-                            ]
+                            func.array_agg(
+                                postgresql.aggregate_order_by(
+                                    tuple_(
+                                        self.tables.port.protocol,
+                                        self.tables.port.port,
+                                    ).label("a"),
+                                    tuple_(
+                                        self.tables.port.protocol,
+                                        self.tables.port.port,
+                                    ).label("a"),
+                                )
+                            ).label("ports"),
                         )
                         .where(
                             and_(
@@ -1340,10 +1334,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         n_features = len(features)
         for addr, cur_features in self._read_iter(
             select(
-                [
-                    self.tables.scan.id,
-                    func.array_agg(func.distinct(postgresql.array(fields))),
-                ]
+                self.tables.scan.id,
+                func.array_agg(func.distinct(postgresql.array(fields))),
             )
             .select_from(join(self.tables.scan, self.tables.port))
             .group_by(self.tables.scan.id)
@@ -1845,13 +1837,11 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         ]
                     ],
                     select(
-                        [
-                            tmp.columns["addr"],
-                            func.sum_(tmp.columns["count"]),
-                            func.min_(tmp.columns["firstseen"]),
-                            func.max_(tmp.columns["lastseen"]),
-                        ]
-                        + [
+                        tmp.columns["addr"],
+                        func.sum_(tmp.columns["count"]),
+                        func.min_(tmp.columns["firstseen"]),
+                        func.max_(tmp.columns["lastseen"]),
+                        *(
                             tmp.columns[col]
                             for col in [
                                 "sensor",
@@ -1863,7 +1853,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
-                        ]
+                        ),
                     )
                     .where(tmp.columns["addr"] != None)  # noqa: E711
                     .group_by(
@@ -1933,13 +1923,11 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         ]
                     ],
                     select(
-                        [
-                            tmp.columns["addr"],
-                            func.sum_(tmp.columns["count"]),
-                            func.min_(tmp.columns["firstseen"]),
-                            func.max_(tmp.columns["lastseen"]),
-                        ]
-                        + [
+                        tmp.columns["addr"],
+                        func.sum_(tmp.columns["count"]),
+                        func.min_(tmp.columns["firstseen"]),
+                        func.max_(tmp.columns["lastseen"]),
+                        *(
                             tmp.columns[col]
                             for col in [
                                 "sensor",
@@ -1951,7 +1939,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
-                        ]
+                        ),
                     )
                     .where(tmp.columns["addr"] == None)  # noqa: E711
                     .group_by(
@@ -2044,10 +2032,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         for addr, cur_features in self._read_iter(
             flt.query(
                 select(
-                    [
-                        self.tables.passive.addr,
-                        func.array_agg(func.distinct(postgresql.array(fields))),
-                    ]
+                    self.tables.passive.addr,
+                    func.array_agg(func.distinct(postgresql.array(fields))),
                 ).group_by(self.tables.passive.addr)
             )
         ):
