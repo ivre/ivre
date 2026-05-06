@@ -96,22 +96,37 @@ class PostgresDB(SQLDB):
         conn.close()
 
     def create_tmp_table(self, table, extracols=None):
-        cols = [c.copy() for c in table.__table__.columns]
-        for c in cols:
-            c.index = False
-            c.nullable = True
-            c.foreign_keys = None
-            if c.primary_key:
-                c.primary_key = False
-                c.index = True
-        if extracols is not None:
-            cols.extend(extracols)
-        t = Table(
-            f"tmp_{table.__tablename__}",
-            table.__table__.metadata,
-            *cols,
-            prefixes=["TEMPORARY"],
-        )
+        # Reuse the in-memory ``Table`` definition when this method
+        # is called more than once per process for the same source
+        # table: SQLAlchemy's ``MetaData`` keeps a registry keyed by
+        # table name, and a second ``Table(...)`` call with the same
+        # name raises ``InvalidRequestError: Table 'tmp_<...>' is
+        # already defined for this MetaData instance``. The first
+        # caller that hits ``insert_or_update_bulk`` registers the
+        # ``tmp_<table>`` template; subsequent callers retrieve it
+        # from ``metadata.tables`` and only re-issue the ``CREATE
+        # TEMPORARY TABLE`` (``checkfirst=True`` makes that idempotent
+        # at the SQL layer too).
+        tmp_name = f"tmp_{table.__tablename__}"
+        metadata = table.__table__.metadata
+        t = metadata.tables.get(tmp_name)
+        if t is None:
+            cols = [c.copy() for c in table.__table__.columns]
+            for c in cols:
+                c.index = False
+                c.nullable = True
+                c.foreign_keys = None
+                if c.primary_key:
+                    c.primary_key = False
+                    c.index = True
+            if extracols is not None:
+                cols.extend(extracols)
+            t = Table(
+                tmp_name,
+                metadata,
+                *cols,
+                prefixes=["TEMPORARY"],
+            )
         t.create(bind=self.db, checkfirst=True)
         return t
 
