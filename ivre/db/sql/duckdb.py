@@ -259,11 +259,33 @@ class DuckDBMixin:
 
         Both edits are applied to the in-process
         :data:`~ivre.db.sql.tables.Base.metadata` for the
-        duration of ``super().init()`` and reverted in a
+        duration of the drop / create cycle and reverted in a
         ``finally`` block so other engines sharing the same
         metadata in the same Python process (e.g. a parallel
         test run against PostgreSQL) see their original
         schema declarations.
+
+        Unlike :meth:`SQLDB.init`, the drop and create steps run
+        against *different* SQLAlchemy engines.  A single
+        engine's connection pool reuses one DuckDB session
+        across the two phases, and DuckDB's catalog refuses to
+        commit a ``CREATE TABLE`` that re-introduces a name
+        whose previous incarnation was dropped within the same
+        session::
+
+            TransactionException: Failed to commit: Could not
+            commit creation of dependency, subject "<table>" has
+            been deleted
+
+        The bug surfaces the second time ``ivre <tool> --init``
+        runs against a pre-existing DuckDB file (e.g. between
+        two CI test runs, or any time tests pre-populate then
+        re-init the schema).  Calling :meth:`Engine.dispose` on
+        the cached engine and clearing :attr:`SQLDB._db` after
+        :meth:`drop` forces the next ``self.db`` access to
+        materialise a fresh engine -- and therefore a fresh
+        DuckDB session -- which the subsequent :meth:`create`
+        runs against without the catalog conflict.
         """
         saved_indexes: dict[Any, list[Any]] = {}
         saved_fk_actions: list[tuple[Any, str | None, str | None]] = []
@@ -290,7 +312,19 @@ class DuckDBMixin:
                         saved_fk_actions.append((fk, fk.ondelete, fk.onupdate))
                         fk.ondelete = new_ondelete
                         fk.onupdate = new_onupdate
-            super().init()  # type: ignore[misc]
+            self.drop()
+            # Recycle the engine before ``create()``: see the
+            # docstring above for the catalog-conflict
+            # rationale.  ``self.db`` is a cached property on
+            # :class:`SQLDB`; deleting ``self._db`` makes the
+            # next access build a fresh engine on top of a
+            # fresh DuckDB session.
+            self.db.dispose()
+            try:
+                del self._db  # type: ignore[attr-defined]
+            except AttributeError:
+                pass
+            self.create()
         finally:
             for table, indexes in saved_indexes.items():
                 for ix in indexes:

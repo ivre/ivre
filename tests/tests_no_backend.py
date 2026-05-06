@@ -2239,6 +2239,43 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         _HAVE_DUCKDB_ENGINE,
         "duckdb-engine is required (install with the ``duckdb`` extras)",
     )
+    def test_init_idempotent_on_file_backed_duckdb(self):
+        # Regression: a single SQLAlchemy engine reuses the same
+        # DuckDB session across :meth:`SQLDB.drop` and
+        # :meth:`SQLDB.create`, and DuckDB's catalog refuses to
+        # commit a ``CREATE TABLE`` that re-introduces a name
+        # whose previous incarnation was dropped within the same
+        # session::
+        #
+        #     TransactionException: Failed to commit: Could not
+        #     commit creation of dependency, subject "n_category"
+        #     has been deleted
+        #
+        # The bug only fires the *second* time ``init()`` runs
+        # against a pre-existing DuckDB file (the first init
+        # creates an empty file with no prior catalog state to
+        # conflict with).  Pin that the override recycles the
+        # engine between drop and create, so calling ``init()``
+        # twice in a row on the same file-backed database
+        # succeeds.
+        import os
+        import tempfile
+
+        from ivre.db import DBNmap
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "ivre.duckdb")
+            url = f"duckdb:///{path}"
+            for round_no in (1, 2, 3):
+                with self.subTest(round=round_no):
+                    db = DBNmap.from_url(url)
+                    db.init()
+                    db.db.dispose()
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
     def test_init_restores_metadata_after_duckdb_run(self):
         # ``DuckDBMixin.init`` strips a handful of
         # PG-only schema declarations from the shared
