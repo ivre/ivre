@@ -148,6 +148,29 @@ class PostgresDB(SQLDB):
                 if c.primary_key:
                     c.primary_key = False
                     c.index = True
+                    # Strip the ``Sequence``-driven default that
+                    # the source table's ``id`` column carries
+                    # (see ``ivre.db.sql.tables._id_column``).
+                    # ``Column.copy()`` propagates the
+                    # ``server_default = nextval('seq_<table>_id')``
+                    # clause to the temp-table mirror, which then
+                    # holds a hard catalog dependency on the
+                    # source sequence.  PostgreSQL refuses to
+                    # ``DROP SEQUENCE seq_<table>_id`` while a
+                    # pooled connection still owns the
+                    # session-scoped ``tmp_<table>`` (error
+                    # ``cannot drop sequence ... because other
+                    # objects depend on it``), which propagates
+                    # into the next test's ``init()`` and rolls
+                    # back the schema reset, leaking data across
+                    # tests.  The temp table never reads the
+                    # ``id`` column -- callers project only the
+                    # named columns through their
+                    # ``INSERT ... FROM SELECT`` -- so the
+                    # default is unnecessary; dropping it removes
+                    # the cross-session dependency.
+                    c.default = None
+                    c.server_default = None
             if extracols is not None:
                 cols.extend(extracols)
             t = Table(

@@ -2225,6 +2225,57 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         _HAVE_DUCKDB_ENGINE,
         "duckdb-engine is required (install with the ``duckdb`` extras)",
     )
+    def test_create_tmp_table_strips_pk_sequence_default(self):
+        # Regression: after the M4.1.2 ``Sequence``-driven PK
+        # refactor, ``Column.copy()`` on a source PK column
+        # propagates the ``server_default = nextval('seq_<table>_id')``
+        # clause to the temp-table mirror that
+        # :meth:`PostgresDB.create_tmp_table` builds for the
+        # passive bulk-insert path.  PostgreSQL then refuses
+        # ``DROP SEQUENCE seq_<table>_id`` while a pooled
+        # connection still owns the session-scoped
+        # ``tmp_<table>`` (``cannot drop sequence ... because
+        # other objects depend on it``), which propagates into
+        # the next test's ``init()`` and rolls back the schema
+        # reset, leaking data across tests.
+        # ``create_tmp_table`` must therefore strip the
+        # ``server_default`` / ``default`` from copied PK
+        # columns; the temp table never reads ``id`` (callers
+        # project named columns via ``INSERT ... FROM SELECT``)
+        # so the default is unnecessary.
+        from ivre.db import DBPassive
+        from ivre.db.sql.postgres import PostgresDB
+        from ivre.db.sql.tables import Passive
+
+        # Bind ``create_tmp_table`` to a DuckDB-backed instance
+        # so the actual ``CREATE TEMPORARY TABLE`` DDL runs
+        # against an in-memory engine (DuckDB inherits the PG
+        # dialect via duckdb-engine, so the column-copy logic
+        # under test is identical).  The DuckDB override of
+        # ``create_tmp_table`` raises ``NotImplementedError``
+        # by design; reach past it via the unbound
+        # ``PostgresDB`` method to exercise the live code path.
+        db = DBPassive.from_url("duckdb:///:memory:")
+        db.init()
+        tmp = PostgresDB.create_tmp_table(db, Passive)
+
+        self.assertEqual(tmp.name, "tmp_passive")
+        # The source column keeps its sequence (PG must still
+        # auto-assign ``passive.id`` from ``seq_passive_id``).
+        self.assertIsNotNone(Passive.__table__.c.id.server_default)
+        self.assertIsNotNone(Passive.__table__.c.id.default)
+        # The mirror loses the cross-sequence dependency.
+        self.assertIsNone(tmp.c.id.server_default)
+        self.assertIsNone(tmp.c.id.default)
+        # And the rest of the PK-loosening transform still
+        # holds (no PK constraint, indexed, nullable).
+        self.assertFalse(tmp.c.id.primary_key)
+        self.assertTrue(tmp.c.id.nullable)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
     def test_crud_roundtrip_on_duckdb(self):
         # End-to-end CRUD: insert a scan + a hostname into
         # DuckDB; read them back; ``internal2ip`` collapses
