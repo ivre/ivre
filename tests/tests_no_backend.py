@@ -2300,6 +2300,54 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         _HAVE_DUCKDB_ENGINE,
         "duckdb-engine is required (install with the ``duckdb`` extras)",
     )
+    def test_write_result_survives_connection_close_on_duckdb(self):
+        # Regression: every existing ``self._write(stmt).fetchone()[0]``
+        # call site (e.g. in :meth:`PostgresDB._store_host` for the
+        # ``RETURNING n_scan.id`` upsert, in
+        # :meth:`PostgresDBNmap._store_host` for ports / scripts
+        # / hostnames, …) reads from the cursor *after*
+        # :meth:`SQLDB._write` has exited the transactional
+        # ``with`` block and returned the connection to the pool.
+        # On PostgreSQL (psycopg2) this works by accident
+        # because psycopg2 pre-buffers rows on the client side;
+        # on DuckDB (``duckdb-engine``) the cursor's result set
+        # is tied to the live connection and raises::
+        #
+        #     InvalidInputException: No open result set
+        #
+        # Pin that ``self._write(...)`` returns a buffered
+        # result object whose ``fetchone()`` works after the
+        # underlying connection has closed.
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        db.init()
+        # Issue a RETURNING-flavoured insert via ``_write`` and
+        # read the row *outside* the writer's ``with`` block.
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        result = db._write(  # pylint: disable=protected-access
+            pg_insert(db.tables.scan)
+            .values(
+                addr="192.0.2.1",
+                source="test",
+                schema_version=22,
+            )
+            .on_conflict_do_nothing()
+            .returning(db.tables.scan.id)
+        )
+        # The connection is now closed; the read must still
+        # succeed (would raise ``InvalidInputException`` on
+        # DuckDB without ``_BufferedResult``).
+        row = result.fetchone()
+        self.assertIsNotNone(row)
+        scan_id = row[0]
+        self.assertGreater(scan_id, 0)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
     def test_init_idempotent_on_file_backed_duckdb(self):
         # Regression: a single SQLAlchemy engine reuses the same
         # DuckDB session across :meth:`SQLDB.drop` and

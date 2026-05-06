@@ -27,6 +27,8 @@ import datetime
 import json
 import re
 from collections import namedtuple
+from collections.abc import Iterator
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -262,6 +264,53 @@ class PassiveCSVFile(CSVFile):
         ]
 
 
+class _BufferedResult:
+    """Lightweight stand-in for a SQLAlchemy ``CursorResult`` that
+    has already drained its rows.  Returned by
+    :meth:`SQLDB._write` so callers can ``.fetchone()`` /
+    ``.fetchall()`` *after* the writer's transactional ``with``
+    block has closed the underlying connection.
+
+    DuckDB's ``duckdb-engine`` invalidates a cursor's result set
+    when the parent connection returns to the pool::
+
+        InvalidInputException: No open result set
+
+    PostgreSQL (``psycopg2``) happens to buffer the rows
+    client-side at execute time, so the same code path worked
+    there by accident: every existing
+    ``self._write(stmt).fetchone()[0]`` call site (e.g. in
+    :meth:`PostgresDB._store_host` for ``RETURNING n_scan.id``)
+    fetches *after* the connection has closed, which only
+    works because psycopg2's pre-buffered rows survive the
+    close.  Materialising the rows once and replaying them
+    from this wrapper keeps the existing call-site contract
+    without forcing every caller into the
+    ``with self.db.begin() ...`` boilerplate.
+    """
+
+    __slots__ = ("_rows", "_iter", "rowcount")
+
+    def __init__(self, rows: list[Any], rowcount: int) -> None:
+        self._rows = list(rows)
+        self._iter = iter(self._rows)
+        self.rowcount = rowcount
+
+    def fetchone(self) -> Any:
+        return next(self._iter, None)
+
+    def fetchall(self) -> list[Any]:
+        rest = list(self._iter)
+        self._iter = iter(())
+        return rest
+
+    def first(self) -> Any:
+        return self._rows[0] if self._rows else None
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._rows)
+
+
 class SQLDB(DB):
     table_layout = namedtuple("empty_layout", [])
     tables = table_layout()
@@ -349,11 +398,25 @@ class SQLDB(DB):
 
     def _write(self, stmt):
         """Execute a write statement (INSERT / UPDATE / DELETE) inside
-        a transactional block. Returns the result object so callers
-        can read ``rowcount`` / ``inserted_primary_key`` /
-        ``fetchone()[0]`` etc."""
+        a transactional block.  Returns a buffered result object
+        so callers can read ``rowcount`` / ``fetchone()[0]`` /
+        ``fetchall()`` etc. *after* the connection / transaction
+        has closed.
+
+        On PostgreSQL (psycopg2) the underlying cursor's result
+        set survives the surrounding ``with`` block by accident:
+        psycopg2 buffers the rows on the client side at execute
+        time, so a post-close ``.fetchone()`` works.  DuckDB's
+        client (``duckdb-engine``) ties the result set to the
+        live cursor and raises
+        ``InvalidInputException: No open result set`` once the
+        connection is returned to the pool.  Materialising the
+        rows here keeps every backend on the same contract.
+        """
         with self.db.begin() as conn:
-            return conn.execute(stmt)
+            result = conn.execute(stmt)
+            rows = result.fetchall() if result.returns_rows else []
+            return _BufferedResult(rows, result.rowcount)
 
     def explain(self, req, **_):
         """This method calls the SQL EXPLAIN statement to retrieve database
