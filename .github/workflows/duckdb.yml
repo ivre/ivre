@@ -1,0 +1,68 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+# Runs the DuckDB-conditional regression tests in
+# ``tests/tests_no_backend.py`` (currently
+# ``DuckDBBackendBootstrapTests`` and the DuckDB cases of
+# ``DuckDBTypeAdapterTests``).  These exercise the in-process
+# surface of the embedded backend: type adapters, the mixin's
+# index/FK rewriting, the URL round-trip workaround, and a
+# minimal CRUD smoke against an in-memory engine.
+#
+# Full ``tests/tests.py`` is intentionally not run here: that
+# script spawns subprocesses (``ivre <tool>``) that each open
+# their own write-mode connection to the configured DB.  DuckDB
+# is single-writer-per-file (``IO Error: Could not set lock
+# on file ...``) so the cross-process pattern is incompatible
+# with the embedded engine.  Wiring a no-subprocess test mode
+# is tracked separately.
+
+name: DuckDB tests
+
+on: [push, pull_request]
+
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'master')}}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - run: pip install '.[duckdb]'
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: cd tests && python tests_no_backend.py
+      env:
+        CI: true

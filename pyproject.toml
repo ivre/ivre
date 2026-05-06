@@ -61,6 +61,11 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["sqlalchemy>=2,<3", "psycopg2"]
+# DuckDB embedded backend. ``duckdb-engine`` is the SQLAlchemy
+# dialect; it inherits from PostgreSQL's psycopg2 dialect, so the
+# ``[postgres]`` extra is *not* required for DuckDB-only setups
+# (``sqlalchemy`` is pulled in transitively via ``duckdb-engine``).
+duckdb = ["duckdb>=1.5,<2", "duckdb-engine>=0.17,<1"]
 elasticsearch = ["elasticsearch", "elasticsearch-dsl"]
 gssapi-mongo = ["gssapi"]
 gssapi-http = ["pycurl"]
