@@ -30,6 +30,7 @@ from sqlalchemy import (
     Sequence,
     String,
     Text,
+    cast,
     func,
 )
 from sqlalchemy.dialects import postgresql
@@ -132,6 +133,20 @@ class INETLiteral(postgresql.INET):
     Reused on DuckDB unchanged: the ``'<ip>'::inet`` cast form
     is accepted natively (DuckDB ships an ``INET`` type with
     the same string-coerce rules as PostgreSQL).
+
+    A ``bind_expression`` wraps every parameter bind in
+    ``CAST(? AS INET)`` so DuckDB accepts the value when the
+    target table was created on a *different* connection
+    (cross-process / cross-engine setup).  In that scenario
+    DuckDB's parameter binder refuses to coerce ``VARCHAR`` to
+    ``INET`` implicitly::
+
+        Conversion Error: Type VARCHAR with value '<ip>' can't
+        be cast to the destination type INET
+
+    The explicit cast forces the coercion.  PostgreSQL accepts
+    the same cast unchanged -- it's a no-op for an
+    already-typed column bind.
     """
 
     cache_ok = True
@@ -149,6 +164,11 @@ class INETLiteral(postgresql.INET):
             return f"'{escaped}'::inet"
 
         return process
+
+    def bind_expression(self, bindvalue):  # type: ignore[override]
+        # ``CAST(? AS INET)`` -- see class docstring for the
+        # cross-connection rationale.
+        return cast(bindvalue, self)
 
 
 SQLINET = INETLiteral()

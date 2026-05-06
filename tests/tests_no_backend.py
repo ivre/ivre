@@ -1808,6 +1808,67 @@ class DuckDBTypeAdapterTests(unittest.TestCase):
             rows = list(conn.exec_driver_sql(sql))
         self.assertEqual(len(rows), 1)
 
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_inet_bind_expression_casts_parameter_on_duckdb(self):
+        # Regression: when the ``INET`` column is created on one
+        # connection (``CREATE TABLE`` on engine A) and an
+        # ``INSERT`` is later issued from a *different*
+        # connection (engine B opened against the same DuckDB
+        # file -- think ``ivre scancli --init`` followed by
+        # ``ivre scan2db <file>`` in the next subprocess), the
+        # ``duckdb-engine`` parameter binder refuses to coerce
+        # ``VARCHAR`` to ``INET`` implicitly::
+        #
+        #     Conversion Error: Type VARCHAR with value
+        #     '0.0.0.1' can't be cast to the destination type
+        #     INET
+        #
+        # ``INETLiteral.bind_expression`` adds an explicit
+        # ``CAST(? AS INET)`` around every parameter bind so
+        # the conversion is forced on the SQL side.  Pin that
+        # the compiled INSERT shows the cast and that a
+        # cross-engine insert succeeds end-to-end.
+        import os
+        import tempfile
+
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLINET
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "inet.duckdb")
+            url = f"duckdb:///{path}"
+
+            # Engine A: CREATE TABLE.
+            engine_a = sa.create_engine(url)
+            meta = sa.MetaData()
+            hosts = sa.Table(
+                "hosts",
+                meta,
+                sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+                sa.Column("addr", SQLINET),
+            )
+            meta.create_all(engine_a)
+            engine_a.dispose()
+
+            # Compile-time pin: every INET bind goes through
+            # ``CAST(? AS INET)``.
+            engine_b = sa.create_engine(url)
+            stmt = sa.insert(hosts)
+            compiled = str(stmt.compile(dialect=engine_b.dialect))
+            self.assertIn("CAST(", compiled)
+            self.assertIn("AS INET)", compiled)
+
+            # Run-time pin: cross-engine insert + read back.
+            with engine_b.connect() as conn:
+                conn.execute(stmt, {"id": 1, "addr": "0.0.0.1"})
+                conn.execute(stmt, {"id": 2, "addr": "2001:db8::1"})
+                conn.commit()
+                rows = list(conn.execute(sa.select(hosts).order_by(hosts.c.id)))
+            self.assertEqual(len(rows), 2)
+
 
 # ---------------------------------------------------------------------
 # DuckDBBackendBootstrapTests -- pin the wiring of the new
