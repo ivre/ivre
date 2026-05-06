@@ -135,6 +135,20 @@ class ElasticDB(DB):
     def from_binary(data):
         return utils.decode_b64(data.encode())
 
+    def flush(self):
+        """Force-refresh every Elasticsearch index this backend
+        owns so that just-written documents become searchable.
+
+        Elasticsearch buffers writes for the cluster's
+        ``refresh_interval`` (default 1s) before they are visible
+        to ``_search``. Tests that read-back-after-write rely on
+        this synchronous refresh to avoid race conditions; in
+        production, the default refresh cadence is fine and the
+        method is rarely used outside the test suite.
+        """
+        for idxname in self.indexes:
+            self.db_client.indices.refresh(index=idxname)
+
     @staticmethod
     def ip2internal(addr):
         return addr

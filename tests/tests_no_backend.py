@@ -1840,6 +1840,39 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         self.assertTrue(sql.startswith("NOT ("))
         self.assertIn("(passive.moreinfo ->> 'ja4_a') = 't13d1715h2'", sql)
 
+    def test_db_flush_base_is_noop(self):
+        # M4.0.2: ``DB.flush()`` is the read-after-write barrier
+        # used by tests in place of ``time.sleep(...)`` for
+        # Elastic. The base method must be a no-op so SQL /
+        # Mongo / DocumentDB / HTTP backends inherit a free
+        # implementation. Only ``ElasticDB`` overrides it to
+        # call ``indices.refresh``. Pin the contract:
+        #
+        #   - ``DB.flush`` exists and is callable.
+        #   - The base method body is empty (just a docstring).
+        #
+        # The Elastic-specific override is verified separately
+        # in ``ElasticDB.flush`` (live-cluster check via
+        # ``tests/tests.py`` writes-then-reads).
+        import ast
+        from inspect import getsource
+        from textwrap import dedent
+
+        from ivre.db import DB
+
+        self.assertTrue(callable(DB.flush))
+        # Body should be docstring-only (no real statements).
+        tree = ast.parse(dedent(getsource(DB.flush)))
+        funcdef = tree.body[0]
+        self.assertIsInstance(funcdef, ast.FunctionDef)
+        body_after_docstring = funcdef.body[1:]
+        self.assertEqual(
+            body_after_docstring,
+            [],
+            "DB.flush() base method must be a docstring-only no-op; "
+            "non-Elastic backends rely on the inherited no-op.",
+        )
+
     def test_searchtag_lifted_to_sqldbactive(self):
         # M4.0.5: ``searchtag`` was previously defined only on
         # ``SQLDBView``. Both ``SQLDBView`` and ``SQLDBNmap`` have
