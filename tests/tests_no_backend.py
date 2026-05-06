@@ -2028,19 +2028,64 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         self.assertTrue(_is_unsupported_on_duckdb(array_idx))
         self.assertFalse(_is_unsupported_on_duckdb(plain))
 
-    def test_normalise_fk_action(self):
-        from ivre.db.sql.duckdb import _normalise_fk_action
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_init_strips_foreign_keys_on_duckdb(self):
+        # Regression: ``ON DELETE CASCADE`` is unsupported by
+        # DuckDB; downgrading the action to the implicit
+        # ``RESTRICT`` would keep the FK *check*, which then
+        # breaks IVRE's scan-rooted delete paths (a single
+        # ``DELETE FROM scan WHERE id = ?`` relies on the
+        # cascade to clean up child rows in
+        # ``port`` / ``hostname`` / ``trace`` / ``hop`` /
+        # ``tag`` / ``association_scan_*`` / ``script``).
+        # ``DuckDBMixin.init`` therefore drops the FK
+        # constraints entirely on DuckDB and restores them
+        # afterwards.  Pin both halves of that contract.
+        import os
+        import tempfile
 
-        # CASCADE / SET NULL / SET DEFAULT collapse to None
-        # (i.e. the DuckDB-implicit RESTRICT).
-        self.assertIsNone(_normalise_fk_action("CASCADE"))
-        self.assertIsNone(_normalise_fk_action("cascade"))
-        self.assertIsNone(_normalise_fk_action("SET NULL"))
-        self.assertIsNone(_normalise_fk_action("SET DEFAULT"))
-        # RESTRICT / NO ACTION / None pass through unchanged.
-        self.assertEqual(_normalise_fk_action("RESTRICT"), "RESTRICT")
-        self.assertEqual(_normalise_fk_action("NO ACTION"), "NO ACTION")
-        self.assertIsNone(_normalise_fk_action(None))
+        from ivre.db import DBNmap
+        from ivre.db.sql.tables import N_Hostname
+
+        # Snapshot the FK declarations on the source metadata
+        # (they should NOT be mutated permanently).
+        original_fkc_count = len(N_Hostname.__table__.foreign_key_constraints)
+        self.assertGreater(
+            original_fkc_count, 0, "test fixture: N_Hostname must have FKs to start"
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "ivre.duckdb")
+            db = DBNmap.from_url(f"duckdb:///{path}")
+            db.init()
+            db.db.dispose()
+
+            # Source metadata's FKs are restored to their
+            # original count.
+            self.assertEqual(
+                len(N_Hostname.__table__.foreign_key_constraints),
+                original_fkc_count,
+            )
+
+            # The persisted DuckDB schema has *no* FK
+            # constraints (only PK / NOT NULL).
+            import duckdb
+
+            con = duckdb.connect(path, read_only=True)
+            try:
+                rows = con.execute(
+                    "SELECT constraint_type FROM duckdb_constraints() "
+                    "WHERE schema_name = 'main' AND table_name = 'n_hostname'"
+                ).fetchall()
+            finally:
+                con.close()
+            kinds = {r[0] for r in rows}
+            self.assertNotIn("FOREIGN KEY", kinds, f"got constraints: {kinds}")
+            # PK / NOT NULL must still be there.
+            self.assertIn("PRIMARY KEY", kinds)
 
     # --- tables.py Sequence-based PK refactor ---------------------
     def test_pk_columns_use_sequence_default(self):

@@ -93,33 +93,25 @@ def _is_unsupported_on_duckdb(index: Any) -> bool:
 # referential actions (the implicit defaults); ``CASCADE``,
 # ``SET NULL`` and ``SET DEFAULT`` raise
 # ``Parser Error: FOREIGN KEY constraints cannot use CASCADE,
-# SET NULL or SET DEFAULT``. Every cross-table FK in
-# :mod:`ivre.db.sql.tables` declares ``ondelete='CASCADE'`` to
-# auto-clean child rows on host deletion, which DuckDB rejects
-# wholesale.
-_DUCKDB_REJECTED_FK_ACTIONS = frozenset({"CASCADE", "SET NULL", "SET DEFAULT"})
-
-
-def _normalise_fk_action(action: str | None) -> str | None:
-    """Return ``None`` (i.e. emit no ``ON DELETE`` / ``ON UPDATE``
-    clause -- DuckDB defaults to ``RESTRICT``) when ``action`` is
-    one of the cascade-flavoured forms DuckDB cannot parse, or
-    pass it through untouched when DuckDB accepts it
-    (``RESTRICT`` / ``NO ACTION`` / ``None``).
-
-    Stripping CASCADE down to the implicit RESTRICT preserves
-    the FK constraint's referential-integrity check (an attempt
-    to delete a parent row with extant children still raises an
-    ``IntegrityError``); only the auto-cleanup behaviour is
-    lost.  IVRE's PostgreSQL backend already issues child-first
-    deletions in its remove paths, so the lost cascade does not
-    affect the supported call sites in :class:`PostgresDB*`.
-    """
-    if action is None:
-        return None
-    if action.upper() in _DUCKDB_REJECTED_FK_ACTIONS:
-        return None
-    return action
+# SET NULL or SET DEFAULT``.  Every cross-table FK in
+# :mod:`ivre.db.sql.tables` declares ``ondelete='CASCADE'`` so
+# that ``DELETE FROM scan WHERE id = ?`` auto-cleans child
+# rows in the ``port`` / ``hostname`` / ``trace`` / ``hop`` /
+# ``tag`` / ``association_scan_*`` / ``script`` tables.
+#
+# Stripping CASCADE down to the implicit RESTRICT keeps the FK
+# *check*, which then fails IVRE's existing remove paths
+# (:meth:`SQLDBNmap.remove` / :meth:`remove_many` issue a
+# single ``DELETE FROM scan ...`` and rely on the cascade to
+# clean up children).  DuckDB also has no per-statement
+# ``CASCADE`` on ``DELETE``, so emulating the cascade in
+# application code would mean overriding every remove method.
+# The pragmatic compromise on this embedded-DB backend: drop
+# the FK constraints themselves at ``init()`` time and rely on
+# the application's existing scan-rooted delete paths.  Orphans
+# in child tables are not visible to the read paths (which
+# always project from ``scan`` joined to children); a periodic
+# vacuum can be wired in later if needed.
 
 
 class DuckDBMixin:
@@ -252,10 +244,11 @@ class DuckDBMixin:
         * Indexes flagged as unsupported by
           :func:`_is_unsupported_on_duckdb` (GIN; INET-keyed
           B-tree) are evicted from each table's ``indexes`` set.
-        * Foreign-key referential actions that DuckDB's parser
-          rejects (``CASCADE`` / ``SET NULL`` / ``SET DEFAULT``)
-          are flattened to the implicit ``RESTRICT`` -- see
-          :func:`_normalise_fk_action`.
+        * Foreign-key constraints (table-level
+          ``ForeignKeyConstraint`` and column-level
+          ``ForeignKey``) are dropped entirely -- see the
+          comment block at the top of this module for the
+          rationale.
 
         Both edits are applied to the in-process
         :data:`~ivre.db.sql.tables.Base.metadata` for the
@@ -288,7 +281,8 @@ class DuckDBMixin:
         runs against without the catalog conflict.
         """
         saved_indexes: dict[Any, list[Any]] = {}
-        saved_fk_actions: list[tuple[Any, str | None, str | None]] = []
+        saved_table_fkcs: dict[Any, set[Any]] = {}
+        saved_column_fks: dict[Any, set[Any]] = {}
         try:
             for table in Base.metadata.tables.values():
                 skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
@@ -296,22 +290,24 @@ class DuckDBMixin:
                     saved_indexes[table] = skipped
                     for ix in skipped:
                         table.indexes.discard(ix)
-                # Table-level constraints: ForeignKeyConstraint(...)
-                for fkc in table.foreign_key_constraints:
-                    new_ondelete = _normalise_fk_action(fkc.ondelete)
-                    new_onupdate = _normalise_fk_action(fkc.onupdate)
-                    if (new_ondelete, new_onupdate) != (fkc.ondelete, fkc.onupdate):
-                        saved_fk_actions.append((fkc, fkc.ondelete, fkc.onupdate))
-                        fkc.ondelete = new_ondelete
-                        fkc.onupdate = new_onupdate
-                # Column-level ForeignKey(...) (e.g. Flow.src/dst).
-                for fk in table.foreign_keys:
-                    new_ondelete = _normalise_fk_action(fk.ondelete)
-                    new_onupdate = _normalise_fk_action(fk.onupdate)
-                    if (new_ondelete, new_onupdate) != (fk.ondelete, fk.onupdate):
-                        saved_fk_actions.append((fk, fk.ondelete, fk.onupdate))
-                        fk.ondelete = new_ondelete
-                        fk.onupdate = new_onupdate
+                # Snapshot then strip table-level FK constraints
+                # (``ForeignKeyConstraint(...)``) -- DuckDB
+                # cannot enforce ``ON DELETE CASCADE`` and the
+                # implicit ``RESTRICT`` would break IVRE's
+                # scan-rooted delete paths (see top-of-module
+                # comment).
+                if table.foreign_key_constraints:
+                    saved_table_fkcs[table] = set(table.foreign_key_constraints)
+                    for fkc in list(table.foreign_key_constraints):
+                        table.constraints.discard(fkc)
+                # Same treatment for column-level ``ForeignKey``
+                # objects (e.g. ``Flow.src`` / ``Flow.dst``).
+                for col in table.columns:
+                    if col.foreign_keys:
+                        saved_column_fks[col] = set(col.foreign_keys)
+                        for fk in list(col.foreign_keys):
+                            col.foreign_keys.discard(fk)
+                            table.foreign_keys.discard(fk)
             self.drop()
             # Recycle the engine before ``create()``: see the
             # docstring above for the catalog-conflict
@@ -329,9 +325,13 @@ class DuckDBMixin:
             for table, indexes in saved_indexes.items():
                 for ix in indexes:
                     table.indexes.add(ix)
-            for fk_or_fkc, ondelete, onupdate in saved_fk_actions:
-                fk_or_fkc.ondelete = ondelete
-                fk_or_fkc.onupdate = onupdate
+            for table, fkcs in saved_table_fkcs.items():
+                for fkc in fkcs:
+                    table.append_constraint(fkc)
+            for col, fks in saved_column_fks.items():
+                for fk in fks:
+                    col.foreign_keys.add(fk)
+                    col.table.foreign_keys.add(fk)
 
 
 class DuckDBNmap(DuckDBMixin, PostgresDBNmap):
