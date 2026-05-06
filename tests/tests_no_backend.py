@@ -1810,6 +1810,458 @@ class DuckDBTypeAdapterTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DuckDBBackendBootstrapTests -- pin the wiring of the new
+# ``ivre.db.sql.duckdb`` backend module: dialect-specific
+# overrides on :class:`~ivre.db.sql.duckdb.DuckDBMixin`,
+# concrete-class registration in :mod:`ivre.db`'s ``backends``
+# dicts, the empty-netloc URL round-trip workaround in
+# :meth:`SQLDB.__init__`, and the
+# ``Sequence`` + ``server_default`` primary-key refactor in
+# :mod:`ivre.db.sql.tables`. M4.1.2 lays the foundation for
+# DuckDB CRUD support; later milestones build query / topvalues
+# / bulk-insert parity on top.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or " "``duckdb`` extras)",
+)
+class DuckDBBackendBootstrapTests(unittest.TestCase):
+    """Pin the M4.1.2 DuckDB backend bootstrap surface.
+
+    Covers the dialect-specific overrides on
+    :class:`~ivre.db.sql.duckdb.DuckDBMixin`, the concrete
+    classes registered against ``duckdb://`` URLs in
+    :class:`~ivre.db.DBNmap` / :class:`~ivre.db.DBView` /
+    :class:`~ivre.db.DBPassive`, the
+    ``Sequence``-driven primary-key refactor in
+    :mod:`ivre.db.sql.tables` (so PostgreSQL keeps emitting
+    ``nextval`` defaults and DuckDB stops choking on ``SERIAL``
+    / ``IDENTITY``), and the empty-netloc URL round-trip
+    workaround in :meth:`~ivre.db.sql.SQLDB.__init__`.
+    """
+
+    # --- ip2internal / internal2ip --------------------------------
+    def test_ip2internal_passes_string_through(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        # On DuckDB the INET column accepts string literals
+        # straight (matching PostgreSQL); the bind-side helper
+        # therefore reduces to ``utils.force_int2ip``.
+        self.assertEqual(DuckDBMixin.ip2internal("192.0.2.1"), "192.0.2.1")
+        self.assertEqual(DuckDBMixin.ip2internal("2001:db8::1"), "2001:db8::1")
+        self.assertIsNone(DuckDBMixin.ip2internal(None))
+
+    def test_ip2internal_converts_int_to_string(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        # ``utils.force_int2ip`` rebuilds the dotted-quad form
+        # for IPv4 ints (mirrors what PostgresDB.ip2internal
+        # does today).
+        self.assertEqual(DuckDBMixin.ip2internal(0xC0000201), "192.0.2.1")
+
+    def test_internal2ip_handles_ipv4_struct(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        # DuckDB's ``INET`` round-trip shape: IPv4 keeps the
+        # natural unsigned address representation.
+        self.assertEqual(
+            DuckDBMixin.internal2ip({"ip_type": 1, "address": 0xC0000201, "mask": 32}),
+            "192.0.2.1",
+        )
+
+    def test_internal2ip_handles_ipv6_struct_with_bias(self):
+        # DuckDB stores ``INET`` v6 addresses as a biased signed
+        # 128-bit integer: the unsigned value is ``address +
+        # 2**127``. Pin three corner cases covering the bias
+        # boundary at zero (``::`` / ``::1``), a representative
+        # global address, and a high-bit-set link-local
+        # address.
+        cases = [
+            ({"ip_type": 2, "address": -((1 << 127)), "mask": 128}, "::"),
+            ({"ip_type": 2, "address": -((1 << 127)) + 1, "mask": 128}, "::1"),
+            (
+                {
+                    "ip_type": 2,
+                    "address": int("20010db8000000000000000000000001", 16) - (1 << 127),
+                    "mask": 128,
+                },
+                "2001:db8::1",
+            ),
+            (
+                {
+                    "ip_type": 2,
+                    "address": int("fe800000000000000000000000000000", 16) - (1 << 127),
+                    "mask": 128,
+                },
+                "fe80::",
+            ),
+        ]
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        for raw, expected in cases:
+            with self.subTest(raw=raw, expected=expected):
+                self.assertEqual(DuckDBMixin.internal2ip(raw), expected)
+
+    def test_internal2ip_passes_none_through(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        self.assertIsNone(DuckDBMixin.internal2ip(None))
+
+    def test_internal2ip_passes_string_through(self):
+        # Defensive path: a future ``duckdb-engine`` release
+        # might switch to returning bare strings (matching
+        # ``psycopg2``); the override should remain a no-op for
+        # those.
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        self.assertEqual(DuckDBMixin.internal2ip("192.0.2.1"), "192.0.2.1")
+
+    # --- NotImplementedError surface ------------------------------
+    def test_copy_from_raises_not_implemented(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        with self.assertRaises(NotImplementedError):
+            DuckDBMixin().copy_from(b"")
+
+    def test_create_tmp_table_raises_not_implemented(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        with self.assertRaises(NotImplementedError):
+            DuckDBMixin().create_tmp_table(object())
+
+    def test_explain_raises_not_implemented(self):
+        from ivre.db.sql.duckdb import DuckDBMixin
+
+        with self.assertRaises(NotImplementedError):
+            DuckDBMixin().explain(object())
+
+    # --- Index / FK classification helpers ------------------------
+    def test_is_unsupported_on_duckdb_classification(self):
+        sa = _sqlalchemy
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import SQLARRAY, SQLINET
+
+        meta = sa.MetaData()
+        tbl = sa.Table(
+            "t",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True),
+            sa.Column("info", _sqlalchemy_postgresql.JSONB),
+            sa.Column("addr", SQLINET),
+            sa.Column("tags", SQLARRAY(sa.String(64))),
+            sa.Column("name", sa.String(32)),
+        )
+        gin = sa.Index("ix_gin", tbl.c.info, postgresql_using="gin")
+        partial = sa.Index(
+            "ix_partial", tbl.c.name, postgresql_where=tbl.c.id == 1, unique=True
+        )
+        inet_idx = sa.Index("ix_inet", tbl.c.addr)
+        array_idx = sa.Index("ix_array", tbl.c.tags)
+        plain = sa.Index("ix_plain", tbl.c.name)
+
+        self.assertTrue(_is_unsupported_on_duckdb(gin))
+        self.assertTrue(_is_unsupported_on_duckdb(partial))
+        self.assertTrue(_is_unsupported_on_duckdb(inet_idx))
+        self.assertTrue(_is_unsupported_on_duckdb(array_idx))
+        self.assertFalse(_is_unsupported_on_duckdb(plain))
+
+    def test_normalise_fk_action(self):
+        from ivre.db.sql.duckdb import _normalise_fk_action
+
+        # CASCADE / SET NULL / SET DEFAULT collapse to None
+        # (i.e. the DuckDB-implicit RESTRICT).
+        self.assertIsNone(_normalise_fk_action("CASCADE"))
+        self.assertIsNone(_normalise_fk_action("cascade"))
+        self.assertIsNone(_normalise_fk_action("SET NULL"))
+        self.assertIsNone(_normalise_fk_action("SET DEFAULT"))
+        # RESTRICT / NO ACTION / None pass through unchanged.
+        self.assertEqual(_normalise_fk_action("RESTRICT"), "RESTRICT")
+        self.assertEqual(_normalise_fk_action("NO ACTION"), "NO ACTION")
+        self.assertIsNone(_normalise_fk_action(None))
+
+    # --- tables.py Sequence-based PK refactor ---------------------
+    def test_pk_columns_use_sequence_default(self):
+        # Pin that every surrogate-id column we refactored at
+        # M4.1.2 is bound to a per-tablename
+        # :class:`~sqlalchemy.schema.Sequence` and a
+        # ``server_default`` calling its ``next_value()``.
+        # Without the explicit Sequence, DuckDB's ``CREATE
+        # TABLE`` would fall back to PG's default ``SERIAL``
+        # which DuckDB rejects ("Type with name SERIAL does not
+        # exist").
+        from ivre.db.sql.tables import (
+            Flow,
+            N_Category,
+            N_Hop,
+            N_Hostname,
+            N_Port,
+            N_Scan,
+            N_Tag,
+            N_Trace,
+            Passive,
+            V_Category,
+            V_Hop,
+            V_Hostname,
+            V_Port,
+            V_Scan,
+            V_Tag,
+            V_Trace,
+        )
+
+        for cls in (
+            Flow,
+            Passive,
+            N_Category,
+            V_Category,
+            N_Port,
+            V_Port,
+            N_Tag,
+            V_Tag,
+            N_Hostname,
+            V_Hostname,
+            N_Trace,
+            V_Trace,
+            N_Hop,
+            V_Hop,
+            N_Scan,
+            V_Scan,
+        ):
+            with self.subTest(cls=cls.__name__):
+                col = cls.__table__.c.id
+                self.assertIsNotNone(
+                    col.default, f"{cls.__tablename__}.id has no Sequence default"
+                )
+                self.assertEqual(col.default.name, f"seq_{cls.__tablename__}_id")
+                self.assertIsNotNone(col.server_default)
+                # The compiled default for both dialects calls
+                # ``nextval`` (PG) / the duckdb-engine
+                # equivalent.
+                self.assertIn("next_value", repr(col.server_default.arg))
+
+    def test_create_table_emits_nextval_under_postgresql(self):
+        # Sanity-pin that the Sequence-based PK refactor still
+        # emits the canonical PG ``DEFAULT nextval('...')``
+        # form (i.e. no regression from the previous
+        # ``SERIAL``-equivalent).
+        from sqlalchemy.schema import CreateTable
+
+        from ivre.db.sql.tables import N_Scan
+
+        sql = str(
+            CreateTable(N_Scan.__table__).compile(
+                dialect=_sqlalchemy_postgresql.dialect()
+            )
+        )
+        self.assertIn("DEFAULT nextval('seq_n_scan_id'", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_create_table_emits_nextval_under_duckdb(self):
+        # Same sanity check on DuckDB: the compiled DDL must
+        # call ``nextval`` against the per-table sequence
+        # (DuckDB supports the same ``CREATE SEQUENCE`` /
+        # ``nextval`` primitives as PostgreSQL) rather than
+        # falling back to ``SERIAL`` (which DuckDB rejects).
+        sa = _sqlalchemy
+        from sqlalchemy.schema import CreateTable
+
+        from ivre.db.sql.tables import N_Scan
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        sql = str(CreateTable(N_Scan.__table__).compile(dialect=engine.dialect))
+        self.assertIn("nextval('seq_n_scan_id'", sql)
+        self.assertNotIn("SERIAL", sql)
+        self.assertNotIn("IDENTITY", sql)
+
+    # --- DBNmap / DBView / DBPassive registration -----------------
+    def test_backends_dict_registers_duckdb(self):
+        from ivre.db import DBNmap, DBPassive, DBView
+
+        self.assertEqual(DBNmap.backends.get("duckdb"), ("sql.duckdb", "DuckDBNmap"))
+        self.assertEqual(DBView.backends.get("duckdb"), ("sql.duckdb", "DuckDBView"))
+        self.assertEqual(
+            DBPassive.backends.get("duckdb"), ("sql.duckdb", "DuckDBPassive")
+        )
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_from_url_dispatches_to_duckdb_classes(self):
+        from ivre.db import DBNmap, DBPassive, DBView
+        from ivre.db.sql.duckdb import DuckDBNmap, DuckDBPassive, DuckDBView
+
+        for parent_cls, expected in (
+            (DBNmap, DuckDBNmap),
+            (DBView, DuckDBView),
+            (DBPassive, DuckDBPassive),
+        ):
+            with self.subTest(parent_cls=parent_cls.__name__):
+                inst = parent_cls.from_url("duckdb:///:memory:")
+                self.assertIsInstance(inst, expected)
+
+    # --- URL round-trip fix ---------------------------------------
+    def test_empty_netloc_url_survives_init_round_trip(self):
+        # ``urlparse('duckdb:///:memory:').geturl()`` collapses
+        # the empty-authority ``///`` to a single ``/``,
+        # yielding ``duckdb:/:memory:`` -- which SQLAlchemy
+        # rejects (``Could not parse SQLAlchemy URL from given
+        # URL string``). ``SQLDB.__init__`` reconstructs the
+        # wire form explicitly to side-step the stdlib bug; pin
+        # that.
+        from urllib.parse import urlparse
+
+        from ivre.db.sql import SQLDB
+
+        # First, evidence that the stdlib round-trip itself is
+        # lossy (so a stdlib fix in the future would let us
+        # drop the workaround knowingly).
+        self.assertNotEqual(
+            urlparse("duckdb:///:memory:").geturl(), "duckdb:///:memory:"
+        )
+
+        # Second, the workaround in SQLDB.__init__ produces the
+        # form SQLAlchemy can parse.
+        class _Probe(SQLDB):
+            def __init__(self, url):
+                super().__init__(url)
+
+        for raw in (
+            "duckdb:///:memory:",
+            "duckdb:////tmp/foo.db",
+            "duckdb:///tmp/foo.db",
+            "postgresql://ivre@localhost/ivre",
+        ):
+            with self.subTest(url=raw):
+                probe = _Probe(urlparse(raw))
+                self.assertEqual(probe.dburl, raw)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_init_creates_schema_on_duckdb(self):
+        # End-to-end: ``init()`` on each backend transparently
+        # drops every PG-only declaration DuckDB rejects
+        # (GIN/INET/ARRAY/partial indexes; ``ON DELETE
+        # CASCADE`` on FKs) and successfully materialises the
+        # IVRE schema on an in-memory engine.
+        from ivre.db import DBNmap, DBPassive, DBView
+
+        for cls in (DBNmap, DBView, DBPassive):
+            with self.subTest(cls=cls.__name__):
+                db = cls.from_url("duckdb:///:memory:")
+                db.init()
+                # The expected per-namespace tables exist.
+                from sqlalchemy import inspect
+
+                names = set(inspect(db.db).get_table_names())
+                self.assertTrue(
+                    {"n_scan", "n_port", "n_hostname"} <= names
+                    or {"v_scan", "v_port", "v_hostname"} <= names
+                    or {"passive"} <= names
+                )
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_init_restores_metadata_after_duckdb_run(self):
+        # ``DuckDBMixin.init`` strips a handful of
+        # PG-only schema declarations from the shared
+        # ``Base.metadata`` for the duration of
+        # ``create_all``; the ``finally`` clause must put them
+        # back so a parallel PG engine sharing the same
+        # in-process metadata sees its full schema.
+        from ivre.db import DBNmap
+        from ivre.db.sql.tables import Base
+
+        snapshot = {
+            tbl.name: {
+                "indexes": {
+                    ix.name: (
+                        ix.kwargs.get("postgresql_using"),
+                        ix.kwargs.get("postgresql_where") is not None,
+                    )
+                    for ix in tbl.indexes
+                },
+                "fk_actions": tuple(
+                    sorted(
+                        (str(fkc), fkc.ondelete, fkc.onupdate)
+                        for fkc in tbl.foreign_key_constraints
+                    )
+                ),
+            }
+            for tbl in Base.metadata.tables.values()
+        }
+
+        DBNmap.from_url("duckdb:///:memory:").init()
+
+        post = {
+            tbl.name: {
+                "indexes": {
+                    ix.name: (
+                        ix.kwargs.get("postgresql_using"),
+                        ix.kwargs.get("postgresql_where") is not None,
+                    )
+                    for ix in tbl.indexes
+                },
+                "fk_actions": tuple(
+                    sorted(
+                        (str(fkc), fkc.ondelete, fkc.onupdate)
+                        for fkc in tbl.foreign_key_constraints
+                    )
+                ),
+            }
+            for tbl in Base.metadata.tables.values()
+        }
+        self.assertEqual(snapshot, post)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_crud_roundtrip_on_duckdb(self):
+        # End-to-end CRUD: insert a scan + a hostname into
+        # DuckDB; read them back; ``internal2ip`` collapses
+        # the INET round-trip struct back to the original IP
+        # string.
+        from sqlalchemy import insert, select
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        db.init()
+        T = db.tables
+        with db.db.begin() as conn:
+            res = conn.execute(
+                insert(T.scan),
+                {"addr": "192.0.2.1", "source": "test", "schema_version": 22},
+            )
+            scan_id = res.inserted_primary_key[0]
+            conn.execute(
+                insert(T.hostname),
+                {
+                    "scan": scan_id,
+                    "name": "example.com",
+                    "type": "PTR",
+                    "domains": ["example.com", "com"],
+                },
+            )
+        with db.db.connect() as conn:
+            scan_row = conn.execute(select(T.scan.id, T.scan.addr)).one()
+            host_row = conn.execute(select(T.hostname.name, T.hostname.domains)).one()
+        self.assertEqual(scan_row[0], scan_id)
+        self.assertEqual(db.internal2ip(scan_row[1]), "192.0.2.1")
+        self.assertEqual(host_row[0], "example.com")
+        self.assertEqual(host_row[1], ["example.com", "com"])
+
+
+# ---------------------------------------------------------------------
 # SQLDBSearchFieldTests -- pin the shared ``_search_field``
 # dispatch on the SQL backends and the wire shape of the
 # search methods that delegate to it. Mirrors

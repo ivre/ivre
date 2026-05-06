@@ -270,7 +270,26 @@ class SQLDB(DB):
 
     def __init__(self, url):
         super().__init__()
-        self.dburl = url.geturl()
+        # ``urlparse(...).geturl()`` (and ``urlunparse``) collapse
+        # the empty-authority ``///`` separator down to a single
+        # ``/`` for any scheme that does not opt into
+        # ``urllib.parse.uses_netloc``: e.g.
+        # ``duckdb:///:memory:`` would round-trip as
+        # ``duckdb:/:memory:``, which SQLAlchemy then refuses with
+        # ``Could not parse SQLAlchemy URL from given URL string``.
+        # Reconstruct the wire form explicitly so empty-host URLs
+        # (DuckDB embedded files, ``:memory:``) survive untouched
+        # while PostgreSQL / MongoDB / Elasticsearch URLs --- which
+        # always carry a non-empty netloc --- come out byte-for-byte
+        # identical to what ``geturl()`` returned previously.
+        rebuilt = f"{url.scheme}://{url.netloc}{url.path}"
+        if url.params:
+            rebuilt += f";{url.params}"
+        if url.query:
+            rebuilt += f"?{url.query}"
+        if url.fragment:
+            rebuilt += f"#{url.fragment}"
+        self.dburl = rebuilt
 
     @property
     def db(self):

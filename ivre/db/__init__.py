@@ -2325,6 +2325,7 @@ class DBActive(DB):
 
 class DBNmap(DBActive):
     backends = {
+        "duckdb": ("sql.duckdb", "DuckDBNmap"),
         "http": ("http", "HttpDBNmap"),
         "mongodb": ("mongo", "MongoDBNmap"),
         "documentdb": ("document", "DocumentDBNmap"),
@@ -4265,6 +4266,7 @@ class DBNmap(DBActive):
 
 class DBView(DBActive):
     backends = {
+        "duckdb": ("sql.duckdb", "DuckDBView"),
         "elastic": ("elastic", "ElasticDBView"),
         "http": ("http", "HttpDBView"),
         "mongodb": ("mongo", "MongoDBView"),
@@ -4566,6 +4568,7 @@ class DBPassive(DB):
     datetime_fields = ["firstseen", "lastseen", "infos.not_after", "infos.not_before"]
     list_fields = ["infos.domain", "infos.domaintarget", "infos.san"]
     backends = {
+        "duckdb": ("sql.duckdb", "DuckDBPassive"),
         "http": ("http", "HttpDBPassive"),
         "mongodb": ("mongo", "MongoDBPassive"),
         "documentdb": ("document", "DocumentDBPassive"),

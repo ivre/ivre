@@ -27,12 +27,13 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Sequence,
     String,
     Text,
     func,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, declared_attr
 from sqlalchemy.types import UserDefinedType
 
 from ivre import passive, xmlnmap
@@ -56,8 +57,43 @@ from ivre import passive, xmlnmap
 #     emits).
 #   - PG ``ARRAY(t)`` works as-is on DuckDB (duckdb-engine
 #     compiles to the ``LIST``/``t[]`` form natively).
+#
+# Auto-incrementing primary keys: PostgreSQL accepts the bare
+# ``Column(Integer, primary_key=True)`` form and SQLAlchemy emits
+# ``SERIAL``. DuckDB's catalog rejects ``SERIAL`` as well as
+# ``GENERATED ... AS IDENTITY``, so every surrogate ``id`` column
+# in IVRE's schema is bound to an explicit ``Sequence``: SA emits
+# ``CREATE SEQUENCE`` once at ``create_all`` time and the column's
+# ``server_default = seq.next_value()`` resolves to ``nextval(...)``
+# under both dialects. Mixin classes use ``declared_attr`` so each
+# concrete subclass (``n_*`` and ``v_*``) gets its own
+# per-tablename sequence rather than sharing one and interleaving
+# IDs between active scans and the merged view.
 
 SQLJSONB = postgresql.JSONB().with_variant(JSON(), "duckdb")
+
+
+def _id_column():
+    """Return a fresh ``id`` ``Column`` bound to a per-table
+    ``Sequence``.
+
+    Used as a ``declared_attr`` on the abstract mixins below so
+    each concrete subclass gets its own ``seq_<tablename>_id``.
+    Top-level (non-mixin) tables inline the same pattern with a
+    module-level ``Sequence`` for clarity at the call site.
+    """
+
+    @declared_attr
+    def id(cls):  # pylint: disable=redefined-builtin
+        seq = Sequence(f"seq_{cls.__tablename__}_id")
+        return Column(
+            Integer,
+            seq,
+            server_default=seq.next_value(),
+            primary_key=True,
+        )
+
+    return id
 
 
 def SQLARRAY(item_type):
@@ -135,9 +171,17 @@ Base = declarative_base()
 
 
 # Flow
+_seq_flow_id = Sequence("seq_flow_id")
+
+
 class Flow(Base):
     __tablename__ = "flow"
-    id = Column(Integer, primary_key=True)
+    id = Column(
+        Integer,
+        _seq_flow_id,
+        server_default=_seq_flow_id.next_value(),
+        primary_key=True,
+    )
     proto = Column(String(32), index=True)
     dport = Column(Integer, index=True)
     src = Column(Integer, ForeignKey("host.id", ondelete="RESTRICT"))
@@ -161,7 +205,7 @@ class _Association_Scan_Category:
 
 
 class _Category:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     name = Column(String(32))
 
 
@@ -173,7 +217,7 @@ class _Script:
 
 
 class _Port:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     scan = Column(Integer)
     port = Column(Integer)
     protocol = Column(String(16))
@@ -194,7 +238,7 @@ class _Port:
 
 
 class _Tag:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     scan = Column(Integer)
     value = Column(String(256))
     type = Column(String(16))
@@ -202,7 +246,7 @@ class _Tag:
 
 
 class _Hostname:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     scan = Column(Integer)
     domains = Column(SQLARRAY(String(255)), index=True)
     name = Column(String(255), index=True)
@@ -216,14 +260,14 @@ class _Association_Scan_Hostname:
 
 
 class _Trace:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     scan = Column(Integer, nullable=False)
     port = Column(Integer)
     protocol = Column(String(16))
 
 
 class _Hop:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     trace = Column(Integer, nullable=False)
     ipaddr = Column(SQLINET)
     ttl = Column(Integer)
@@ -233,7 +277,7 @@ class _Hop:
 
 
 class _Scan:
-    id = Column(Integer, primary_key=True)
+    id = _id_column()
     addr = Column(SQLINET, nullable=False)
     # source = Column()
     info = Column(SQLJSONB)
@@ -411,9 +455,17 @@ class V_Scan(Base, _Scan):
 
 
 # Passive
+_seq_passive_id = Sequence("seq_passive_id")
+
+
 class Passive(Base):
     __tablename__ = "passive"
-    id = Column(Integer, primary_key=True)
+    id = Column(
+        Integer,
+        _seq_passive_id,
+        server_default=_seq_passive_id.next_value(),
+        primary_key=True,
+    )
     addr = Column(SQLINET)
     sensor = Column(String(64))
     count = Column(Integer)
