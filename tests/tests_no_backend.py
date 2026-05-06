@@ -2028,6 +2028,39 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         self.assertTrue(_is_unsupported_on_duckdb(array_idx))
         self.assertFalse(_is_unsupported_on_duckdb(plain))
 
+    def test_decode_portlist_handles_pg_string_and_duckdb_list(self):
+        # Regression: the ``portlist:*`` topvalues query
+        # composes
+        # ``func.array_agg(tuple_(port.protocol, port.port))``
+        # and post-processes the per-row result into
+        # ``[(proto, port), ...]``.  PostgreSQL serialises the
+        # column as a ``record[]`` *string*, e.g.
+        # ``'{"(tcp,80)","(tcp,443)"}'``; DuckDB returns a
+        # native ``list[tuple[str, int]]`` instead.  The
+        # post-processor used to assume the PG string shape
+        # and crashed on DuckDB with::
+        #
+        #     AttributeError: 'list' object has no attribute
+        #     'split'
+        #
+        # Pin both decode paths on
+        # :func:`ivre.db.sql.postgres._decode_portlist`.
+        from ivre.db.sql.postgres import _decode_portlist
+
+        # PG ``record[]`` literal.
+        self.assertEqual(
+            _decode_portlist('{"(tcp,80)","(tcp,443)","(udp,53)"}'),
+            [("tcp", 80), ("tcp", 443), ("udp", 53)],
+        )
+        # DuckDB ``LIST(STRUCT(...))`` round-trip.
+        self.assertEqual(
+            _decode_portlist([("tcp", 80), ("tcp", 443), ("udp", 53)]),
+            [("tcp", 80), ("tcp", 443), ("udp", 53)],
+        )
+        # Empty cases on both shapes.
+        self.assertEqual(_decode_portlist("{}"), [])
+        self.assertEqual(_decode_portlist([]), [])
+
     @unittest.skipUnless(
         _HAVE_DUCKDB_ENGINE,
         "duckdb-engine is required (install with the ``duckdb`` extras)",

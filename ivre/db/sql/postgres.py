@@ -78,6 +78,41 @@ except AttributeError:
     pass
 
 
+def _decode_portlist(value: Any) -> list[tuple[str, int]]:
+    """Decode the ``ports`` column of the ``portlist:*``
+    ``topvalues`` query into ``[(proto, port), ...]``.
+
+    SQLAlchemy compiles
+    ``func.array_agg(tuple_(protocol, port))`` to
+    ``array_agg(ROW(protocol, port))`` on every dialect, but
+    the round-trip shape differs between backends:
+
+    * **PostgreSQL** (``psycopg2``) returns the column as a
+      ``record[]`` literal serialised as a string, e.g.
+      ``'{"(tcp,80)","(tcp,443)"}'``.
+    * **DuckDB** (``duckdb-engine``) maps
+      ``LIST(STRUCT(VARCHAR, INTEGER))`` to a Python
+      ``list[tuple[str, int]]`` directly, e.g.
+      ``[('tcp', 80), ('tcp', 443)]``.
+
+    Decoding both shapes here lets the rest of
+    :meth:`PostgresDB.topvalues` stay backend-agnostic.
+    """
+    if isinstance(value, list):
+        return [(proto, int(port)) for proto, port in value]
+    # PostgreSQL ``record[]`` string form.  Empty arrays come
+    # through as the literal ``"{}"``; the historical slice
+    # below assumes at least one element wrapped in
+    # ``"(...)"`` and would split a stray empty entry into a
+    # 1-tuple.  Short-circuit the empty case explicitly.
+    if value in ("{}", "{NULL}"):
+        return []
+    return [
+        (proto, int(port))
+        for proto, port in (elt.split(",") for elt in value[3:-3].split(')","('))
+    ]
+
+
 class PostgresDB(SQLDB):
     @staticmethod
     def ip2internal(addr):
@@ -548,15 +583,17 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             #  - countports:open
             #  - tous les autres
             info = field[9:]
+            # ``array_agg(tuple_(...))`` returns a PostgreSQL
+            # ``record[]`` literal serialised as a string on
+            # PostgreSQL (e.g. ``{"(tcp,80)","(tcp,443)"}``)
+            # and an actual ``list[tuple[str, int]]`` on DuckDB
+            # (``duckdb-engine`` maps ``LIST(STRUCT(...))`` to
+            # a Python list).  Decode both shapes uniformly
+            # into ``[(proto, port), ...]``.
             return (
                 {
                     "count": result[0],
-                    "_id": [
-                        (proto, int(port))
-                        for proto, port in (
-                            elt.split(",") for elt in result[1][3:-3].split(')","(')
-                        )
-                    ],
+                    "_id": _decode_portlist(result[1]),
                 }
                 for result in self._read_iter(
                     select(func.count().label("count"), column("ports"))
