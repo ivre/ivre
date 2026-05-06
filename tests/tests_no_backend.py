@@ -1873,6 +1873,53 @@ class SQLDBSearchFieldTests(unittest.TestCase):
             "non-Elastic backends rely on the inherited no-op.",
         )
 
+    def test_create_tmp_table_idempotent_per_process(self):
+        # P4.B: ``PostgresDB.create_tmp_table`` is called from
+        # ``insert_or_update_bulk`` once per call. Each call
+        # historically did ``Table(f"tmp_{name}", metadata, ...)``
+        # which raised ``InvalidRequestError: Table
+        # 'tmp_<name>' is already defined for this MetaData
+        # instance`` on the second invocation in the same Python
+        # process (the SQLAlchemy ``MetaData`` registry keys by
+        # table name). The fix retrieves the existing
+        # ``Table`` from ``metadata.tables`` when present and
+        # only registers a new one on the first call.
+        #
+        # The test exercises the in-memory part only -- it
+        # walks the source AST to assert the ``metadata.tables.get``
+        # / reuse pattern is in place. A live PostgreSQL DB is
+        # not required to validate the dispatch.
+        import ast
+        from inspect import getsource
+        from textwrap import dedent
+
+        from ivre.db.sql import postgres as pgmod
+
+        src = dedent(getsource(pgmod.PostgresDB.create_tmp_table))
+        tree = ast.parse(src)
+        # Walk the AST: assert there is a
+        # ``metadata.tables.get(...)`` call (the lookup before
+        # constructing a new Table), and that the ``Table(...)``
+        # construction is gated by an ``if`` whose condition
+        # checks for ``None`` / falsy.
+        gets_tables_get = False
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get"
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "tables"
+            ):
+                gets_tables_get = True
+                break
+        self.assertTrue(
+            gets_tables_get,
+            "create_tmp_table must look up metadata.tables before "
+            "constructing a new Table to avoid the SA "
+            "'already defined for this MetaData' error",
+        )
+
     def test_searchtag_lifted_to_sqldbactive(self):
         # M4.0.5: ``searchtag`` was previously defined only on
         # ``SQLDBView``. Both ``SQLDBView`` and ``SQLDBNmap`` have

@@ -87,32 +87,76 @@ class PostgresDB(SQLDB):
     def internal2ip(addr):
         return addr
 
-    def copy_from(self, *args, **kargs):
+    def copy_from(self, *args, conn=None, **kargs):
+        """Wrap ``psycopg2``'s ``cursor.copy_from`` with optional
+        connection pinning.
+
+        When ``conn`` is provided (a SQLAlchemy ``Connection``),
+        the COPY runs on its underlying DBAPI connection so a
+        ``CREATE TEMPORARY TABLE`` issued earlier on the same
+        ``conn`` is visible. This is mandatory for
+        ``insert_or_update_bulk`` -- TEMP tables are
+        session-scoped in PostgreSQL and the pool would
+        otherwise hand out a different connection per
+        operation.
+
+        When ``conn`` is ``None`` (legacy path, kept for any
+        external caller), the method does its own connect /
+        commit / close cycle on a fresh connection.
+        """
+        if conn is not None:
+            cursor = conn.connection.cursor()
+            cursor.copy_from(*args, **kargs)
+            return
         cursor = self.db.raw_connection().cursor()
-        conn = self.db.connect()
-        trans = conn.begin()
+        own_conn = self.db.connect()
+        trans = own_conn.begin()
         cursor.copy_from(*args, **kargs)
         trans.commit()
-        conn.close()
+        own_conn.close()
 
-    def create_tmp_table(self, table, extracols=None):
-        cols = [c.copy() for c in table.__table__.columns]
-        for c in cols:
-            c.index = False
-            c.nullable = True
-            c.foreign_keys = None
-            if c.primary_key:
-                c.primary_key = False
-                c.index = True
-        if extracols is not None:
-            cols.extend(extracols)
-        t = Table(
-            f"tmp_{table.__tablename__}",
-            table.__table__.metadata,
-            *cols,
-            prefixes=["TEMPORARY"],
-        )
-        t.create(bind=self.db, checkfirst=True)
+    def create_tmp_table(self, table, extracols=None, conn=None):
+        """Create (idempotently) a ``TEMPORARY`` mirror of ``table``.
+
+        Reuses the in-memory ``Table`` definition when this
+        method is called more than once per process for the
+        same source table: SQLAlchemy's ``MetaData`` keeps a
+        registry keyed by table name, and a second
+        ``Table(...)`` call with the same name raises
+        ``InvalidRequestError: Table 'tmp_<...>' is already
+        defined for this MetaData instance``. The first caller
+        that hits ``insert_or_update_bulk`` registers the
+        ``tmp_<table>`` template; subsequent callers retrieve
+        it from ``metadata.tables`` and only re-issue the
+        ``CREATE TEMPORARY TABLE`` (``checkfirst=True`` makes
+        that idempotent at the SQL layer too).
+
+        ``conn`` (optional SQLAlchemy ``Connection``) pins the
+        ``CREATE TEMPORARY TABLE`` to a specific session so the
+        table is visible to subsequent operations on the same
+        ``conn`` -- required by ``insert_or_update_bulk``.
+        """
+        tmp_name = f"tmp_{table.__tablename__}"
+        metadata = table.__table__.metadata
+        t = metadata.tables.get(tmp_name)
+        if t is None:
+            cols = [c.copy() for c in table.__table__.columns]
+            for c in cols:
+                c.index = False
+                c.nullable = True
+                c.foreign_keys = None
+                if c.primary_key:
+                    c.primary_key = False
+                    c.index = True
+            if extracols is not None:
+                cols.extend(extracols)
+            t = Table(
+                tmp_name,
+                metadata,
+                *cols,
+                prefixes=["TEMPORARY"],
+            )
+        t.create(bind=conn if conn is not None else self.db, checkfirst=True)
         return t
 
     def start_bulk_insert(self, size=None, retries=0):
@@ -1795,72 +1839,55 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
 
         """
         more_to_read = True
-        tmp = self.create_tmp_table(self.tables.passive)
         if config.DEBUG_DB:
             total_upserted = 0
             total_start_time = time.time()
-        while more_to_read:
-            if config.DEBUG_DB:
-                start_time = time.time()
-            with PassiveCSVFile(
-                specs,
-                self.ip2internal,
-                tmp,
-                getinfos=getinfos,
-                separated_timestamps=separated_timestamps,
-                limit=config.POSTGRES_BATCH_SIZE,
-            ) as fdesc:
-                self.copy_from(fdesc, tmp.name)
-                more_to_read = fdesc.more_to_read
+        # Hold ONE connection for the entire bulk-insert sequence.
+        # PostgreSQL TEMP tables are session-scoped, so the
+        # ``CREATE TEMPORARY TABLE`` issued by
+        # ``create_tmp_table``, the ``COPY FROM`` issued by
+        # ``copy_from``, and the two ``INSERT ... FROM SELECT
+        # ... ON CONFLICT`` statements + the final
+        # ``DELETE FROM tmp`` MUST all run on the same session.
+        # The default per-method ``self.db.connect()`` path would
+        # hand out a different pooled connection each time, with
+        # the ``COPY`` then failing
+        # ``psycopg2.errors.UndefinedTable: relation
+        # "tmp_passive" does not exist`` (the TEMP table only
+        # exists on the session that issued the CREATE).
+        # ``Engine.begin()`` opens a transaction-scoped
+        # connection; on success it commits (also dropping the
+        # TEMP table at end-of-session), on exception it rolls
+        # back.
+        with self.db.begin() as conn:
+            tmp = self.create_tmp_table(self.tables.passive, conn=conn)
+            while more_to_read:
                 if config.DEBUG_DB:
-                    count_upserted = fdesc.count
-            insrt = postgresql.insert(self.tables.passive)
-            self._write(
-                insrt.from_select(
-                    [
-                        column(col)
-                        for col in [
-                            "addr",
-                            # sum / min / max
-                            "count",
-                            "firstseen",
-                            "lastseen",
-                            # grouped
-                            "sensor",
-                            "port",
-                            "recontype",
-                            "source",
-                            "targetval",
-                            "value",
-                            "info",
-                            "moreinfo",
-                        ]
-                    ],
-                    select(
-                        tmp.columns["addr"],
-                        func.sum_(tmp.columns["count"]),
-                        func.min_(tmp.columns["firstseen"]),
-                        func.max_(tmp.columns["lastseen"]),
-                        *(
-                            tmp.columns[col]
-                            for col in [
-                                "sensor",
-                                "port",
-                                "recontype",
-                                "source",
-                                "targetval",
-                                "value",
-                                "info",
-                                "moreinfo",
-                            ]
-                        ),
-                    )
-                    .where(tmp.columns["addr"] != None)  # noqa: E711
-                    .group_by(
-                        *(
-                            tmp.columns[col]
+                    start_time = time.time()
+                with PassiveCSVFile(
+                    specs,
+                    self.ip2internal,
+                    tmp,
+                    getinfos=getinfos,
+                    separated_timestamps=separated_timestamps,
+                    limit=config.POSTGRES_BATCH_SIZE,
+                ) as fdesc:
+                    self.copy_from(fdesc, tmp.name, conn=conn)
+                    more_to_read = fdesc.more_to_read
+                    if config.DEBUG_DB:
+                        count_upserted = fdesc.count
+                insrt = postgresql.insert(self.tables.passive)
+                conn.execute(
+                    insrt.from_select(
+                        [
+                            column(col)
                             for col in [
                                 "addr",
+                                # sum / min / max
+                                "count",
+                                "firstseen",
+                                "lastseen",
+                                # grouped
                                 "sensor",
                                 "port",
                                 "recontype",
@@ -1870,83 +1897,83 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
+                        ],
+                        select(
+                            tmp.columns["addr"],
+                            func.sum_(tmp.columns["count"]),
+                            func.min_(tmp.columns["firstseen"]),
+                            func.max_(tmp.columns["lastseen"]),
+                            *(
+                                tmp.columns[col]
+                                for col in [
+                                    "sensor",
+                                    "port",
+                                    "recontype",
+                                    "source",
+                                    "targetval",
+                                    "value",
+                                    "info",
+                                    "moreinfo",
+                                ]
+                            ),
                         )
-                    ),
-                ).on_conflict_do_update(
-                    index_elements=[
-                        "addr",
-                        "sensor",
-                        "recontype",
-                        "port",
-                        "source",
-                        "value",
-                        "targetval",
-                        "info",
-                    ],
-                    index_where=self.tables.passive.addr != None,  # noqa: E711
-                    set_={
-                        "firstseen": func.least(
-                            self.tables.passive.firstseen,
-                            insrt.excluded.firstseen,
+                        .where(tmp.columns["addr"] != None)  # noqa: E711
+                        .group_by(
+                            *(
+                                tmp.columns[col]
+                                for col in [
+                                    "addr",
+                                    "sensor",
+                                    "port",
+                                    "recontype",
+                                    "source",
+                                    "targetval",
+                                    "value",
+                                    "info",
+                                    "moreinfo",
+                                ]
+                            )
                         ),
-                        "lastseen": func.greatest(
-                            self.tables.passive.lastseen,
-                            insrt.excluded.lastseen,
-                        ),
-                        "count": (
-                            insrt.excluded.count
-                            if replacecount
-                            else self.tables.passive.count + insrt.excluded.count
-                        ),
-                    },
-                )
-            )
-            self._write(
-                insrt.from_select(
-                    [
-                        column(col)
-                        for col in [
+                    ).on_conflict_do_update(
+                        index_elements=[
                             "addr",
-                            # sum / min / max
-                            "count",
-                            "firstseen",
-                            "lastseen",
-                            # grouped
                             "sensor",
-                            "port",
                             "recontype",
+                            "port",
                             "source",
-                            "targetval",
                             "value",
+                            "targetval",
                             "info",
-                            "moreinfo",
-                        ]
-                    ],
-                    select(
-                        tmp.columns["addr"],
-                        func.sum_(tmp.columns["count"]),
-                        func.min_(tmp.columns["firstseen"]),
-                        func.max_(tmp.columns["lastseen"]),
-                        *(
-                            tmp.columns[col]
-                            for col in [
-                                "sensor",
-                                "port",
-                                "recontype",
-                                "source",
-                                "targetval",
-                                "value",
-                                "info",
-                                "moreinfo",
-                            ]
-                        ),
+                        ],
+                        index_where=self.tables.passive.addr != None,  # noqa: E711
+                        set_={
+                            "firstseen": func.least(
+                                self.tables.passive.firstseen,
+                                insrt.excluded.firstseen,
+                            ),
+                            "lastseen": func.greatest(
+                                self.tables.passive.lastseen,
+                                insrt.excluded.lastseen,
+                            ),
+                            "count": (
+                                insrt.excluded.count
+                                if replacecount
+                                else self.tables.passive.count + insrt.excluded.count
+                            ),
+                        },
                     )
-                    .where(tmp.columns["addr"] == None)  # noqa: E711
-                    .group_by(
-                        *(
-                            tmp.columns[col]
+                )
+                conn.execute(
+                    insrt.from_select(
+                        [
+                            column(col)
                             for col in [
                                 "addr",
+                                # sum / min / max
+                                "count",
+                                "firstseen",
+                                "lastseen",
+                                # grouped
                                 "sensor",
                                 "port",
                                 "recontype",
@@ -1956,53 +1983,88 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 "info",
                                 "moreinfo",
                             ]
+                        ],
+                        select(
+                            tmp.columns["addr"],
+                            func.sum_(tmp.columns["count"]),
+                            func.min_(tmp.columns["firstseen"]),
+                            func.max_(tmp.columns["lastseen"]),
+                            *(
+                                tmp.columns[col]
+                                for col in [
+                                    "sensor",
+                                    "port",
+                                    "recontype",
+                                    "source",
+                                    "targetval",
+                                    "value",
+                                    "info",
+                                    "moreinfo",
+                                ]
+                            ),
                         )
-                    ),
-                ).on_conflict_do_update(
-                    index_elements=[
-                        "sensor",
-                        "recontype",
-                        "port",
-                        "source",
-                        "value",
-                        "targetval",
-                        "info",
-                    ],
-                    index_where=self.tables.passive.addr == None,  # noqa: E711
-                    # (BinaryExpression)
-                    set_={
-                        "firstseen": func.least(
-                            self.tables.passive.firstseen,
-                            insrt.excluded.firstseen,
+                        .where(tmp.columns["addr"] == None)  # noqa: E711
+                        .group_by(
+                            *(
+                                tmp.columns[col]
+                                for col in [
+                                    "addr",
+                                    "sensor",
+                                    "port",
+                                    "recontype",
+                                    "source",
+                                    "targetval",
+                                    "value",
+                                    "info",
+                                    "moreinfo",
+                                ]
+                            )
                         ),
-                        "lastseen": func.greatest(
-                            self.tables.passive.lastseen,
-                            insrt.excluded.lastseen,
-                        ),
-                        "count": (
-                            insrt.excluded.count
-                            if replacecount
-                            else self.tables.passive.count + insrt.excluded.count
-                        ),
-                    },
+                    ).on_conflict_do_update(
+                        index_elements=[
+                            "sensor",
+                            "recontype",
+                            "port",
+                            "source",
+                            "value",
+                            "targetval",
+                            "info",
+                        ],
+                        index_where=self.tables.passive.addr == None,  # noqa: E711
+                        # (BinaryExpression)
+                        set_={
+                            "firstseen": func.least(
+                                self.tables.passive.firstseen,
+                                insrt.excluded.firstseen,
+                            ),
+                            "lastseen": func.greatest(
+                                self.tables.passive.lastseen,
+                                insrt.excluded.lastseen,
+                            ),
+                            "count": (
+                                insrt.excluded.count
+                                if replacecount
+                                else self.tables.passive.count + insrt.excluded.count
+                            ),
+                        },
+                    )
                 )
-            )
-            self._write(delete(tmp))
-            if config.DEBUG_DB:
-                stop_time = time.time()
-                time_spent = stop_time - start_time
-                total_upserted += count_upserted
-                total_time_spent = stop_time - total_start_time
-                utils.LOGGER.debug(
-                    "DB:PERFORMANCE STATS %s upserts, %f s, %s/s\n"
-                    "\ttotal: %s upserts, %f s, %s/s",
-                    utils.num2readable(count_upserted),
-                    time_spent,
-                    utils.num2readable(float(count_upserted) / time_spent),
-                    utils.num2readable(total_upserted),
-                    total_time_spent,
-                    utils.num2readable(float(total_upserted) / total_time_spent),
-                )
+                conn.execute(delete(tmp))
+                if config.DEBUG_DB:
+                    stop_time = time.time()
+                    time_spent = stop_time - start_time
+                    total_upserted += count_upserted
+                    total_time_spent = stop_time - total_start_time
+                    utils.LOGGER.debug(
+                        "DB:PERFORMANCE STATS %s upserts, %f s, %s/s\n"
+                        "\ttotal: %s upserts, %f s, %s/s",
+                        utils.num2readable(count_upserted),
+                        time_spent,
+                        utils.num2readable(float(count_upserted) / time_spent),
+                        utils.num2readable(total_upserted),
+                        total_time_spent,
+                        utils.num2readable(float(total_upserted) / total_time_spent),
+                    )
 
     def _features_port_get(
         self, features, flt, yieldall, use_service, use_product, use_version
