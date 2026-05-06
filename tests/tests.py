@@ -313,7 +313,21 @@ class IvreTests(unittest.TestCase):
     def _check_top_value_cli(self, name, field, count=10, command="", **kwargs):
         res, out, err = RUN(["ivre", command, "--top", field, "--limit", str(count)])
         if DATABASE != "postgres":
-            # There is a warning in SQL backends (FIXME - SQLAlchemy update).
+            # The PostgreSQL ``topvalues`` paths for ``httphdr`` /
+            # ``httphdr.<key>`` / ``httphdr:<name>`` (and the
+            # parallel ``httpapp`` family) build the per-row
+            # ``jsonb_array_elements(...)`` virtual table via
+            # ``.alias("hdr")`` + ``select_from(extraselectfrom)``
+            # without an explicit join condition, which
+            # PostgreSQL reports as a cartesian product
+            # (``SAWarning: SELECT statement has a cartesian
+            # product between FROM element(s) "hdr" and FROM
+            # element "n_port"``). The fix is to wrap the
+            # subquery in ``CROSS JOIN LATERAL`` (SQLAlchemy:
+            # ``lateral()``) -- non-trivial refactor scheduled
+            # alongside the rest of the SQL ``topvalues`` parity
+            # work. Until that lands, the warning leaks to
+            # stderr on every ``httphdr*`` top-value CLI call.
             self.assertFalse(err)
         self.assertEqual(res, 0)
         listval = []
@@ -1960,9 +1974,7 @@ class IvreTests(unittest.TestCase):
             ]
         )
         self.assertEqual(ret, 0)
-        if DATABASE != "postgres":
-            # There is a warning in SQL backends for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertGreater(out.count(b"\n"), result)
 
         result = ivre.db.db.passive.count(ivre.db.db.passive.searchhost("127.12.34.56"))
@@ -2185,44 +2197,32 @@ class IvreTests(unittest.TestCase):
         # searchtimeago() method
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertNotEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertNotEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "10000000000"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(out, b"")
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0", "--count"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(out, b"0\n")
 
         res, out, err = RUN(["ivre", "ipinfo", "--no-timeago", "0", "--count"])
         self.assertEqual(res, 0)
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.check_value("passive_count", int(out))
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000", "--count"])
@@ -2443,17 +2443,13 @@ class IvreTests(unittest.TestCase):
         # CLI: --limit / --skip / --sort
         # Using --limit should prevent ipinfo from selecting tailfnew mode
         res, _, err = RUN(["ivre", "ipinfo", "--limit", "1"])
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         # Using --limit n with --json should produce at most n JSON
         # lines
         for count in 5, 10:
             res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count), "--json"])
-            if DATABASE != "postgres":
-                # There is a warning in postgresql for unused argument.
-                self.assertFalse(err)
+            self.assertFalse(err)
             self.assertEqual(res, 0)
             out = out.decode().splitlines()
             self.assertEqual(len(out), count)
@@ -2473,37 +2469,27 @@ class IvreTests(unittest.TestCase):
                         "--json",
                     ]
                 )
-                if DATABASE != "postgres":
-                    # There is a warning in postgresql for unused argument.
-                    self.assertFalse(err)
+                self.assertFalse(err)
                 self.assertEqual(res, 0)
                 out = out.decode().splitlines()
                 self.assertEqual(len(out), count)
                 for line in out:
                     json.loads(line)
         res, out1, err = RUN(["ivre", "ipinfo", "--limit", "1", "--json"])
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         res, out2, err = RUN(
             ["ivre", "ipinfo", "--limit", "1", "--skip", "1", "--json"]
         )
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         self.assertFalse(out1 == out2)
         # Test --sort
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "port"])
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
-        if DATABASE != "postgres":
-            # There is a warning in postgresql for unused argument.
-            self.assertFalse(err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         port = 65536
         for line in out.decode().splitlines():
@@ -2934,13 +2920,7 @@ class IvreTests(unittest.TestCase):
         res, out, err = RUN(["ivre", "ipinfo", "--delete", flt_str])
         self.assertEqual(res, 0)
         self.assertFalse(out)
-        if DATABASE != "postgres":
-            # There is a warning in SQL backends:
-            #
-            # ivre/db/sql/__init__.py:2576: SAWarning: Coercing CTE
-            # object into a select() for use in IN(); please pass a
-            # select() construct explicitly
-            self.assertFalse(err)
+        self.assertFalse(err)
         res, out, err = RUN(["ivre", "ipinfo", "--count"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
