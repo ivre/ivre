@@ -32,6 +32,7 @@ from sqlalchemy import (
     Text,
     cast,
     func,
+    literal_column,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import declarative_base, declared_attr, mapped_column
@@ -202,6 +203,49 @@ class Point(UserDefinedType):
         return process
 
 
+def _fts_concat(table_name, column_names):
+    """Build the SQL expression
+    ``to_tsvector('english',
+    coalesce(<table>.<col1>, '') || ' ' || coalesce(<table>.<col2>, '') || ...)``
+    used by both the ``searchtext()`` query path and the GIN
+    indexes declared via :func:`_fts_index`.
+
+    The two sites build the *exact same* expression so the
+    PostgreSQL planner can match the index against the WHERE
+    clause; any drift between the index expression and the
+    query expression makes the index unusable.
+
+    Returns a :func:`~sqlalchemy.literal_column` so the result
+    supports SA operator overloading (``.op("@@")`` etc.) and
+    therefore composes naturally into ``WHERE ... @@
+    plainto_tsquery(...)`` clauses.  Lives in
+    :mod:`ivre.db.sql.tables` rather than next to the runtime
+    predicate in :mod:`ivre.db.sql` because table-level
+    ``Index(...)`` declarations need module-import-time
+    expressions, not closures over class attributes.
+    """
+    coalesced = " || ' ' || ".join(
+        f"coalesce({table_name}.{col}, '')" for col in column_names
+    )
+    return literal_column(f"to_tsvector('english', {coalesced})")
+
+
+def _fts_index(name, table_name, column_names):
+    """Wrap ``_fts_concat`` in a GIN ``Index`` declaration that
+    accelerates ``searchtext()`` queries against
+    ``<table>.<col1>``, ``<table>.<col2>``, …  Skipped at
+    create-time on DuckDB by
+    :func:`ivre.db.sql.duckdb._is_unsupported_on_duckdb`
+    (DuckDB has no GIN indexes; full-text matches degrade to
+    sequential scans).
+    """
+    return Index(
+        name,
+        _fts_concat(table_name, column_names),
+        postgresql_using="gin",
+    )
+
+
 # Tables
 Base = declarative_base()
 
@@ -336,7 +380,10 @@ class N_Association_Scan_Category(Base, _Association_Scan_Category):
 
 class N_Category(Base, _Category):
     __tablename__ = "n_category"
-    __table_args__ = (Index("ix_n_category_name", "name", unique=True),)
+    __table_args__ = (
+        Index("ix_n_category_name", "name", unique=True),
+        _fts_index("ix_n_category_fts", "n_category", ("name",)),
+    )
 
 
 class N_Script(Base, _Script):
@@ -346,6 +393,7 @@ class N_Script(Base, _Script):
         Index("ix_n_script_data", "data", postgresql_using="gin"),
         Index("ix_n_script_name", "name"),
         Index("ix_n_script_port_name", "port", "name", unique=True),
+        _fts_index("ix_n_script_fts", "n_script", ("output",)),
     )
 
 
@@ -354,6 +402,19 @@ class N_Port(Base, _Port):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
         Index("ix_n_port_scan_port", "scan", "port", "protocol", unique=True),
+        _fts_index(
+            "ix_n_port_fts",
+            "n_port",
+            (
+                "service_name",
+                "service_product",
+                "service_version",
+                "service_extrainfo",
+                "service_devicetype",
+                "service_hostname",
+                "service_ostype",
+            ),
+        ),
     )
 
 
@@ -362,6 +423,7 @@ class N_Tag(Base, _Tag):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
         Index("ix_n_tag_scan_value_info", "scan", "value", "info", unique=True),
+        _fts_index("ix_n_tag_fts", "n_tag", ("value", "info")),
     )
 
 
@@ -370,6 +432,7 @@ class N_Hostname(Base, _Hostname):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
         Index("ix_n_hostname_scan_name_type", "scan", "name", "type", unique=True),
+        _fts_index("ix_n_hostname_fts", "n_hostname", ("name",)),
     )
 
 
@@ -393,6 +456,7 @@ class N_Hop(Base, _Hop):
     __table_args__ = (
         Index("ix_n_hop_ipaddr_ttl", "ipaddr", "ttl"),
         ForeignKeyConstraint(["trace"], ["n_trace.id"], ondelete="CASCADE"),
+        _fts_index("ix_n_hop_fts", "n_hop", ("host",)),
     )
 
 
@@ -417,7 +481,10 @@ class V_Association_Scan_Category(Base, _Association_Scan_Category):
 
 class V_Category(Base, _Category):
     __tablename__ = "v_category"
-    __table_args__ = (Index("ix_v_category_name", "name", unique=True),)
+    __table_args__ = (
+        Index("ix_v_category_name", "name", unique=True),
+        _fts_index("ix_v_category_fts", "v_category", ("name",)),
+    )
 
 
 class V_Script(Base, _Script):
@@ -427,6 +494,7 @@ class V_Script(Base, _Script):
         Index("ix_v_script_data", "data", postgresql_using="gin"),
         Index("ix_v_script_name", "name"),
         Index("ix_v_script_port_name", "port", "name", unique=True),
+        _fts_index("ix_v_script_fts", "v_script", ("output",)),
     )
 
 
@@ -435,6 +503,19 @@ class V_Port(Base, _Port):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
         Index("ix_v_port_scan_port", "scan", "port", "protocol", unique=True),
+        _fts_index(
+            "ix_v_port_fts",
+            "v_port",
+            (
+                "service_name",
+                "service_product",
+                "service_version",
+                "service_extrainfo",
+                "service_devicetype",
+                "service_hostname",
+                "service_ostype",
+            ),
+        ),
     )
 
 
@@ -443,6 +524,7 @@ class V_Tag(Base, _Tag):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
         Index("ix_v_tag_scan_value_info", "scan", "value", "info", unique=True),
+        _fts_index("ix_v_tag_fts", "v_tag", ("value", "info")),
     )
 
 
@@ -451,6 +533,7 @@ class V_Hostname(Base, _Hostname):
     __table_args__ = (
         ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
         Index("ix_v_hostname_scan_name_type", "scan", "name", "type", unique=True),
+        _fts_index("ix_v_hostname_fts", "v_hostname", ("name",)),
     )
 
 
@@ -477,6 +560,7 @@ class V_Hop(Base, _Hop):
     __table_args__ = (
         Index("ix_v_hop_ipaddr_ttl", "ipaddr", "ttl"),
         ForeignKeyConstraint(["trace"], ["v_trace.id"], ondelete="CASCADE"),
+        _fts_index("ix_v_hop_fts", "v_hop", ("host",)),
     )
 
 

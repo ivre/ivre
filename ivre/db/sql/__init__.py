@@ -47,7 +47,9 @@ from sqlalchemy import (
     nulls_first,
     or_,
     select,
-    text,
+)
+from sqlalchemy import text as sa_text
+from sqlalchemy import (
     true,
     update,
 )
@@ -56,6 +58,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from ivre import config, utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
+from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
     Flow,
     N_Association_Scan_Category,
@@ -821,6 +824,7 @@ class ActiveFilter(Filter):
         tables=None,
         tag=None,
         trace=None,
+        text=None,
     ):
         self.main = main
         self.hostname = [] if hostname is None else hostname
@@ -830,6 +834,14 @@ class ActiveFilter(Filter):
         self.tables = tables  # default value is handled in the subclasses
         self.tag = [] if tag is None else tag
         self.trace = [] if trace is None else trace
+        # ``text`` holds ``[(incl, search_term), ...]`` for
+        # full-text searches via :meth:`SQLDBActive.searchtext`.
+        # Each search term is matched against every text-bearing
+        # column in the schema (see
+        # :attr:`SQLDBActive._TEXT_SEARCH_TABLES`); a single
+        # ``searchtext("foo")`` therefore composes an
+        # OR-of-EXISTS across every relevant child table.
+        self.text = [] if text is None else text
 
     @property
     def all_queries(self):
@@ -842,6 +854,7 @@ class ActiveFilter(Filter):
             "tables": self.tables,
             "tag": self.tag,
             "trace": self.trace,
+            "text": self.text,
         }
 
     def copy(self):
@@ -854,6 +867,7 @@ class ActiveFilter(Filter):
             tables=self.tables,
             tag=self.tag[:],
             trace=self.trace[:],
+            text=self.text[:],
         )
 
     def __and__(self, other):
@@ -870,6 +884,7 @@ class ActiveFilter(Filter):
             tables=self.tables,
             tag=self.tag + other.tag,
             trace=self.trace + other.trace,
+            text=self.text + other.text,
         )
 
     def __or__(self, other):
@@ -886,6 +901,8 @@ class ActiveFilter(Filter):
             raise ValueError("Cannot 'OR' two filters on tag")
         if self.trace and other.trace:
             raise ValueError("Cannot 'OR' two filters on trace")
+        if self.text and other.text:
+            raise ValueError("Cannot 'OR' two filters on text")
         if self.tables != other.tables:
             raise ValueError("Cannot 'OR' two filters on separate tables")
         return self.__class__(
@@ -896,6 +913,7 @@ class ActiveFilter(Filter):
             script=self.script + other.script,
             tables=self.tables,
             trace=self.trace + other.trace,
+            text=self.text + other.text,
         )
 
     def select_from_base(self, base=None):
@@ -977,7 +995,173 @@ class ActiveFilter(Filter):
                     .where(self.tables.trace.scan == self.tables.scan.id)
                 )
             )
+        for incl, term in self.text:
+            req = req.where(
+                self._text_predicate(term) if incl else not_(self._text_predicate(term))
+            )
         return req
+
+    # ``text`` filter helpers
+    # ----------------------
+    # ``searchtext`` walks every text-bearing child table in
+    # the active schema and OR-joins per-table predicates of
+    # the form ``EXISTS (SELECT 1 FROM child WHERE
+    # child.scan = scan.id AND <fts-expr> @@ plainto_tsquery(?))``.
+    # The per-table column lists below are the SQL projection
+    # of :attr:`DBActive.text_fields` (the MongoDB-style
+    # dot-paths declared in :mod:`ivre.db`).
+    #
+    # Each per-table predicate composes a *single*
+    # ``to_tsvector('english',
+    # coalesce(col1, '') || ' ' || coalesce(col2, '') || ...)``
+    # expression rather than ``OR``-ing per-column
+    # ``to_tsvector`` calls.  PostgreSQL can match the
+    # concatenated expression against a *single* GIN index
+    # built over the same expression (see
+    # :func:`_fts_index` in :mod:`ivre.db.sql.tables`); a
+    # per-column variant would need one GIN index per column
+    # and the query planner cannot merge them as efficiently.
+    _TEXT_SEARCH_PORT_COLUMNS = (
+        "service_name",
+        "service_product",
+        "service_version",
+        "service_extrainfo",
+        "service_devicetype",
+        "service_hostname",
+        "service_ostype",
+    )
+    _TEXT_SEARCH_HOSTNAME_COLUMNS = ("name",)
+    _TEXT_SEARCH_TAG_COLUMNS = ("value", "info")
+    _TEXT_SEARCH_HOP_COLUMNS = ("host",)
+    _TEXT_SEARCH_SCRIPT_COLUMNS = ("output",)
+    _TEXT_SEARCH_CATEGORY_COLUMNS = ("name",)
+
+    @staticmethod
+    def _fts_concat(table, column_names):
+        """Build the
+        ``to_tsvector('english', coalesce(<table>.<col1>, '') || ' ' || ...)``
+        expression that both :meth:`_text_predicate` and the GIN
+        indexes declared in :mod:`ivre.db.sql.tables` (via
+        :func:`ivre.db.sql.tables._fts_index`) reference.
+
+        Returns a SQLAlchemy ``literal_column`` clause built
+        from the same string template :func:`tables._fts_concat`
+        uses; the byte-for-byte match is required so
+        PostgreSQL's planner can substitute the GIN index for
+        the ``WHERE ... @@ ...`` clause.  A SA-expression form
+        (``func.to_tsvector("english", func.coalesce(col, "")
+        + " " + ...)``) emits the same SQL textually but
+        binds ``'english'`` as a parameter rather than a
+        literal regconfig, which the planner treats as a
+        non-immutable function and therefore refuses to match
+        against the index expression.
+        """
+        return tables_module._fts_concat(table.__tablename__, column_names)
+
+    def _text_predicate(self, term):
+        """Build the SQL filter for one ``searchtext(<term>)``
+        match.  Returns an ``OR`` of per-table ``EXISTS``
+        predicates; each per-table predicate is a single
+        ``to_tsvector(...) @@ plainto_tsquery(...)`` over the
+        concatenation of that table's text columns (see
+        :meth:`_fts_concat`).
+
+        The query relies on PostgreSQL's text-search operators;
+        on DuckDB the same operators are accepted via the
+        ``duckdb-engine`` PG-derived dialect but require the
+        ``fts`` extension to be loaded (delivered by a future
+        sub-PR alongside ``PRAGMA create_fts_index`` over the
+        same column set).
+        """
+        tsq = func.plainto_tsquery("english", term)
+        clauses = []
+        # Direct child of ``scan``: hostname, tag, port.
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(self.tables.hostname)
+                .where(self.tables.hostname.scan == self.tables.scan.id)
+                .where(
+                    self._fts_concat(
+                        self.tables.hostname, self._TEXT_SEARCH_HOSTNAME_COLUMNS
+                    ).op("@@")(tsq)
+                )
+            )
+        )
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(self.tables.tag)
+                .where(self.tables.tag.scan == self.tables.scan.id)
+                .where(
+                    self._fts_concat(self.tables.tag, self._TEXT_SEARCH_TAG_COLUMNS).op(
+                        "@@"
+                    )(tsq)
+                )
+            )
+        )
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(self.tables.port)
+                .where(self.tables.port.scan == self.tables.scan.id)
+                .where(
+                    self._fts_concat(
+                        self.tables.port, self._TEXT_SEARCH_PORT_COLUMNS
+                    ).op("@@")(tsq)
+                )
+            )
+        )
+        # Two-hop child of ``scan``: ``script`` -> ``port`` ->
+        # ``scan``.
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(join(self.tables.script, self.tables.port))
+                .where(self.tables.port.scan == self.tables.scan.id)
+                .where(
+                    self._fts_concat(
+                        self.tables.script, self._TEXT_SEARCH_SCRIPT_COLUMNS
+                    ).op("@@")(tsq)
+                )
+            )
+        )
+        # Two-hop child of ``scan``: ``hop`` -> ``trace`` ->
+        # ``scan``.
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(join(self.tables.trace, self.tables.hop))
+                .where(self.tables.trace.scan == self.tables.scan.id)
+                .where(
+                    self._fts_concat(self.tables.hop, self._TEXT_SEARCH_HOP_COLUMNS).op(
+                        "@@"
+                    )(tsq)
+                )
+            )
+        )
+        # Two-hop child of ``scan``: ``category`` ->
+        # ``association_scan_category`` -> ``scan``.
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(
+                    join(
+                        self.tables.category,
+                        self.tables.association_scan_category,
+                    )
+                )
+                .where(
+                    self.tables.association_scan_category.scan == self.tables.scan.id
+                )
+                .where(
+                    self._fts_concat(
+                        self.tables.category, self._TEXT_SEARCH_CATEGORY_COLUMNS
+                    ).op("@@")(tsq)
+                )
+            )
+        )
+        return or_(*clauses)
 
 
 class NmapFilter(ActiveFilter):
@@ -991,6 +1175,7 @@ class NmapFilter(ActiveFilter):
         tables=None,
         tag=None,
         trace=None,
+        text=None,
     ):
         super().__init__(
             main=main,
@@ -1001,6 +1186,7 @@ class NmapFilter(ActiveFilter):
             tables=SQLDBNmap.tables if tables is None else tables,
             tag=tag,
             trace=trace,
+            text=text,
         )
 
 
@@ -1015,6 +1201,7 @@ class ViewFilter(ActiveFilter):
         tables=None,
         tag=None,
         trace=None,
+        text=None,
     ):
         super().__init__(
             main=main,
@@ -1025,6 +1212,7 @@ class ViewFilter(ActiveFilter):
             tables=SQLDBView.tables if tables is None else tables,
             tag=tag,
             trace=trace,
+            text=text,
         )
 
 
@@ -1963,6 +2151,30 @@ class SQLDBActive(SQLDB, DBActive):
             for key, value in tag.items()
         ]
         return cls.base_filter(tag=[(not neg, and_(*req))])
+
+    @classmethod
+    def searchtext(cls, text, neg=False):
+        """Filter records that match the free-text ``text`` term
+        across every text-bearing column in the active schema
+        (``hostname.name``, ``tag.value`` / ``tag.info``,
+        ``port.service_*``, ``script.output``, ``hop.host``,
+        ``category.name``).
+
+        Mirrors the contract of :meth:`MongoDB.searchtext`,
+        which composes the same query against the MongoDB
+        text-index over :attr:`DBActive.text_fields`.  On the
+        SQL backends the dispatch happens at query-build time:
+        :meth:`ActiveFilter._text_predicate` builds an
+        ``OR``-of-``EXISTS`` over each text-bearing child
+        table, and each per-table predicate is itself an
+        ``OR`` of
+        ``to_tsvector('english', col) @@ plainto_tsquery('english', :term)``
+        across that table's text columns.
+
+        With ``neg=True`` the predicate is inverted: scans
+        whose entire text surface is *unrelated* to ``text``.
+        """
+        return cls.base_filter(text=[(not neg, text)])
 
     @classmethod
     def searchport(cls, port, protocol="tcp", state="open", neg=False):
@@ -3048,7 +3260,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
             info = int(info) if info else 24
-            field = func.set_masklen(text("addr::cidr"), info)
+            field = func.set_masklen(sa_text("addr::cidr"), info)
 
         elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
             if "." in field:

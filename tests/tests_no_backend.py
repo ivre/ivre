@@ -3139,6 +3139,167 @@ class SQLDBSearchFieldTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBSearchTextTests -- pin the wire shape of the new
+# cross-backend ``searchtext()`` helper on the SQL backends:
+# the GIN-index expression declared in
+# :mod:`ivre.db.sql.tables` and the ``WHERE`` predicate built
+# at query time must match byte-for-byte so PostgreSQL's
+# planner can substitute the index, and the ``OR``-of-EXISTS
+# composition over child tables must include every
+# text-bearing column listed in :attr:`DBActive.text_fields`.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBSearchTextTests(unittest.TestCase):
+    """Behaviour-pin for ``SQLDBActive.searchtext`` -- the
+    new cross-backend full-text-search filter.
+
+    Mirrors the contract of :meth:`MongoDB.searchtext`
+    (``{"$text": {"$search": text}}``).  On the SQL backends
+    the dispatch happens at query-build time:
+    :meth:`ActiveFilter._text_predicate` builds an
+    ``OR``-of-``EXISTS`` over each text-bearing child table,
+    each per-table predicate is itself a single
+    ``to_tsvector('english', coalesce(col1, '') || ' ' ||
+    coalesce(col2, '') || ...) @@ plainto_tsquery('english',
+    :term)``.  Per-table GIN indexes built over the *same*
+    expression accelerate the match.
+    """
+
+    @staticmethod
+    def _compile(stmt):
+        return str(stmt.compile(dialect=_sqlalchemy_postgresql.dialect()))
+
+    def test_searchtext_returns_filter_with_text_slot(self):
+        from ivre.db import DBNmap, DBView
+
+        for cls in (DBNmap, DBView):
+            with self.subTest(cls=cls.__name__):
+                db = cls.from_url("postgresql://x@localhost/x")
+                flt = db.searchtext("honeypot")
+                self.assertEqual(flt.text, [(True, "honeypot")])
+
+    def test_searchtext_negation_inverts_inclusion(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        flt = db.searchtext("honeypot", neg=True)
+        self.assertEqual(flt.text, [(False, "honeypot")])
+
+    def test_searchtext_query_emits_or_of_exists(self):
+        # Pin that the compiled query has one ``EXISTS``
+        # subquery per text-bearing child table
+        # (hostname, tag, port, script, hop, category).
+        sa = _sqlalchemy
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        flt = db.searchtext("honeypot")
+        sql = self._compile(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # One EXISTS per text-bearing table (6 in total).
+        self.assertEqual(sql.count("EXISTS"), 6)
+        # Every per-table predicate uses the ``@@`` operator.
+        self.assertEqual(sql.count("@@ plainto_tsquery"), 6)
+        # And every per-table predicate is the concatenated
+        # ``coalesce`` form (so it can match the GIN index).
+        self.assertIn("v_hostname.scan = v_scan.id", sql)
+        self.assertIn("v_tag.scan = v_scan.id", sql)
+        self.assertIn("v_port.scan = v_scan.id", sql)
+        # script -> port -> scan and hop -> trace -> scan
+        self.assertIn("v_script JOIN v_port", sql)
+        self.assertIn("v_trace JOIN v_hop", sql)
+        # category -> association_scan_category -> scan
+        self.assertIn("v_category JOIN v_association_scan_category", sql)
+
+    def test_searchtext_index_and_query_expressions_match(self):
+        # The GIN index expression and the query predicate
+        # must be byte-for-byte identical so PostgreSQL's
+        # planner can substitute the index for the WHERE
+        # clause.  Pin that for every text-bearing table on
+        # both ``n_*`` and ``v_*`` schemas.
+        sa = _sqlalchemy
+        from sqlalchemy.schema import CreateIndex
+
+        from ivre.db import DBNmap, DBView
+        from ivre.db.sql.tables import (
+            N_Category,
+            N_Hop,
+            N_Hostname,
+            N_Port,
+            N_Script,
+            N_Tag,
+            V_Category,
+            V_Hop,
+            V_Hostname,
+            V_Port,
+            V_Script,
+            V_Tag,
+        )
+
+        nmap_tables = (
+            (N_Hostname, "ix_n_hostname_fts"),
+            (N_Tag, "ix_n_tag_fts"),
+            (N_Port, "ix_n_port_fts"),
+            (N_Script, "ix_n_script_fts"),
+            (N_Hop, "ix_n_hop_fts"),
+            (N_Category, "ix_n_category_fts"),
+        )
+        view_tables = (
+            (V_Hostname, "ix_v_hostname_fts"),
+            (V_Tag, "ix_v_tag_fts"),
+            (V_Port, "ix_v_port_fts"),
+            (V_Script, "ix_v_script_fts"),
+            (V_Hop, "ix_v_hop_fts"),
+            (V_Category, "ix_v_category_fts"),
+        )
+        for cls, tables in ((DBNmap, nmap_tables), (DBView, view_tables)):
+            with self.subTest(cls=cls.__name__):
+                db = cls.from_url("postgresql://x@localhost/x")
+                flt = db.searchtext("honeypot")
+                sql = self._compile(
+                    flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+                )
+                for tbl_cls, idx_name in tables:
+                    idx = next(
+                        ix for ix in tbl_cls.__table__.indexes if ix.name == idx_name
+                    )
+                    idx_sql = str(
+                        CreateIndex(idx).compile(
+                            dialect=_sqlalchemy_postgresql.dialect()
+                        )
+                    )
+                    # Extract the ``to_tsvector(...)`` call up
+                    # to its outermost ``)``: that's the
+                    # expression PostgreSQL has to match against
+                    # the WHERE clause.
+                    paren = idx_sql.index("to_tsvector(")
+                    depth = 0
+                    end = paren
+                    while end < len(idx_sql):
+                        if idx_sql[end] == "(":
+                            depth += 1
+                        elif idx_sql[end] == ")":
+                            depth -= 1
+                            if depth == 0:
+                                end += 1
+                                break
+                        end += 1
+                    expr = idx_sql[paren:end]
+                    self.assertIn(
+                        expr,
+                        sql,
+                        f"{tbl_cls.__name__}: index expression\n  {expr}\n"
+                        f"not found verbatim in query SQL",
+                    )
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
