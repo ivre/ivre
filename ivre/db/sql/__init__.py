@@ -3457,6 +3457,117 @@ class SQLDBPassive(SQLDB, DBPassive):
         )
 
     @classmethod
+    def searchja4client(
+        cls,
+        value=None,
+        raw=None,
+        ja4_a=None,
+        ja4_b=None,
+        ja4_c=None,
+        ja4_b_raw=None,
+        ja4_c_raw=None,
+        ja4_c1_raw=None,
+        ja4_c2_raw=None,
+        neg=False,
+    ):
+        """SQL passive equivalent of
+        :meth:`MongoDBPassive.searchja4client`.
+
+        Filters the passive store for JA4 client fingerprint records
+        (``recontype == "SSL_CLIENT"``, ``source == "ja4"``). Each
+        component is matched against the relevant
+        ``moreinfo`` JSONB key:
+
+          - ``value`` matches ``passive.value`` directly. If passed
+            as a string in the canonical
+            ``ja4_a_ja4_b_ja4_c`` form, the indexed components
+            are also extracted and constrained.
+          - ``raw`` is split into ``ja4_a`` /
+            ``ja4_b_raw`` / ``ja4_c1_raw`` /
+            ``ja4_c2_raw`` along the same scheme.
+          - The individual ``ja4_*`` parameters bypass parsing
+            and constrain a single JSON key each.
+
+        ``neg=True`` wraps the whole condition in ``not_(...)``.
+        """
+        base = (cls.tables.passive.recontype == "SSL_CLIENT") & (
+            cls.tables.passive.source == "ja4"
+        )
+        if value is not None:
+            base &= cls.tables.passive.value == value
+            # Also constrain the indexed ja4_* components when
+            # ``value`` is the canonical 10-char-prefix form.
+            # ``isinstance(value, str)`` mirrors the Mongo guard
+            # (``MongoDBPassive.searchja4client`` at
+            # ``mongo.py:5672``); a regex / list value is left
+            # to the equality check above.
+            if isinstance(value, str):
+                try:
+                    if value[10] != "_":
+                        raise ValueError()
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_a") == value[:10]
+                    v_b, v_c = value[11:].split("_", 1)
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_b") == v_b
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_c") == v_c
+                except (KeyError, ValueError, IndexError):
+                    utils.LOGGER.warning("Invalid JA4 value %r", value, exc_info=True)
+        if raw is not None:
+            try:
+                if raw[10] != "_":
+                    raise ValueError()
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_a") == raw[:10]
+                # Split ``raw[11:]`` into ``ja4_b_raw`` and
+                # ``ja4_c_raw``; ``ja4_c_raw`` may further split
+                # into ``ja4_c1_raw`` / ``ja4_c2_raw``.
+                r_b, r_c_raw = raw[11:].split("_", 1)
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_b_raw") == r_b
+                if "_" in r_c_raw:
+                    c1, c2 = r_c_raw.split("_", 1)
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == c1
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == c2
+                else:
+                    base &= (
+                        cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == r_c_raw
+                    )
+                    # ``== ""`` builds a SQL ``= ''`` clause, not
+                    # a Python boolean check; disable pylint's
+                    # implicit-booleaness suggestion (would invert
+                    # the SA BinaryExpression's polarity). The
+                    # disable goes on the line where the
+                    # comparison's left operand sits, which is
+                    # where pylint attributes the message.
+                    # pylint: disable-next=use-implicit-booleaness-not-comparison-to-string
+                    base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == ""
+            except (KeyError, ValueError, IndexError):
+                utils.LOGGER.warning("Invalid JA4 raw value %r", raw, exc_info=True)
+        if ja4_a is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_a") == ja4_a
+        if ja4_b is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_b") == ja4_b
+        if ja4_c is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_c") == ja4_c
+        if ja4_b_raw is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_b_raw") == ja4_b_raw
+        if ja4_c_raw is not None:
+            if "_" in ja4_c_raw:
+                c1, c2 = ja4_c_raw.split("_", 1)
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == c1
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == c2
+            else:
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == ja4_c_raw
+                # ``== ""`` builds a SQL ``= ''`` clause; see the
+                # comment above the matching line in the ``raw``
+                # branch for why pylint's implicit-booleaness
+                # suggestion is wrong here.
+                # pylint: disable-next=use-implicit-booleaness-not-comparison-to-string
+                base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == ""
+        if ja4_c1_raw is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_c1_raw") == ja4_c1_raw
+        if ja4_c2_raw is not None:
+            base &= cls.tables.passive.moreinfo.op("->>")("ja4_c2_raw") == ja4_c2_raw
+        return PassiveFilter(main=not_(base) if neg else base)
+
+    @classmethod
     def searchsshkey(cls, fingerprint=None, key=None, keytype=None, bits=None):
         cnd = (cls.tables.passive.recontype == "SSH_SERVER_HOSTKEY") & (
             cls.tables.passive.source == "SSHv2"
