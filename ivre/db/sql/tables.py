@@ -19,6 +19,7 @@
 """This sub-module contains SQL tables and columns definition."""
 
 from sqlalchemy import (
+    JSON,
     Column,
     DateTime,
     Float,
@@ -37,8 +38,26 @@ from sqlalchemy.types import UserDefinedType
 from ivre import passive, xmlnmap
 
 # Types
+#
+# The shared SQL types below are dialect-aware so the same
+# column declarations work across every SQLAlchemy backend IVRE
+# supports (currently PostgreSQL; DuckDB is the next first-class
+# target). Per-dialect specialisations are layered via
+# :meth:`TypeEngine.with_variant`.
+#
+# DuckDB native types differ from PostgreSQL's:
+#   - PG ``JSONB`` -> DuckDB ``JSON`` (DuckDB has no ``JSONB``
+#     keyword; ``JSONB`` raises ``Catalog Error: Type with name
+#     JSONB does not exist!``). Both store JSON documents and
+#     support the same ``->`` / ``->>`` accessors.
+#   - PG ``INET`` works as-is on DuckDB (DuckDB has a native
+#     ``INET`` type that accepts the same string literals,
+#     including the ``'<ip>'::inet`` cast our ``INETLiteral``
+#     emits).
+#   - PG ``ARRAY(t)`` works as-is on DuckDB (duckdb-engine
+#     compiles to the ``LIST``/``t[]`` form natively).
 
-SQLJSONB = postgresql.JSONB()
+SQLJSONB = postgresql.JSONB().with_variant(JSON(), "duckdb")
 
 
 def SQLARRAY(item_type):
@@ -57,6 +76,10 @@ class INETLiteral(postgresql.INET):
     rendered ``INET`` values as plain strings; SQLAlchemy 2.x
     removed it (see release notes / sqlalchemy/sqlalchemy#9521).
     Pinned by ``PostgresExplainTests.test_inet_literal_renders_with_cast``.
+
+    Reused on DuckDB unchanged: the ``'<ip>'::inet`` cast form
+    is accepted natively (DuckDB ships an ``INET`` type with
+    the same string-coerce rules as PostgreSQL).
     """
 
     cache_ok = True

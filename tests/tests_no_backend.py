@@ -1595,6 +1595,221 @@ class PostgresExplainTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DuckDBTypeAdapterTests -- pin the dialect-aware shape of the
+# shared SQL types (``SQLJSONB``, ``SQLINET``, ``SQLARRAY``) so
+# the same column declarations in ``ivre/db/sql/tables.py``
+# compile correctly under both PostgreSQL and DuckDB. M4.1.1
+# laid the foundation for the upcoming DuckDB backend by
+# layering ``with_variant(JSON(), "duckdb")`` on ``SQLJSONB``;
+# DuckDB has a native ``INET`` type and accepts the
+# ``VARCHAR[]`` form natively, so the other shared types stay
+# unchanged.
+# ---------------------------------------------------------------------
+
+
+try:
+    import duckdb_engine  # type: ignore[import-untyped]  # noqa: F401
+
+    _HAVE_DUCKDB_ENGINE = True
+except ImportError:
+    _HAVE_DUCKDB_ENGINE = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or " "``duckdb`` extras)",
+)
+class DuckDBTypeAdapterTests(unittest.TestCase):
+    """Pin the dialect-aware shape of the shared SQL types in
+    :mod:`ivre.db.sql.tables`.
+
+    The PostgreSQL columns of every SQL table use
+    ``SQLJSONB`` (JSON document) and ``SQLINET`` (IP address);
+    arrays go through ``SQLARRAY``. M4.1.1 makes ``SQLJSONB``
+    dialect-aware via ``TypeEngine.with_variant`` so the same
+    declaration emits ``JSONB`` on PostgreSQL and ``JSON`` on
+    DuckDB (DuckDB has no ``JSONB`` keyword). ``SQLINET`` /
+    ``SQLARRAY`` need no per-dialect specialisation: DuckDB
+    has a native ``INET`` type and a native ``VARCHAR[]`` /
+    list form respectively.
+    """
+
+    @staticmethod
+    def _users_table():
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLARRAY, SQLINET, SQLJSONB
+
+        meta = sa.MetaData()
+        return sa.Table(
+            "hosts",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+            sa.Column("addr", SQLINET),
+            sa.Column("info", SQLJSONB),
+            sa.Column("tags", SQLARRAY(sa.String(64))),
+        )
+
+    @staticmethod
+    def _create_table_sql(table, dialect):
+        from sqlalchemy.schema import CreateTable
+
+        return str(CreateTable(table).compile(dialect=dialect))
+
+    def test_jsonb_compiles_as_jsonb_on_postgresql(self):
+        # The PG dialect emits ``JSONB`` (the canonical native
+        # form). The compile must NOT downgrade to plain
+        # ``JSON`` (which would lose the GIN-indexable shape).
+        sql = self._create_table_sql(
+            self._users_table(), _sqlalchemy_postgresql.dialect()
+        )
+        self.assertIn("info JSONB", sql)
+        self.assertNotIn("info JSON,", sql)
+
+    def test_inet_compiles_as_inet_on_postgresql(self):
+        sql = self._create_table_sql(
+            self._users_table(), _sqlalchemy_postgresql.dialect()
+        )
+        self.assertIn("addr INET", sql)
+
+    def test_array_compiles_as_varchar_array_on_postgresql(self):
+        sql = self._create_table_sql(
+            self._users_table(), _sqlalchemy_postgresql.dialect()
+        )
+        self.assertIn("tags VARCHAR(64)[]", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_jsonb_compiles_as_json_on_duckdb(self):
+        # The DuckDB dialect must emit ``JSON`` (DuckDB has no
+        # ``JSONB`` type; ``CREATE TABLE`` would fail with
+        # ``Catalog Error: Type with name JSONB does not
+        # exist!``). Pinned via the
+        # ``with_variant(JSON(), "duckdb")`` layered on
+        # ``SQLJSONB``.
+        sa = _sqlalchemy
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        sql = self._create_table_sql(self._users_table(), engine.dialect)
+        self.assertIn("info JSON", sql)
+        self.assertNotIn("info JSONB", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_inet_compiles_as_inet_on_duckdb(self):
+        # DuckDB has a native ``INET`` type that accepts the
+        # same ``'<ip>'::inet`` cast literals our
+        # ``INETLiteral`` emits, so no per-dialect adapter is
+        # needed. Pin the no-op so a future refactor can't
+        # accidentally introduce one.
+        sa = _sqlalchemy
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        sql = self._create_table_sql(self._users_table(), engine.dialect)
+        self.assertIn("addr INET", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_array_compiles_as_varchar_array_on_duckdb(self):
+        # DuckDB compiles ``postgresql.ARRAY(t)`` to the
+        # ``LIST``-equivalent ``t[]`` form natively. No
+        # per-dialect adapter needed.
+        sa = _sqlalchemy
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        sql = self._create_table_sql(self._users_table(), engine.dialect)
+        self.assertIn("tags VARCHAR(64)[]", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_runtime_create_insert_select_on_duckdb(self):
+        # Beyond compile-time strings, exercise an actual
+        # ``CREATE TABLE`` + ``INSERT`` + ``SELECT`` on an
+        # in-memory DuckDB so the type adapters are
+        # round-trip-tested. Catches future regressions where
+        # the compiled SQL looks right but DuckDB rejects it
+        # at runtime (``ProgrammingError: Catalog Error: Type
+        # with name X does not exist!`` etc.).
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLARRAY, SQLINET, SQLJSONB
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        meta = sa.MetaData()
+        hosts = sa.Table(
+            "hosts",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+            sa.Column("addr", SQLINET),
+            sa.Column("info", SQLJSONB),
+            sa.Column("tags", SQLARRAY(sa.String(64))),
+        )
+        meta.create_all(engine)
+        with engine.connect() as conn:
+            conn.execute(
+                sa.insert(hosts).values(
+                    id=1,
+                    addr="192.0.2.1",
+                    info={"foo": "bar"},
+                    tags=["cdn", "gov"],
+                )
+            )
+            conn.commit()
+            rows = list(conn.execute(sa.select(hosts)))
+        self.assertEqual(len(rows), 1)
+        # ``info`` round-trips as a Python dict.
+        self.assertEqual(rows[0][2], {"foo": "bar"})
+        # ``tags`` round-trips as a list.
+        self.assertEqual(rows[0][3], ["cdn", "gov"])
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_inet_literal_compiles_with_cast_on_duckdb(self):
+        # The shared ``INETLiteral.literal_processor`` is
+        # reused unchanged on DuckDB: the ``'<ip>'::inet``
+        # cast form is accepted natively (DuckDB ships an
+        # ``INET`` type). Pin that the
+        # ``literal_binds=True`` compile path produces a
+        # working DuckDB statement.
+        sa = _sqlalchemy
+        from ivre.db.sql.tables import SQLINET
+
+        engine = sa.create_engine("duckdb:///:memory:")
+        meta = sa.MetaData()
+        hosts = sa.Table(
+            "hosts",
+            meta,
+            sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+            sa.Column("addr", SQLINET),
+        )
+        meta.create_all(engine)
+        with engine.connect() as conn:
+            conn.execute(sa.insert(hosts).values(id=1, addr="192.0.2.1"))
+            conn.commit()
+        # Compile a SELECT with literal-binds and execute it
+        # via ``exec_driver_sql`` (same path as
+        # ``PostgresDB.explain``); the rendered
+        # ``WHERE addr = '192.0.2.1'::inet`` clause must be
+        # accepted by DuckDB.
+        stmt = sa.select(hosts).where(hosts.c.addr == "192.0.2.1")
+        sql = str(
+            stmt.compile(dialect=engine.dialect, compile_kwargs={"literal_binds": True})
+        )
+        self.assertIn("'192.0.2.1'::inet", sql)
+        with engine.connect() as conn:
+            rows = list(conn.exec_driver_sql(sql))
+        self.assertEqual(len(rows), 1)
+
+
+# ---------------------------------------------------------------------
 # SQLDBSearchFieldTests -- pin the shared ``_search_field``
 # dispatch on the SQL backends and the wire shape of the
 # search methods that delegate to it. Mirrors
