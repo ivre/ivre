@@ -2040,6 +2040,75 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
                 # equivalent.
                 self.assertIn("next_value", repr(col.server_default.arg))
 
+    def test_pk_column_appears_first_in_table(self):
+        # Regression: the ``Sequence``-driven PK refactor uses
+        # :func:`sqlalchemy.orm.declared_attr` to attach an
+        # ``id`` :func:`~sqlalchemy.orm.mapped_column` to each
+        # mixin subclass.  ``declared_attr`` is processed *after*
+        # the regular class attributes, so without the
+        # ``sort_order=-100`` override the ``id`` column lands
+        # at the *end* of the table's ``columns`` collection.
+        # That breaks every call site that unpacks
+        # ``select(self.tables.<table>)`` rows positionally and
+        # depends on the historical ``id`` -> ``scan`` -> ...
+        # column order -- e.g.
+        # :meth:`SQLDBView.get` /
+        # :meth:`SQLDBNmap.get` (``ports``, ``hostnames``,
+        # ``traces``, ``hops``, ``scripts`` unpacks).  In
+        # production this manifested as
+        # ``ValueError: invalid literal for int() with base 10:
+        # 'udp'`` from ``ivre scancli --honeyd`` -- the
+        # ``protocol`` string ended up where the ``port``
+        # integer was expected.  Pin the contract by asserting
+        # ``id`` is at index 0 on every table whose PK uses the
+        # mixin.
+        from ivre.db.sql.tables import (
+            Flow,
+            N_Category,
+            N_Hop,
+            N_Hostname,
+            N_Port,
+            N_Scan,
+            N_Tag,
+            N_Trace,
+            Passive,
+            V_Category,
+            V_Hop,
+            V_Hostname,
+            V_Port,
+            V_Scan,
+            V_Tag,
+            V_Trace,
+        )
+
+        for cls in (
+            Flow,
+            Passive,
+            N_Category,
+            V_Category,
+            N_Port,
+            V_Port,
+            N_Tag,
+            V_Tag,
+            N_Hostname,
+            V_Hostname,
+            N_Trace,
+            V_Trace,
+            N_Hop,
+            V_Hop,
+            N_Scan,
+            V_Scan,
+        ):
+            with self.subTest(cls=cls.__name__):
+                names = [c.name for c in cls.__table__.columns]
+                self.assertEqual(
+                    names[0],
+                    "id",
+                    f"{cls.__tablename__}.id must be the first column "
+                    f"(positional unpacks in ivre.db.sql depend on it); "
+                    f"got column order {names}",
+                )
+
     def test_create_table_emits_nextval_under_postgresql(self):
         # Sanity-pin that the Sequence-based PK refactor still
         # emits the canonical PG ``DEFAULT nextval('...')``
@@ -2226,10 +2295,10 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         "duckdb-engine is required (install with the ``duckdb`` extras)",
     )
     def test_create_tmp_table_strips_pk_sequence_default(self):
-        # Regression: after the M4.1.2 ``Sequence``-driven PK
-        # refactor, ``Column.copy()`` on a source PK column
-        # propagates the ``server_default = nextval('seq_<table>_id')``
-        # clause to the temp-table mirror that
+        # Regression: ``Column.copy()`` on a source PK column
+        # propagates the
+        # ``server_default = nextval('seq_<table>_id')`` clause
+        # to the temp-table mirror that
         # :meth:`PostgresDB.create_tmp_table` builds for the
         # passive bulk-insert path.  PostgreSQL then refuses
         # ``DROP SEQUENCE seq_<table>_id`` while a pooled

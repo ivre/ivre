@@ -33,7 +33,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import declarative_base, declared_attr
+from sqlalchemy.orm import declarative_base, declared_attr, mapped_column
 from sqlalchemy.types import UserDefinedType
 
 from ivre import passive, xmlnmap
@@ -81,16 +81,32 @@ def _id_column():
     each concrete subclass gets its own ``seq_<tablename>_id``.
     Top-level (non-mixin) tables inline the same pattern with a
     module-level ``Sequence`` for clarity at the call site.
+
+    The mapping is built via :func:`sqlalchemy.orm.mapped_column`
+    with ``sort_order=-100`` so the column is positioned *first*
+    in the resulting :class:`~sqlalchemy.schema.Table`'s
+    ``columns`` collection: ``declared_attr`` is processed after
+    the regular class attributes, so without an explicit sort
+    override the ``id`` column would land at the end of the
+    column list.  Several call sites in
+    :mod:`ivre.db.sql` (e.g.
+    :meth:`SQLDBView.get` / :meth:`SQLDBNmap.get`) unpack
+    ``select(self.tables.port)`` rows positionally and depend on
+    the historical ``id`` -> ``scan`` -> ``port`` -> ... order;
+    pinning it via ``sort_order`` avoids touching every such
+    site while still keeping the per-table Sequence default that
+    DuckDB requires.
     """
 
     @declared_attr
     def id(cls):  # pylint: disable=redefined-builtin
         seq = Sequence(f"seq_{cls.__tablename__}_id")
-        return Column(
+        return mapped_column(
             Integer,
             seq,
             server_default=seq.next_value(),
             primary_key=True,
+            sort_order=-100,
         )
 
     return id
