@@ -1854,6 +1854,24 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         # The Elastic-specific override is verified separately
         # in ``ElasticDB.flush`` (live-cluster check via
         # ``tests/tests.py`` writes-then-reads).
+        import ast
+        from inspect import getsource
+        from textwrap import dedent
+
+        from ivre.db import DB
+
+        self.assertTrue(callable(DB.flush))
+        # Body should be docstring-only (no real statements).
+        tree = ast.parse(dedent(getsource(DB.flush)))
+        funcdef = tree.body[0]
+        self.assertIsInstance(funcdef, ast.FunctionDef)
+        body_after_docstring = funcdef.body[1:]
+        self.assertEqual(
+            body_after_docstring,
+            [],
+            "DB.flush() base method must be a docstring-only no-op; "
+            "non-Elastic backends rely on the inherited no-op.",
+        )
 
     def test_create_tmp_table_idempotent_per_process(self):
         # P4.B: ``PostgresDB.create_tmp_table`` is called from
@@ -1874,20 +1892,6 @@ class SQLDBSearchFieldTests(unittest.TestCase):
         import ast
         from inspect import getsource
         from textwrap import dedent
-
-        from ivre.db import DB
-
-        self.assertTrue(callable(DB.flush))
-        # Body should be docstring-only (no real statements).
-        tree = ast.parse(dedent(getsource(DB.flush)))
-        funcdef = tree.body[0]
-        self.assertIsInstance(funcdef, ast.FunctionDef)
-        body_after_docstring = funcdef.body[1:]
-        self.assertEqual(
-            body_after_docstring,
-            [],
-            "DB.flush() base method must be a docstring-only no-op; "
-            "non-Elastic backends rely on the inherited no-op.",
 
         from ivre.db.sql import postgres as pgmod
 
