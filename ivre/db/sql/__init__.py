@@ -502,9 +502,6 @@ class SQLDB(DB):
     @staticmethod
     def _searchstring_re_inarray(idfield, field, value, neg=False):
         if isinstance(value, utils.REGEXP_T):
-            if neg:
-                # FIXME
-                raise ValueError("Not implemented")
             operator = "~*" if (value.flags & re.IGNORECASE) else "~"
             value = value.pattern
             base1 = select(idfield.label("id"), func.unnest(field).label("field")).cte(
@@ -515,6 +512,15 @@ class SQLDB(DB):
                 .select_from(base1)
                 .where(column("field").op(operator)(value))
             )
+            # ``base2`` is the set of row-ids whose array contains
+            # at least one element matching the regex. Positive
+            # selects those ids; negative selects everything else
+            # -- rows whose array has zero matching elements,
+            # plus rows with empty or NULL arrays. Matches the
+            # ``not_(field.any(value)) if neg`` shape on the
+            # scalar-value path below.
+            if neg:
+                return idfield.notin_(base2)
             return idfield.in_(base2)
         return not_(field.any(value)) if neg else field.any(value)
 
