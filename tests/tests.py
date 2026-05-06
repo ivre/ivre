@@ -3972,8 +3972,7 @@ class IvreTests(unittest.TestCase):
         view_count = 0
         # Count passive results
         self.assertEqual(RUN(["ivre", "db2view"] + processes + ["passive"])[0], 0)
-        if DATABASE == "elastic":
-            time.sleep(ELASTIC_INSERT_TEMPO)
+        ivre.db.db.view.flush()
         ret, out, _ = RUN(["ivre", "view", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
@@ -3984,8 +3983,7 @@ class IvreTests(unittest.TestCase):
         )
         # Count active results
         self.assertEqual(RUN(["ivre", "db2view"] + processes + ["nmap"])[0], 0)
-        if DATABASE == "elastic":
-            time.sleep(ELASTIC_INSERT_TEMPO)
+        ivre.db.db.view.flush()
         ret, out, _ = RUN(["ivre", "view", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
@@ -4000,8 +3998,7 @@ class IvreTests(unittest.TestCase):
             )[0],
             0,
         )
-        if DATABASE == "elastic":
-            time.sleep(ELASTIC_INSERT_TEMPO)
+        ivre.db.db.view.flush()
         ret, out, _ = RUN(["ivre", "view", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
@@ -4857,16 +4854,14 @@ class IvreTests(unittest.TestCase):
         )["addr"]
         for result in ivre.db.db.view.get(ivre.db.db.view.searchhost(addr)):
             ivre.db.db.view.remove(result)
-        if DATABASE == "elastic":
-            time.sleep(ELASTIC_INSERT_TEMPO)
+        ivre.db.db.view.flush()
         count = ivre.db.db.view.count(ivre.db.db.view.searchhost(addr))
         self.assertEqual(count, 0)
         addr = next(
             iter(ivre.db.db.view.get(ivre.db.db.view.flt_empty, sort=[("addr", -1)]))
         )["addr"]
         ivre.db.db.view.remove_many(ivre.db.db.view.searchhost(addr))
-        if DATABASE == "elastic":
-            time.sleep(ELASTIC_INSERT_TEMPO)
+        ivre.db.db.view.flush()
         count = ivre.db.db.view.count(ivre.db.db.view.searchhost(addr))
         self.assertEqual(count, 0)
 
@@ -5118,7 +5113,7 @@ def parse_args():
 
 
 def parse_env():
-    global DATABASE, BACKEND_FLAVOR, ELASTIC_INSERT_TEMPO
+    global DATABASE, BACKEND_FLAVOR
     DATABASE = os.getenv("DB")
     BACKEND_FLAVOR = os.getenv("IVRE_BACKEND_FLAVOR")
     for test in DATABASES.get(DATABASE, []):
@@ -5139,9 +5134,12 @@ def parse_env():
                 getattr(IvreTests, test)
             ),
         )
-    # Elasticsearch insertion is asynchronous, this hack "ensures" the
-    # data has been inserted before continuing.
-    ELASTIC_INSERT_TEMPO = int(os.getenv("ES_INSERT_TEMPO", 2))
+    # ``ELASTIC_INSERT_TEMPO`` / ``ES_INSERT_TEMPO`` were the legacy
+    # ``time.sleep(...)`` knob used to wait out Elasticsearch's
+    # asynchronous indexing before reading back. Replaced by
+    # synchronous ``ivre.db.db.view.flush()`` calls in the tests
+    # (no-op on every backend except Elastic, where it triggers
+    # ``indices.refresh``).
 
 
 if __name__ == "__main__":

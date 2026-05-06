@@ -407,6 +407,21 @@ class DB:
     def from_binary(data):
         return data
 
+    def flush(self):
+        """Force any pending writes to be visible to subsequent reads.
+
+        Most backends are synchronous and this is a no-op. The
+        exception is Elasticsearch, which buffers writes for a
+        ``refresh_interval`` (default 1s) before they become
+        searchable; the Elastic override calls
+        ``indices.refresh`` to force the buffer flush.
+
+        Tests use this helper instead of ``time.sleep(2)`` after
+        a batch of writes so the assertion that follows
+        immediately observes the just-written state on every
+        backend.
+        """
+
     # filters
 
     @classmethod
