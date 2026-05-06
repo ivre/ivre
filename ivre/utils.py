@@ -1451,7 +1451,7 @@ def match_nmap_svc_fp(
     return softmatch
 
 
-_NMAP_PAYLOADS = {}
+_NMAP_PAYLOADS: dict[bytes, str] = {}
 _NMAP_PAYLOADS_POPULATED = False
 
 
