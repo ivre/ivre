@@ -3856,6 +3856,324 @@ class SQLDBSearchCpeOsVulnTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBSearchSmbScreenshotTests -- pin the wire shape of
+# ``searchsmbshares`` / ``searchscreenshot`` / ``removescreenshot``
+# on the SQL backends.  Both PostgreSQL and DuckDB are exercised
+# so the dialect-aware split (PG :func:`jsonb_array_elements` /
+# :func:`jsonb_typeof` vs DuckDB :func:`json_each` /
+# :func:`json_type`) for the ``searchsmbshares`` JSON-array unwind
+# stays under regression coverage, alongside the new screenshot
+# columns on ``_Port``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBSearchSmbScreenshotTests(unittest.TestCase):
+    """Behaviour-pin for ``SQLDBActive.searchsmbshares`` /
+    ``searchscreenshot`` / ``removescreenshot``.
+
+    * ``searchscreenshot`` is mostly column-based filtering on
+      the new ``screenshot`` / ``screenwords`` columns of
+      :class:`~ivre.db.sql.tables._Port`; the regex word-match
+      path wraps the ``screenwords`` array unwind in a
+      sub-SELECT projecting an explicit ``v`` column so the
+      same SQL compiles under both backends.
+    * ``searchsmbshares`` unwinds ``script.data['shares']`` and
+      AND-combines per-element predicates inside an ``EXISTS``;
+      the DuckDB lane swaps PostgreSQL's
+      :func:`jsonb_array_elements` / :func:`jsonb_typeof` for
+      :func:`json_each` / :func:`json_type` (and the
+      ``ARRAY`` / ``array`` casing flip).
+    * ``removescreenshot`` mutates the in-memory host record
+      (matching Mongo's helper) **and** issues an ``UPDATE``
+      on the port table to clear the three screenshot columns.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _compile_duckdb(stmt):
+        return str(
+            stmt.compile(
+                dialect=duckdb_engine.Dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    # -- searchscreenshot ----------------------------------------------
+
+    def test_searchscreenshot_no_args_short_circuits(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot()
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Existence check on the per-port ``screenshot`` column
+        # rather than a JSON unwind.
+        self.assertIn("n_port.screenshot IS NOT NULL", sql)
+        self.assertNotIn("jsonb_array_elements", sql)
+        self.assertNotIn("screenwords", sql)
+
+    def test_searchscreenshot_negation_flips_at_exists_level(self):
+        # ``Mongo``'s ``{"ports.screenshot": {"$exists": false}}``
+        # means **no** port has a screenshot, *not* "there is a
+        # port without a screenshot".  Pin that the SQL flip
+        # happens at the ``EXISTS`` (``incl=False``) level when
+        # no port / service constraint is present.
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot(neg=True)
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # NOT IN translation of the ``incl=False`` slot.
+        self.assertIn("NOT IN", sql)
+        self.assertIn("n_port.screenshot IS NOT NULL", sql)
+
+    def test_searchscreenshot_with_port_neg_flips_at_predicate(self):
+        # With a port / service constraint the flip happens at
+        # the inner predicate (``screenshot IS NULL``) so other
+        # ports of the same host can still have screenshots.
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot(port=80, neg=True)
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("n_port.screenshot IS NULL", sql)
+        self.assertIn("n_port.port = 80", sql)
+        self.assertNotIn("NOT IN", sql)
+
+    def test_searchscreenshot_words_string_lowercases(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot(words="WELCOME")
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Word match goes through ``ANY(screenwords)``, value
+        # is lower-cased to match Mongo's pre-stored shape.
+        self.assertIn("'welcome' = ANY (n_port.screenwords)", sql)
+
+    def test_searchscreenshot_words_list_uses_containment(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot(words=["Foo", "Bar"])
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # ``$all`` -> array containment, lower-cased.
+        self.assertIn("n_port.screenwords @> ARRAY['foo', 'bar']", sql)
+
+    def test_searchscreenshot_words_neg_handles_null(self):
+        # Mongo's ``$ne`` matches missing fields; the SQL path
+        # has to add an explicit ``IS NULL`` branch because
+        # three-valued logic on PG / DuckDB silently drops
+        # ``NULL @> ...`` rows from the negated side.
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        for words in ["welcome", ["welcome"]]:
+            with self.subTest(words=words):
+                flt = db.searchscreenshot(neg=True, words=words)
+                sql = self._compile_pg(
+                    flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+                )
+                self.assertIn("n_port.screenwords IS NULL", sql)
+
+    def test_searchscreenshot_words_regex_uses_subselect(self):
+        # The regex path wraps ``unnest()`` in a sub-SELECT
+        # projecting an explicit ``v`` column so the predicate
+        # references ``sub.c.v`` regardless of dialect (DuckDB
+        # rejects the implicit-row-deref shape PG accepts).
+        import re
+
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchscreenshot(words=re.compile("login", re.IGNORECASE))
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("unnest(n_port.screenwords)", sql)
+        self.assertIn(" AS v", sql)
+        self.assertIn("~*", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchscreenshot_duckdb_regex_uses_regexp_matches(self):
+        import re
+
+        sa = _sqlalchemy
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchscreenshot(words=re.compile("login", re.IGNORECASE))
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Same sub-SELECT shape, with the dialect-flipped regex.
+        self.assertIn("unnest(n_port.screenwords)", sql)
+        self.assertNotIn("~*", sql)
+        self.assertIn("regexp_matches(", sql)
+
+    # -- searchsmbshares -----------------------------------------------
+
+    def test_searchsmbshares_pg_unwinds_shares_array(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchsmbshares(access="rw", hidden=True)
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("n_script.name = 'smb-enum-shares'", sql)
+        self.assertIn("jsonb_array_elements(n_script.data -> 'shares')", sql)
+        self.assertIn("jsonb_typeof(n_script.data -> 'shares') = 'array'", sql)
+        # The Mongo recipe ANDs three predicates per share:
+        # access (OR over 'Anonymous access' and 'Current user
+        # access'), Type, and ``Share != 'IPC$'``.
+        self.assertIn("__share ->> 'Anonymous access'", sql)
+        self.assertIn("__share ->> 'Current user access'", sql)
+        self.assertIn("__share ->> 'Type'", sql)
+        self.assertIn("__share ->> 'Share'", sql)
+        self.assertIn("'IPC$'", sql)
+
+    def test_searchsmbshares_hidden_none_uses_notin_excluded(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchsmbshares()
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Mongo's ``$nin`` over the share-type sentinel list.
+        for excluded in (
+            "STYPE_IPC_HIDDEN",
+            "Not a file share",
+            "STYPE_IPC",
+            "STYPE_PRINTQ",
+        ):
+            self.assertIn(excluded, sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchsmbshares_duckdb_unwinds_with_json_each(self):
+        sa = _sqlalchemy
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchsmbshares(access="rw", hidden=True)
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("json_each(n_script.data -> 'shares')", sql)
+        self.assertIn("json_type(n_script.data -> 'shares') = 'ARRAY'", sql)
+        # DuckDB's ``json_each`` exposes the per-element JSON
+        # via the ``value`` column.
+        self.assertIn("__share.value ->>", sql)
+
+    # -- removescreenshot ----------------------------------------------
+
+    def test_removescreenshot_clears_in_memory_dict(self):
+        # Pure in-memory mutation -- no DB round-trip needed
+        # to pin the contract.
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        host = {
+            "_id": 1,
+            "ports": [
+                {
+                    "port": 80,
+                    "protocol": "tcp",
+                    "screenshot": "field",
+                    "screendata": b"PNG",
+                    "screenwords": ["foo"],
+                },
+                {
+                    "port": 443,
+                    "protocol": "tcp",
+                    "screenshot": "empty",
+                },
+            ],
+        }
+        # ``removescreenshot`` issues an ``UPDATE`` -- without
+        # a real DB, intercept the writer.
+        captured = []
+
+        def _capture(stmt):
+            captured.append(stmt)
+
+        # pylint: disable=protected-access
+        db._write = _capture  # type: ignore[method-assign]
+        db.removescreenshot(host)
+        # Both ports lost their screenshot fields.
+        for portrec in host["ports"]:
+            self.assertNotIn("screenshot", portrec)
+            self.assertNotIn("screendata", portrec)
+            self.assertNotIn("screenwords", portrec)
+        self.assertEqual(len(captured), 1)
+
+    def test_removescreenshot_port_filter_only_clears_match(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        host = {
+            "_id": 1,
+            "ports": [
+                {"port": 80, "protocol": "tcp", "screenshot": "field"},
+                {"port": 443, "protocol": "tcp", "screenshot": "empty"},
+            ],
+        }
+        # pylint: disable=protected-access
+        db._write = lambda stmt: None  # type: ignore[method-assign]
+        db.removescreenshot(host, port=80)
+        ports = {p["port"]: p for p in host["ports"]}
+        self.assertNotIn("screenshot", ports[80])
+        self.assertEqual(ports[443].get("screenshot"), "empty")
+
+    # -- schema --------------------------------------------------------
+
+    def test_port_schema_carries_screenshot_columns(self):
+        from ivre.db.sql.tables import N_Port, V_Port
+
+        for cls in (N_Port, V_Port):
+            with self.subTest(cls=cls.__name__):
+                for col in ("screenshot", "screendata", "screenwords"):
+                    self.assertIn(col, cls.__table__.columns)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

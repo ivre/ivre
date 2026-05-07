@@ -27,6 +27,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     Sequence,
     String,
     Text,
@@ -315,6 +316,17 @@ class _Port:
     service_hostname = Column(String(256))
     service_ostype = Column(String(64))
     service_fp = Column(Text)
+    # Screenshot fields. ``screenshot`` is a short text indicator
+    # (``"field"`` when the bytes are stored in ``screendata``,
+    # ``"empty"`` when the capture failed, or a filename for the
+    # nmap NSE script-on-disk variant). ``screendata`` keeps the
+    # raw bytes -- bytea on PostgreSQL, BLOB on DuckDB -- to match
+    # the Mongo backend's ``bson.Binary`` round-trip semantics.
+    # ``screenwords`` is the OCR word list extracted from the
+    # screenshot via :func:`ivre.utils.screenwords`.
+    screenshot = Column(String(256))
+    screendata = Column(LargeBinary)
+    screenwords = Column(SQLARRAY(Text))
 
 
 class _Tag:

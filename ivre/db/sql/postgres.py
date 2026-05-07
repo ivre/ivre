@@ -1564,12 +1564,16 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                     )
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
-            # FIXME: handle screenshots
-            for fld in ["screendata", "screenshot", "screenwords", "service_method"]:
-                try:
-                    del port[fld]
-                except KeyError:
-                    pass
+            # ``service_method`` has no dedicated column on the
+            # ``_Port`` mixin -- it's an ephemeral nmap-detection
+            # tag (``probed`` / ``table``) that doesn't add value
+            # to a stored record.  ``screendata`` is normalised
+            # below: bytes are kept as-is for the ``LargeBinary``
+            # column, base64-encoded strings (some ingestion
+            # paths produce those) are decoded back to bytes.
+            port.pop("service_method", None)
+            if "screendata" in port and isinstance(port["screendata"], str):
+                port["screendata"] = utils.decode_b64(port["screendata"].encode())
             if "service_servicefp" in port:
                 port["service_fp"] = port.pop("service_servicefp")
             if "state_state" in port:
@@ -1717,12 +1721,11 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
             )
         for port in host.get("ports", []):
             scripts = port.pop("scripts", [])
-            # FIXME: handle screenshots
-            for fld in ["screendata", "screenshot", "screenwords", "service_method"]:
-                try:
-                    del port[fld]
-                except KeyError:
-                    pass
+            # See :meth:`PostgresDBNmap._store_host` for the
+            # ``service_method`` and ``screendata`` rationale.
+            port.pop("service_method", None)
+            if "screendata" in port and isinstance(port["screendata"], str):
+                port["screendata"] = utils.decode_b64(port["screendata"].encode())
             if "service_servicefp" in port:
                 port["service_fp"] = port.pop("service_servicefp")
             if "state_state" in port:

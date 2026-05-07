@@ -1941,6 +1941,9 @@ class SQLDBActive(SQLDB, DBActive):
                     recp["service_hostname"],
                     recp["service_ostype"],
                     recp["service_servicefp"],
+                    recp["screenshot"],
+                    recp["screendata"],
+                    recp["screenwords"],
                 ) = port
                 try:
                     recp["state_reason_ip"] = self.internal2ip(recp["state_reason_ip"])
@@ -2872,6 +2875,233 @@ class SQLDBActive(SQLDB, DBActive):
                     ),
                 )
             ]
+        )
+
+    @classmethod
+    def searchscreenshot(
+        cls,
+        port=None,
+        protocol="tcp",
+        service=None,
+        words=None,
+        neg=False,
+    ):
+        """Filter records that have (or, with ``neg=True``, lack)
+        a screenshot on at least one port.
+
+        Mirrors the contract of :meth:`MongoDB.searchscreenshot`.
+        ``port`` / ``protocol`` / ``service`` constrain the
+        matching port; ``words`` filters on the OCR word list:
+
+        * ``None``: only the existence (or absence, on
+          ``neg=True``) of a screenshot is checked.
+        * ``bool``: filter ports with (``True``) or without
+          (``False``) any OCR word; ``neg`` is ignored.
+        * ``str``: case-insensitive equality (after
+          lower-casing) against any element of the
+          ``screenwords`` array.
+        * regex: case-(in)sensitive regex match against any
+          element of the array.
+        * ``list``: every element must match (``$all`` on Mongo,
+          ``screenwords @> ARRAY[...]`` here).
+
+        With ``words is not None`` and ``neg=True`` the predicate
+        means "has a screenshot **without** the requested words",
+        matching the Mongo helper.
+
+        Note the Mongo-shape semantics for ``neg=True`` when no
+        port / service / words constraint is present:
+        ``{"ports.screenshot": {"$exists": false}}`` matches
+        hosts where **no** port has a screenshot, *not* hosts
+        with at least one port without one (which is almost
+        every host).  The SQL equivalent flips at the
+        ``EXISTS`` level (``base_filter(port=[(False, ...)])``)
+        rather than at the inner predicate.  Once a port /
+        service / words constraint is present the flip happens
+        at the inner predicate, matching Mongo's
+        ``$elemMatch`` semantics.
+        """
+        port_t = cls.tables.port
+        if words is None:
+            screenshot_exists = port_t.screenshot != None  # noqa: E711
+            if port is None and service is None:
+                # ``ports.screenshot.$exists: false`` means *no*
+                # port has a screenshot -- flip at the EXISTS
+                # level via the ``incl=False`` slot.
+                return cls.base_filter(port=[(not neg, screenshot_exists)])
+            conds = [
+                port_t.screenshot == None if neg else screenshot_exists,  # noqa: E711
+            ]
+            if port is not None:
+                conds.extend([port_t.port == port, port_t.protocol == protocol])
+            if service is not None:
+                conds.append(port_t.service_name == service)
+            return cls.base_filter(port=[(True, and_(*conds))])
+        # ``words`` is set: a screenshot must always exist.
+        conds = [port_t.screenshot != None]  # noqa: E711
+        if isinstance(words, bool):
+            conds.append(
+                port_t.screenwords == None  # noqa: E711
+                if not words
+                else port_t.screenwords != None  # noqa: E711
+            )
+        elif isinstance(words, list):
+            lowered = [w.lower() for w in words]
+            if neg:
+                # PG / DuckDB ``arr @> ARRAY[...]`` returns NULL
+                # when ``arr`` is NULL, and ``NOT NULL`` is NULL
+                # in three-valued logic -- a port with no OCR
+                # words would be silently dropped from the neg
+                # side.  Mongo's ``$ne`` matches missing fields,
+                # so add an explicit ``IS NULL`` branch to keep
+                # cross-backend parity.
+                conds.append(
+                    or_(
+                        port_t.screenwords == None,  # noqa: E711
+                        not_(port_t.screenwords.contains(lowered)),
+                    )
+                )
+            else:
+                conds.append(port_t.screenwords.contains(lowered))
+        elif isinstance(words, utils.REGEXP_T):
+            # Match any array element against the regex.  Wrap
+            # the ``unnest()`` SRF in a sub-SELECT projecting an
+            # explicit ``v`` column so the inner predicate
+            # references ``sub.c.v`` regardless of dialect:
+            # PostgreSQL accepts the bare table-function alias
+            # but DuckDB requires ``AS alias(col)`` syntax for
+            # the column name to be bindable; the sub-SELECT
+            # form normalises both ends.  ``unnest(NULL)`` is
+            # zero rows on both backends, so ``NOT EXISTS``
+            # naturally matches NULL ``screenwords`` -- no
+            # explicit ``IS NULL`` branch needed for the
+            # negated side here.
+            sw_subq = select(func.unnest(port_t.screenwords).label("v")).subquery()
+            sw_pred = cls._searchstring_re(sw_subq.c.v, words)
+            inner = exists(select(1).select_from(sw_subq).where(sw_pred))
+            conds.append(not_(inner) if neg else inner)
+        else:  # plain string
+            lowered = words.lower()
+            if neg:
+                # Same NULL-handling rationale as the list path
+                # above.
+                conds.append(
+                    or_(
+                        port_t.screenwords == None,  # noqa: E711
+                        not_(port_t.screenwords.any(lowered)),
+                    )
+                )
+            else:
+                conds.append(port_t.screenwords.any(lowered))
+        if port is not None:
+            conds.extend([port_t.port == port, port_t.protocol == protocol])
+        if service is not None:
+            conds.append(port_t.service_name == service)
+        return cls.base_filter(port=[(True, and_(*conds))])
+
+    @classmethod
+    def searchsmbshares(cls, access="", hidden=None):
+        """Filter SMB shares with the given ``access`` (default:
+        either read or write, accepted values 'r', 'w', 'rw').
+
+        ``hidden=True`` selects hidden shares only,
+        ``hidden=False`` non-hidden only, ``None`` (the default)
+        accepts either.
+
+        Mirrors :meth:`MongoDB.searchsmbshares`.  The Mongo
+        contract delegates to ``searchscript`` with a nested
+        ``$elemMatch`` / ``$or`` / ``$nin`` shape that the
+        existing SQL ``searchscript`` value-translator does not
+        cover; this implementation builds the equivalent
+        predicate directly against ``script.data['shares']``.
+        """
+        access_pattern = {
+            "": re.compile("^(READ|WRITE)"),
+            "r": re.compile("^READ(/|$)"),
+            "w": re.compile("(^|/)WRITE$"),
+            "rw": "READ/WRITE",
+            "wr": "READ/WRITE",
+        }[access.lower()]
+        excluded_share_types = (
+            "STYPE_IPC_HIDDEN",
+            "Not a file share",
+            "STYPE_IPC",
+            "STYPE_PRINTQ",
+        )
+        share_alias = func.jsonb_array_elements(
+            cls.tables.script.data.op("->")("shares")
+        ).alias("__share")
+        share_col = column("__share")
+        access_match = or_(
+            cls._search_field(share_col.op("->>")("Anonymous access"), access_pattern),
+            cls._search_field(
+                share_col.op("->>")("Current user access"), access_pattern
+            ),
+        )
+        type_col = share_col.op("->>")("Type")
+        if hidden is None:
+            type_match = type_col.notin_(excluded_share_types)
+        elif hidden:
+            type_match = type_col == "STYPE_DISKTREE_HIDDEN"
+        else:
+            type_match = type_col == "STYPE_DISKTREE"
+        share_name_match = share_col.op("->>")("Share") != "IPC$"
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        cls.tables.script.name == "smb-enum-shares",
+                        func.jsonb_typeof(cls.tables.script.data.op("->")("shares"))
+                        == "array",
+                        exists(
+                            select(1)
+                            .select_from(share_alias)
+                            .where(
+                                and_(
+                                    access_match,
+                                    type_match,
+                                    share_name_match,
+                                )
+                            )
+                        ),
+                    ),
+                )
+            ]
+        )
+
+    def removescreenshot(self, host, port=None, protocol="tcp"):
+        """Clear screenshot fields on the matching port row(s) of
+        the given host record (in the database) and on the
+        in-memory ``host`` dict (so subsequent caller logic sees
+        the post-removal shape).
+
+        Mirrors :meth:`MongoDB.removescreenshot`.
+        """
+        # Mutate the in-memory dict to match Mongo's behaviour.
+        for portrec in host.get("ports", []):
+            if port is not None and (
+                portrec.get("port") != port or portrec.get("protocol") != protocol
+            ):
+                continue
+            if "screenshot" not in portrec:
+                continue
+            portrec.pop("screendata", None)
+            portrec.pop("screenwords", None)
+            portrec.pop("screenshot", None)
+        # And issue the DB UPDATE.
+        port_t = self.tables.port
+        update_filter = port_t.scan == host.get("_id")
+        if port is not None:
+            update_filter = and_(
+                update_filter,
+                port_t.port == port,
+                port_t.protocol == protocol,
+            )
+        self._write(
+            update(port_t)
+            .where(update_filter)
+            .values(screenshot=None, screendata=None, screenwords=None)
         )
 
     @classmethod

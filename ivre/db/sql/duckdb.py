@@ -730,6 +730,76 @@ class _DuckDBActiveSearchMixin:
             ]
         )
 
+    @override
+    @classmethod
+    def searchsmbshares(  # type: ignore[no-untyped-def, override]
+        cls, access="", hidden=None
+    ):
+        """DuckDB equivalent of :meth:`SQLDBActive.searchsmbshares`.
+
+        Same Mongo-shape contract; the JSON unwind goes through
+        DuckDB's :func:`json_each` table function and the type
+        guard uses :func:`json_type` (returning upper-case
+        ``'ARRAY'`` where PostgreSQL's :func:`jsonb_typeof`
+        returns lower-case ``'array'``).
+        """
+        access_pattern = {
+            "": re.compile("^(READ|WRITE)"),
+            "r": re.compile("^READ(/|$)"),
+            "w": re.compile("(^|/)WRITE$"),
+            "rw": "READ/WRITE",
+            "wr": "READ/WRITE",
+        }[access.lower()]
+        excluded_share_types = (
+            "STYPE_IPC_HIDDEN",
+            "Not a file share",
+            "STYPE_IPC",
+            "STYPE_PRINTQ",
+        )
+        share_alias = (
+            func.json_each(cls.tables.script.data.op("->")("shares"))
+            .table_valued(*_JSON_EACH_COLUMNS)
+            .alias("__share")
+        )
+        share_val = share_alias.c.value
+        access_match = or_(
+            cls._search_field(share_val.op("->>")("Anonymous access"), access_pattern),
+            cls._search_field(
+                share_val.op("->>")("Current user access"), access_pattern
+            ),
+        )
+        type_col = share_val.op("->>")("Type")
+        if hidden is None:
+            type_match = type_col.notin_(excluded_share_types)
+        elif hidden:
+            type_match = type_col == "STYPE_DISKTREE_HIDDEN"
+        else:
+            type_match = type_col == "STYPE_DISKTREE"
+        share_name_match = share_val.op("->>")("Share") != "IPC$"
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        cls.tables.script.name == "smb-enum-shares",
+                        func.json_type(cls.tables.script.data.op("->")("shares"))
+                        == "ARRAY",
+                        exists(
+                            select(1)
+                            .select_from(share_alias)
+                            .where(
+                                and_(
+                                    access_match,
+                                    type_match,
+                                    share_name_match,
+                                )
+                            )
+                        ),
+                    ),
+                )
+            ]
+        )
+
 
 class DuckDBNmap(DuckDBMixin, _DuckDBActiveSearchMixin, PostgresDBNmap):
     """DuckDB backend for the ``nmap`` (active-scan) data category."""
