@@ -800,6 +800,41 @@ class _DuckDBActiveSearchMixin:
             ]
         )
 
+    @override
+    @classmethod
+    def searchmac(cls, mac=None, neg=False):  # type: ignore[no-untyped-def, override]
+        """DuckDB equivalent of :meth:`SQLDBActive.searchmac`.
+
+        DuckDB has no :func:`jsonb_array_elements_text` SRF;
+        the JSON array is parsed to a typed ``VARCHAR`` list
+        via :func:`from_json` and unwound with :func:`unnest`.
+        ``json_type`` replaces PostgreSQL's :func:`jsonb_typeof`
+        (with the ``ARRAY`` / ``array`` casing flip).
+        """
+        scan = cls.tables.scan
+        mac_field = scan.addresses.op("->")("mac")
+        if mac is None:
+            has_mac = mac_field != None  # noqa: E711
+            return cls.base_filter(main=not_(has_mac) if neg else has_mac)
+        mac_alias = (
+            func.unnest(func.from_json(mac_field, '["VARCHAR"]'))
+            .table_valued("v")
+            .render_derived(name="__mac", with_types=False)
+        )
+        if isinstance(mac, utils.REGEXP_T):
+            mac = re.compile(mac.pattern, mac.flags | re.IGNORECASE)
+            elt_pred = cls._searchstring_re(mac_alias.c.v, mac)
+        else:
+            elt_pred = mac_alias.c.v == mac.lower()
+        inner = exists(select(1).select_from(mac_alias).where(elt_pred))
+        return cls.base_filter(
+            main=and_(
+                scan.addresses != None,  # noqa: E711
+                func.json_type(mac_field) == "ARRAY",
+                not_(inner) if neg else inner,
+            )
+        )
+
 
 class DuckDBNmap(DuckDBMixin, _DuckDBActiveSearchMixin, PostgresDBNmap):
     """DuckDB backend for the ``nmap`` (active-scan) data category."""

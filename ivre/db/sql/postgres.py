@@ -1532,6 +1532,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                 # field.
                 cpes=host["cpes"] if host.get("cpes") else null(),
                 os=host["os"] if host.get("os") else null(),
+                addresses=(host["addresses"] if host.get("addresses") else null()),
             )
             .on_conflict_do_nothing()
             .returning(self.tables.scan.id)
@@ -1680,6 +1681,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                 # :meth:`searchos`).
                 cpes=host["cpes"] if host.get("cpes") else null(),
                 os=host["os"] if host.get("os") else null(),
+                addresses=(host["addresses"] if host.get("addresses") else null()),
                 **{
                     key: host.get(key)
                     for key in ["state", "state_reason", "state_reason_ttl"]
@@ -1700,6 +1702,9 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                     ),
                     "cpes": func.coalesce(insrt.excluded.cpes, self.tables.scan.cpes),
                     "os": func.coalesce(insrt.excluded.os, self.tables.scan.os),
+                    "addresses": func.coalesce(
+                        insrt.excluded.addresses, self.tables.scan.addresses
+                    ),
                 },
             )
             .returning(self.tables.scan.id, self.tables.scan.time_stop)

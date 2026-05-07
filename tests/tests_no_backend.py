@@ -4003,11 +4003,15 @@ class SQLDBSearchSmbScreenshotTests(unittest.TestCase):
                 )
                 self.assertIn("n_port.screenwords IS NULL", sql)
 
-    def test_searchscreenshot_words_regex_uses_subselect(self):
-        # The regex path wraps ``unnest()`` in a sub-SELECT
-        # projecting an explicit ``v`` column so the predicate
-        # references ``sub.c.v`` regardless of dialect (DuckDB
-        # rejects the implicit-row-deref shape PG accepts).
+    def test_searchscreenshot_words_regex_uses_correlated_unnest(self):
+        # Pin the table-valued ``AS __sw(v)`` shape -- the
+        # SRF stays inline in the FROM clause (implicitly
+        # lateral on PG, accepted as such by DuckDB) so the
+        # ``port.screenwords`` reference correlates with the
+        # outer ``port`` row rather than decorrelating into a
+        # cross-DB scan.  Earlier versions wrapped ``unnest()``
+        # in ``select(...).subquery()`` which silently
+        # decorrelated the call; that shape is gone now.
         import re
 
         sa = _sqlalchemy
@@ -4018,9 +4022,8 @@ class SQLDBSearchSmbScreenshotTests(unittest.TestCase):
         sql = self._compile_pg(
             flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
         )
-        self.assertIn("unnest(n_port.screenwords)", sql)
-        self.assertIn(" AS v", sql)
-        self.assertIn("~*", sql)
+        self.assertIn("unnest(n_port.screenwords) AS __sw(v)", sql)
+        self.assertIn("__sw.v ~*", sql)
 
     @unittest.skipUnless(
         _HAVE_DUCKDB_ENGINE,
@@ -4037,8 +4040,8 @@ class SQLDBSearchSmbScreenshotTests(unittest.TestCase):
         sql = self._compile_duckdb(
             flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
         )
-        # Same sub-SELECT shape, with the dialect-flipped regex.
-        self.assertIn("unnest(n_port.screenwords)", sql)
+        # Same ``AS __sw(v)`` shape, dialect-flipped regex.
+        self.assertIn("unnest(n_port.screenwords) AS __sw(v)", sql)
         self.assertNotIn("~*", sql)
         self.assertIn("regexp_matches(", sql)
 
@@ -4171,6 +4174,340 @@ class SQLDBSearchSmbScreenshotTests(unittest.TestCase):
             with self.subTest(cls=cls.__name__):
                 for col in ("screenshot", "screendata", "screenwords"):
                     self.assertIn(col, cls.__table__.columns)
+
+
+# ---------------------------------------------------------------------
+# SQLDBResidualGapsTests -- pin the wire shape of the
+# ``searchtimeago`` / ``searchmac`` (active) / ``searchhaslocation``
+# (view) / ``setscreenshot`` / ``setscreenwords`` / ``get_mean_open_ports``
+# / ``insert_or_update_mix`` (passive) helpers, plus the new
+# ``addresses`` JSONB column on ``_Scan`` and the cpes/os/addresses
+# round-trip through ``SQLDBActive.get``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBResidualGapsTests(unittest.TestCase):
+    """Behaviour-pin for the residual-gap parity helpers added
+    after :meth:`searchcpe` / :meth:`searchos` / :meth:`searchvuln`
+    (M4.3.1) and :meth:`searchscreenshot` / :meth:`searchsmbshares`
+    / :meth:`removescreenshot` (M4.3.2).
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _compile_duckdb(stmt):
+        return str(
+            stmt.compile(
+                dialect=duckdb_engine.Dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    # -- searchtimeago -------------------------------------------------
+
+    def test_searchtimeago_predicate_uses_time_stop(self):
+        sa = _sqlalchemy
+        import datetime
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchtimeago(datetime.timedelta(days=30))
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Must filter on ``time_stop`` (Mongo's ``endtime``)
+        # with a ``>=`` comparison; the negated arm flips to
+        # ``<``.
+        self.assertIn("n_scan.time_stop >= ", sql)
+
+    def test_searchtimeago_neg_flips_to_less_than(self):
+        sa = _sqlalchemy
+        import datetime
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchtimeago(datetime.timedelta(days=30), neg=True)
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("n_scan.time_stop < ", sql)
+
+    # -- searchmac (active) --------------------------------------------
+
+    def test_searchmac_no_args_uses_existence_check(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchmac()
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Portable existence check on the JSONB sub-key
+        # rather than the PG-only ``?`` operator.
+        self.assertIn("(n_scan.addresses -> 'mac') IS NOT NULL", sql)
+        self.assertNotIn("jsonb_array_elements_text", sql)
+
+    def test_searchmac_pg_unwinds_with_jsonb_array_elements_text(self):
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchmac("AA:BB:CC:DD:EE:FF")
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Inline SRF (implicitly lateral on PG) with the
+        # explicit ``AS __mac(v)`` column-list alias so the
+        # outer-row reference correlates per-scan.
+        self.assertIn(
+            "jsonb_array_elements_text(n_scan.addresses -> 'mac') " "AS __mac(v)",
+            sql,
+        )
+        self.assertIn("jsonb_typeof(n_scan.addresses -> 'mac') = 'array'", sql)
+        # MAC value is lower-cased before matching.
+        self.assertIn("__mac.v = 'aa:bb:cc:dd:ee:ff'", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchmac_duckdb_uses_from_json(self):
+        sa = _sqlalchemy
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchmac("AA:BB:CC:DD:EE:FF")
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # DuckDB has no ``jsonb_array_elements_text`` SRF;
+        # the override parses the JSON array via
+        # ``from_json(..., '["VARCHAR"]')`` and unwinds with
+        # ``unnest()``.
+        self.assertIn("from_json(n_scan.addresses -> 'mac', ", sql)
+        self.assertIn(" AS __mac(v)", sql)
+        self.assertIn("json_type(n_scan.addresses -> 'mac') = 'ARRAY'", sql)
+
+    # -- searchhaslocation (view) --------------------------------------
+
+    def test_searchhaslocation_uses_info_loc(self):
+        sa = _sqlalchemy
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        flt = db.searchhaslocation()
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("(v_scan.info -> 'loc') IS NOT NULL", sql)
+
+        flt_neg = db.searchhaslocation(neg=True)
+        sql_neg = self._compile_pg(
+            flt_neg.query(sa.select(sa.func.count()).select_from(flt_neg.select_from))
+        )
+        self.assertIn("(v_scan.info -> 'loc') IS NULL", sql_neg)
+
+    # -- get_mean_open_ports -------------------------------------------
+
+    def test_get_mean_open_ports_emits_count_times_sum(self):
+        # Pin the SQL aggregation shape via reading the SA
+        # constructs directly (the method returns a list, so
+        # we patch the read iterator to capture the rendered
+        # statement instead).  ``coalesce`` is required so
+        # hosts with no open port land at ``mean = 0``,
+        # matching Mongo's ``count * sum`` arithmetic when one
+        # of the operands collapses to an empty array.
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        captured = []
+
+        def _fake_read_iter(stmt):
+            captured.append(stmt)
+            return iter([])
+
+        # pylint: disable=protected-access
+        db._read_iter = _fake_read_iter  # type: ignore[method-assign]
+        result = db.get_mean_open_ports(db.flt_empty)
+        self.assertEqual(result, [])
+        self.assertEqual(len(captured), 1)
+        sql = self._compile_pg(captured[0])
+        self.assertIn("count(n_port.id)", sql)
+        self.assertIn("coalesce(sum(n_port.port), 0)", sql)
+        self.assertIn("n_port.state = 'open'", sql)
+        self.assertIn("GROUP BY n_scan.id", sql)
+
+    # -- setscreenshot / setscreenwords --------------------------------
+
+    def test_setscreenshot_raises_on_missing_port(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        host = {"_id": 1, "ports": []}
+        with self.assertRaises(KeyError):
+            db.setscreenshot(host, 80, b"data")
+
+    def test_setscreenshot_skips_when_already_set_without_overwrite(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        host = {
+            "_id": 1,
+            "ports": [
+                {
+                    "port": 80,
+                    "protocol": "tcp",
+                    "screenshot": "field",
+                    "screendata": b"old",
+                }
+            ],
+        }
+        # pylint: disable=protected-access
+        db._write = lambda stmt: None  # type: ignore[method-assign]
+        db.setscreenshot(host, 80, b"new")
+        self.assertEqual(host["ports"][0]["screendata"], b"old")
+
+    def test_setscreenwords_skips_when_already_set_without_overwrite(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        host = {
+            "_id": 1,
+            "ports": [
+                {
+                    "port": 80,
+                    "protocol": "tcp",
+                    "screenshot": "field",
+                    "screendata": b"data",
+                    "screenwords": ["existing"],
+                }
+            ],
+        }
+        # pylint: disable=protected-access
+        db._write = lambda stmt: None  # type: ignore[method-assign]
+        db.setscreenwords(host)
+        # No overwrite: existing words are kept.
+        self.assertEqual(host["ports"][0]["screenwords"], ["existing"])
+
+    # -- insert_or_update_mix (passive) --------------------------------
+
+    def test_insert_or_update_mix_routes_to_underlying_insert(self):
+        # Pin that the helper extracts firstseen / lastseen /
+        # count from the spec and forwards them to
+        # ``_insert_or_update`` so the upsert merges via
+        # ``least`` / ``greatest`` / ``+`` (or ``replacecount``
+        # replaces wholesale).
+        import datetime
+
+        from ivre.db import DBPassive
+        from ivre.db.sql.postgres import PostgresDBPassive
+
+        captured = []
+
+        def _fake_iou(self_, timestamp, values, lastseen=None, replacecount=False):
+            captured.append(
+                {
+                    "timestamp": timestamp,
+                    "values": values,
+                    "lastseen": lastseen,
+                    "replacecount": replacecount,
+                }
+            )
+
+        original = PostgresDBPassive._insert_or_update
+        PostgresDBPassive._insert_or_update = _fake_iou
+        try:
+            db = DBPassive.from_url("postgresql://x@localhost/x")
+            db.insert_or_update_mix(
+                {
+                    "addr": "1.2.3.4",
+                    "recontype": "MAC_ADDRESS",
+                    "source": "DHCP",
+                    "value": "aa:bb",
+                    "firstseen": datetime.datetime(2024, 1, 1),
+                    "lastseen": datetime.datetime(2024, 6, 1),
+                    "count": 17,
+                }
+            )
+        finally:
+            PostgresDBPassive._insert_or_update = original
+        self.assertEqual(len(captured), 1)
+        call = captured[0]
+        self.assertEqual(call["timestamp"], datetime.datetime(2024, 1, 1))
+        self.assertEqual(call["lastseen"], datetime.datetime(2024, 6, 1))
+        self.assertEqual(call["values"]["count"], 17)
+        self.assertEqual(call["values"]["recontype"], "MAC_ADDRESS")
+        self.assertFalse(call["replacecount"])
+
+    def test_insert_or_update_mix_replacecount_pass_through(self):
+        import datetime
+
+        from ivre.db import DBPassive
+        from ivre.db.sql.postgres import PostgresDBPassive
+
+        captured = []
+
+        def _fake_iou(self_, timestamp, values, lastseen=None, replacecount=False):
+            captured.append(replacecount)
+
+        original = PostgresDBPassive._insert_or_update
+        PostgresDBPassive._insert_or_update = _fake_iou
+        try:
+            db = DBPassive.from_url("postgresql://x@localhost/x")
+            db.insert_or_update_mix(
+                {
+                    "addr": "1.2.3.4",
+                    "recontype": "MAC_ADDRESS",
+                    "source": "DHCP",
+                    "value": "aa:bb",
+                    "firstseen": datetime.datetime(2024, 1, 1),
+                    "lastseen": datetime.datetime(2024, 6, 1),
+                    "count": 17,
+                },
+                replacecount=True,
+            )
+        finally:
+            PostgresDBPassive._insert_or_update = original
+        self.assertEqual(captured, [True])
+
+    # -- schema --------------------------------------------------------
+
+    def test_scan_schema_carries_addresses_column(self):
+        from ivre.db.sql.tables import N_Scan, V_Scan
+
+        for cls in (N_Scan, V_Scan):
+            with self.subTest(cls=cls.__name__):
+                self.assertIn("addresses", cls.__table__.columns)
+
+    def test_get_projects_cpes_os_addresses(self):
+        # The scan-row positional unpack must surface the
+        # three host-level JSONB columns added in M4.3.1 /
+        # M4.3.3 -- otherwise consumers calling ``db.nmap.get(...)``
+        # would never see them and the round-trip would
+        # silently lose data.
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        # pylint: disable=protected-access
+        stmt = db._get(db.flt_empty)
+        sql = self._compile_pg(stmt)
+        for col in ("n_scan.cpes", "n_scan.os", "n_scan.addresses"):
+            self.assertIn(col, sql)
 
 
 # ---------------------------------------------------------------------

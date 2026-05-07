@@ -182,7 +182,7 @@ class ScanCSVFile(CSVFile):
                                 cert[fld] = utils.all2datetime(cert[fld]).timestamp()
             if "screendata" in port:
                 port["screendata"] = utils.encode_b64(port["screendata"])
-        for field in ["hostnames", "ports", "info", "cpes", "os"]:
+        for field in ["hostnames", "ports", "info", "cpes", "os", "addresses"]:
             if field in line:
                 line[field] = json.dumps(line[field]).replace("\\", "\\\\")
         return [
@@ -1855,6 +1855,9 @@ class SQLDBActive(SQLDB, DBActive):
                 self.tables.scan.state_reason,
                 self.tables.scan.state_reason_ttl,
                 self.tables.scan.schema_version,
+                self.tables.scan.cpes,
+                self.tables.scan.os,
+                self.tables.scan.addresses,
             ).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -1882,6 +1885,9 @@ class SQLDBActive(SQLDB, DBActive):
                 rec["state_reason"],
                 rec["state_reason_ttl"],
                 rec["schema_version"],
+                rec["cpes"],
+                rec["os"],
+                rec["addresses"],
             ) = scanrec
             try:
                 rec["addr"] = self.internal2ip(rec["addr"])
@@ -1889,6 +1895,9 @@ class SQLDBActive(SQLDB, DBActive):
                 pass
             if not rec["infos"]:
                 del rec["infos"]
+            for key in ("cpes", "os", "addresses"):
+                if not rec[key]:
+                    del rec[key]
             categories = (
                 select(self.tables.association_scan_category.category)
                 .where(self.tables.association_scan_category.scan == rec["_id"])
@@ -2964,21 +2973,39 @@ class SQLDBActive(SQLDB, DBActive):
             else:
                 conds.append(port_t.screenwords.contains(lowered))
         elif isinstance(words, utils.REGEXP_T):
-            # Match any array element against the regex.  Wrap
-            # the ``unnest()`` SRF in a sub-SELECT projecting an
-            # explicit ``v`` column so the inner predicate
-            # references ``sub.c.v`` regardless of dialect:
-            # PostgreSQL accepts the bare table-function alias
-            # but DuckDB requires ``AS alias(col)`` syntax for
-            # the column name to be bindable; the sub-SELECT
-            # form normalises both ends.  ``unnest(NULL)`` is
-            # zero rows on both backends, so ``NOT EXISTS``
-            # naturally matches NULL ``screenwords`` -- no
-            # explicit ``IS NULL`` branch needed for the
-            # negated side here.
-            sw_subq = select(func.unnest(port_t.screenwords).label("v")).subquery()
-            sw_pred = cls._searchstring_re(sw_subq.c.v, words)
-            inner = exists(select(1).select_from(sw_subq).where(sw_pred))
+            # Match any array element against the regex.  Use
+            # the table-valued-function ``AS __sw(v)`` form
+            # (PostgreSQL and DuckDB both accept it) so the
+            # SRF's single column is exposed as ``__sw.v``.
+            #
+            # The ``render_derived`` keyword is what makes
+            # SQLAlchemy emit the explicit column-list alias
+            # ``AS __sw(v)`` rather than the bare ``AS __sw``
+            # shape ``table_valued`` defaults to -- without it
+            # PostgreSQL would reject ``__sw.v`` (column
+            # doesn't exist) and DuckDB would parse the alias
+            # as a STRUCT column.  Side benefit: SA emits the
+            # SRF directly in the ``FROM`` clause without
+            # wrapping it in a sub-SELECT, so the SRF stays
+            # implicitly lateral on PostgreSQL (and DuckDB
+            # treats the inline SRF the same way) -- a plain
+            # ``select(...).subquery()`` wrapper *decorrelates*
+            # the call and makes the unwind expand over every
+            # ``port.screenwords`` row in the database, which
+            # silently matches every host with a screenshot
+            # whenever the predicate matches anywhere.
+            #
+            # ``unnest(NULL)`` is zero rows on both backends,
+            # so ``NOT EXISTS`` naturally matches NULL
+            # ``screenwords`` -- no explicit ``IS NULL`` branch
+            # needed for the negated side here.
+            sw_alias = (
+                func.unnest(port_t.screenwords)
+                .table_valued("v")
+                .render_derived(name="__sw", with_types=False)
+            )
+            sw_pred = cls._searchstring_re(sw_alias.c.v, words)
+            inner = exists(select(1).select_from(sw_alias).where(sw_pred))
             conds.append(not_(inner) if neg else inner)
         else:  # plain string
             lowered = words.lower()
@@ -3103,6 +3130,201 @@ class SQLDBActive(SQLDB, DBActive):
             .where(update_filter)
             .values(screenshot=None, screendata=None, screenwords=None)
         )
+
+    def setscreenshot(self, host, port, data, protocol="tcp", overwrite=False):
+        """Set the content of a port's screenshot on the matching
+        port row.  Mirrors :meth:`MongoDB.setscreenshot`.
+
+        Trims the image (drops uniform borders via
+        :func:`ivre.utils.trim_image`); if trimming consumes the
+        whole picture the screenshot is recorded as ``"empty"``
+        with no ``screendata``.  Otherwise the trimmed bytes
+        land in ``screendata`` and the OCR word list is derived
+        via :func:`ivre.utils.screenwords` and written to
+        ``screenwords``.
+
+        ``overwrite=False`` is a no-op when the port already has
+        a screenshot.
+        """
+        port_t = self.tables.port
+        # Locate the port subdoc on the in-memory record so we
+        # can mirror Mongo's mutation behaviour and short-circuit
+        # the no-op when ``overwrite=False``.
+        try:
+            port_rec = next(
+                p
+                for p in host.get("ports", [])
+                if p.get("port") == port and p.get("protocol") == protocol
+            )
+        except StopIteration as exc:
+            raise KeyError(f"Port {protocol}/{port} does not exist") from exc
+        if "screenshot" in port_rec and not overwrite:
+            return
+        trim_result = utils.trim_image(data)
+        update_filter = and_(
+            port_t.scan == host.get("_id"),
+            port_t.port == port,
+            port_t.protocol == protocol,
+        )
+        if trim_result is False:
+            # Image vanished after trim -- record the empty
+            # marker and clear any leftover data / words.
+            port_rec["screenshot"] = "empty"
+            port_rec.pop("screendata", None)
+            port_rec.pop("screenwords", None)
+            self._write(
+                update(port_t)
+                .where(update_filter)
+                .values(screenshot="empty", screendata=None, screenwords=None)
+            )
+            return
+        port_rec["screenshot"] = "field"
+        if trim_result is not True:
+            data = trim_result
+        port_rec["screendata"] = data
+        screenwords = utils.screenwords(data)
+        if screenwords is not None:
+            port_rec["screenwords"] = screenwords
+        self._write(
+            update(port_t)
+            .where(update_filter)
+            .values(
+                screenshot="field",
+                screendata=data,
+                screenwords=screenwords,
+            )
+        )
+
+    def setscreenwords(self, host, port=None, protocol="tcp", overwrite=False):
+        """(Re)compute the OCR word list for ports that have a
+        screenshot but lack ``screenwords`` (or all of them when
+        ``overwrite=True``).  Mirrors
+        :meth:`MongoDB.setscreenwords`.
+        """
+        port_t = self.tables.port
+        for port_rec in host.get("ports", []):
+            if port is not None and (
+                port_rec.get("port") != port or port_rec.get("protocol") != protocol
+            ):
+                continue
+            if "screenshot" not in port_rec:
+                continue
+            if "screenwords" in port_rec and not overwrite:
+                continue
+            data = port_rec.get("screendata")
+            if not data:
+                continue
+            words = utils.screenwords(data)
+            if words is None:
+                continue
+            port_rec["screenwords"] = words
+            self._write(
+                update(port_t)
+                .where(
+                    and_(
+                        port_t.scan == host.get("_id"),
+                        port_t.port == port_rec["port"],
+                        port_t.protocol == port_rec["protocol"],
+                    )
+                )
+                .values(screenwords=words)
+            )
+
+    @classmethod
+    def searchtimeago(cls, delta, neg=False):
+        """Filter scans whose ``time_stop`` (i.e. last activity)
+        is more recent (or older, with ``neg=True``) than
+        ``datetime.now() - delta``.  Mirrors the Mongo helper at
+        :meth:`MongoDB.searchtimeago` (active class).
+
+        ``delta`` can be a :class:`datetime.timedelta` or a
+        scalar number of seconds.
+        """
+        if not isinstance(delta, datetime.timedelta):
+            delta = datetime.timedelta(seconds=delta)
+        cutoff = datetime.datetime.now() - delta
+        time_stop = cls.tables.scan.time_stop
+        return cls.base_filter(main=time_stop < cutoff if neg else time_stop >= cutoff)
+
+    @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        """Filter active scans by MAC address.  ``mac`` may be a
+        string (case-insensitive equality, lower-cased to match
+        the stored shape), a regex, or ``None`` (existence check).
+
+        Mirrors :meth:`MongoDB.searchmac` for the active class.
+        The Mongo path queries ``addresses.mac`` directly; here
+        the same JSONB array is unwound via
+        :func:`jsonb_array_elements_text` and each element is
+        matched per-row inside an ``EXISTS``.  ``LATERAL`` is
+        required so the inner SRF correlates with the outer
+        ``scan`` row -- without it the unwind decorrelates and
+        any matching MAC anywhere in the database would match
+        every scan.
+
+        Existence is a portable ``addresses -> 'mac' IS NOT NULL``
+        check rather than the PG-only ``?`` operator (DuckDB's
+        JSON dialect does not provide it).
+        """
+        scan = cls.tables.scan
+        mac_field = scan.addresses.op("->")("mac")
+        if mac is None:
+            has_mac = mac_field != None  # noqa: E711
+            return cls.base_filter(main=not_(has_mac) if neg else has_mac)
+        # See :meth:`searchscreenshot` for the
+        # ``table_valued().render_derived()`` rationale (clean
+        # ``AS __mac(v)`` syntax that both PostgreSQL and DuckDB
+        # accept, with the SRF's outer-row reference staying
+        # correlated rather than decorrelated by a sub-SELECT
+        # wrapper).
+        mac_alias = (
+            func.jsonb_array_elements_text(mac_field)
+            .table_valued("v")
+            .render_derived(name="__mac", with_types=False)
+        )
+        if isinstance(mac, utils.REGEXP_T):
+            mac = re.compile(mac.pattern, mac.flags | re.IGNORECASE)
+            elt_pred = cls._searchstring_re(mac_alias.c.v, mac)
+        else:
+            elt_pred = mac_alias.c.v == mac.lower()
+        inner = exists(select(1).select_from(mac_alias).where(elt_pred))
+        return cls.base_filter(
+            main=and_(
+                scan.addresses != None,  # noqa: E711
+                func.jsonb_typeof(mac_field) == "array",
+                not_(inner) if neg else inner,
+            )
+        )
+
+    def get_mean_open_ports(self, flt):
+        """Server-side equivalent of the Python-loop fallback
+        :meth:`DBActive.get_mean_open_ports` ships in the base
+        class.  Returns an iterable of ``{"id", "mean"}`` dicts
+        where ``mean`` is ``count_of_open_ports * sum_of_open_port_numbers``.
+
+        Mongo runs the same arithmetic via the aggregation
+        framework; the SQL backends compute it in a single
+        ``GROUP BY scan.id`` against the ``port`` table joined
+        with the active filter.
+        """
+        scan_t = self.tables.scan
+        port_t = self.tables.port
+        base = flt.query(select(scan_t.id).select_from(flt.select_from)).cte(
+            "scans_in_flt"
+        )
+        cnt = func.count(port_t.id)
+        port_sum = func.coalesce(func.sum(port_t.port), 0)
+        stmt = (
+            select(scan_t.id.label("id"), (cnt * port_sum).label("mean"))
+            .select_from(scan_t)
+            .where(scan_t.id.in_(select(base.c.id)))
+            .outerjoin(
+                port_t,
+                and_(port_t.scan == scan_t.id, port_t.state == "open"),
+            )
+            .group_by(scan_t.id)
+        )
+        return [{"id": row[0], "mean": row[1]} for row in self._read_iter(stmt)]
 
     @classmethod
     def searchhassh(cls, value_or_hash=None, server=None):
@@ -3311,6 +3533,18 @@ class SQLDBView(SQLDBActive, DBView):
                 cls.tables.scan.info["as_name"].astext, asname, neg=neg
             )
         )
+
+    @classmethod
+    def searchhaslocation(cls, neg=False):
+        """Filter records carrying GeoIP coordinates on
+        ``info.loc`` (or, with ``neg=True``, records that
+        don't).  Mirrors :meth:`MongoDB.searchhaslocation` --
+        the Mongo path checks ``{"infos.loc": {"$exists":
+        not neg}}``.
+        """
+        loc = cls.tables.scan.info.op("->")("loc")
+        has_loc = loc != None  # noqa: E711
+        return cls.base_filter(main=not_(has_loc) if neg else has_loc)
 
 
 class PassiveFilter(Filter):
@@ -3550,6 +3784,81 @@ class SQLDBPassive(SQLDB, DBPassive):
         vals.update(otherfields)
         self._insert_or_update(
             timestamp, vals, lastseen=lastseen, replacecount=replacecount
+        )
+
+    def insert_or_update_mix(self, spec, getinfos=None, replacecount=False):
+        """Mix-merge a record into the passive table.  Uses
+        ``firstseen`` / ``lastseen`` / ``count`` carried in the
+        spec rather than synthesising them from a single
+        observation timestamp; on conflict the existing row's
+        ``firstseen`` / ``lastseen`` / ``count`` are merged via
+        ``least`` / ``greatest`` / ``+`` (or replaced wholesale
+        when ``replacecount=True``).
+
+        Useful when copying records from one IVRE database to
+        another, or for the ``_migrate_update_record`` callback
+        that schema migrations route through.
+
+        Mirrors :meth:`MongoDB.insert_or_update_mix`.
+        """
+        if spec is None:
+            return
+        spec = dict(spec)
+        try:
+            spec["addr"] = self.ip2internal(spec["addr"])
+        except (KeyError, ValueError):
+            pass
+        if getinfos is not None and "infos" not in spec:
+            infos = getinfos(spec)
+            if infos:
+                spec["infos"] = infos
+        try:
+            spec.update(spec.pop("infos"))
+        except KeyError:
+            pass
+        addr = spec.pop("addr", None)
+        if addr:
+            addr = self.ip2internal(addr)
+        # ``firstseen`` defaults to ``now()`` for spec dicts that
+        # omit it (matching the regular ``insert_or_update`` path
+        # where the caller has to supply a timestamp).
+        firstseen = utils.all2datetime(spec.pop("firstseen", datetime.datetime.now()))
+        lastseen_raw = spec.pop("lastseen", None)
+        lastseen = (
+            utils.all2datetime(lastseen_raw) if lastseen_raw is not None else firstseen
+        )
+        count_val = spec.pop("count", 1)
+        if spec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and spec.get(
+            "source"
+        ) in {"cert", "cacert"}:
+            for fld in ["not_before", "not_after"]:
+                if fld in spec:
+                    if isinstance(spec[fld], datetime.datetime):
+                        spec[fld] = spec[fld].timestamp()
+                    elif isinstance(spec[fld], str):
+                        spec[fld] = utils.all2datetime(spec[fld]).timestamp()
+        otherfields = {
+            key: spec.pop(key, "")
+            for key in ["sensor", "source", "targetval", "recontype", "value"]
+        }
+        info = {
+            key: spec.pop(key)
+            for key in ["distance", "signature", "version"]
+            if key in spec
+        }
+        vals = {
+            "addr": addr,
+            "count": count_val,
+            "firstseen": firstseen,
+            "lastseen": lastseen,
+            "port": spec.pop("port", -1),
+            "info": info,
+            "moreinfo": spec,
+            "schema_version": spec.pop("schema_version", None),
+        }
+        vals.update(otherfields)
+        self._insert_or_update(
+            firstseen, vals, lastseen=lastseen, replacecount=replacecount
         )
 
     def topvalues(

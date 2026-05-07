@@ -381,6 +381,11 @@ class _Scan:
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
     cpes = Column(SQLJSONB)
     os = Column(SQLJSONB)
+    # ``addresses`` is a Mongo-shape ``{type: [addr, ...]}`` dict
+    # holding non-IP host addresses (currently only ``mac``).
+    # Stored verbatim from the host record so :meth:`searchmac`
+    # can unwind ``addresses->'mac'`` and match any element.
+    addresses = Column(SQLJSONB)
 
 
 # Nmap
