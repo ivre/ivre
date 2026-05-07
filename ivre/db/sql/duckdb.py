@@ -43,10 +43,16 @@ placed *first* in the bases tuple of every concrete class so its
 methods win the MRO lookup against ``PostgresDB*``'s defaults.
 """
 
+# Tests like "expr == None" should be used for BinaryExpression instances
+# pylint: disable=singleton-comparison
+
+
+import re
 from typing import Any, override
 
-from sqlalchemy import event, exists, or_, select
+from sqlalchemy import and_, event, exists, func, not_, or_, select
 from sqlalchemy import text as sa_text
+from sqlalchemy import true
 from sqlalchemy.dialects import postgresql
 
 from ivre import utils
@@ -172,6 +178,36 @@ class DuckDBMixin:
     backend class so the MRO resolves these overrides ahead of
     PostgreSQL's defaults (see :pep:`3119` C3 linearisation).
     """
+
+    @override
+    @staticmethod
+    def _searchstring_re(field, value, neg=False):  # type: ignore[no-untyped-def, override]
+        """DuckDB equivalent of :meth:`SQLDB._searchstring_re`.
+
+        DuckDB's parser does not recognise PostgreSQL's
+        case-insensitive regex operator ``~*`` (only ``~`` is
+        accepted, and even that maps to plain regex match
+        rather than the POSIX semantics PG uses).  This override
+        rewrites the pattern in terms of the
+        :func:`regexp_matches` scalar, whose third argument
+        accepts an options string (``'i'`` for case-insensitive,
+        empty for case-sensitive).
+
+        For non-regex values, the parent's scalar / list /
+        equality dispatch shape is preserved verbatim.
+        """
+        if isinstance(value, utils.REGEXP_T):
+            options = "i" if (value.flags & re.IGNORECASE) else ""
+            if options:
+                flt = func.regexp_matches(field, value.pattern, options)
+            else:
+                flt = func.regexp_matches(field, value.pattern)
+            if neg:
+                return not_(flt)
+            return flt
+        if neg:
+            return field != value
+        return field == value
 
     @property
     def db(self) -> Any:
@@ -562,7 +598,140 @@ class DuckDBViewFilter(_DuckDBActiveFilterMixin, ViewFilter):
     predicates."""
 
 
-class DuckDBNmap(DuckDBMixin, PostgresDBNmap):
+# DuckDB's ``json_each`` table function returns 8 implicit
+# columns (``key``, ``value``, ``type``, ``atom``, ``id``,
+# ``parent``, ``fullkey``, ``path``).  ``.table_valued(*cols)``
+# declares the column shape the SQLAlchemy compiler exposes via
+# ``.c``; declaring all 8 keeps the emitted ``AS alias(...)``
+# matched to the function's actual arity (DuckDB rejects an
+# alias whose column count diverges from the function's
+# declared output).  Only ``value`` (the JSON of each element)
+# is actually consulted.
+_JSON_EACH_COLUMNS = (
+    "key",
+    "value",
+    "type",
+    "atom",
+    "id",
+    "parent",
+    "fullkey",
+    "path",
+)
+
+
+class _DuckDBActiveSearchMixin:
+    """DuckDB-flavoured implementations of the JSONB-array-driven
+    ``search*`` helpers (``searchcpe``, ``searchos``,
+    ``searchvuln``) that :class:`SQLDBActive` ships in PostgreSQL
+    dialect.
+
+    PostgreSQL's :func:`jsonb_array_elements` and
+    :func:`jsonb_typeof` have no direct DuckDB equivalents; this
+    mixin emits :func:`json_each` (DuckDB's table-valued JSON
+    unwind, with a fixed 8-column return shape) and
+    :func:`json_type` instead.  ``json_type`` returns its result
+    in upper-case (``'ARRAY'``, ``'OBJECT'``, ...) where
+    PostgreSQL's :func:`jsonb_typeof` returns lower-case
+    (``'array'``, ``'object'``, ...).
+
+    The query shape (``EXISTS`` over the unwound array, AND-
+    combined per-field text predicates) mirrors the PostgreSQL
+    implementation exactly so the two backends share a single
+    Mongo-shape contract.
+    """
+
+    @override
+    @classmethod
+    def searchcpe(  # type: ignore[no-untyped-def, override]
+        cls, cpe_type=None, vendor=None, product=None, version=None
+    ):
+        """DuckDB equivalent of :meth:`SQLDBActive.searchcpe`."""
+        fields = [
+            ("type", cpe_type),
+            ("vendor", vendor),
+            ("product", product),
+            ("version", version),
+        ]
+        flt = [(field, value) for field, value in fields if value is not None]
+        if not flt:
+            return cls.base_filter(
+                main=cls.tables.scan.cpes != None,  # noqa: E711
+            )
+        cpe_alias = (
+            func.json_each(cls.tables.scan.cpes)
+            .table_valued(*_JSON_EACH_COLUMNS)
+            .alias("__cpe")
+        )
+        conds = [
+            cls._search_field(cpe_alias.c.value.op("->>")(fname), value)
+            for fname, value in flt
+        ]
+        return cls.base_filter(
+            main=and_(
+                cls.tables.scan.cpes != None,  # noqa: E711
+                exists(select(1).select_from(cpe_alias).where(and_(*conds))),
+            ),
+        )
+
+    @override
+    @classmethod
+    def searchos(cls, txt):  # type: ignore[no-untyped-def, override]
+        """DuckDB equivalent of :meth:`SQLDBActive.searchos`."""
+        osclass_alias = (
+            func.json_each(cls.tables.scan.os.op("->")("osclass"))
+            .table_valued(*_JSON_EACH_COLUMNS)
+            .alias("__osclass")
+        )
+        conds = or_(
+            *(
+                cls._searchstring_re(osclass_alias.c.value.op("->>")(fname), txt)
+                for fname in ("vendor", "osfamily", "osgen", "type")
+            )
+        )
+        return cls.base_filter(
+            main=and_(
+                cls.tables.scan.os != None,  # noqa: E711
+                func.json_type(cls.tables.scan.os.op("->")("osclass")) == "ARRAY",
+                exists(select(1).select_from(osclass_alias).where(conds)),
+            ),
+        )
+
+    @override
+    @classmethod
+    def searchvuln(  # type: ignore[no-untyped-def, override]
+        cls, vulnid=None, state=None
+    ):
+        """DuckDB equivalent of :meth:`SQLDBActive.searchvuln`."""
+        vuln_alias = (
+            func.json_each(cls.tables.script.data.op("->")("vulns"))
+            .table_valued(*_JSON_EACH_COLUMNS)
+            .alias("__vuln")
+        )
+        inner_conds = []
+        if vulnid is not None:
+            inner_conds.append(
+                cls._search_field(vuln_alias.c.value.op("->>")("id"), vulnid)
+            )
+        if state is not None:
+            inner_conds.append(
+                cls._search_field(vuln_alias.c.value.op("->>")("state"), state)
+            )
+        inner_where = and_(*inner_conds) if inner_conds else true()
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        func.json_type(cls.tables.script.data.op("->")("vulns"))
+                        == "ARRAY",
+                        exists(select(1).select_from(vuln_alias).where(inner_where)),
+                    ),
+                )
+            ]
+        )
+
+
+class DuckDBNmap(DuckDBMixin, _DuckDBActiveSearchMixin, PostgresDBNmap):
     """DuckDB backend for the ``nmap`` (active-scan) data category."""
 
     base_filter = DuckDBNmapFilter
@@ -588,7 +757,7 @@ class DuckDBNmap(DuckDBMixin, PostgresDBNmap):
         return self.base_filter(text=[(not neg, text)])
 
 
-class DuckDBView(DuckDBMixin, PostgresDBView):
+class DuckDBView(DuckDBMixin, _DuckDBActiveSearchMixin, PostgresDBView):
     """DuckDB backend for the ``view`` (merged-host) data category."""
 
     base_filter = DuckDBViewFilter

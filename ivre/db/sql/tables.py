@@ -367,6 +367,8 @@ class _Scan:
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
+    cpes = Column(SQLJSONB)
+    os = Column(SQLJSONB)
 
 
 # Nmap

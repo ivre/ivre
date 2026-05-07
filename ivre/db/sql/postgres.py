@@ -46,6 +46,7 @@ from sqlalchemy import (
     insert,
     join,
     not_,
+    null,
     nulls_first,
     select,
     text,
@@ -1519,6 +1520,18 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                 state=host.get("state"),
                 state_reason=host.get("state_reason"),
                 state_reason_ttl=host.get("state_reason_ttl"),
+                # SQLAlchemy's JSON / JSONB ``bind_processor`` calls
+                # :func:`json.dumps` on whatever Python value it
+                # receives, so passing ``None`` would store the
+                # JSON literal ``'null'`` (and ``cpes IS NOT NULL``
+                # would still match the row).  Pass an explicit
+                # SQL ``NULL`` for absent / empty payloads so
+                # :meth:`searchcpe` / :meth:`searchos` match only
+                # records with real data, mirroring Mongo's
+                # ``{"$exists": true}`` semantics on the array
+                # field.
+                cpes=host["cpes"] if host.get("cpes") else null(),
+                os=host["os"] if host.get("os") else null(),
             )
             .on_conflict_do_nothing()
             .returning(self.tables.scan.id)
@@ -1629,11 +1642,9 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             extracols=[
                 Column("categories", ARRAY(String(32))),
                 Column("source", String(32)),
-                # Column("cpe", postgresql.JSONB),
                 # Column("extraports", postgresql.JSONB),
                 Column("hostnames", postgresql.JSONB),
                 # openports
-                # Column("os", postgresql.JSONB),
                 Column("ports", postgresql.JSONB),
                 # Column("traceroutes", postgresql.JSONB),
             ],
@@ -1657,6 +1668,14 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                 info=info,
                 time_start=host_tstart,
                 time_stop=host_tstop,
+                # See :meth:`PostgresDBNmap._store_host` for the
+                # ``null()`` rationale (a Python ``None`` would
+                # serialise to JSON ``'null'`` rather than SQL
+                # ``NULL`` on a JSONB column, defeating
+                # ``IS NOT NULL`` filters in :meth:`searchcpe` /
+                # :meth:`searchos`).
+                cpes=host["cpes"] if host.get("cpes") else null(),
+                os=host["os"] if host.get("os") else null(),
                 **{
                     key: host.get(key)
                     for key in ["state", "state_reason", "state_reason_ttl"]
@@ -1675,6 +1694,8 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                         self.tables.scan.time_stop,
                         insrt.excluded.time_stop,
                     ),
+                    "cpes": func.coalesce(insrt.excluded.cpes, self.tables.scan.cpes),
+                    "os": func.coalesce(insrt.excluded.os, self.tables.scan.os),
                 },
             )
             .returning(self.tables.scan.id, self.tables.scan.time_stop)

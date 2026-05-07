@@ -3599,6 +3599,263 @@ class SQLDBSearchTextTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBSearchCpeOsVulnTests -- pin the wire shape of the
+# Mongo-shape ``searchcpe`` / ``searchos`` / ``searchvuln*``
+# helpers on the SQL backends.  Both PostgreSQL and DuckDB are
+# exercised so the dialect-aware split (PG :func:`jsonb_array_elements`
+# + :func:`jsonb_typeof` vs DuckDB :func:`json_each` +
+# :func:`json_type`, plus the ``~*`` -> :func:`regexp_matches`
+# rewrite) stays under regression coverage.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBSearchCpeOsVulnTests(unittest.TestCase):
+    """Behaviour-pin for ``SQLDBActive.searchcpe`` /
+    ``searchos`` / ``searchvuln`` / ``searchvulnintersil``.
+
+    Each method mirrors the contract of its counterpart on
+    :class:`MongoDB` (``cpes`` / ``os.osclass`` / ``ports.scripts.vulns``);
+    on the SQL backends the matching logic unwinds the JSONB
+    array column with PG's :func:`jsonb_array_elements` (or
+    DuckDB's :func:`json_each`) and AND-/OR-combines the
+    per-field text predicates inside an ``EXISTS``.
+
+    The DuckDB lane also exercises the
+    ``_searchstring_re`` -> :func:`regexp_matches` rewrite the
+    :class:`DuckDBMixin` ships, since DuckDB's parser does not
+    accept PostgreSQL's case-insensitive regex operator
+    ``~*``.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _compile_duckdb(stmt):
+        # ``duckdb_engine`` is the optional dependency the
+        # module-level try-import already gated behind
+        # ``_HAVE_DUCKDB_ENGINE``; reuse the module-scope
+        # binding rather than re-importing locally.
+        return str(
+            stmt.compile(
+                dialect=duckdb_engine.Dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    def _run_count_query(self, db_url, factory):
+        # Build an ``ActiveFilter`` from the connection URL and
+        # the supplied factory (``factory(db) -> filter``), then
+        # return the rendered ``SELECT count(*) ...`` query.
+        sa = _sqlalchemy
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url(db_url)
+        flt = factory(db)
+        return flt, flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+
+    # -- searchcpe -----------------------------------------------------
+
+    def test_searchcpe_no_args_emits_is_not_null(self):
+        from ivre.db import DBNmap, DBView
+
+        for cls in (DBNmap, DBView):
+            with self.subTest(cls=cls.__name__):
+                db = cls.from_url("postgresql://x@localhost/x")
+                flt = db.searchcpe()
+                sa = _sqlalchemy
+                sql = self._compile_pg(
+                    flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+                )
+                # A zero-arg call only checks for the column's
+                # presence: no ``EXISTS`` over the unwound array,
+                # just an ``IS NOT NULL`` on the JSONB column.
+                self.assertIn("cpes IS NOT NULL", sql)
+                self.assertNotIn("jsonb_array_elements", sql)
+
+    def test_searchcpe_pg_unwinds_with_jsonb_array_elements(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchcpe(vendor="apache", product="httpd")
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # PG: ``jsonb_array_elements(scan.cpes) AS __cpe`` and
+        # then ``__cpe ->> '<field>'`` per condition.
+        self.assertIn("jsonb_array_elements(n_scan.cpes) AS __cpe", sql)
+        self.assertIn("__cpe ->> ", sql)
+        # Two AND-combined predicates (vendor + product).
+        self.assertEqual(sql.count("__cpe ->>"), 2)
+
+    def test_searchcpe_pg_regex_emits_caseinsensitive_op(self):
+        import re
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchcpe(vendor=re.compile("^apache", re.IGNORECASE))
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # The case-insensitive flag maps to PG's ``~*`` operator.
+        self.assertIn("~*", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchcpe_duckdb_unwinds_with_json_each(self):
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchcpe(vendor="apache", product="httpd")
+        sa = _sqlalchemy
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # DuckDB: ``json_each(scan.cpes) AS __cpe(...)`` with
+        # the 8-column shape declared by ``_JSON_EACH_COLUMNS``.
+        self.assertIn("json_each(n_scan.cpes)", sql)
+        self.assertIn("__cpe", sql)
+        # Conditions reference ``__cpe.value -> '<field>'`` --
+        # the "value" column is the per-element JSON.
+        self.assertIn("__cpe.value ->>", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchcpe_duckdb_regex_uses_regexp_matches(self):
+        import re
+
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchcpe(vendor=re.compile("^apache", re.IGNORECASE))
+        sa = _sqlalchemy
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # DuckDB cannot parse ``~*``; the override emits a
+        # ``regexp_matches(field, pattern, 'i')`` call instead.
+        self.assertNotIn("~*", sql)
+        self.assertIn("regexp_matches(", sql)
+
+    # -- searchos ------------------------------------------------------
+
+    def test_searchos_pg_unwinds_osclass_array(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchos("Linux")
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # PG: unwinds ``scan.os -> 'osclass'`` and OR-combines
+        # the four per-field predicates.
+        self.assertIn("jsonb_array_elements(n_scan.os -> 'osclass')", sql)
+        self.assertIn("jsonb_typeof(n_scan.os -> 'osclass') = 'array'", sql)
+        for field in ("vendor", "osfamily", "osgen", "type"):
+            self.assertIn(f"__osclass ->> '{field}'", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchos_duckdb_unwinds_osclass_array(self):
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        db = DuckDBNmap.from_url("duckdb:///:memory:")
+        flt = db.searchos("Linux")
+        sa = _sqlalchemy
+        sql = self._compile_duckdb(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        self.assertIn("json_each(n_scan.os -> 'osclass')", sql)
+        # DuckDB ``json_type`` returns upper-case ARRAY where
+        # PG's :func:`jsonb_typeof` returns lower-case array.
+        self.assertIn("json_type(n_scan.os -> 'osclass') = 'ARRAY'", sql)
+
+    # -- searchvuln ----------------------------------------------------
+
+    def test_searchvuln_pg_unwinds_script_data_vulns(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchvuln(vulnid="CVE-2021-44228", state="VULNERABLE")
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # The vuln predicate lives on the ``script`` table and
+        # composes the EXISTS over ``script.data -> 'vulns'``.
+        self.assertIn("jsonb_array_elements(n_script.data -> 'vulns')", sql)
+        self.assertIn("jsonb_typeof(n_script.data -> 'vulns') = 'array'", sql)
+        # Two AND-combined predicates: id + state.
+        self.assertIn("__vuln ->> 'id'", sql)
+        self.assertIn("__vuln ->> 'state'", sql)
+
+    def test_searchvuln_no_args_keeps_existence_check(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchvuln()
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # No ``id`` / ``state`` predicates -- the inner WHERE
+        # collapses to ``true`` so any non-empty vulns array
+        # matches.
+        self.assertIn("jsonb_array_elements(n_script.data -> 'vulns')", sql)
+        self.assertNotIn("__vuln ->>", sql)
+
+    # -- searchvulnintersil --------------------------------------------
+
+    def test_searchvulnintersil_emits_port_predicates(self):
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("postgresql://x@localhost/x")
+        flt = db.searchvulnintersil()
+        sa = _sqlalchemy
+        sql = self._compile_pg(
+            flt.query(sa.select(sa.func.count()).select_from(flt.select_from))
+        )
+        # Pure port-table filter -- no JSON unwind.
+        self.assertNotIn("jsonb_array_elements", sql)
+        self.assertIn("n_port.protocol = 'tcp'", sql)
+        self.assertIn("n_port.state = 'open'", sql)
+        self.assertIn("n_port.service_product = 'Boa HTTPd'", sql)
+
+    # -- schema --------------------------------------------------------
+
+    def test_scan_schema_carries_cpes_and_os_columns(self):
+        # Pin that the new columns made it onto the shared
+        # ``_Scan`` mixin and are present on both ``n_scan``
+        # and ``v_scan``.
+        from ivre.db.sql.tables import N_Scan, V_Scan
+
+        for cls in (N_Scan, V_Scan):
+            with self.subTest(cls=cls.__name__):
+                self.assertIn("cpes", cls.__table__.columns)
+                self.assertIn("os", cls.__table__.columns)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

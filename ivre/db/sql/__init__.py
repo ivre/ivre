@@ -156,7 +156,7 @@ class ScanCSVFile(CSVFile):
         self.fdesc = None
 
     def fixline(self, line):
-        for field in ["cpes", "extraports", "openports", "os", "traces"]:
+        for field in ["extraports", "openports", "traces"]:
             line.pop(field, None)
         line["addr"] = self.ip2internal(line["addr"])
         line["time_start"] = line.pop("starttime")
@@ -182,7 +182,7 @@ class ScanCSVFile(CSVFile):
                                 cert[fld] = utils.all2datetime(cert[fld]).timestamp()
             if "screendata" in port:
                 port["screendata"] = utils.encode_b64(port["screendata"])
-        for field in ["hostnames", "ports", "info"]:
+        for field in ["hostnames", "ports", "info", "cpes", "os"]:
             if field in line:
                 line[field] = json.dumps(line[field]).replace("\\", "\\\\")
         return [
@@ -2740,6 +2740,135 @@ class SQLDBActive(SQLDB, DBActive):
                         cls.tables.port.state == "open",
                         cls.tables.port.service_product == "vsftpd",
                         cls.tables.port.service_version == "2.3.4",
+                    ),
+                )
+            ]
+        )
+
+    @classmethod
+    def searchvulnintersil(cls):
+        # See MSF modules/auxiliary/admin/http/intersil_pass_reset.rb
+        return cls.base_filter(
+            port=[
+                (
+                    True,
+                    and_(
+                        cls.tables.port.protocol == "tcp",
+                        cls.tables.port.state == "open",
+                        cls.tables.port.service_product == "Boa HTTPd",
+                        cls._searchstring_re(
+                            cls.tables.port.service_version,
+                            re.compile(
+                                "^0\\.9(3([^0-9]|$)"
+                                "|4\\.([0-9]|0[0-9]|1[0-1])([^0-9]|$))"
+                            ),
+                        ),
+                    ),
+                )
+            ]
+        )
+
+    @classmethod
+    def searchcpe(cls, cpe_type=None, vendor=None, product=None, version=None):
+        """Filter records carrying a CPE matching the given criteria.
+        Each kwarg accepts a string, a list of strings, or a compiled
+        regex. With no argument the filter only checks for the
+        presence of at least one CPE entry.
+
+        Mirrors the contract of :meth:`MongoDB.searchcpe`. The CPE
+        list is stored verbatim from the Mongo-shape host record on
+        the ``scan.cpes`` JSONB column; matching is performed by
+        unwinding that array via :func:`jsonb_array_elements` and
+        AND-combining the per-field predicates inside an ``EXISTS``.
+        """
+        fields = [
+            ("type", cpe_type),
+            ("vendor", vendor),
+            ("product", product),
+            ("version", version),
+        ]
+        flt = [(field, value) for field, value in fields if value is not None]
+        if not flt:
+            return cls.base_filter(
+                main=cls.tables.scan.cpes != None,  # noqa: E711
+            )
+        cpe_alias = func.jsonb_array_elements(cls.tables.scan.cpes).alias("__cpe")
+        conds = [
+            cls._search_field(column("__cpe").op("->>")(fname), value)
+            for fname, value in flt
+        ]
+        return cls.base_filter(
+            main=and_(
+                cls.tables.scan.cpes != None,  # noqa: E711
+                exists(select(1).select_from(cpe_alias).where(and_(*conds))),
+            ),
+        )
+
+    @classmethod
+    def searchos(cls, txt):
+        """Filter records whose OS detection (``osclass`` array)
+        matches ``txt`` on at least one of vendor / family /
+        generation / type. ``txt`` may be a string or a compiled
+        regex.
+
+        Mirrors :meth:`MongoDB.searchos`. The Mongo-shape ``host['os']``
+        dict is stored verbatim on the ``scan.os`` JSONB column; the
+        ``osclass`` sub-array is unwound via :func:`jsonb_array_elements`
+        and the per-field predicates are OR-combined inside an
+        ``EXISTS``.
+        """
+        osclass_alias = func.jsonb_array_elements(
+            cls.tables.scan.os.op("->")("osclass")
+        ).alias("__osclass")
+        conds = or_(
+            *(
+                cls._searchstring_re(column("__osclass").op("->>")(fname), txt)
+                for fname in ("vendor", "osfamily", "osgen", "type")
+            )
+        )
+        return cls.base_filter(
+            main=and_(
+                cls.tables.scan.os != None,  # noqa: E711
+                func.jsonb_typeof(cls.tables.scan.os.op("->")("osclass")) == "array",
+                exists(select(1).select_from(osclass_alias).where(conds)),
+            ),
+        )
+
+    @classmethod
+    def searchvuln(cls, vulnid=None, state=None):
+        """Filter records that expose a vulnerability matching
+        ``vulnid`` and / or ``state``. With both args ``None`` the
+        filter accepts any host with at least one detected
+        vulnerability.
+
+        Mirrors :meth:`MongoDB.searchvuln`. Vulnerabilities are
+        stored as part of the script ``data`` JSONB at
+        ``data['vulns']`` (a list of ``{id, state, ...}`` entries
+        post-schema-v8 migration); the array is unwound via
+        :func:`jsonb_array_elements` and the per-field predicates
+        are AND-combined inside a correlated ``EXISTS``.
+        """
+        vuln_alias = func.jsonb_array_elements(
+            cls.tables.script.data.op("->")("vulns")
+        ).alias("__vuln")
+        inner_conds = []
+        if vulnid is not None:
+            inner_conds.append(
+                cls._search_field(column("__vuln").op("->>")("id"), vulnid)
+            )
+        if state is not None:
+            inner_conds.append(
+                cls._search_field(column("__vuln").op("->>")("state"), state)
+            )
+        inner_where = and_(*inner_conds) if inner_conds else true()
+        return cls.base_filter(
+            script=[
+                (
+                    True,
+                    and_(
+                        func.jsonb_typeof(cls.tables.script.data.op("->")("vulns"))
+                        == "array",
+                        exists(select(1).select_from(vuln_alias).where(inner_where)),
                     ),
                 )
             ]
