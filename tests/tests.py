@@ -4771,11 +4771,16 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("view_features_versions_noyieldall_FRDE_ndata", len(data))
 
-        # Full-text. Skipped on the AWS DocumentDB flavour: the
+        # Full-text.  Every :class:`DBActive` backend now ships
+        # a ``searchtext()`` method (Mongo via the ``$text``
+        # operator, PG via ``to_tsvector @@ plainto_tsquery``,
+        # DuckDB via the FTS extension's ``match_bm25``,
+        # Elastic via ``multi_match`` over ``text_fields``).
+        # Still skipped on the AWS DocumentDB flavour: the
         # backend has no text-index facility and no ``$text``
-        # operator. ``MongoDBView.searchtext`` would fail at
+        # operator -- ``MongoDBView.searchtext`` would fail at
         # query time on a real DocumentDB instance.
-        if DATABASE == "mongo" and BACKEND_FLAVOR != "documentdb":
+        if BACKEND_FLAVOR != "documentdb":
             self.check_value(
                 "view_count_text_honeypot",
                 ivre.db.db.view.count(ivre.db.db.view.searchtext("honeypot")),

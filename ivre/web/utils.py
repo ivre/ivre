@@ -953,10 +953,11 @@ def flt_from_query(dbase, query, base_flt=None):
             else:
                 flt = dbase.flt_and(flt, dbase.searchtag(neg=neg))
         elif not neg and param == "search":
-            try:
-                flt = dbase.flt_and(flt, dbase.searchtext(value))
-            except AttributeError:  # .searchtext() only exists in MongoDB
-                add_unused(neg, param, value)
+            # Every :class:`DBActive` backend now ships a
+            # ``searchtext()`` method (Mongo / PG / DuckDB /
+            # Elastic), so the historical
+            # ``try/except AttributeError`` is gone.
+            flt = dbase.flt_and(flt, dbase.searchtext(value))
         elif param == "display":
             # ignore this parameter
             pass

@@ -1636,6 +1636,74 @@ return result;
         return res
 
     @classmethod
+    def searchtext(cls, text, neg=False):
+        """Filter records that match the free-text ``text``
+        across every text-bearing field declared in
+        :attr:`DBActive.text_fields`.
+
+        Mirrors the contract of :meth:`MongoDB.searchtext`
+        (``{"$text": {"$search": text}}``) and
+        :meth:`SQLDBActive.searchtext` (the ``OR``-of-``EXISTS``
+        over text-bearing child tables): a single
+        ``searchtext("foo")`` matches any host with ``foo``
+        somewhere in its hostnames, tags, ports, scripts,
+        traces, categories, or OS / CPE attributes.
+
+        Composes one ``multi_match`` query per nesting level:
+
+        * Fields under a path declared in :attr:`nested_fields`
+          (``ports.*``, ``ports.scripts.*``, ``tags.*``) are
+          wrapped in a ``nested`` query against the appropriate
+          path so Elasticsearch evaluates the match against the
+          inner document; a top-level ``multi_match`` against a
+          nested-typed field silently returns nothing.
+        * Remaining fields (``categories``, ``cpes.*``,
+          ``hostnames.*``, ``os.*``, ``traces.hops.host``)
+          fan out under a single root-level ``multi_match``.
+
+        The per-group queries are OR-combined; ``neg=True``
+        wraps the whole result in :class:`elasticsearch_dsl.query.Bool`'s
+        ``~`` (i.e. ``must_not``).
+        """
+        # Group :attr:`text_fields` by their nested ancestor
+        # (longest prefix match in :attr:`nested_fields`).
+        nested_paths = sorted(cls.nested_fields, key=len, reverse=True)
+        flat_fields: list[str] = []
+        nested_groups: dict[str, list[str]] = {}
+        for field in cls.text_fields:
+            for path in nested_paths:
+                if field == path or field.startswith(f"{path}."):
+                    nested_groups.setdefault(path, []).append(field)
+                    break
+            else:
+                flat_fields.append(field)
+
+        queries: list[Q] = []
+        if flat_fields:
+            queries.append(Q("multi_match", query=text, fields=flat_fields))
+        for path, fields in nested_groups.items():
+            queries.append(
+                Q(
+                    "nested",
+                    path=path,
+                    query=Q("multi_match", query=text, fields=fields),
+                )
+            )
+
+        if not queries:
+            # No text fields declared on this backend: a
+            # ``searchtext`` call is a guaranteed mismatch
+            # (positive search) or a tautology (negation).
+            return cls.flt_empty if neg else cls.searchnonexistent()
+
+        result = queries[0]
+        for query in queries[1:]:
+            result = result | query
+        if neg:
+            return ~result
+        return result
+
+    @classmethod
     def searchhassh(cls, value_or_hash=None, server=None):
         if server is None:
             return cls._searchhassh(value_or_hash=value_or_hash)

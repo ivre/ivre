@@ -4290,10 +4290,16 @@ class DBView(DBActive):
             metavar="NUM[,NUM[...]]",
             help="show only results from this(those) AS(es)",
         )
-        if hasattr(self, "searchtext"):
-            self.argparser.add_argument(
-                "--search", metavar="FREE TEXT", help="perform a full-text search"
-            )
+        # Every :class:`DBActive` backend now ships a
+        # ``searchtext()`` method (Mongo via the ``$text``
+        # operator, PG via ``to_tsvector @@ plainto_tsquery``,
+        # DuckDB via the FTS extension's ``match_bm25``,
+        # Elastic via ``multi_match`` over ``text_fields``).
+        # The historical ``hasattr(self, "searchtext")`` guard
+        # is gone.
+        self.argparser.add_argument(
+            "--search", metavar="FREE TEXT", help="perform a full-text search"
+        )
         self.argparser.add_argument(
             "--ssl-ja3-server",
             metavar="JA3-SERVER[:JA3-CLIENT]",
@@ -4356,7 +4362,7 @@ class DBView(DBActive):
                 flt = self.flt_and(flt, self.searchasnum(utils.str2list(args.asnum)))
         if args.country is not None:
             flt = self.flt_and(flt, self.searchcountry(utils.str2list(args.country)))
-        if hasattr(self, "searchtext") and args.search is not None:
+        if args.search is not None:
             flt = self.flt_and(flt, self.searchtext(args.search))
         if args.ssl_ja3_client is not None:
             cli = args.ssl_ja3_client

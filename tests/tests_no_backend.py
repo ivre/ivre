@@ -1400,6 +1400,127 @@ class ElasticDBSearchFieldTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBSearchTextTests -- pin the wire shape of the
+# Elasticsearch ``searchtext()`` helper added alongside the
+# PostgreSQL and DuckDB sibling implementations.  Closes the
+# cross-backend ``searchtext`` parity story; a follow-up commit
+# in this PR drops the four ``hasattr(self, "searchtext")``
+# guards in :mod:`ivre.db`, :mod:`ivre.web.utils` and the
+# Mongo-only gate in ``tests/tests.py``'s ``test_50_view``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBSearchTextTests(unittest.TestCase):
+    """Pin :meth:`ElasticDBActive.searchtext` -- the Elastic
+    counterpart of :meth:`MongoDB.searchtext`,
+    :meth:`SQLDBActive.searchtext` and
+    :meth:`DuckDBNmap.searchtext`.
+
+    The implementation OR-composes one ``multi_match`` per
+    nesting level of :attr:`DBActive.text_fields`: a root
+    ``multi_match`` for the flat fields plus one
+    :class:`~elasticsearch_dsl.query.Nested` query per
+    :attr:`ElasticDBActive.nested_fields` group (``ports``,
+    ``ports.scripts``, ``tags``).  A top-level
+    ``multi_match`` against a nested-typed field silently
+    returns no hits in Elasticsearch, which is why the split
+    is required.
+    """
+
+    @staticmethod
+    def _ED():
+        # Local import: ``elasticsearch_dsl`` may not be
+        # installed in the no-backend lane.
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView
+
+    def test_searchtext_emits_or_of_multi_match_groups(self):
+        body = self._ED().searchtext("honeypot").to_dict()
+        # OR composition: ``bool.should`` of one root
+        # ``multi_match`` plus one ``nested`` per nested path.
+        self.assertEqual(set(body), {"bool"})
+        self.assertEqual(set(body["bool"]), {"should"})
+        clauses = body["bool"]["should"]
+        # 1 root + 3 nested (ports, ports.scripts, tags).
+        self.assertEqual(len(clauses), 4)
+        # Root-level ``multi_match`` over ``categories``,
+        # ``cpes.*``, ``hostnames.*``, ``os.*``,
+        # ``traces.hops.host``.
+        root = next(c["multi_match"] for c in clauses if "multi_match" in c)
+        self.assertEqual(root["query"], "honeypot")
+        self.assertIn("categories", root["fields"])
+        self.assertIn("hostnames.name", root["fields"])
+        self.assertIn("traces.hops.host", root["fields"])
+        # No nested fields leaked into the root group.
+        self.assertNotIn("ports.service_name", root["fields"])
+        self.assertNotIn("tags.value", root["fields"])
+        # And every nested group wraps a ``multi_match`` over
+        # its own path's fields.
+        nested_paths = {c["nested"]["path"] for c in clauses if "nested" in c}
+        self.assertEqual(nested_paths, {"ports", "ports.scripts", "tags"})
+        for clause in clauses:
+            if "nested" not in clause:
+                continue
+            path = clause["nested"]["path"]
+            inner = clause["nested"]["query"]["multi_match"]
+            self.assertEqual(inner["query"], "honeypot")
+            for field in inner["fields"]:
+                self.assertTrue(
+                    field == path or field.startswith(f"{path}."),
+                    f"field {field!r} not under nested path {path!r}",
+                )
+
+    def test_searchtext_negation_wraps_in_must_not(self):
+        body = self._ED().searchtext("honeypot", neg=True).to_dict()
+        # The negative form wraps the whole ``should``-of-groups
+        # in a ``must_not`` array.  Each nested clause is now
+        # under ``bool.must_not`` instead of ``bool.should``.
+        self.assertEqual(set(body), {"bool"})
+        self.assertEqual(set(body["bool"]), {"must_not"})
+        # Same fan-out (1 root + 3 nested).
+        self.assertEqual(len(body["bool"]["must_not"]), 4)
+
+    def test_searchtext_text_fields_are_partitioned_correctly(self):
+        # Pin that every entry in
+        # :attr:`DBActive.text_fields` lands in *exactly one*
+        # group (root or nested), and that the union of all
+        # groups equals the full ``text_fields`` list.  Drift
+        # would silently drop fields from the search.
+        from ivre.db import DBActive
+
+        body = self._ED().searchtext("foo").to_dict()
+        emitted: set[str] = set()
+        for clause in body["bool"]["should"]:
+            if "multi_match" in clause:
+                emitted.update(clause["multi_match"]["fields"])
+            elif "nested" in clause:
+                emitted.update(clause["nested"]["query"]["multi_match"]["fields"])
+        self.assertEqual(emitted, set(DBActive.text_fields))
+
+    def test_searchtext_with_no_text_fields_yields_nonexistent(self):
+        # Defensive: a hypothetical subclass that drops every
+        # ``text_field`` would otherwise emit
+        # ``Q("multi_match", query=..., fields=[])`` -- which
+        # Elasticsearch rejects as malformed.  Pin that the
+        # empty-fields case short-circuits to
+        # :meth:`searchnonexistent` instead.
+        sa = self._ED()
+
+        class _Empty(sa):  # type: ignore[misc, valid-type]
+            text_fields: list[str] = []
+
+        body = _Empty.searchtext("foo").to_dict()
+        # ``searchnonexistent`` returns ``Q("match", _id=0)`` --
+        # i.e. ``{"match": {"_id": 0}}``.
+        self.assertEqual(body, {"match": {"_id": 0}})
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.
