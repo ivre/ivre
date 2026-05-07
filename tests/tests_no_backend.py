@@ -1521,6 +1521,157 @@ class ElasticDBSearchTextTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBSearchTier1Tests -- pin the wire shape of the
+# Tier-1 ``search*`` parity helpers added on
+# ``ElasticDBActive``: ``searchsource`` / ``searchhostname`` /
+# ``searchdomain`` (the three that previously raised
+# ``NotImplementedError`` or were missing entirely on the
+# Elastic backend).  ``searchntlm`` / ``searchsmb`` /
+# ``searchsshkey`` already work via the
+# :meth:`ElasticDBActive.searchscript` inheritance chain;
+# ``test_inherited_helpers_compose_through_searchscript``
+# pins that.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBSearchTier1Tests(unittest.TestCase):
+    """Behaviour-pin for ``ElasticDBActive.searchsource`` /
+    ``searchhostname`` / ``searchdomain``, plus a regression
+    pin that the script-delegating helpers (``searchntlm`` /
+    ``searchsmb`` / ``searchsshkey``) keep producing valid
+    Elasticsearch nested queries.
+    """
+
+    @staticmethod
+    def _ED():
+        # Local import: ``elasticsearch_dsl`` may not be
+        # installed in the no-backend lane.
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView
+
+    # -- searchsource --------------------------------------------------
+
+    def test_searchsource_scalar(self):
+        body = self._ED().searchsource("scan-2024").to_dict()
+        self.assertEqual(body, {"match": {"source": "scan-2024"}})
+
+    def test_searchsource_neg(self):
+        body = self._ED().searchsource("scan-2024", neg=True).to_dict()
+        self.assertEqual(
+            body, {"bool": {"must_not": [{"match": {"source": "scan-2024"}}]}}
+        )
+
+    def test_searchsource_regex_uses_regexp_query(self):
+        import re
+
+        body = self._ED().searchsource(re.compile("^scan-")).to_dict()
+        # ``_get_pattern`` strips the leading anchor and adds
+        # ``.*`` to match Elasticsearch's
+        # anchored-by-default ``regexp`` semantics.
+        self.assertEqual(body, {"regexp": {"source": "scan-.*"}})
+
+    def test_searchsource_list_uses_terms_query(self):
+        body = self._ED().searchsource(["a", "b"]).to_dict()
+        self.assertEqual(body, {"terms": {"source": ["a", "b"]}})
+
+    # -- searchdomain --------------------------------------------------
+
+    def test_searchdomain_scalar(self):
+        body = self._ED().searchdomain("example.com").to_dict()
+        self.assertEqual(body, {"match": {"hostnames.domains": "example.com"}})
+
+    def test_searchdomain_neg(self):
+        body = self._ED().searchdomain("example.com", neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"match": {"hostnames.domains": "example.com"}}]}},
+        )
+
+    # -- searchhostname ------------------------------------------------
+
+    def test_searchhostname_no_args_uses_existence_check(self):
+        body = self._ED().searchhostname().to_dict()
+        # Existence is gated on the indexed
+        # ``hostnames.domains`` field rather than the
+        # non-indexed ``hostnames.name``.
+        self.assertEqual(body, {"exists": {"field": "hostnames.domains"}})
+
+    def test_searchhostname_no_args_neg(self):
+        body = self._ED().searchhostname(neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"exists": {"field": "hostnames.domains"}}]}},
+        )
+
+    def test_searchhostname_positive_combines_indexed_lookup_and_name(self):
+        body = self._ED().searchhostname("foo.example.com").to_dict()
+        # Positive match ANDs the indexed domain lookup (so
+        # the query goes through the ``hostnames.domains``
+        # index) with the ``hostnames.name`` match.
+        self.assertEqual(
+            body,
+            {
+                "bool": {
+                    "must": [
+                        {"match": {"hostnames.domains": "foo.example.com"}},
+                        {"match": {"hostnames.name": "foo.example.com"}},
+                    ]
+                }
+            },
+        )
+
+    def test_searchhostname_negation_skips_indexed_lookup(self):
+        # The Mongo helper's ``neg=True`` path only excludes
+        # records matching the supplied name on
+        # ``hostnames.name`` -- it does *not* ``$nin`` the
+        # indexed ``hostnames.domains`` lookup (the latter
+        # would silently exclude legitimate non-matches).
+        # Pin the same shape on the Elastic side.
+        body = self._ED().searchhostname("foo.example.com", neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"match": {"hostnames.name": "foo.example.com"}}]}},
+        )
+
+    # -- inherited (delegate to searchscript) --------------------------
+
+    def test_inherited_helpers_compose_through_searchscript(self):
+        # ``searchntlm`` / ``searchsmb`` / ``searchsshkey``
+        # already inherit from ``DBActive`` and route through
+        # :meth:`ElasticDBActive.searchscript`.  Pin that they
+        # produce the canonical
+        # ``Nested(ports) -> Nested(ports.scripts) -> Bool``
+        # shape so a future refactor of the inherited helpers
+        # cannot silently break Tier-1 parity.
+        # ``searchsshkey`` is the only one of the three that
+        # is an *instance* method on ``DBActive`` (it has no
+        # ``@classmethod`` decorator), so the dispatch needs
+        # a real instance rather than the class itself.
+        db = self._ED().from_url("elastic://x:9200")
+        for method, kwargs, script_id in [
+            ("searchntlm", {"protocol": "smb"}, "ntlm-info"),
+            ("searchsmb", {"os": "Windows 10"}, "smb-os-discovery"),
+            ("searchsshkey", {"keytype": "rsa"}, "ssh-hostkey"),
+        ]:
+            with self.subTest(method=method):
+                body = getattr(db, method)(**kwargs).to_dict()
+                self.assertIn("nested", body)
+                self.assertEqual(body["nested"]["path"], "ports")
+                inner = body["nested"]["query"]
+                self.assertIn("nested", inner)
+                self.assertEqual(inner["nested"]["path"], "ports.scripts")
+                # Every script-delegating helper anchors the
+                # match on ``ports.scripts.id``.
+                must = inner["nested"]["query"]["bool"]["must"]
+                self.assertIn({"match": {"ports.scripts.id": script_id}}, must)
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.

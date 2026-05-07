@@ -1346,6 +1346,65 @@ return result;
         """
         return cls._search_field("categories", cat, neg=neg)
 
+    @classmethod
+    def searchsource(cls, src, neg=False):
+        """Filter records by ``source`` (a free-form tag the
+        scanner / ingestion pipeline assigns to each scan run).
+
+        Mirrors :meth:`MongoDB.searchsource`: a ``match`` query
+        against the ``source`` field, with the regex / list /
+        scalar dispatch :meth:`_search_field` already provides.
+        On the view backend ``source`` lands as an array of
+        strings (one per merged scan); Elasticsearch's
+        ``match`` against an array field returns a hit if any
+        element matches, so the same predicate works for both
+        Nmap and View shapes without a custom branch.
+        """
+        return cls._search_field("source", src, neg=neg)
+
+    @classmethod
+    def searchdomain(cls, name, neg=False):
+        """Filter records by hostname domain (matches the
+        domain at any level: ``foo.example.com`` matches
+        ``example.com`` and ``com``).
+
+        Mirrors :meth:`MongoDB.searchdomain`: a ``match`` query
+        against the indexed ``hostnames.domains`` field (which
+        ingestion populates with every suffix of every
+        hostname).
+        """
+        return cls._search_field("hostnames.domains", name, neg=neg)
+
+    @classmethod
+    def searchhostname(cls, name=None, neg=False):
+        """Filter records by hostname.
+
+        With ``name=None`` the filter only checks for the
+        existence (or absence, on ``neg=True``) of any hostname
+        on the record.  With a ``name`` argument the predicate
+        ANDs an indexed ``hostnames.domains`` lookup with the
+        non-indexed ``hostnames.name`` match (so the hot path
+        still goes through the index even though the exact
+        ``hostnames.name`` field is not indexed).
+
+        Mirrors :meth:`MongoDB.searchhostname`.
+        """
+        if name is None:
+            # ``hostnames.domains`` is the indexed field; gate
+            # on its existence rather than ``hostnames.name``
+            # so a query without a specific hostname still
+            # benefits from the index.
+            res = Q("exists", field="hostnames.domains")
+            if neg:
+                return ~res
+            return res
+        if neg:
+            return cls._search_field("hostnames.name", name, neg=True)
+        # Positive match: combine the indexed domain lookup
+        # (so the query goes through the index) with the
+        # ``hostnames.name`` match.
+        return cls.searchdomain(name) & cls._search_field("hostnames.name", name)
+
     @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
