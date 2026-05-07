@@ -4511,6 +4511,115 @@ class SQLDBResidualGapsTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBTopValuesNtlmTests -- pin the wire shape of the
+# ``ntlm`` / ``ntlm.<key>`` branches in ``topvalues``.  Both
+# PostgreSQL and DuckDB are exercised so the friendly-name
+# alias map (Mongo's ``ntlm.os`` -> ``Product_Version`` etc.)
+# stays under regression coverage on both backends.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBTopValuesNtlmTests(unittest.TestCase):
+    """Behaviour-pin for the ``ntlm`` and ``ntlm.<key>``
+    ``topvalues`` branches added on ``PostgresDBActive``.
+
+    ``topvalues`` returns a generator and the actual
+    aggregation runs against a live database, so the pin
+    intercepts ``_read_iter`` to capture the rendered SQL
+    statement instead of executing it -- enough to cover the
+    JSONB lookup path, the ``ntlm-info`` script-name guard,
+    and the friendly-name alias map.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _capture_topvalues_sql(db, field):
+        """Run ``db.view.topvalues(field)`` with ``_read_iter``
+        patched to capture the underlying SQL statement.
+        Returns the rendered PostgreSQL string."""
+        captured = []
+
+        def _fake(stmt):
+            captured.append(stmt)
+            return iter([])
+
+        # pylint: disable=protected-access
+        original = db._read_iter
+        db._read_iter = _fake
+        try:
+            list(db.topvalues(field))
+        finally:
+            db._read_iter = original
+        assert captured, "topvalues did not call _read_iter"
+        return SQLDBTopValuesNtlmTests._compile_pg(captured[-1])
+
+    def test_topvalues_ntlm_groups_by_full_doc(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ntlm")
+        self.assertIn("v_script.name = 'ntlm-info'", sql)
+        # SA emits the JSONB lookup as bracket notation
+        # (``data['ntlm-info']``); both PostgreSQL and DuckDB
+        # accept it as a synonym for ``->``.
+        self.assertIn("v_script.data['ntlm-info']", sql)
+
+    def test_topvalues_ntlm_friendly_aliases(self):
+        # The Mongo helper exposes friendly names that map to
+        # the underlying ``ntlm-info`` JSONB keys; pin the
+        # alias map here so the SQL backend keeps the same
+        # public contract.
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        cases = [
+            ("ntlm.name", "Target_Name"),
+            ("ntlm.server", "NetBIOS_Computer_Name"),
+            ("ntlm.domain", "NetBIOS_Domain_Name"),
+            ("ntlm.workgroup", "Workgroup"),
+            ("ntlm.domain_dns", "DNS_Domain_Name"),
+            ("ntlm.forest", "DNS_Tree_Name"),
+            ("ntlm.fqdn", "DNS_Computer_Name"),
+            ("ntlm.os", "Product_Version"),
+            ("ntlm.version", "NTLM_Version"),
+        ]
+        for alias, target in cases:
+            with self.subTest(alias=alias):
+                sql = self._capture_topvalues_sql(db, alias)
+                self.assertIn(f"v_script.data['ntlm-info']['{target}']", sql)
+                # Every branch routes through the
+                # ``ntlm-info`` script name and the
+                # ``has_key`` guard.
+                self.assertIn("v_script.name = 'ntlm-info'", sql)
+                self.assertIn(f"v_script.data['ntlm-info'] ? '{target}'", sql)
+
+    def test_topvalues_ntlm_passthrough_unaliased_key(self):
+        # Keys outside the alias map (e.g. ``protocol``,
+        # ``Target_Name`` directly) are passed through
+        # verbatim -- matching the Mongo helper's
+        # ``.get(arg, arg)`` fallback.
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ntlm.protocol")
+        self.assertIn("v_script.data['ntlm-info']['protocol']", sql)
+        sql_target = self._capture_topvalues_sql(db, "ntlm.Target_Name")
+        self.assertIn("v_script.data['ntlm-info']['Target_Name']", sql_target)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

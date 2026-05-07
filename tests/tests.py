@@ -4278,14 +4278,11 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
 
-        if DATABASE != "postgres":
-            self.check_view_top_value("view_top_ntlm_protocol", "ntlm.protocol")
-            self.check_view_top_value("view_top_ntlm_os", "ntlm.os")
-            self.check_view_top_value("view_top_ntlm_os", "ntlm.Product_Version")
-            self.check_view_top_value("view_top_ntlm_domain", "ntlm.domain")
-            self.check_view_top_value(
-                "view_top_ntlm_domain", "ntlm.NetBIOS_Domain_Name"
-            )
+        self.check_view_top_value("view_top_ntlm_protocol", "ntlm.protocol")
+        self.check_view_top_value("view_top_ntlm_os", "ntlm.os")
+        self.check_view_top_value("view_top_ntlm_os", "ntlm.Product_Version")
+        self.check_view_top_value("view_top_ntlm_domain", "ntlm.domain")
+        self.check_view_top_value("view_top_ntlm_domain", "ntlm.NetBIOS_Domain_Name")
 
         print("Filters")
         # Check schema version

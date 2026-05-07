@@ -1193,6 +1193,49 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     self.tables.script.data["s7-info"].has_key(subfield),  # noqa: W601
                 ),
             )
+        elif field == "ntlm" or field.startswith("ntlm."):
+            # Mirrors :meth:`MongoDB.topvalues` for the
+            # ``ntlm`` branches (Mongo paths
+            # ``ports.scripts.ntlm-info`` / ``...ntlm-info.<key>``).
+            # The same friendly-name aliases the Mongo helper
+            # exposes (``os`` -> ``Product_Version``,
+            # ``domain`` -> ``NetBIOS_Domain_Name``, etc.) are
+            # applied here so callers get identical results
+            # across backends.
+            flt = self.flt_and(flt, self.searchntlm())
+            if field == "ntlm":
+                # ``ntlm`` (no subkey) groups by the entire
+                # ``ntlm-info`` JSONB document.
+                field = self._topstructure(
+                    self.tables.script,
+                    [self.tables.script.data["ntlm-info"]],
+                    self.tables.script.name == "ntlm-info",
+                )
+            else:
+                subfield = field[5:]
+                # Friendly-name aliases per
+                # :meth:`MongoDB.topvalues` "ntlm." branch.
+                subfield = {
+                    "name": "Target_Name",
+                    "server": "NetBIOS_Computer_Name",
+                    "domain": "NetBIOS_Domain_Name",
+                    "workgroup": "Workgroup",
+                    "domain_dns": "DNS_Domain_Name",
+                    "forest": "DNS_Tree_Name",
+                    "fqdn": "DNS_Computer_Name",
+                    "os": "Product_Version",
+                    "version": "NTLM_Version",
+                }.get(subfield, subfield)
+                field = self._topstructure(
+                    self.tables.script,
+                    [self.tables.script.data["ntlm-info"][subfield]],
+                    and_(
+                        self.tables.script.name == "ntlm-info",
+                        self.tables.script.data["ntlm-info"].has_key(  # noqa: W601
+                            subfield
+                        ),
+                    ),
+                )
         elif field == "httphdr":
             flt = self.flt_and(flt, self.searchhttphdr())
             field = self._topstructure(
