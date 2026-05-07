@@ -45,11 +45,13 @@ from sqlalchemy import (
     func,
     insert,
     join,
+    lateral,
     not_,
     null,
     nulls_first,
     select,
     text,
+    true,
     tuple_,
     update,
 )
@@ -696,6 +698,86 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         self.tables.port.service_name == info,
                     ),
                 )
+        elif field.startswith("cpe"):
+            # Mirrors :meth:`MongoDB.topvalues` ``cpe`` /
+            # ``cpe.<part>`` / ``cpe:<spec>`` /
+            # ``cpe.<part>:<spec>`` family (with ``<part>`` one
+            # of ``type`` / ``vendor`` / ``product`` /
+            # ``version`` -- or 1..4 -- and ``<spec>`` an
+            # optional ``:``-separated list of regex filters
+            # narrowing the unwound CPEs).  Mongo concats the
+            # selected fields into a single ``:``-separated
+            # string and the outputproc splits back into a
+            # tuple; SQL lets us group by the columns
+            # directly so we just project them as a tuple
+            # (``_topstructure`` returns ``result[1:]`` when
+            # there is more than one projection column).
+            try:
+                cpe_field, cpe_spec = field.split(":", 1)
+                cpe_spec_parts = cpe_spec.split(":", 3)
+            except ValueError:
+                cpe_field = field
+                cpe_spec_parts = []
+            try:
+                cpe_field = cpe_field.split(".", 1)[1]
+            except IndexError:
+                cpe_field = "version"
+            cpe_keys = ["type", "vendor", "product", "version"]
+            if cpe_field not in cpe_keys:
+                try:
+                    cpe_field = cpe_keys[int(cpe_field) - 1]
+                except (IndexError, ValueError):
+                    cpe_field = "version"
+            cpe_filters = list(
+                zip(
+                    cpe_keys,
+                    (utils.str2regexp(value) for value in cpe_spec_parts),
+                )
+            )
+            # ``searchcpe`` takes the same dict shape Mongo
+            # passes to its ``$elemMatch`` -- with ``type``
+            # renamed to ``cpe_type`` per the helper's API.
+            flt = self.flt_and(
+                flt,
+                self.searchcpe(
+                    **{
+                        ("cpe_type" if key == "type" else key): value
+                        for key, value in cpe_filters
+                    }
+                ),
+            )
+            # Project up to and including ``cpe_field``;
+            # filter on the spec keys that were supplied.
+            keep_count = max(cpe_keys.index(cpe_field) + 1, len(cpe_filters))
+            kept_keys = cpe_keys[:keep_count]
+            # ``lateral(...)`` is required so PostgreSQL
+            # correlates the JSON unwind with the outer
+            # ``v_scan`` row -- without the explicit lateral
+            # marker, SA emits a comma-join and PG flags it
+            # as a cartesian product
+            # (``SAWarning: SELECT statement has a cartesian
+            # product between FROM element(s) "cpe" and FROM
+            # element "v_scan"``).  Implicit-lateral on SRFs
+            # produces correct results today, but the warning
+            # leaks to stderr on every CLI ``--top`` call.
+            cpe_alias = lateral(func.jsonb_array_elements(self.tables.scan.cpes)).alias(
+                "cpe"
+            )
+            cpe_conds = [
+                self._searchstring_re(column("cpe").op("->>")(key), value)
+                for key, value in cpe_filters
+            ]
+            field = self._topstructure(
+                self.tables.scan,
+                [column("cpe").op("->>")(key) for key in kept_keys],
+                (
+                    and_(*cpe_conds)
+                    if cpe_conds
+                    else self.tables.scan.cpes != None  # noqa: E711
+                ),
+                None,
+                cpe_alias,
+            )
         elif field == "devicetype":
             field = self._topstructure(
                 self.tables.port,
@@ -810,6 +892,21 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         self.tables.port.service_name == info,
                     ),
                 )
+        elif field == "addr":
+            # Mirrors :meth:`MongoDB.topvalues` ``addr``
+            # branch: top values of the host address column,
+            # decoded back to a printable IP via
+            # :meth:`SQLDB.internal2ip` (which handles both
+            # the ``str`` and ``dict`` round-trip shapes
+            # PostgreSQL / DuckDB use for ``INET``).
+            field = self._topstructure(self.tables.scan, [self.tables.scan.addr])
+
+            def outputproc(addr):
+                try:
+                    return self.internal2ip(addr)
+                except (TypeError, ValueError):
+                    return addr
+
         elif field == "asnum":
             field = self._topstructure(
                 self.tables.scan, [self.tables.scan.info["as_num"]]
@@ -903,8 +1000,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     [column("http_user_agent")],
                     self.tables.script.name == "http-user-agent",
                     None,
-                    func.jsonb_array_elements(
-                        self.tables.script.data["http-user-agent"],
+                    lateral(
+                        func.jsonb_array_elements(
+                            self.tables.script.data["http-user-agent"],
+                        )
                     ).alias("http_user_agent"),
                 )
             else:
@@ -921,8 +1020,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         ),
                     ),
                     None,
-                    func.jsonb_array_elements(
-                        self.tables.script.data["http-user-agent"],
+                    lateral(
+                        func.jsonb_array_elements(
+                            self.tables.script.data["http-user-agent"],
+                        )
                     ).alias("http_user_agent"),
                 )
         elif field == "ja3-client" or (
@@ -944,8 +1045,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     [column("ssl_ja3_client").op("->>")(subfield)],
                     self.tables.script.name == "ssl-ja3-client",
                     None,
-                    func.jsonb_array_elements(
-                        self.tables.script.data["ssl-ja3-client"],
+                    lateral(
+                        func.jsonb_array_elements(
+                            self.tables.script.data["ssl-ja3-client"],
+                        )
                     ).alias("ssl_ja3_client"),
                 )
             else:
@@ -962,8 +1065,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         ),
                     ),
                     None,
-                    func.jsonb_array_elements(
-                        self.tables.script.data["ssl-ja3-client"],
+                    lateral(
+                        func.jsonb_array_elements(
+                            self.tables.script.data["ssl-ja3-client"],
+                        )
                     ).alias("ssl_ja3_client"),
                 )
         elif field == "ja3-server" or (
@@ -1016,8 +1121,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 condition,
                 None,
-                func.jsonb_array_elements(
-                    self.tables.script.data["ssl-ja3-server"],
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssl-ja3-server"],
+                    )
                 ).alias("ssl_ja3_server"),
             )
         elif field == "jarm":
@@ -1035,6 +1142,80 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     & (self.tables.port.port == int(field[5:]))
                     & (self.tables.port.protocol == "tcp")
                 ),
+            )
+        elif field == "sshkey.bits":
+            # Mirrors :meth:`MongoDB.topvalues` ``sshkey.bits``
+            # branch: tuple of ``(type, bits)`` unwound from
+            # ``data.ssh-hostkey`` so the caller can correlate
+            # the bit count to the key algorithm.  The Mongo
+            # helper goes through ``searchsshkey()`` to scope
+            # the filter; we do the same on the SQL side.
+            flt = self.flt_and(flt, self.searchsshkey())
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    column("sshkey").op("->>")("type"),
+                    column("sshkey").op("->>")("bits"),
+                ],
+                self.tables.script.name == "ssh-hostkey",
+                None,
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssh-hostkey"],
+                    )
+                ).alias("sshkey"),
+            )
+        elif field.startswith("sshkey."):
+            # Mirrors :meth:`MongoDB.topvalues` ``sshkey.<other>``
+            # branch: scalar value of a single key on each
+            # unwound ``ssh-hostkey`` element.
+            subfield = field[7:]
+            flt = self.flt_and(flt, self.searchsshkey())
+            field = self._topstructure(
+                self.tables.script,
+                [column("sshkey").op("->>")(subfield)],
+                self.tables.script.name == "ssh-hostkey",
+                None,
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssh-hostkey"],
+                    )
+                ).alias("sshkey"),
+            )
+        elif field == "ja4-client" or (
+            field.startswith("ja4-client") and field[10] in ":."
+        ):
+            # Mirrors :meth:`MongoDB.topvalues` ``ja4-client``
+            # branch: top values of a field on the unwound
+            # ``ssl-ja4-client`` array.  The Mongo helper
+            # supports the ``ja4-client[.<sub>][:<value>]``
+            # form -- ``<sub>`` defaults to ``ja4`` (the
+            # canonical fingerprint), ``<value>`` narrows the
+            # filter to a specific fingerprint string.
+            value = None
+            if ":" in field:
+                field, value = field.split(":", 1)
+            if "." in field:
+                _, subfield = field.split(".", 1)
+            else:
+                subfield = "ja4"
+            flt = self.flt_and(flt, self.searchja4client(value=value))
+            condition = self.tables.script.name == "ssl-ja4-client"
+            if value is not None:
+                condition = and_(
+                    condition,
+                    column("ssl_ja4_client").op("->>")("ja4") == value,
+                )
+            field = self._topstructure(
+                self.tables.script,
+                [column("ssl_ja4_client").op("->>")(subfield)],
+                condition,
+                None,
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ssl-ja4-client"],
+                    )
+                ).alias("ssl_ja4_client"),
             )
         elif field == "hassh" or (field.startswith("hassh") and field[5] in "-."):
             if "." in field:
@@ -1193,6 +1374,44 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     self.tables.script.data["s7-info"].has_key(subfield),  # noqa: W601
                 ),
             )
+        elif field.startswith("smb."):
+            # Mirrors :meth:`MongoDB.topvalues` ``smb.<key>``
+            # branch: top values of a key on the
+            # ``smb-os-discovery`` script's data document.  No
+            # friendly-name aliases (the Mongo helper passes
+            # the subkey through unchanged); :meth:`searchsmb`
+            # narrows the active filter to scans carrying the
+            # script.
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchsmb())
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["smb-os-discovery"][subfield]],
+                and_(
+                    self.tables.script.name == "smb-os-discovery",
+                    self.tables.script.data["smb-os-discovery"].has_key(  # noqa: W601
+                        subfield
+                    ),
+                ),
+            )
+        elif field.startswith("mongo.dbs."):
+            # Mirrors :meth:`MongoDB.topvalues` ``mongo.dbs.<key>``
+            # branch: top values of a per-database field on the
+            # ``mongodb-databases`` script's data document.
+            subfield = field[10:]
+            flt = self.flt_and(flt, self.searchscript(name="mongodb-databases"))
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    self.tables.script.data["mongodb-databases"][subfield],
+                ],
+                and_(
+                    self.tables.script.name == "mongodb-databases",
+                    self.tables.script.data["mongodb-databases"].has_key(  # noqa: W601
+                        subfield
+                    ),
+                ),
+            )
         elif field.startswith("enip."):
             # Mirrors :meth:`MongoDB.topvalues` ``enip.<key>``
             # branch: friendly-name aliases for the most common
@@ -1235,8 +1454,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 self.tables.script.name == "ike-info",
                 None,
-                func.jsonb_array_elements(
-                    self.tables.script.data["ike-info"]["vendor_ids"],
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ike-info"]["vendor_ids"],
+                    )
                 ).alias("vendor_id"),
             )
         elif field == "ike.transforms":
@@ -1268,8 +1489,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     ),
                 ),
                 None,
-                func.jsonb_array_elements(
-                    self.tables.script.data["ike-info"]["transforms"],
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data["ike-info"]["transforms"],
+                    )
                 ).alias("transform"),
             )
         elif field == "ike.notification":
@@ -1321,8 +1544,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 [column("vuln").op("->>")("id")],
                 func.jsonb_typeof(self.tables.script.data.op("->")("vulns")) == "array",
                 None,
-                func.jsonb_array_elements(
-                    self.tables.script.data.op("->")("vulns"),
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data.op("->")("vulns"),
+                    )
                 ).alias("vuln"),
             )
         elif field.startswith("vulns."):
@@ -1341,8 +1566,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 func.jsonb_typeof(self.tables.script.data.op("->")("vulns")) == "array",
                 None,
-                func.jsonb_array_elements(
-                    self.tables.script.data.op("->")("vulns"),
+                lateral(
+                    func.jsonb_array_elements(
+                        self.tables.script.data.op("->")("vulns"),
+                    )
                 ).alias("vuln"),
             )
         elif field == "screenwords":
@@ -1411,8 +1638,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 self.tables.script.name == "http-headers",
                 [column("name"), column("value")],
-                func.jsonb_array_elements(
-                    self.tables.script.data["http-headers"]
+                lateral(
+                    func.jsonb_array_elements(self.tables.script.data["http-headers"])
                 ).alias("hdr"),
             )
         elif field.startswith("httphdr."):
@@ -1422,8 +1649,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 [column("hdr").op("->>")(field[8:]).label("topvalue")],
                 self.tables.script.name == "http-headers",
                 [column("topvalue")],
-                func.jsonb_array_elements(
-                    self.tables.script.data["http-headers"]
+                lateral(
+                    func.jsonb_array_elements(self.tables.script.data["http-headers"])
                 ).alias("hdr"),
             )
         elif field.startswith("httphdr:"):
@@ -1437,8 +1664,8 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     column("hdr").op("->>")("name") == subfield,
                 ),
                 [column("value")],
-                func.jsonb_array_elements(
-                    self.tables.script.data["http-headers"]
+                lateral(
+                    func.jsonb_array_elements(self.tables.script.data["http-headers"])
                 ).alias("hdr"),
             )
         elif field == "httpapp":
@@ -1451,9 +1678,9 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 ],
                 self.tables.script.name == "http-app",
                 [column("application"), column("version")],
-                func.jsonb_array_elements(self.tables.script.data["http-app"]).alias(
-                    "app"
-                ),
+                lateral(
+                    func.jsonb_array_elements(self.tables.script.data["http-app"])
+                ).alias("app"),
             )
         elif field.startswith("httpapp:"):
             subfield = field[8:]
@@ -1466,9 +1693,9 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     column("app").op("->>")("application") == subfield,
                 ),
                 [column("version")],
-                func.jsonb_array_elements(self.tables.script.data["http-app"]).alias(
-                    "app"
-                ),
+                lateral(
+                    func.jsonb_array_elements(self.tables.script.data["http-app"])
+                ).alias("app"),
             )
         elif field == "schema_version":
             field = self._topstructure(
@@ -1522,7 +1749,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 self.tables.tag.value == subfield,
             )
         else:
-            raise NotImplementedError()
+            raise ValueError(f"Unknown field {field}")
         s_from = {
             self.tables.script: join(self.tables.script, self.tables.port),
             self.tables.port: self.tables.port,
@@ -1543,17 +1770,41 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             self.tables.tag: self.tables.tag.scan == base.c.id,
         }
         if field.base == self.tables.scan:
-            req = flt.query(
-                select(func.count().label("count"), *field.fields)
-                .select_from(self.tables.scan)
-                .group_by(*field.fields)
-            )
-        else:
-            req = select(func.count().label("count"), *field.fields).select_from(
-                s_from[field.base]
-            )
+            # ``extraselectfrom`` is supported on the
+            # scan-base path too (cpe.* unwinds the
+            # ``scan.cpes`` JSONB array via
+            # :func:`jsonb_array_elements`); it is added to
+            # the FROM list before the filter is applied so
+            # the predicates and projection see the unwound
+            # rows.  ``.join(extraselectfrom, true())``
+            # produces explicit ``JOIN LATERAL ... ON true``
+            # syntax SQLAlchemy recognises as a join,
+            # silencing the
+            # ``SAWarning: SELECT statement has a cartesian
+            # product`` it would otherwise emit on
+            # ``select_from(extraselectfrom)`` (a separate
+            # FROM element with no join condition); the
+            # behaviour at the database level is identical.
+            scan_from = self.tables.scan
             if field.extraselectfrom is not None:
-                req = req.select_from(field.extraselectfrom)
+                scan_from = join(scan_from, field.extraselectfrom, true())
+            req = (
+                select(func.count().label("count"), *field.fields)
+                .select_from(scan_from)
+                .group_by(*(field.fields if field.group_by is None else field.group_by))
+            )
+            req = flt.query(req)
+        else:
+            base_from = s_from[field.base]
+            # See :meth:`PostgresDBActive.topvalues`'s
+            # scan-base branch above for the explicit
+            # ``JOIN LATERAL ... ON true`` rationale -- same
+            # SQLAlchemy-warning workaround applies here.
+            if field.extraselectfrom is not None:
+                base_from = join(base_from, field.extraselectfrom, true())
+            req = select(func.count().label("count"), *field.fields).select_from(
+                base_from
+            )
             req = req.group_by(
                 *(field.fields if field.group_by is None else field.group_by)
             ).where(exists(select(1).select_from(base).where(where_clause[field.base])))

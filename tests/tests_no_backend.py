@@ -4790,6 +4790,231 @@ class SQLDBTopValuesIotVulnTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBTopValuesResidualTests -- pin the wire shape of the
+# residual ``topvalues`` parity branches: ``addr`` /
+# ``cpe[.<part>][:<spec>]`` / ``smb.*`` / ``mongo.dbs.*`` /
+# ``sshkey.bits`` / ``sshkey.<key>`` / ``ja4-client[.<sub>][:<value>]``,
+# plus the ``CROSS JOIN LATERAL`` rewrite of every existing
+# ``jsonb_array_elements(...).alias("name")`` extraselectfrom
+# path (httphdr*/httpapp*/ja3-client/ja3-server/useragent/
+# ike.vendor_ids/ike.transforms/vulns.id/vulns.<other>/sshkey.*/
+# ja4-client/cpe).
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBTopValuesResidualTests(unittest.TestCase):
+    """Behaviour-pin for the residual ``topvalues`` branches
+    closing M4.4 -- enough to delete the
+    ``raise NotImplementedError()`` catch-all
+    (``postgres.py:1735``) and unconditionally restore the
+    ``self.assertFalse(err)`` assertion that
+    ``_check_top_value_cli`` had to gate behind
+    ``DATABASE != "postgres"`` while the cartesian-product
+    warning was leaking on every ``httphdr*`` / ``httpapp*``
+    CLI call.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _capture_topvalues_sql(db, field):
+        captured = []
+
+        def _fake(stmt):
+            captured.append(stmt)
+            return iter([])
+
+        # pylint: disable=protected-access
+        original = db._read_iter
+        db._read_iter = _fake
+        try:
+            list(db.topvalues(field))
+        finally:
+            db._read_iter = original
+        assert captured, "topvalues did not call _read_iter"
+        return SQLDBTopValuesResidualTests._compile_pg(captured[-1])
+
+    # -- addr ----------------------------------------------------------
+
+    def test_topvalues_addr_groups_on_scan_addr(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "addr")
+        self.assertIn("v_scan.addr", sql)
+        self.assertIn("GROUP BY v_scan.addr", sql)
+
+    # -- cpe.* ---------------------------------------------------------
+
+    def test_topvalues_cpe_default_projects_all_four_fields(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "cpe")
+        for fld in ("type", "vendor", "product", "version"):
+            self.assertIn(f"cpe ->> '{fld}'", sql)
+
+    def test_topvalues_cpe_part_truncates_projection(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "cpe.vendor")
+        # ``cpe.vendor`` projects up to and including
+        # ``vendor`` (so ``type`` and ``vendor`` only).
+        self.assertIn("cpe ->> 'type'", sql)
+        self.assertIn("cpe ->> 'vendor'", sql)
+        self.assertNotIn("cpe ->> 'product'", sql)
+        self.assertNotIn("cpe ->> 'version'", sql)
+
+    def test_topvalues_cpe_numeric_part_resolves(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "cpe.1")
+        # ``cpe.1`` resolves to the first cpe key (``type``).
+        self.assertIn("cpe ->> 'type'", sql)
+        self.assertNotIn("cpe ->> 'vendor'", sql)
+
+    def test_topvalues_cpe_spec_filters_unwound_element(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "cpe.product:apache")
+        # The spec filters at both the host level (via
+        # ``searchcpe``) and the unwound element level.
+        self.assertIn("cpe ->> 'type'", sql)
+        # Host-level filter pulls in a ``searchcpe`` EXISTS.
+        self.assertIn("__cpe ->> 'type'", sql)
+
+    def test_topvalues_cpe_uses_lateral_unwind(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "cpe")
+        self.assertIn("LATERAL jsonb_array_elements(v_scan.cpes)", sql)
+
+    # -- smb.* ---------------------------------------------------------
+
+    def test_topvalues_smb_subkey_indexes_into_script_data(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "smb.os")
+        self.assertIn("v_script.name = 'smb-os-discovery'", sql)
+        self.assertIn("v_script.data['smb-os-discovery']['os']", sql)
+
+    # -- mongo.dbs.* ---------------------------------------------------
+
+    def test_topvalues_mongo_dbs_indexes_into_script_data(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "mongo.dbs.name")
+        self.assertIn("v_script.name = 'mongodb-databases'", sql)
+        self.assertIn("v_script.data['mongodb-databases']['name']", sql)
+
+    # -- sshkey.* ------------------------------------------------------
+
+    def test_topvalues_sshkey_bits_emits_type_bits_tuple(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "sshkey.bits")
+        self.assertIn("v_script.name = 'ssh-hostkey'", sql)
+        self.assertIn("sshkey ->> 'type'", sql)
+        self.assertIn("sshkey ->> 'bits'", sql)
+
+    def test_topvalues_sshkey_passthrough_other_key(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "sshkey.fingerprint")
+        self.assertIn("sshkey ->> 'fingerprint'", sql)
+
+    # -- ja4-client ----------------------------------------------------
+
+    def test_topvalues_ja4client_default_subfield_is_ja4(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ja4-client")
+        self.assertIn("v_script.name = 'ssl-ja4-client'", sql)
+        self.assertIn("ssl_ja4_client ->> 'ja4'", sql)
+
+    def test_topvalues_ja4client_value_filters_inner_unwind(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(
+            db, "ja4-client:t13d1517h2_8daaf6152771_b1ff8ab2d16f"
+        )
+        self.assertIn(
+            "(ssl_ja4_client ->> 'ja4') = " "'t13d1517h2_8daaf6152771_b1ff8ab2d16f'",
+            sql,
+        )
+
+    # -- LATERAL rewrite -----------------------------------------------
+
+    def test_lateral_silences_cartesian_product_on_existing_paths(self):
+        # Pin that the existing ``jsonb_array_elements(...)``
+        # extraselectfrom paths now wrap their unwind in
+        # ``LATERAL`` -- silences the
+        # ``SAWarning: cartesian product`` PostgreSQL emits
+        # when a comma-joined SRF lacks an explicit join
+        # condition.
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        for field in (
+            "httphdr",
+            "httphdr.name",
+            "httphdr:server",
+            "httpapp",
+            "httpapp:Apache",
+            "ja3-client",
+            "ja3-server",
+            "useragent",
+            "useragent:Firefox",
+            "ike.vendor_ids",
+            "ike.transforms",
+            "vulns.id",
+            "vulns.state",
+            "sshkey.bits",
+            "sshkey.fingerprint",
+            "ja4-client",
+        ):
+            with self.subTest(field=field):
+                sql = self._capture_topvalues_sql(db, field)
+                self.assertIn("LATERAL", sql.upper())
+
+    # -- catch-all -----------------------------------------------------
+
+    def test_topvalues_unknown_field_raises_valueerror(self):
+        # The ``raise NotImplementedError()`` catch-all was
+        # replaced with a clearer
+        # ``raise ValueError(f"Unknown field {field}")``
+        # matching the Mongo helper's ``hassh`` branch
+        # (``mongo.py:3881``).
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        with self.assertRaises(ValueError) as cm:
+            list(db.topvalues("definitely-not-a-field"))
+        self.assertIn("definitely-not-a-field", str(cm.exception))
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
