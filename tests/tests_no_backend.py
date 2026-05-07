@@ -4620,6 +4620,176 @@ class SQLDBTopValuesNtlmTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBTopValuesIotVulnTests -- pin the wire shape of the
+# ``ike.*`` / ``enip.*`` / ``vulns.*`` / ``screenwords`` IoT /
+# ICS / vuln cluster of ``topvalues`` branches added on
+# ``PostgresDBActive``.  The DuckDB lane inherits the same code
+# through ``DuckDBActive`` so these pins cover both backends.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBTopValuesIotVulnTests(unittest.TestCase):
+    """Behaviour-pin for the ``ike.*`` / ``enip.*`` / ``vulns.*``
+    / ``screenwords`` ``topvalues`` branches.
+
+    Same ``_read_iter`` interception trick the ntlm pin tests
+    use -- the actual aggregation runs against a live
+    database, but compiling the captured statement is enough
+    to cover the JSONB unwind path, the script-name guard, the
+    Mongo-shape friendly-name aliases (enip), and the
+    array-element-tuple projection (ike.vendor_ids /
+    ike.transforms / vulns.<other>).
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _capture_topvalues_sql(db, field):
+        captured = []
+
+        def _fake(stmt):
+            captured.append(stmt)
+            return iter([])
+
+        # pylint: disable=protected-access
+        original = db._read_iter
+        db._read_iter = _fake
+        try:
+            list(db.topvalues(field))
+        finally:
+            db._read_iter = original
+        assert captured, "topvalues did not call _read_iter"
+        return SQLDBTopValuesIotVulnTests._compile_pg(captured[-1])
+
+    # -- ike.* ---------------------------------------------------------
+
+    def test_topvalues_ike_vendor_ids_emits_value_name_tuple(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ike.vendor_ids")
+        self.assertIn("v_script.name = 'ike-info'", sql)
+        # Tuple projection: both ``value`` and ``name`` keys
+        # off the unwound ``vendor_id`` element.
+        self.assertIn("vendor_id ->> 'value'", sql)
+        self.assertIn("vendor_id ->> 'name'", sql)
+        self.assertIn(
+            "jsonb_array_elements(v_script.data['ike-info']['vendor_ids'])",
+            sql,
+        )
+
+    def test_topvalues_ike_transforms_emits_six_field_tuple(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ike.transforms")
+        self.assertIn("v_script.name = 'ike-info'", sql)
+        for fld in (
+            "Authentication",
+            "Encryption",
+            "GroupDesc",
+            "Hash",
+            "LifeDuration",
+            "LifeType",
+        ):
+            self.assertIn(f"transform ->> '{fld}'", sql)
+        self.assertIn("v_script.data['ike-info'] ? 'transforms'", sql)
+
+    def test_topvalues_ike_notification_emits_scalar(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ike.notification")
+        self.assertIn("v_script.name = 'ike-info'", sql)
+        self.assertIn("v_script.data['ike-info']['notification_type']", sql)
+        # No JSON-array unwind on the scalar branch.
+        self.assertNotIn("jsonb_array_elements", sql)
+
+    def test_topvalues_ike_passthrough_unaliased_key(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "ike.attributes")
+        self.assertIn("v_script.name = 'ike-info'", sql)
+        self.assertIn("v_script.data['ike-info']['attributes']", sql)
+
+    # -- enip.* --------------------------------------------------------
+
+    def test_topvalues_enip_friendly_aliases(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        cases = [
+            ("enip.vendor", "Vendor"),
+            ("enip.product", "Product Name"),
+            ("enip.serial", "Serial Number"),
+            ("enip.devtype", "Device Type"),
+            ("enip.prodcode", "Product Code"),
+            ("enip.rev", "Revision"),
+            ("enip.ip", "Device IP"),
+        ]
+        for alias, target in cases:
+            with self.subTest(alias=alias):
+                sql = self._capture_topvalues_sql(db, alias)
+                self.assertIn(f"v_script.data['enip-info']['{target}']", sql)
+                self.assertIn("v_script.name = 'enip-info'", sql)
+
+    def test_topvalues_enip_passthrough_unaliased_key(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "enip.Custom_Field")
+        self.assertIn("v_script.data['enip-info']['Custom_Field']", sql)
+
+    # -- vulns.* -------------------------------------------------------
+
+    def test_topvalues_vulns_id_unwinds_array(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "vulns.id")
+        self.assertIn("jsonb_array_elements(v_script.data -> 'vulns')", sql)
+        self.assertIn("vuln ->> 'id'", sql)
+        # The aggregation is gated on the JSONB-typeof check
+        # rather than a script-name list -- vulns are emitted
+        # by dozens of NSE scripts and the array-shape guard
+        # is enough to scope the unwind safely.
+        self.assertIn("jsonb_typeof(v_script.data -> 'vulns') = 'array'", sql)
+
+    def test_topvalues_vulns_other_emits_id_tuple(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "vulns.state")
+        # Tuple projection: both ``id`` (so the caller can
+        # correlate) and the requested subfield.
+        self.assertIn("vuln ->> 'id'", sql)
+        self.assertIn("vuln ->> 'state'", sql)
+        self.assertIn("jsonb_array_elements(v_script.data -> 'vulns')", sql)
+
+    # -- screenwords ---------------------------------------------------
+
+    def test_topvalues_screenwords_unnests_array(self):
+        from ivre.db import DBView
+
+        db = DBView.from_url("postgresql://x@localhost/x")
+        sql = self._capture_topvalues_sql(db, "screenwords")
+        self.assertIn("unnest(v_port.screenwords)", sql)
+        self.assertIn("v_port.screenwords IS NOT NULL", sql)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

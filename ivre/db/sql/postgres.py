@@ -1193,6 +1193,171 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                     self.tables.script.data["s7-info"].has_key(subfield),  # noqa: W601
                 ),
             )
+        elif field.startswith("enip."):
+            # Mirrors :meth:`MongoDB.topvalues` ``enip.<key>``
+            # branch: friendly-name aliases for the most common
+            # fields, pass-through for everything else.  Both
+            # Mongo and the SQL backends index the same
+            # ``ports.scripts.enip-info.<key>`` JSONB path.
+            subfield = field[5:]
+            subfield = {
+                "vendor": "Vendor",
+                "product": "Product Name",
+                "serial": "Serial Number",
+                "devtype": "Device Type",
+                "prodcode": "Product Code",
+                "rev": "Revision",
+                "ip": "Device IP",
+            }.get(subfield, subfield)
+            flt = self.flt_and(flt, self.searchscript(name="enip-info"))
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["enip-info"][subfield]],
+                and_(
+                    self.tables.script.name == "enip-info",
+                    self.tables.script.data["enip-info"].has_key(  # noqa: W601
+                        subfield
+                    ),
+                ),
+            )
+        elif field == "ike.vendor_ids":
+            # Mirrors :meth:`MongoDB.topvalues` ``ike.vendor_ids``
+            # branch: tuple of ``(value, name)`` pairs unwound
+            # from ``data.ike-info.vendor_ids``.  Both elements
+            # land in the result tuple so a caller can render
+            # the canonical ``Vendor IDs`` table verbatim.
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    column("vendor_id").op("->>")("value"),
+                    column("vendor_id").op("->>")("name"),
+                ],
+                self.tables.script.name == "ike-info",
+                None,
+                func.jsonb_array_elements(
+                    self.tables.script.data["ike-info"]["vendor_ids"],
+                ).alias("vendor_id"),
+            )
+        elif field == "ike.transforms":
+            # Mirrors :meth:`MongoDB.topvalues` ``ike.transforms``
+            # branch: 6-tuple ``(Authentication, Encryption,
+            # GroupDesc, Hash, LifeDuration, LifeType)`` unwound
+            # from ``data.ike-info.transforms``.
+            flt = self.flt_and(
+                flt,
+                self.searchscript(
+                    name="ike-info",
+                    values={"transforms": {"$exists": True}},
+                ),
+            )
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    column("transform").op("->>")("Authentication"),
+                    column("transform").op("->>")("Encryption"),
+                    column("transform").op("->>")("GroupDesc"),
+                    column("transform").op("->>")("Hash"),
+                    column("transform").op("->>")("LifeDuration"),
+                    column("transform").op("->>")("LifeType"),
+                ],
+                and_(
+                    self.tables.script.name == "ike-info",
+                    self.tables.script.data["ike-info"].has_key(  # noqa: W601
+                        "transforms"
+                    ),
+                ),
+                None,
+                func.jsonb_array_elements(
+                    self.tables.script.data["ike-info"]["transforms"],
+                ).alias("transform"),
+            )
+        elif field == "ike.notification":
+            # Mirrors :meth:`MongoDB.topvalues` ``ike.notification``
+            # branch: scalar ``notification_type`` value.
+            flt = self.flt_and(
+                flt,
+                self.searchscript(
+                    name="ike-info",
+                    values={"notification_type": {"$exists": True}},
+                ),
+            )
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["ike-info"]["notification_type"]],
+                and_(
+                    self.tables.script.name == "ike-info",
+                    self.tables.script.data["ike-info"].has_key(  # noqa: W601
+                        "notification_type"
+                    ),
+                ),
+            )
+        elif field.startswith("ike."):
+            # Pass-through for ``ike.<key>`` paths the specific
+            # branches above do not cover -- mirrors the Mongo
+            # helper's catch-all.
+            subfield = field[4:]
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            field = self._topstructure(
+                self.tables.script,
+                [self.tables.script.data["ike-info"][subfield]],
+                and_(
+                    self.tables.script.name == "ike-info",
+                    self.tables.script.data["ike-info"].has_key(subfield),  # noqa: W601
+                ),
+            )
+        elif field == "vulns.id":
+            # Mirrors :meth:`MongoDB.topvalues` ``vulns.id``
+            # branch: top values of the vulnerability id field
+            # across the unwound ``data.vulns`` array.  The
+            # array lives on every script that emits the
+            # ``vulns`` NSE-table (afp-path-vuln, *vsftpd*,
+            # ssl-heartbleed, smb-vuln-*, http-vuln-*, ...) --
+            # the JSONB-typeof guard is enough to scope the
+            # aggregation without enumerating script names.
+            flt = self.flt_and(flt, self.searchvuln())
+            field = self._topstructure(
+                self.tables.script,
+                [column("vuln").op("->>")("id")],
+                func.jsonb_typeof(self.tables.script.data.op("->")("vulns")) == "array",
+                None,
+                func.jsonb_array_elements(
+                    self.tables.script.data.op("->")("vulns"),
+                ).alias("vuln"),
+            )
+        elif field.startswith("vulns."):
+            # Mirrors :meth:`MongoDB.topvalues` ``vulns.<other>``
+            # branch: tuple of ``(id, <other>)`` so the caller
+            # can correlate the field back to the specific
+            # vulnerability.  Same array-unwind shape as
+            # ``vulns.id``.
+            subfield = field[6:]
+            flt = self.flt_and(flt, self.searchvuln())
+            field = self._topstructure(
+                self.tables.script,
+                [
+                    column("vuln").op("->>")("id"),
+                    column("vuln").op("->>")(subfield),
+                ],
+                func.jsonb_typeof(self.tables.script.data.op("->")("vulns")) == "array",
+                None,
+                func.jsonb_array_elements(
+                    self.tables.script.data.op("->")("vulns"),
+                ).alias("vuln"),
+            )
+        elif field == "screenwords":
+            # Mirrors :meth:`MongoDB.topvalues` ``screenwords``
+            # branch: top values of the OCR-derived word list
+            # stored on the ``port.screenwords`` array column
+            # (added in M4.3.2 alongside ``screenshot`` /
+            # ``screendata``).  ``unnest()`` rolls each list
+            # element out as its own row before grouping.
+            flt = self.flt_and(flt, self.searchscreenshot(words=True))
+            field = self._topstructure(
+                self.tables.port,
+                [func.unnest(self.tables.port.screenwords)],
+                self.tables.port.screenwords != None,  # noqa: E711
+            )
         elif field == "ntlm" or field.startswith("ntlm."):
             # Mirrors :meth:`MongoDB.topvalues` for the
             # ``ntlm`` branches (Mongo paths
