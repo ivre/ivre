@@ -4780,13 +4780,23 @@ class IvreTests(unittest.TestCase):
         # backend has no text-index facility and no ``$text``
         # operator -- ``MongoDBView.searchtext`` would fail at
         # query time on a real DocumentDB instance.
+        #
+        # The exact match count diverges by backend because
+        # the tokenisation / stemming / stopword rules differ
+        # (Mongo's English text index, PostgreSQL's
+        # ``to_tsvector('english', ...)`` Snowball stemmer,
+        # DuckDB's ``match_bm25`` Snowball stemmer with its
+        # own stopword list, Elasticsearch's standard
+        # analyzer).  The ``DATABASE`` suffix scopes the
+        # recorded value per-backend so each one pins its own
+        # count without one backend's rules masking another.
         if BACKEND_FLAVOR != "documentdb":
             self.check_value(
-                "view_count_text_honeypot",
+                f"view_count_text_honeypot_{DATABASE}",
                 ivre.db.db.view.count(ivre.db.db.view.searchtext("honeypot")),
             )
             self.check_value(
-                "view_count_text_password",
+                f"view_count_text_password_{DATABASE}",
                 ivre.db.db.view.count(ivre.db.db.view.searchtext("password")),
             )
 
