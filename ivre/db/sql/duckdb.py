@@ -31,6 +31,11 @@ the two engines:
 * ``COPY ... FROM STDIN`` and ``CREATE TEMP TABLE`` based bulk
   paths are PG-specific implementation details; bulk-insert
   parity with PostgreSQL is deferred to a follow-up milestone.
+* ``to_tsvector`` / ``plainto_tsquery`` / ``@@`` are not
+  available on DuckDB; full-text search uses the ``fts``
+  extension's ``PRAGMA create_fts_index`` +
+  ``fts_main_<table>.match_bm25(...)`` API instead -- see
+  :class:`DuckDBNmapFilter` / :class:`DuckDBViewFilter`.
 
 The class hierarchy mirrors :mod:`ivre.db.sql.postgres`: a
 :class:`DuckDBMixin` carries the dialect-specific overrides and is
@@ -40,15 +45,61 @@ methods win the MRO lookup against ``PostgresDB*``'s defaults.
 
 from typing import Any, override
 
+from sqlalchemy import event, exists, or_, select
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects import postgresql
 
 from ivre import utils
+from ivre.db.sql import NmapFilter, ViewFilter
 from ivre.db.sql.postgres import (
     PostgresDBNmap,
     PostgresDBPassive,
     PostgresDBView,
 )
 from ivre.db.sql.tables import Base
+
+# Column lists for the DuckDB FTS index, mirroring
+# :attr:`SQLDBActive._TEXT_SEARCH_*_COLUMNS`.  Indexed by
+# ``self.tables.<attr>`` so the same spec works for both
+# ``n_*`` (DuckDBNmap) and ``v_*`` (DuckDBView) schemas.
+_FTS_TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
+    "hostname": ("name",),
+    "tag": ("value", "info"),
+    "port": (
+        "service_name",
+        "service_product",
+        "service_version",
+        "service_extrainfo",
+        "service_devicetype",
+        "service_hostname",
+        "service_ostype",
+    ),
+    "script": ("output",),
+    "hop": ("host",),
+    "category": ("name",),
+}
+
+
+def _install_fts_on_connect(dbapi_connection: Any, _connection_record: Any) -> None:
+    """SQLAlchemy ``connect`` event listener that loads
+    DuckDB's ``fts`` extension on every new connection.
+
+    The extension is required for any
+    ``fts_main_<table>.match_bm25(...)`` call ``searchtext()``
+    emits; without ``LOAD fts`` the function is unresolved and
+    DuckDB raises ``Catalog Error: Scalar Function with name
+    match_bm25 does not exist``.  Each ``ivre <tool>``
+    subprocess opens its own engine, so the load has to happen
+    per-connection, not once at process startup.  ``INSTALL
+    fts`` is idempotent on DuckDB (it's a no-op once the
+    extension is downloaded into the per-user cache).
+    """
+    cur = dbapi_connection.cursor()
+    try:
+        cur.execute("INSTALL fts")
+        cur.execute("LOAD fts")
+    finally:
+        cur.close()
 
 
 def _is_unsupported_on_duckdb(index: Any) -> bool:
@@ -121,6 +172,84 @@ class DuckDBMixin:
     backend class so the MRO resolves these overrides ahead of
     PostgreSQL's defaults (see :pep:`3119` C3 linearisation).
     """
+
+    @property
+    def db(self) -> Any:
+        """Lazily build the SQLAlchemy engine and attach the
+        ``fts`` extension loader to every new connection.
+
+        :meth:`SQLDB.db` caches the engine on ``self._db``; we
+        delegate to it to materialise the engine, then register
+        the :func:`_install_fts_on_connect` listener once.
+        Subsequent ``self.db`` accesses short-circuit through
+        the cached attribute.
+        """
+        try:
+            return self._db  # type: ignore[attr-defined]
+        except AttributeError:
+            # Defer to ``SQLDB.db`` (the parent's lazy-init
+            # property) to actually build and cache the engine,
+            # then attach the FTS loader.  ``event.listen``
+            # only fires on *future* connections; the engine
+            # itself doesn't open a connection on creation, so
+            # the first ``Connection`` IVRE checks out (e.g.
+            # via ``self.drop()``) sees the ``LOAD fts``.  The
+            # local import is required to break the
+            # ``ivre.db.sql`` <-> ``ivre.db.sql.duckdb`` import
+            # cycle at module-load time.
+            # pylint: disable=import-outside-toplevel
+            from ivre.db.sql import SQLDB
+
+            # pylint: disable-next=assignment-from-no-return
+            engine = SQLDB.db.fget(self)  # type: ignore[union-attr]
+            event.listen(engine, "connect", _install_fts_on_connect)
+            return engine
+
+    def _create_fts_indexes(self) -> None:
+        """Build (or rebuild) the per-table FTS indexes
+        DuckDB's ``fts`` extension uses for full-text search.
+
+        DuckDB's FTS index is *static*: it doesn't track row
+        inserts / updates after creation.  Re-running
+        ``PRAGMA create_fts_index(... overwrite=1)`` rebuilds
+        the index from the current table contents, which is
+        why :meth:`searchtext` calls into this method on every
+        full-text query.
+
+        Each index is keyed by ``rowid``, the DuckDB
+        pseudo-column that uniquely identifies a row regardless
+        of declared primary key.  ``rowid`` works equally for
+        tables with a single-column ``id`` and for tables with
+        composite primary keys (``n_script`` / ``v_script``,
+        which have ``(port, name)`` PKs and no surrogate
+        column); the FTS extension's
+        ``match_bm25(<id>, '<term>')`` accepts whatever column
+        the index was built on.
+
+        No-op on backends without text-bearing tables (e.g.
+        :class:`DuckDBPassive`); checked via ``getattr`` on
+        :attr:`self.tables`.
+        """
+        if not hasattr(self, "tables"):
+            return
+        statements = []
+        for tname, cols in _FTS_TABLE_COLUMNS.items():
+            tbl = getattr(self.tables, tname, None)
+            if tbl is None:
+                continue
+            cols_sql = ", ".join(f"'{c}'" for c in cols)
+            # The FTS PRAGMA cannot be parameterised; the
+            # column names are class-level constants (not
+            # user input), so the f-string is safe.
+            statements.append(
+                f"PRAGMA create_fts_index('{tbl.__tablename__}', "
+                f"'rowid', {cols_sql}, overwrite=1)"
+            )
+        if not statements:
+            return
+        with self.db.begin() as conn:
+            for stmt in statements:
+                conn.execute(sa_text(stmt))
 
     @staticmethod
     def ip2internal(addr: str | int | None) -> str | None:
@@ -321,6 +450,12 @@ class DuckDBMixin:
             except AttributeError:
                 pass
             self.create()
+            # Initial empty FTS indexes -- the schema's
+            # text-bearing tables are still empty here, so
+            # ``PRAGMA create_fts_index`` builds zero-row
+            # indexes that subsequent ``searchtext()`` calls
+            # rebuild via ``overwrite=1`` once data is in.
+            self._create_fts_indexes()
         finally:
             for table, indexes in saved_indexes.items():
                 for ix in indexes:
@@ -334,12 +469,140 @@ class DuckDBMixin:
                     col.table.foreign_keys.add(fk)
 
 
+class _DuckDBActiveFilterMixin:
+    """Mixin overriding :meth:`ActiveFilter._text_predicate` for
+    DuckDB.
+
+    DuckDB lacks PostgreSQL's text-search primitives
+    (``to_tsvector``, ``plainto_tsquery``, ``@@``).  Full-text
+    search is delegated to the ``fts`` extension's
+    ``fts_main_<table>.match_bm25(<id>, '<term>')`` function:
+    the BM25 score is non-NULL when the row matches and NULL
+    otherwise, so ``WHERE ... IS NOT NULL`` is the equivalent
+    of PG's ``@@`` predicate.
+
+    Each per-table predicate keeps the same ``EXISTS``-on-the-
+    child shape :meth:`ActiveFilter._text_predicate` uses on
+    PostgreSQL, so the filter composes cleanly with the rest
+    of :class:`ActiveFilter`'s slots.
+    """
+
+    @staticmethod
+    def _bm25_predicate(table_name: str, term: str) -> Any:  # type: ignore[no-untyped-def]
+        """``fts_main_<table>.match_bm25(<table>.rowid, :term)
+        IS NOT NULL`` -- the DuckDB FTS-extension predicate used
+        in place of PostgreSQL's
+        ``to_tsvector(...) @@ plainto_tsquery(...)``.
+        """
+        return sa_text(
+            f"fts_main_{table_name}.match_bm25({table_name}.rowid, :fts_term) "
+            "IS NOT NULL"
+        ).bindparams(fts_term=term)
+
+    def _text_predicate(self, term: str) -> Any:  # type: ignore[no-untyped-def]
+        clauses = []
+        # Direct children of ``scan``: hostname, tag, port.
+        for tname in ("hostname", "tag", "port"):
+            tbl = getattr(self.tables, tname)
+            clauses.append(
+                exists(
+                    select(1)
+                    .select_from(tbl)
+                    .where(tbl.scan == self.tables.scan.id)
+                    .where(self._bm25_predicate(tbl.__tablename__, term))
+                )
+            )
+        # Two-hop child of ``scan``: ``script`` -> ``port`` ->
+        # ``scan``.
+        script_tbl = self.tables.script
+        port_tbl = self.tables.port
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(script_tbl.__table__.join(port_tbl.__table__))
+                .where(port_tbl.scan == self.tables.scan.id)
+                .where(self._bm25_predicate(script_tbl.__tablename__, term))
+            )
+        )
+        # Two-hop child of ``scan``: ``hop`` -> ``trace`` ->
+        # ``scan``.
+        hop_tbl = self.tables.hop
+        trace_tbl = self.tables.trace
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(trace_tbl.__table__.join(hop_tbl.__table__))
+                .where(trace_tbl.scan == self.tables.scan.id)
+                .where(self._bm25_predicate(hop_tbl.__tablename__, term))
+            )
+        )
+        # Two-hop child of ``scan``: ``category`` ->
+        # ``association_scan_category`` -> ``scan``.
+        cat_tbl = self.tables.category
+        assoc_tbl = self.tables.association_scan_category
+        clauses.append(
+            exists(
+                select(1)
+                .select_from(cat_tbl.__table__.join(assoc_tbl.__table__))
+                .where(assoc_tbl.scan == self.tables.scan.id)
+                .where(self._bm25_predicate(cat_tbl.__tablename__, term))
+            )
+        )
+        return or_(*clauses)
+
+
+class DuckDBNmapFilter(_DuckDBActiveFilterMixin, NmapFilter):
+    """``NmapFilter`` with DuckDB-flavoured full-text-search
+    predicates (FTS extension's ``match_bm25`` instead of
+    PostgreSQL's ``to_tsvector @@ plainto_tsquery``)."""
+
+
+class DuckDBViewFilter(_DuckDBActiveFilterMixin, ViewFilter):
+    """``ViewFilter`` with DuckDB-flavoured full-text-search
+    predicates."""
+
+
 class DuckDBNmap(DuckDBMixin, PostgresDBNmap):
     """DuckDB backend for the ``nmap`` (active-scan) data category."""
+
+    base_filter = DuckDBNmapFilter
+
+    # The override is an instance method (``self``) where the
+    # parent :meth:`SQLDBActive.searchtext` is a ``@classmethod``
+    # (``cls``); pylint compares positionally and reports the
+    # ``cls`` -> ``self`` rename as a renamed parameter.  The
+    # mismatch is by design: this override needs engine access
+    # (``self.db``) to rebuild the FTS index, which a
+    # classmethod cannot do.
+    @override
+    def searchtext(  # pylint: disable=arguments-renamed
+        self, text: str, neg: bool = False
+    ) -> Any:  # type: ignore[no-untyped-def, override]
+        # DuckDB's FTS index is static -- it doesn't track row
+        # inserts after creation.  Rebuild it before every
+        # ``searchtext()`` query so the result is always fresh.
+        # The cost is a full text-column scan per text-bearing
+        # table, which is acceptable for the embedded /
+        # single-host workloads DuckDB targets.
+        self._create_fts_indexes()
+        return self.base_filter(text=[(not neg, text)])
 
 
 class DuckDBView(DuckDBMixin, PostgresDBView):
     """DuckDB backend for the ``view`` (merged-host) data category."""
+
+    base_filter = DuckDBViewFilter
+
+    # See :meth:`DuckDBNmap.searchtext` for the
+    # classmethod-to-instance-method override rationale.
+    @override
+    def searchtext(  # pylint: disable=arguments-renamed
+        self, text: str, neg: bool = False
+    ) -> Any:  # type: ignore[no-untyped-def, override]
+        # See :meth:`DuckDBNmap.searchtext` for the
+        # rebuild-on-every-search rationale.
+        self._create_fts_indexes()
+        return self.base_filter(text=[(not neg, text)])
 
 
 class DuckDBPassive(DuckDBMixin, PostgresDBPassive):

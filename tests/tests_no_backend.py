@@ -2604,6 +2604,184 @@ class DuckDBBackendBootstrapTests(unittest.TestCase):
         self.assertEqual(host_row[0], "example.com")
         self.assertEqual(host_row[1], ["example.com", "com"])
 
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_fts_extension_loaded_on_connect(self):
+        # Pin that the ``connect`` event listener registered by
+        # :meth:`DuckDBMixin.db` runs ``INSTALL fts; LOAD fts;``
+        # on every new DuckDB connection so the FTS extension's
+        # ``match_bm25`` function is callable from the
+        # subsequent searchtext queries.  Without the listener
+        # ``match_bm25`` resolves with ``Catalog Error: Scalar
+        # Function with name match_bm25 does not exist``.
+        #
+        # Search term ``apache`` is intentional: DuckDB's
+        # Snowball-based default stemmer filters out common
+        # English stopwords (``hello``, ``world``, ``the``,
+        # ...) that would silently return NULL scores on every
+        # row regardless of the index loading correctly.
+        from sqlalchemy import text as sa_text
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        with db.db.begin() as conn:
+            conn.execute(sa_text("CREATE TABLE fts_probe (id_col INTEGER, t VARCHAR)"))
+            conn.execute(sa_text("INSERT INTO fts_probe VALUES (1, 'apache')"))
+            conn.execute(sa_text("PRAGMA create_fts_index('fts_probe', 'id_col', 't')"))
+            rows = conn.execute(
+                sa_text(
+                    "SELECT id_col, fts_main_fts_probe.match_bm25(id_col, "
+                    "'apache') FROM fts_probe"
+                )
+            ).fetchall()
+        # Single row, score is non-NULL (BM25 weight) when the
+        # index is loaded and the term matches.
+        self.assertEqual(len(rows), 1)
+        self.assertIsNotNone(rows[0][1])
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_fts_indexes_created_at_init(self):
+        # ``DuckDBMixin.init`` calls ``_create_fts_indexes``
+        # after ``create()`` so every text-bearing table gets
+        # an empty FTS index ready for ``searchtext()`` to
+        # rebuild.  Pin that an FTS index exists for each
+        # expected table after a fresh init.
+        from sqlalchemy import text as sa_text
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        db.init()
+        with db.db.connect() as conn:
+            schemas = {
+                row[0]
+                for row in conn.execute(
+                    sa_text(
+                        "SELECT schema_name FROM information_schema.schemata "
+                        "WHERE schema_name LIKE 'fts_main_n_%'"
+                    )
+                ).fetchall()
+            }
+        # One ``fts_main_<table>`` schema per text-bearing
+        # active table (hostname, tag, port, script, hop,
+        # category).
+        self.assertSetEqual(
+            schemas,
+            {
+                "fts_main_n_hostname",
+                "fts_main_n_tag",
+                "fts_main_n_port",
+                "fts_main_n_script",
+                "fts_main_n_hop",
+                "fts_main_n_category",
+            },
+        )
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchtext_uses_bm25_on_duckdb(self):
+        # The DuckDB filter override emits ``match_bm25``
+        # predicates instead of the PostgreSQL
+        # ``to_tsvector @@ plainto_tsquery`` -- the latter
+        # would raise ``Catalog Error: Scalar Function with
+        # name to_tsvector does not exist`` on DuckDB.  Pin
+        # that the compiled SQL goes through the BM25 API.
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        db.init()
+        flt = db.searchtext("honeypot")
+        # Filter type: ``DuckDBNmapFilter`` (or subclass).
+        from ivre.db.sql.duckdb import DuckDBNmapFilter
+
+        self.assertIsInstance(flt, DuckDBNmapFilter)
+        # Compile the WHERE clause through the DuckDB dialect
+        # and assert the BM25 wire shape.
+        from sqlalchemy import func as sa_func
+        from sqlalchemy import select as sa_select
+
+        sql = str(
+            flt.query(sa_select(sa_func.count()).select_from(flt.select_from)).compile(
+                dialect=db.db.dialect
+            )
+        )
+        self.assertIn("match_bm25", sql)
+        self.assertIn("IS NOT NULL", sql)
+        # And there is *no* PG-only call.
+        self.assertNotIn("to_tsvector", sql)
+        self.assertNotIn("plainto_tsquery", sql)
+
+    @unittest.skipUnless(
+        _HAVE_DUCKDB_ENGINE,
+        "duckdb-engine is required (install with the ``duckdb`` extras)",
+    )
+    def test_searchtext_end_to_end_on_duckdb(self):
+        # Insert a host whose text fields cover several of the
+        # FTS-indexed tables, then exercise positive /
+        # negative ``searchtext()`` queries.  Without the
+        # rebuild-on-every-search behaviour
+        # (:meth:`DuckDBNmap.searchtext` calls
+        # :meth:`_create_fts_indexes` before returning) the
+        # search would miss every row inserted after init.
+        from sqlalchemy import insert
+
+        from ivre.db import DBNmap
+
+        db = DBNmap.from_url("duckdb:///:memory:")
+        db.init()
+        with db.db.begin() as conn:
+            res = conn.execute(
+                insert(db.tables.scan),
+                {"addr": "192.0.2.1", "source": "test", "schema_version": 22},
+            )
+            scan_id = res.inserted_primary_key[0]
+            conn.execute(
+                insert(db.tables.hostname),
+                {
+                    "scan": scan_id,
+                    "name": "honeypot.example.com",
+                    "type": "PTR",
+                    "domains": ["example.com", "com"],
+                },
+            )
+            conn.execute(
+                insert(db.tables.port),
+                {
+                    "scan": scan_id,
+                    "port": 80,
+                    "protocol": "tcp",
+                    "service_name": "http",
+                    "service_product": "nginx",
+                    "state": "open",
+                },
+            )
+            conn.execute(
+                insert(db.tables.tag),
+                {
+                    "scan": scan_id,
+                    "value": "HONEYPOT",
+                    "info": "kibana stack",
+                    "type": "warning",
+                },
+            )
+        # Positive matches across hostname / port / tag.
+        self.assertEqual(db.count(db.searchtext("honeypot")), 1)
+        self.assertEqual(db.count(db.searchtext("nginx")), 1)
+        self.assertEqual(db.count(db.searchtext("kibana")), 1)
+        # Non-match.
+        self.assertEqual(db.count(db.searchtext("nonexistent")), 0)
+        # Negation flips the inclusion.
+        self.assertEqual(db.count(db.searchtext("honeypot", neg=True)), 0)
+        self.assertEqual(db.count(db.searchtext("nonexistent", neg=True)), 1)
+
 
 # ---------------------------------------------------------------------
 # SQLDBSearchFieldTests -- pin the shared ``_search_field``
