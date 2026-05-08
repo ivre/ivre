@@ -1672,6 +1672,277 @@ class ElasticDBSearchTier1Tests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBSearchTier2Tests -- pin the wire shape of the
+# Tier-2 ``search*`` parity helpers added on
+# ``ElasticDBActive``: ``searchsmbshares`` /
+# ``searchscreenshot`` / ``searchhttptitle`` /
+# ``searchldapanon`` / ``searchvsftpdbackdoor`` /
+# ``searchwebmin`` / ``searchhop`` / ``searchhopname`` /
+# ``searchhopdomain``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBSearchTier2Tests(unittest.TestCase):
+    """Behaviour-pin for Tier-2 ``ElasticDBActive.search*``
+    parity helpers.  All nine helpers were missing on Elastic
+    before this PR and route through bespoke
+    ``Q("nested", path="ports", ...)`` /
+    ``Q("nested", path="ports.scripts", ...)`` builders rather
+    than :meth:`ElasticDBActive.searchscript` (which cannot
+    translate the nested ``$elemMatch`` / ``$or`` / ``$nin``
+    shape Mongo's ``searchsmbshares`` produces).
+    """
+
+    @staticmethod
+    def _ED():
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView
+
+    # -- traces.hops --------------------------------------------------
+
+    def test_searchhop_scalar(self):
+        body = self._ED().searchhop("1.2.3.4").to_dict()
+        self.assertEqual(body, {"match": {"traces.hops.ipaddr": "1.2.3.4"}})
+
+    def test_searchhop_with_ttl(self):
+        body = self._ED().searchhop("1.2.3.4", ttl=5).to_dict()
+        self.assertEqual(
+            body,
+            {
+                "bool": {
+                    "must": [
+                        {"match": {"traces.hops.ipaddr": "1.2.3.4"}},
+                        {"match": {"traces.hops.ttl": 5}},
+                    ]
+                }
+            },
+        )
+
+    def test_searchhop_neg(self):
+        body = self._ED().searchhop("1.2.3.4", neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"match": {"traces.hops.ipaddr": "1.2.3.4"}}]}},
+        )
+
+    def test_searchhopdomain_scalar(self):
+        body = self._ED().searchhopdomain("example.com").to_dict()
+        self.assertEqual(body, {"match": {"traces.hops.domains": "example.com"}})
+
+    def test_searchhopname_combines_domain_and_host(self):
+        body = self._ED().searchhopname("foo.example.com").to_dict()
+        # Same indexed-domain + non-indexed-name shape
+        # ``searchhostname`` ships in M4.5.1.
+        self.assertEqual(
+            body,
+            {
+                "bool": {
+                    "must": [
+                        {"match": {"traces.hops.domains": "foo.example.com"}},
+                        {"match": {"traces.hops.host": "foo.example.com"}},
+                    ]
+                }
+            },
+        )
+
+    def test_searchhopname_neg_skips_indexed_lookup(self):
+        body = self._ED().searchhopname("foo", neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"match": {"traces.hops.host": "foo"}}]}},
+        )
+
+    # -- per-port fingerprints ---------------------------------------
+
+    def test_searchldapanon_matches_anonymous_bind_ok(self):
+        body = self._ED().searchldapanon().to_dict()
+        self.assertEqual(
+            body,
+            {"match": {"ports.service_extrainfo": "Anonymous bind OK"}},
+        )
+
+    def test_searchvsftpdbackdoor_pins_full_fingerprint(self):
+        body = self._ED().searchvsftpdbackdoor().to_dict()
+        self.assertIn("nested", body)
+        self.assertEqual(body["nested"]["path"], "ports")
+        must = body["nested"]["query"]["bool"]["must"]
+        self.assertIn({"match": {"ports.protocol": "tcp"}}, must)
+        self.assertIn({"match": {"ports.state_state": "open"}}, must)
+        self.assertIn({"match": {"ports.service_product": "vsftpd"}}, must)
+        self.assertIn({"match": {"ports.service_version": "2.3.4"}}, must)
+
+    def test_searchwebmin_excludes_apache_hosting_webmin(self):
+        body = self._ED().searchwebmin().to_dict()
+        self.assertIn("nested", body)
+        bool_q = body["nested"]["query"]["bool"]
+        self.assertIn({"match": {"ports.service_name": "http"}}, bool_q["must"])
+        self.assertIn({"match": {"ports.service_product": "MiniServ"}}, bool_q["must"])
+        # ``service_extrainfo`` must *not* be ``"Webmin httpd"``
+        # (that's the regular Apache / nginx hosting the
+        # admin UI rather than the standalone Webmin).
+        self.assertIn(
+            {"match": {"ports.service_extrainfo": "Webmin httpd"}},
+            bool_q["must_not"],
+        )
+
+    def test_searchhttptitle_delegates_to_searchscript(self):
+        body = self._ED().searchhttptitle("Welcome").to_dict()
+        self.assertIn("nested", body)
+        self.assertEqual(body["nested"]["path"], "ports")
+        inner = body["nested"]["query"]["nested"]
+        self.assertEqual(inner["path"], "ports.scripts")
+        must = inner["query"]["bool"]["must"]
+        # ``searchscript`` with a list of names emits
+        # ``terms``; pin that.
+        self.assertIn(
+            {"terms": {"ports.scripts.id": ["http-title", "html-title"]}},
+            must,
+        )
+        self.assertIn({"match": {"ports.scripts.output": "Welcome"}}, must)
+
+    # -- screenshot / screenwords ------------------------------------
+
+    def test_searchscreenshot_no_args_existence_check(self):
+        body = self._ED().searchscreenshot().to_dict()
+        self.assertEqual(
+            body,
+            {
+                "nested": {
+                    "path": "ports",
+                    "query": {"exists": {"field": "ports.screenshot"}},
+                }
+            },
+        )
+
+    def test_searchscreenshot_neg_inverts_at_host_level(self):
+        # Mirrors Mongo's ``$exists: false`` semantics: *no*
+        # port has a screenshot, not "there's a port without
+        # a screenshot".  Pin the ``must_not`` wrap at the
+        # outermost ``Nested`` level rather than the inner
+        # predicate.
+        body = self._ED().searchscreenshot(neg=True).to_dict()
+        self.assertIn("must_not", body["bool"])
+        self.assertEqual(body["bool"]["must_not"][0]["nested"]["path"], "ports")
+
+    def test_searchscreenshot_with_port_constrains_inner_predicate(self):
+        body = self._ED().searchscreenshot(port=80).to_dict()
+        must = body["nested"]["query"]["bool"]["must"]
+        self.assertIn({"exists": {"field": "ports.screenshot"}}, must)
+        self.assertIn({"match": {"ports.port": 80}}, must)
+        self.assertIn({"match": {"ports.protocol": "tcp"}}, must)
+
+    def test_searchscreenshot_words_string_lower_cases(self):
+        body = self._ED().searchscreenshot(words="WELCOME").to_dict()
+        must = body["nested"]["query"]["bool"]["must"]
+        # Word value is lower-cased to match the pre-stored
+        # shape.
+        self.assertIn({"match": {"ports.screenwords": "welcome"}}, must)
+
+    def test_searchscreenshot_words_list_requires_all(self):
+        body = self._ED().searchscreenshot(words=["foo", "bar"]).to_dict()
+        must = body["nested"]["query"]["bool"]["must"]
+        # Each element becomes its own ``match`` -- the list
+        # form is "all of these words must be present".
+        self.assertIn({"match": {"ports.screenwords": "foo"}}, must)
+        self.assertIn({"match": {"ports.screenwords": "bar"}}, must)
+
+    def test_searchscreenshot_words_regex(self):
+        import re
+
+        body = self._ED().searchscreenshot(words=re.compile("LOGIN")).to_dict()
+        must = body["nested"]["query"]["bool"]["must"]
+        # Pattern is lower-cased before being passed to
+        # ``_get_pattern``.
+        self.assertIn({"regexp": {"ports.screenwords": ".*login.*"}}, must)
+
+    def test_searchscreenshot_words_neg_inverts_at_predicate(self):
+        # ``words=...`` with ``neg=True`` keeps the
+        # screenshot existence check positive (Mongo semantic:
+        # "has a screenshot **without** these words").
+        body = self._ED().searchscreenshot(words="foo", neg=True).to_dict()
+        bool_q = body["nested"]["query"]["bool"]
+        self.assertIn({"exists": {"field": "ports.screenshot"}}, bool_q["must"])
+        self.assertIn({"match": {"ports.screenwords": "foo"}}, bool_q["must_not"])
+
+    # -- searchsmbshares ---------------------------------------------
+
+    def test_searchsmbshares_default_uses_access_regex(self):
+        body = self._ED().searchsmbshares().to_dict()
+        self.assertIn("nested", body)
+        self.assertEqual(body["nested"]["path"], "ports")
+        inner = body["nested"]["query"]["nested"]
+        self.assertEqual(inner["path"], "ports.scripts")
+        bool_q = inner["query"]["bool"]
+        # ``access=""`` defaults to a regex matching either
+        # READ or WRITE at the start of the access field.
+        self.assertIn(
+            {
+                "regexp": {
+                    "ports.scripts.smb-enum-shares.shares.Anonymous access": "(READ|WRITE).*"
+                }
+            },
+            bool_q["should"],
+        )
+        # IPC$ is excluded by name.
+        self.assertIn(
+            {"match": {"ports.scripts.smb-enum-shares.shares.Share": "IPC$"}},
+            bool_q["must_not"],
+        )
+
+    def test_searchsmbshares_rw_uses_literal_match(self):
+        body = self._ED().searchsmbshares(access="rw").to_dict()
+        bool_q = body["nested"]["query"]["nested"]["query"]["bool"]
+        # ``access="rw"`` is a literal "READ/WRITE" string
+        # (not a regex).
+        self.assertIn(
+            {
+                "match": {
+                    "ports.scripts.smb-enum-shares.shares.Anonymous access": "READ/WRITE"
+                }
+            },
+            bool_q["should"],
+        )
+
+    def test_searchsmbshares_hidden_true_pins_hidden_share_type(self):
+        body = self._ED().searchsmbshares(hidden=True).to_dict()
+        bool_q = body["nested"]["query"]["nested"]["query"]["bool"]
+        self.assertIn(
+            {
+                "match": {
+                    "ports.scripts.smb-enum-shares.shares.Type": "STYPE_DISKTREE_HIDDEN"
+                }
+            },
+            bool_q["must"],
+        )
+
+    def test_searchsmbshares_hidden_none_excludes_sentinel_types(self):
+        body = self._ED().searchsmbshares().to_dict()
+        bool_q = body["nested"]["query"]["nested"]["query"]["bool"]
+        # ``hidden=None`` is the default: ``Type`` must not
+        # be one of the four sentinel values.
+        excluded = {
+            "STYPE_IPC_HIDDEN",
+            "Not a file share",
+            "STYPE_IPC",
+            "STYPE_PRINTQ",
+        }
+        # The ``must_not`` carries a ``terms`` query whose
+        # value list matches the sentinel set.
+        terms_clauses = [
+            clause["terms"]["ports.scripts.smb-enum-shares.shares.Type"]
+            for clause in bool_q.get("must_not", [])
+            if "terms" in clause
+        ]
+        self.assertTrue(terms_clauses)
+        self.assertEqual(set(terms_clauses[0]), excluded)
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.

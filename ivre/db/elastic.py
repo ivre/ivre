@@ -1405,6 +1405,310 @@ return result;
         # ``hostnames.name`` match.
         return cls.searchdomain(name) & cls._search_field("hostnames.name", name)
 
+    # -- traces.hops -- mirroring :meth:`MongoDB.searchhop` /
+    # ``searchhopname`` / ``searchhopdomain``.  ``traces.hops``
+    # is *not* declared in :attr:`nested_fields`, so each
+    # ``match`` flattens against the array directly: a query
+    # combining ``ipaddr`` and ``ttl`` matches host records
+    # where any single hop satisfies both predicates *or*
+    # different hops satisfy them separately.  The latter is a
+    # well-known limitation of non-nested array-of-objects on
+    # Elasticsearch and is consistent with the rest of the
+    # schema (e.g. ``hostnames.*``).
+    @classmethod
+    def searchhop(cls, hop, ttl=None, neg=False):
+        """Filter records that have a traceroute hop with the
+        supplied address (and optional TTL).
+
+        Mirrors :meth:`MongoDB.searchhop`; ``traces.hops.ipaddr``
+        is mapped as Elasticsearch's native ``ip`` type, so the
+        match takes a printable IP string directly without the
+        ``ip2internal`` split the Mongo helper applies.
+        """
+        res = Q("match", **{"traces.hops.ipaddr": hop})
+        if ttl is not None:
+            res &= Q("match", **{"traces.hops.ttl": ttl})
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
+    def searchhopdomain(cls, hop, neg=False):
+        """Filter records by traceroute-hop domain.
+
+        Mirrors :meth:`MongoDB.searchhopdomain`: a ``match``
+        against the indexed ``traces.hops.domains`` field.
+        """
+        return cls._search_field("traces.hops.domains", hop, neg=neg)
+
+    @classmethod
+    def searchhopname(cls, hop, neg=False):
+        """Filter records by traceroute-hop hostname.
+
+        Mirrors :meth:`MongoDB.searchhopname`: positive matches
+        AND the indexed ``traces.hops.domains`` lookup with the
+        non-indexed ``traces.hops.host`` match (so the hot path
+        still goes through the index even though
+        ``traces.hops.host`` is not indexed); negative matches
+        only exclude ``traces.hops.host`` so the indexed filter
+        does not silently drop legitimate non-matches.
+        """
+        if neg:
+            return cls._search_field("traces.hops.host", hop, neg=True)
+        return cls.searchhopdomain(hop) & cls._search_field("traces.hops.host", hop)
+
+    # -- per-port "fingerprint" filters --------------------
+    @staticmethod
+    def searchldapanon():
+        """Filter records exposing an LDAP service that allows
+        anonymous binds.
+
+        Mirrors :meth:`MongoDB.searchldapanon`: a single
+        ``match`` against ``ports.service_extrainfo`` -- the
+        nmap LDAP probe records ``"Anonymous bind OK"`` in
+        the service extra-info string when the bind succeeds
+        without credentials.
+        """
+        return Q("match", ports__service_extrainfo="Anonymous bind OK")
+
+    @staticmethod
+    def searchvsftpdbackdoor():
+        """Filter records exposing the vsftpd 2.3.4 backdoor
+        (CVE-2011-2523).
+
+        Mirrors :meth:`MongoDB.searchvsftpdbackdoor`: a nested
+        match on the canonical product / version / state
+        fingerprint Metasploit's ``ftp/vsftpd_234_backdoor``
+        module checks.
+        """
+        return Q(
+            "nested",
+            path="ports",
+            query=(
+                Q("match", ports__protocol="tcp")
+                & Q("match", ports__state_state="open")
+                & Q("match", ports__service_product="vsftpd")
+                & Q("match", ports__service_version="2.3.4")
+            ),
+        )
+
+    @staticmethod
+    def searchwebmin():
+        """Filter records exposing a Webmin admin interface.
+
+        Mirrors :meth:`MongoDB.searchwebmin`: nmap's HTTP
+        service probe identifies Webmin via
+        ``service_product == "MiniServ"`` while leaving
+        ``service_extrainfo`` set to something *other* than
+        ``"Webmin httpd"`` (which is the regular Apache /
+        nginx hosting the admin UI).
+        """
+        return Q(
+            "nested",
+            path="ports",
+            query=(
+                Q("match", ports__service_name="http")
+                & Q("match", ports__service_product="MiniServ")
+                & ~Q("match", ports__service_extrainfo="Webmin httpd")
+            ),
+        )
+
+    @classmethod
+    def searchhttptitle(cls, title):
+        """Filter records by HTTP / HTML page title.
+
+        Mirrors :meth:`MongoDB.searchhttptitle`: delegates to
+        :meth:`searchscript` with ``name=["http-title",
+        "html-title"]`` so both the modern http-title and the
+        legacy html-title NSE script outputs are matched.
+        """
+        return cls.searchscript(name=["http-title", "html-title"], output=title)
+
+    # -- screenshot / screenwords -----------------------------
+    @classmethod
+    def searchscreenshot(
+        cls,
+        port=None,
+        protocol="tcp",
+        service=None,
+        words=None,
+        neg=False,
+    ):
+        """Filter records that have (or, with ``neg=True``,
+        lack) a screenshot on at least one port.
+
+        Mirrors :meth:`MongoDB.searchscreenshot`.  ``port`` /
+        ``protocol`` / ``service`` constrain the matching
+        port; ``words`` filters on the OCR word list.  The
+        Mongo-shape semantics are preserved: ``neg=True`` with
+        no port / service constraint means *no* port has a
+        screenshot (the existence check inverts at the host
+        level), whereas ``neg=True`` with a port / service
+        constraint inverts the inner predicate so other ports
+        on the same host can still keep their screenshots.
+
+        The Elastic implementation routes everything through a
+        ``Nested(ports, ...)`` query so the per-port filter is
+        evaluated against a single port subdoc; ``ports`` is
+        in :attr:`nested_fields`.
+        """
+        # ``words=None``, no port / service: existence check
+        # at the host level (inverts at the EXISTS level on
+        # ``neg=True``).
+        if words is None and port is None and service is None:
+            res = Q(
+                "nested",
+                path="ports",
+                query=Q("exists", field="ports.screenshot"),
+            )
+            if neg:
+                return ~res
+            return res
+        # ``words`` is set: a screenshot must always exist;
+        # the negation flips at the per-port predicate
+        # (``screenwords`` excludes the words rather than the
+        # whole match).
+        port_query = Q("exists", field="ports.screenshot")
+        if port is not None:
+            port_query &= Q("match", ports__port=port)
+            port_query &= Q("match", ports__protocol=protocol)
+        if service is not None:
+            port_query &= Q("match", ports__service_name=service)
+        if words is not None:
+            words_q = cls._screenshot_words_predicate(words, neg=neg)
+            port_query &= words_q
+        elif neg:
+            # ``words=None`` with a port / service constraint:
+            # invert the per-port screenshot existence.
+            port_query = ~Q("exists", field="ports.screenshot")
+            if port is not None:
+                port_query &= Q("match", ports__port=port)
+                port_query &= Q("match", ports__protocol=protocol)
+            if service is not None:
+                port_query &= Q("match", ports__service_name=service)
+        return Q("nested", path="ports", query=port_query)
+
+    @classmethod
+    def _screenshot_words_predicate(cls, words, neg=False):
+        """Build the ``ports.screenwords`` predicate for
+        :meth:`searchscreenshot`.  Matches the four input
+        shapes Mongo's helper supports: ``bool`` (existence),
+        ``list`` (every word must be present), regex (any
+        element matches the pattern), or scalar string (any
+        element equals the value).  ``neg=True`` flips the
+        polarity at the predicate level (Mongo's ``$ne`` /
+        ``$not``); ``words=False`` short-circuits to the
+        no-word existence check regardless of ``neg``.
+        """
+        if isinstance(words, bool):
+            res = Q("exists", field="ports.screenwords")
+            if not words:
+                return ~res
+            return res
+        if isinstance(words, list):
+            lowered = [w.lower() for w in words]
+            res = cls.flt_and(*(Q("match", ports__screenwords=w) for w in lowered))
+            if neg:
+                return ~res
+            return res
+        if isinstance(words, utils.REGEXP_T):
+            pattern = re.compile(words.pattern.lower(), flags=words.flags)
+            res = Q("regexp", **{"ports.screenwords": cls._get_pattern(pattern)})
+            if neg:
+                return ~res
+            return res
+        # scalar string -- lower-cased to match the
+        # pre-stored shape.
+        res = Q("match", ports__screenwords=words.lower())
+        if neg:
+            return ~res
+        return res
+
+    # -- searchsmbshares -- direct ``ports.scripts.smb-enum-shares``
+    # query; ``ElasticDBActive.searchscript`` cannot translate
+    # the nested ``$elemMatch`` / ``$or`` / ``$nin`` shape the
+    # Mongo helper builds, so we go via a hand-rolled
+    # ``Nested(ports, Nested(ports.scripts, Bool(...)))`` query.
+    @classmethod
+    def searchsmbshares(cls, access="", hidden=None):
+        """Filter SMB shares with the given ``access`` (default:
+        either read or write, accepted values 'r', 'w', 'rw').
+
+        ``hidden=True`` selects hidden shares only,
+        ``hidden=False`` non-hidden only, ``None`` (the default)
+        accepts either.
+
+        Mirrors :meth:`MongoDB.searchsmbshares`.  The Mongo
+        helper builds a ``$elemMatch`` / ``$or`` / ``$nin``
+        block under ``searchscript(values=...)``;
+        :meth:`ElasticDBActive.searchscript` does not translate
+        that shape, so the predicate is built directly here.
+        """
+        access_pattern = {
+            "": re.compile("^(READ|WRITE)"),
+            "r": re.compile("^READ(/|$)"),
+            "w": re.compile("(^|/)WRITE$"),
+            "rw": "READ/WRITE",
+            "wr": "READ/WRITE",
+        }[access.lower()]
+        excluded_share_types = (
+            "STYPE_IPC_HIDDEN",
+            "Not a file share",
+            "STYPE_IPC",
+            "STYPE_PRINTQ",
+        )
+
+        def _access_match(field):
+            if isinstance(access_pattern, utils.REGEXP_T):
+                return Q(
+                    "regexp",
+                    **{field: cls._get_pattern(access_pattern)},
+                )
+            return Q("match", **{field: access_pattern})
+
+        access_q = _access_match(
+            "ports.scripts.smb-enum-shares.shares.Anonymous access"
+        ) | _access_match("ports.scripts.smb-enum-shares.shares.Current user access")
+        if hidden is None:
+            type_q = ~Q(
+                "terms",
+                **{
+                    "ports.scripts.smb-enum-shares.shares.Type": list(
+                        excluded_share_types
+                    )
+                },
+            )
+        elif hidden:
+            type_q = Q(
+                "match",
+                **{
+                    "ports.scripts.smb-enum-shares.shares.Type": (
+                        "STYPE_DISKTREE_HIDDEN"
+                    )
+                },
+            )
+        else:
+            type_q = Q(
+                "match",
+                **{"ports.scripts.smb-enum-shares.shares.Type": "STYPE_DISKTREE"},
+            )
+        share_q = ~Q(
+            "match",
+            **{"ports.scripts.smb-enum-shares.shares.Share": "IPC$"},
+        )
+        return Q(
+            "nested",
+            path="ports",
+            query=Q(
+                "nested",
+                path="ports.scripts",
+                query=Q("match", **{"ports.scripts.id": "smb-enum-shares"})
+                & access_q
+                & type_q
+                & share_q,
+            ),
+        )
+
     @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
