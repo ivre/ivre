@@ -6374,6 +6374,206 @@ class SQLDBTopValuesResidualTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBFlowSchemaTests -- pin the SQL Flow purpose schema (host +
+# flow tables, columns, types, indexes, foreign keys).  These pin
+# the structural contract subsequent SQLDBFlow ingestion / query
+# helpers will rely on; a regression here surfaces immediately as
+# a column-name / type / index mismatch instead of a broken
+# upsert under load.
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql import SQLDBFlow as _SQLDBFlow_for_schema_test  # noqa: F401
+    from ivre.db.sql.tables import Flow as _Flow_for_schema_test
+    from ivre.db.sql.tables import Host as _Host_for_schema_test
+
+    _HAVE_SQLDB_FLOW = True
+except ImportError:
+    _HAVE_SQLDB_FLOW = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_FLOW,
+    "SQLAlchemy is required for SQLDBFlowSchemaTests",
+)
+class SQLDBFlowSchemaTests(unittest.TestCase):
+    """Structural pin tests for the SQL Flow schema.
+
+    Mirrors :class:`MongoDBFlow` (``ivre/db/mongo.py:6176``) on the
+    columns the ingestion / query paths read.  Two intentional
+    divergences are pinned here so a future refactor cannot
+    silently revert them:
+
+    * Mongo stores source / destination addresses inline as
+      ``src_addr_0`` / ``src_addr_1``; the SQL backend uses a
+      separate :class:`Host` table referenced via ``flow.src`` /
+      ``flow.dst`` foreign keys.
+    * Mongo's ``times`` array (per-flow timeslot history) is
+      MongoDB-only per ``ivre/flow.py:45-48``; the SQL schema
+      omits it.
+    """
+
+    def test_host_table_columns(self):
+        cols = {c.name: c for c in _Host_for_schema_test.__table__.columns}
+        self.assertEqual(set(cols), {"id", "addr", "firstseen", "lastseen"})
+        self.assertTrue(cols["id"].primary_key)
+        # ``addr`` must be NOT NULL: it is the natural key the
+        # ingestion path looks up before inserting flow rows.
+        self.assertFalse(cols["addr"].nullable)
+        # ``addr`` uses the dialect-aware ``SQLINET``
+        # (``postgresql.INET`` with a DuckDB-flavoured literal
+        # processor); confirm we did not regress to plain
+        # ``String``.
+        self.assertEqual(cols["addr"].type.__class__.__name__, "INETLiteral")
+
+    def test_host_table_unique_addr(self):
+        # The ``host`` table needs a UNIQUE constraint on ``addr``
+        # so the ingestion path can ``ON CONFLICT (addr) DO
+        # UPDATE`` without an extra serialisation lock.
+        unique_constraints = [
+            c
+            for c in _Host_for_schema_test.__table__.constraints
+            if c.__class__.__name__ == "UniqueConstraint"
+        ]
+        self.assertEqual(len(unique_constraints), 1)
+        self.assertEqual([col.name for col in unique_constraints[0].columns], ["addr"])
+
+    def test_host_table_indexes(self):
+        idx_names = {i.name for i in _Host_for_schema_test.__table__.indexes}
+        self.assertIn("host_idx_firstseen", idx_names)
+        self.assertIn("host_idx_lastseen", idx_names)
+
+    def test_flow_table_columns(self):
+        cols = {c.name: c for c in _Flow_for_schema_test.__table__.columns}
+        self.assertEqual(
+            set(cols),
+            {
+                "id",
+                "proto",
+                "dport",
+                "type",
+                "src",
+                "dst",
+                "firstseen",
+                "lastseen",
+                "scpkts",
+                "scbytes",
+                "cspkts",
+                "csbytes",
+                "count",
+                "sports",
+                "codes",
+                "meta",
+                "schema_version",
+            },
+        )
+        self.assertTrue(cols["id"].primary_key)
+        # ``dport`` and ``type`` are mutually exclusive depending
+        # on the protocol; both must be nullable.
+        self.assertTrue(cols["dport"].nullable)
+        self.assertTrue(cols["type"].nullable)
+
+    def test_flow_packet_byte_counters_use_bigint(self):
+        # ``BigInteger`` (not ``Integer``): cumulative byte
+        # counters on long-lived flows can exceed 2^31 within a
+        # single retention window; widening avoids silent overflow
+        # on every PostgreSQL upsert.
+        cols = {c.name: c for c in _Flow_for_schema_test.__table__.columns}
+        for name in ("scpkts", "scbytes", "cspkts", "csbytes", "count"):
+            self.assertEqual(
+                cols[name].type.__class__.__name__,
+                "BigInteger",
+                f"{name!r} must be BigInteger to avoid 2^31 overflow",
+            )
+
+    def test_flow_meta_is_jsonb(self):
+        # ``meta`` carries the per-protocol metadata bag mirroring
+        # Mongo's ``meta.<name>`` sub-document.  ``SQLJSONB`` is a
+        # ``postgresql.JSONB().with_variant(JSON(), "duckdb")``
+        # type so the same column compiles to ``JSONB`` on
+        # PostgreSQL and ``JSON`` on DuckDB.
+        cols = {c.name: c for c in _Flow_for_schema_test.__table__.columns}
+        self.assertEqual(cols["meta"].type.__class__.__name__, "JSONB")
+
+    def test_flow_sports_codes_are_integer_arrays(self):
+        cols = {c.name: c for c in _Flow_for_schema_test.__table__.columns}
+        for name in ("sports", "codes"):
+            self.assertEqual(
+                cols[name].type.__class__.__name__,
+                "ARRAY",
+                f"{name!r} must be a SQL ARRAY",
+            )
+            self.assertEqual(cols[name].type.item_type.__class__.__name__, "Integer")
+
+    def test_flow_src_dst_are_foreign_keys_to_host(self):
+        cols = {c.name: c for c in _Flow_for_schema_test.__table__.columns}
+        for name in ("src", "dst"):
+            fks = list(cols[name].foreign_keys)
+            self.assertEqual(len(fks), 1, f"{name!r} must have a single FK")
+            fk = fks[0]
+            # FK target table is ``host``; the ondelete clause
+            # is ``RESTRICT`` so a host row cannot disappear
+            # while flows still reference it.
+            self.assertEqual(fk.column.table.name, "host")
+            self.assertEqual(fk.column.name, "id")
+            self.assertEqual(fk.ondelete, "RESTRICT")
+
+    def test_flow_lookup_index_covers_upsert_key(self):
+        # The ingestion paths upsert flows on
+        # ``(src, dst, proto, dport-or-type, schema_version)``;
+        # the composite ``flow_idx_lookup`` must cover every
+        # lookup column in that order so the planner can use
+        # the index for the ``WHERE`` clause matching the
+        # upsert spec.
+        idx_by_name = {i.name: i for i in _Flow_for_schema_test.__table__.indexes}
+        self.assertIn("flow_idx_lookup", idx_by_name)
+        self.assertEqual(
+            [c.name for c in idx_by_name["flow_idx_lookup"].columns],
+            ["src", "dst", "proto", "dport", "type", "schema_version"],
+        )
+
+    def test_flow_individual_metric_indexes(self):
+        # Mirrors the per-metric indexes on
+        # ``MongoDBFlow.indexes`` (``mongo.py:6204-6212``).  Each
+        # of these is used by the ``flow filter`` UI for
+        # ``count = N``, ``firstseen >= ...``, ``cspkts > 1000``,
+        # etc.
+        idx_names = {i.name for i in _Flow_for_schema_test.__table__.indexes}
+        for expected in (
+            "flow_idx_proto",
+            "flow_idx_dport",
+            "flow_idx_schema_version",
+            "flow_idx_firstseen",
+            "flow_idx_lastseen",
+            "flow_idx_count",
+            "flow_idx_cspkts",
+            "flow_idx_scpkts",
+            "flow_idx_csbytes",
+            "flow_idx_scbytes",
+        ):
+            self.assertIn(
+                expected,
+                idx_names,
+                f"missing per-metric index {expected!r} -- "
+                "the flow filter UI relies on indexed lookups for "
+                "single-column predicates",
+            )
+
+    def test_sqldbflow_table_layout_includes_host(self):
+        # ``SQLDBFlow.tables`` is the namedtuple subsequent helpers
+        # read; the ingestion path needs ``self.tables.host``
+        # alongside ``self.tables.flow`` to perform the host
+        # upsert before linking the flow row.
+        self.assertEqual(
+            tuple(_SQLDBFlow_for_schema_test.table_layout._fields),
+            ("host", "flow"),
+        )
+        self.assertIs(_SQLDBFlow_for_schema_test.tables.host, _Host_for_schema_test)
+        self.assertIs(_SQLDBFlow_for_schema_test.tables.flow, _Flow_for_schema_test)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``

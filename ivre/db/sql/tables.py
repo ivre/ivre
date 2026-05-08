@@ -20,6 +20,7 @@
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Column,
     DateTime,
     Float,
@@ -31,6 +32,7 @@ from sqlalchemy import (
     Sequence,
     String,
     Text,
+    UniqueConstraint,
     cast,
     func,
     literal_column,
@@ -252,7 +254,65 @@ Base = declarative_base()
 
 
 # Flow
+#
+# Schema mirrors :class:`MongoDBFlow` (``ivre/db/mongo.py:6176``);
+# every flow record has the same logical columns on both
+# backends, with two structural differences:
+#
+# * Mongo stores the source / destination addresses inline on the
+#   flow record as ``src_addr_0`` / ``src_addr_1`` (int128 split).
+#   The SQL backend uses a separate :class:`Host` table with a
+#   native ``INET`` ``addr`` column and references it via
+#   ``flow.src`` / ``flow.dst`` foreign keys.  This lets the
+#   ``host_details`` / ``flow_details`` paths resolve a node to
+#   its set of incident flows with a single indexed lookup
+#   instead of scanning the flow table.
+#
+# * Mongo's ``times`` array (per-flow timeslot history, gated by
+#   ``config.FLOW_TIME``) is documented as MongoDB-only in
+#   ``ivre/flow.py:45-48`` (``FIELDS["times"] = "... (MongoDB
+#   backend only)"``).  The SQL schema does not carry it;
+#   ``flow_daily`` queries derive their per-bucket counts from
+#   ``firstseen`` / ``lastseen`` instead.
+#
+# All other Mongo flow fields (``count``, ``cspkts`` / ``scpkts`` /
+# ``csbytes`` / ``scbytes``, ``sports``, ``codes``, ``meta``,
+# ``schema_version``, ``type``) have direct counterparts here.
+# Per-flow byte / packet counters use ``BigInteger`` rather than
+# the historical ``Integer`` so long-lived flows from busy hosts
+# do not overflow at 2^31 -- the column was never populated
+# (``SQLDBFlow`` raised ``NotImplementedError`` on every write
+# path), so widening it has no migration cost.
+
+_seq_host_id = Sequence("seq_host_id")
 _seq_flow_id = Sequence("seq_flow_id")
+
+
+class Host(Base):
+    """Per-address record holding the endpoints of every
+    :class:`Flow` row.  Populated lazily by the flow ingestion
+    paths (:meth:`SQLDBFlow.any2flow` / ``conn2flow`` /
+    ``flow2flow``), which upsert one row per source / destination
+    address."""
+
+    __tablename__ = "host"
+    id = Column(
+        Integer,
+        _seq_host_id,
+        server_default=_seq_host_id.next_value(),
+        primary_key=True,
+    )
+    addr = Column(SQLINET, nullable=False)
+    firstseen = Column(DateTime)
+    lastseen = Column(DateTime)
+    __table_args__ = (
+        # ``addr`` is the natural key: every ingested flow looks
+        # up the host row by IP, so the unique index doubles as
+        # the upsert lookup index.
+        UniqueConstraint("addr", name="host_idx_addr"),
+        Index("host_idx_firstseen", "firstseen"),
+        Index("host_idx_lastseen", "lastseen"),
+    )
 
 
 class Flow(Base):
@@ -263,19 +323,72 @@ class Flow(Base):
         server_default=_seq_flow_id.next_value(),
         primary_key=True,
     )
-    proto = Column(String(32), index=True)
-    dport = Column(Integer, index=True)
+    proto = Column(String(32))
+    # Destination port for ``tcp`` / ``udp``; ICMP records leave
+    # this ``NULL`` and use :attr:`type` instead.  Mirrors Mongo's
+    # ``MongoDBFlow._get_flow_key`` dispatch
+    # (``ivre/db/mongo.py:6242``).
+    dport = Column(Integer)
+    type = Column(Integer)
     src = Column(Integer, ForeignKey("host.id", ondelete="RESTRICT"))
     dst = Column(Integer, ForeignKey("host.id", ondelete="RESTRICT"))
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
-    scpkts = Column(Integer)
-    scbytes = Column(Integer)
-    cspkts = Column(Integer)
-    csbytes = Column(Integer)
+    # Cumulative packet / byte counters incremented on every
+    # repeated ingestion of the same flow tuple (see Mongo's
+    # ``conn2flow`` / ``flow2flow`` ``$inc`` blocks at
+    # ``ivre/db/mongo.py:6311`` and ``:6340``).  ``BigInteger``
+    # avoids 2^31 overflow on long-lived flows.
+    scpkts = Column(BigInteger)
+    scbytes = Column(BigInteger)
+    cspkts = Column(BigInteger)
+    csbytes = Column(BigInteger)
+    # Number of discrete observations aggregated into this row
+    # (incremented by ``conn2flow`` / ``flow2flow``, by
+    # ``meta.<name>.count`` for ``any2flow``).
+    count = Column(BigInteger)
+    # Set-valued source ports (tcp/udp) and ICMP codes; mirror
+    # Mongo's ``$addToSet`` semantics on the same column names.
     sports = Column(SQLARRAY(Integer))
+    codes = Column(SQLARRAY(Integer))
+    # Per-protocol metadata bag -- one sub-key per Zeek log type
+    # (``http``, ``ssh``, ``dns``, ...) following
+    # :data:`ivre.flow.META_DESC`.  JSONB so the per-protocol
+    # ``keys`` / ``counters`` shape matches Mongo's ``meta.<name>``
+    # sub-document one-for-one without a migration when new Zeek
+    # log types are added.
+    meta = Column(SQLJSONB)
+    # Bound to :data:`ivre.flow.SCHEMA_VERSION`; written by every
+    # ingestion path so future ``_migrate_schema_NN_MM`` helpers
+    # can scope updates to specific generations.
+    schema_version = Column(Integer)
     __table_args__ = (
-        # Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
+        # Composite index covering the upsert lookup key Mongo
+        # uses in ``MongoDBFlow._get_flow_key``: TCP/UDP rows
+        # match on (src, dst, proto, dport, schema_version), ICMP
+        # rows on (src, dst, proto, type, schema_version).  A
+        # single B-tree index over the union covers both shapes
+        # because ``dport`` / ``type`` are mutually exclusive
+        # (one is always NULL).
+        Index(
+            "flow_idx_lookup",
+            "src",
+            "dst",
+            "proto",
+            "dport",
+            "type",
+            "schema_version",
+        ),
+        Index("flow_idx_proto", "proto"),
+        Index("flow_idx_dport", "dport"),
+        Index("flow_idx_schema_version", "schema_version"),
+        Index("flow_idx_firstseen", "firstseen"),
+        Index("flow_idx_lastseen", "lastseen"),
+        Index("flow_idx_count", "count"),
+        Index("flow_idx_cspkts", "cspkts"),
+        Index("flow_idx_scpkts", "scpkts"),
+        Index("flow_idx_csbytes", "csbytes"),
+        Index("flow_idx_scbytes", "scbytes"),
     )
 
 

@@ -61,6 +61,7 @@ from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
 from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
     Flow,
+    Host,
     N_Association_Scan_Category,
     N_Association_Scan_Hostname,
     N_Category,
@@ -721,8 +722,14 @@ class SQLDB(DB):
 
 
 class SQLDBFlow(SQLDB, DBFlow):
-    table_layout = namedtuple("flow_layout", ["flow"])
-    tables = table_layout(Flow)
+    # ``host`` is the per-address endpoint table referenced by
+    # :attr:`Flow.src` / :attr:`Flow.dst`; SQL diverges from
+    # Mongo's inline ``src_addr_0`` / ``src_addr_1`` columns to
+    # let ``host_details`` resolve a node to its incident flows
+    # via an indexed lookup instead of a table scan.  Both
+    # tables are defined in :mod:`ivre.db.sql.tables`.
+    table_layout = namedtuple("flow_layout", ["host", "flow"])
+    tables = table_layout(Host, Flow)
 
     @staticmethod
     def query(*args, **kargs):
