@@ -446,6 +446,58 @@ class ElasticDBActive(ElasticDB, DBActive):
         elif field == "asnum":
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"field": "infos.as_num"}
+        elif field == "country":
+            # Mirrors :meth:`MongoDB.topvalues` ``country``
+            # branch: tuple of ``(country_code, country_name)``
+            # with the country-name fall-back to ``"?"`` when
+            # the GeoIP enrichment landed only the code.
+            flt = self.flt_and(flt, Q("exists", field="infos.country_code"))
+
+            def outputproc(value):  # noqa: F811
+                code, name = value.split(",", 1)
+                return (code, name)
+
+            field = {
+                "script": {
+                    "lang": "painless",
+                    "source": (
+                        "doc['infos.country_code'].value + ',' + "
+                        "(doc['infos.country_name'].size() == 0 "
+                        "? '?' : doc['infos.country_name'].value)"
+                    ),
+                }
+            }
+        elif field == "city":
+            # Mirrors :meth:`MongoDB.topvalues` ``city``
+            # branch: tuple of ``(country_code, city)``.
+            flt = self.flt_and(
+                flt,
+                Q("exists", field="infos.country_code"),
+                Q("exists", field="infos.city"),
+            )
+
+            def outputproc(value):  # noqa: F811
+                code, city = value.split(",", 1)
+                return (code, city)
+
+            field = {
+                "script": {
+                    "lang": "painless",
+                    "source": (
+                        "doc['infos.country_code'].value + ',' + "
+                        "doc['infos.city'].value"
+                    ),
+                }
+            }
+        elif field == "addr":
+            # Mirrors :meth:`MongoDB.topvalues` ``addr``
+            # branch: top values of the host address.  The
+            # Mongo helper splits the int128 into ``addr_0`` /
+            # ``addr_1`` and rebuilds the printable IP via
+            # :meth:`internal2ip`; the Elastic schema stores
+            # ``addr`` as a native ``ip`` type, so the
+            # aggregation runs on the field directly.
+            field = {"field": "addr"}
         elif field == "as":
 
             def outputproc(value):  # noqa: F811
@@ -1307,6 +1359,136 @@ return result;
                             }
                         },
                     },
+                },
+            }
+        elif field == "script":
+            # Mirrors :meth:`MongoDB.topvalues` ``script``
+            # branch: top script ids across all hosts.  The
+            # nested ``ports`` -> ``ports.scripts`` aggregation
+            # ensures each script id is counted exactly once
+            # per script subdoc rather than per host.
+            flt = self.flt_and(flt, self.searchscript())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(baseterms, field="ports.scripts.id"),
+                            }
+                        },
+                    }
+                },
+            }
+        elif field.startswith("script:"):
+            # Mirrors :meth:`MongoDB.topvalues` ``script:<id>``
+            # branch: top values of ``ports.scripts.output``
+            # for a specific script id.  ``script:<port>:<id>``
+            # also constrains the matching port number.
+            scriptid = field.split(":", 1)[1]
+            port = None
+            if ":" in scriptid:
+                port_part, scriptid = scriptid.split(":", 1)
+                if port_part.isdigit():
+                    port = int(port_part)
+            flt = self.flt_and(flt, self.searchscript(name=scriptid))
+            if port is not None:
+                flt = self.flt_and(flt, self.searchport(port))
+            inner_filter = Q("match", **{"ports.scripts.id": scriptid}).to_dict()
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "filter": inner_filter,
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(
+                                            baseterms,
+                                            field="ports.scripts.output",
+                                        )
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+            }
+        elif field == "domains":
+            # Mirrors :meth:`MongoDB.topvalues` ``domains``
+            # branch: top values of the indexed
+            # ``hostnames.domains`` field (every suffix of
+            # every hostname).  ``searchhostname()`` (no
+            # args) is the existence-check shape Mongo's
+            # ``searchdomain({"$exists": True})`` produces.
+            flt = self.flt_and(flt, self.searchhostname())
+            field = {"field": "hostnames.domains"}
+        elif field.startswith("domains:"):
+            # Mirrors :meth:`MongoDB.topvalues` ``domains:<spec>``
+            # branch.  ``<spec>`` is one of:
+            #   - integer ``N`` -> match domains with exactly
+            #     ``N`` levels (regex ``^([^.]+\\.){N-1}[^.]+$``);
+            #   - ``<subdomain>`` -> match domains ending with
+            #     ``.<subdomain>`` (regex
+            #     ``\\.<re.escape(subdomain)>$``);
+            #   - ``<subdomain>:<level>`` -> the level form
+            #     scoped to the subdomain.
+            # Mongo passes the regex into ``aggrflt`` which
+            # filters the aggregation; the Elastic equivalent
+            # is a ``regexp`` filter on the term aggregation
+            # via ``include``.
+            subfield = field[8:]
+            flt = self.flt_and(flt, self.searchhostname())
+            if subfield.isdigit():
+                include_pattern = "([^.]+\\.){%d}[^.]+" % (int(subfield) - 1)
+            elif ":" in subfield:
+                sub, level = subfield.split(":", 1)
+                flt = self.flt_and(flt, self.searchdomain(sub))
+                include_pattern = "([^.]+\\.){%d}%s" % (
+                    int(level) - sub.count(".") - 1,
+                    re.escape(sub),
+                )
+            else:
+                flt = self.flt_and(flt, self.searchdomain(subfield))
+                include_pattern = ".*\\." + re.escape(subfield)
+            field = {
+                "field": "hostnames.domains",
+                "include": include_pattern,
+            }
+        elif field.startswith("cert.") or field.startswith("cacert."):
+            # Mirrors :meth:`MongoDB.topvalues` ``cert.<key>``
+            # / ``cacert.<key>`` branches: nested aggregation
+            # over ``ports.scripts.ssl-cert`` / ``ssl-cacert``
+            # with the script-id filter applied at the
+            # ``ports.scripts`` level so the per-key counts
+            # only see the right script's documents.
+            cacert = field.startswith("cacert.")
+            subkey = field[7:] if cacert else field[5:]
+            scriptid = "ssl-cacert" if cacert else "ssl-cert"
+            flt = self.flt_and(flt, self.searchcert(cacert=cacert))
+            inner_filter = Q("match", **{"ports.scripts.id": scriptid}).to_dict()
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "filter": inner_filter,
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(
+                                            baseterms,
+                                            field=f"ports.scripts.{scriptid}.{subkey}",
+                                        )
+                                    }
+                                },
+                            }
+                        },
+                    }
                 },
             }
         else:

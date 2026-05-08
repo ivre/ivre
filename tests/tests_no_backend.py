@@ -2160,6 +2160,217 @@ class ElasticDBSearchTier3Tests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBTopValuesTier1Tests -- pin the wire shape of the
+# Tier-1 ``topvalues`` parity branches added on
+# ``ElasticDBActive``: ``country`` / ``city`` / ``addr`` /
+# ``script`` / ``script:<id>[:<port>]`` / ``domains`` /
+# ``domains:<spec>`` / ``cert.<key>`` / ``cacert.<key>``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBTopValuesTier1Tests(unittest.TestCase):
+    """Behaviour-pin for Tier-1 ``ElasticDBActive.topvalues``
+    parity branches.  ``topvalues`` runs the aggregation
+    against a live Elasticsearch index, so the pin
+    intercepts the body that ``db_client.search`` would
+    receive instead of executing it -- enough to cover the
+    aggregation tree (terms / nested / nested+filter), the
+    field path each branch resolves to, the painless
+    scripts the tuple-projecting branches emit, and the
+    flt scoping (e.g. ``searchcert(cacert=True)`` for the
+    ``cacert.*`` branch).
+    """
+
+    @staticmethod
+    def _ED_instance():
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView.from_url("elastic://x:9200")
+
+    @classmethod
+    def _capture_body(cls, field):
+        captured = []
+
+        class _FakeClient:
+            def search(self, body=None, **kw):  # type: ignore[no-untyped-def]
+                captured.append(body)
+                return {"aggregations": {"patterns": {"buckets": []}}}
+
+            def count(self, **kw):  # type: ignore[no-untyped-def]
+                return {"count": 0}
+
+        db = cls._ED_instance()
+        # ``db_client`` is a ``functools.cached_property`` /
+        # property on ``ElasticDB``; override on the
+        # instance via a property descriptor so the
+        # test does not require an actual Elasticsearch
+        # connection.
+        type(db).db_client = property(lambda self: _FakeClient())
+        try:
+            list(db.topvalues(field))
+        finally:
+            del type(db).db_client
+        assert captured, "topvalues did not call db_client.search"
+        return captured[-1]
+
+    # -- country / city / addr ----------------------------------------
+
+    def test_topvalues_country_emits_painless_tuple_script(self):
+        body = self._capture_body("country")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertIn("script", terms)
+        source = terms["script"]["source"]
+        # Painless concats ``country_code`` and
+        # ``country_name`` (with a ``"?"`` fallback when the
+        # name is missing) so the outputproc can split the
+        # tuple back.
+        self.assertIn("infos.country_code", source)
+        self.assertIn("infos.country_name", source)
+        # Filter scopes the aggregation to records that
+        # actually carry a country code.
+        self.assertIn("infos.country_code", str(body["query"]))
+
+    def test_topvalues_city_emits_painless_tuple_script(self):
+        body = self._capture_body("city")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertIn("script", terms)
+        source = terms["script"]["source"]
+        self.assertIn("infos.country_code", source)
+        self.assertIn("infos.city", source)
+
+    def test_topvalues_addr_aggregates_native_ip_field(self):
+        # ``addr`` is mapped as Elasticsearch's native
+        # ``ip`` type -- the aggregation runs on the field
+        # directly without the int128 split Mongo's
+        # ``addr_0`` / ``addr_1`` projection emits.
+        body = self._capture_body("addr")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["field"], "addr")
+
+    # -- script / script:<id> ----------------------------------------
+
+    def test_topvalues_script_uses_nested_aggregation(self):
+        body = self._capture_body("script")
+        # Nested(ports) -> Nested(ports.scripts) -> terms
+        # so each script id is counted exactly once per
+        # script subdoc rather than once per host.
+        outer = body["aggs"]["patterns"]
+        self.assertEqual(outer["nested"]["path"], "ports")
+        inner = outer["aggs"]["patterns"]
+        self.assertEqual(inner["nested"]["path"], "ports.scripts")
+        self.assertEqual(
+            inner["aggs"]["patterns"]["terms"]["field"], "ports.scripts.id"
+        )
+
+    def test_topvalues_script_with_id_filters_to_specific_script(self):
+        body = self._capture_body("script:http-title")
+        # Outer Nested(ports) -> Nested(ports.scripts) ->
+        # Filter(script.id == "http-title") -> terms on
+        # ``ports.scripts.output``.
+        outer = body["aggs"]["patterns"]
+        inner = outer["aggs"]["patterns"]
+        filter_clause = inner["aggs"]["patterns"]
+        self.assertIn("filter", filter_clause)
+        self.assertEqual(
+            filter_clause["filter"],
+            {"match": {"ports.scripts.id": "http-title"}},
+        )
+        self.assertEqual(
+            filter_clause["aggs"]["patterns"]["terms"]["field"],
+            "ports.scripts.output",
+        )
+
+    def test_topvalues_script_with_port_constraint(self):
+        # ``script:<port>:<id>`` adds a ``searchport(port)``
+        # filter at the host level (visible in the outer
+        # ``query`` block).
+        body = self._capture_body("script:80:http-title")
+        # Filter on port 80 lands somewhere in the host
+        # query.
+        self.assertIn("openports", str(body["query"]))
+
+    # -- domains / domains:<spec> -------------------------------------
+
+    def test_topvalues_domains_aggregates_indexed_domains(self):
+        body = self._capture_body("domains")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["field"], "hostnames.domains")
+
+    def test_topvalues_domains_numeric_level_uses_regex_include(self):
+        # ``domains:2`` -> regex ``([^.]+\.){1}[^.]+`` (i.e.
+        # exactly two-level domains).
+        body = self._capture_body("domains:2")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["field"], "hostnames.domains")
+        self.assertEqual(terms["include"], "([^.]+\\.){1}[^.]+")
+
+    def test_topvalues_domains_subdomain_uses_regex_include(self):
+        # ``domains:com`` -> regex ``.*\.com`` (any subdomain
+        # of ``.com``).
+        body = self._capture_body("domains:com")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["include"], ".*\\.com")
+
+    def test_topvalues_domains_subdomain_with_level(self):
+        # ``domains:com:2`` -> regex ``([^.]+\.){1}com``:
+        # ``int(level) - sub.count(".") - 1`` = ``2 - 0 - 1``.
+        body = self._capture_body("domains:com:2")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["include"], "([^.]+\\.){1}com")
+
+    # -- cert.* / cacert.* --------------------------------------------
+
+    def test_topvalues_cert_filters_on_ssl_cert_script(self):
+        body = self._capture_body("cert.subject")
+        outer = body["aggs"]["patterns"]
+        inner = outer["aggs"]["patterns"]
+        filter_clause = inner["aggs"]["patterns"]
+        self.assertEqual(
+            filter_clause["filter"],
+            {"match": {"ports.scripts.id": "ssl-cert"}},
+        )
+        self.assertEqual(
+            filter_clause["aggs"]["patterns"]["terms"]["field"],
+            "ports.scripts.ssl-cert.subject",
+        )
+
+    def test_topvalues_cacert_uses_ssl_cacert_script_id(self):
+        # ``cacert.<key>`` is the same shape as ``cert.<key>``
+        # but scoped to ``ssl-cacert`` rather than ``ssl-cert``;
+        # the per-key terms aggregation still indexes into
+        # the ``ports.scripts.ssl-cert.<key>`` *projection*
+        # (Mongo's hist-shape -- both NSE scripts share the
+        # ``ssl-cert`` data subkey on the parent document).
+        # Wait -- the Mongo helper at
+        # ``mongo.py:3743`` reads
+        # ``f"ports.scripts.ssl-cert.{field[7:]}"`` for both;
+        # double-check we mirror the same projection here.
+        body = self._capture_body("cacert.subject")
+        outer = body["aggs"]["patterns"]
+        inner = outer["aggs"]["patterns"]
+        filter_clause = inner["aggs"]["patterns"]
+        self.assertEqual(
+            filter_clause["filter"],
+            {"match": {"ports.scripts.id": "ssl-cacert"}},
+        )
+
+    def test_topvalues_cert_md5_indexes_into_hash_field(self):
+        body = self._capture_body("cert.md5")
+        # Drill down through the nested aggregation tree:
+        # outer Nested(ports) -> inner Nested(ports.scripts)
+        # -> filter -> terms.
+        outer = body["aggs"]["patterns"]
+        inner = outer["aggs"]["patterns"]
+        filter_clause = inner["aggs"]["patterns"]
+        terms = filter_clause["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms["field"], "ports.scripts.ssl-cert.md5")
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.
