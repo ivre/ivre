@@ -1746,6 +1746,244 @@ return result;
         return res
 
     @classmethod
+    def searchports(cls, ports, protocol="tcp", state="open", neg=False, any_=False):
+        """Filter records that have all (or any, with
+        ``any_=True``) of the listed ports in the given state.
+
+        Mirrors :meth:`MongoDB.searchports`: defaults to
+        AND-ing ``searchport(p)`` for every element (so every
+        port must be open); ``any_=True`` returns the OR
+        instead; ``neg=True`` AND-NOTs each match.
+
+        ``any_`` and ``neg`` are mutually exclusive on Mongo;
+        the same restriction applies here.
+        """
+        if any_ and neg:
+            raise ValueError("searchports: cannot set both neg and any_")
+        if any_:
+            return cls.flt_or(
+                *(cls.searchport(p, protocol=protocol, state=state) for p in ports)
+            )
+        return cls.flt_and(
+            *(cls.searchport(p, protocol=protocol, state=state, neg=neg) for p in ports)
+        )
+
+    @classmethod
+    def searchportsother(cls, ports, protocol="tcp", state="open"):
+        """Filter records carrying at least one port (with the
+        given ``state`` / ``protocol``) **other** than those
+        listed.
+
+        Mirrors :meth:`MongoDB.searchportsother`: a nested
+        ``ports`` query with the same protocol / state
+        constraints and ``ports.port NOT IN (...)``.  The
+        Mongo helper uses ``$elemMatch + $nin`` on the openports
+        map for ``state=open``; the Elastic implementation
+        uses the same nested-ports path for both ``state=open``
+        and other states so the predicate is uniform.
+        """
+        return Q(
+            "nested",
+            path="ports",
+            query=(
+                ~Q("terms", ports__port=ports)
+                & Q("match", ports__protocol=protocol)
+                & Q("match", ports__state_state=state)
+            ),
+        )
+
+    @classmethod
+    def searchcountopenports(cls, minn=None, maxn=None, neg=False):
+        """Filter records whose ``openports.count`` falls in
+        the ``[minn, maxn]`` range.
+
+        Mirrors :meth:`MongoDB.searchcountopenports`: equal
+        bounds collapse to a ``match`` (or ``must_not`` on
+        ``neg=True``); a single bound emits ``range`` with
+        ``gte`` / ``lte``; both bounds combine into a single
+        ``range`` query (or, on ``neg=True``, an OR of the
+        two individual range exclusions, mirroring Mongo's
+        ``$or`` of ``$lt`` / ``$gt``).
+        """
+        if minn is None and maxn is None:
+            raise AssertionError(
+                "searchcountopenports: at least one of minn or maxn must be set"
+            )
+        if minn == maxn:
+            res = Q("match", **{"openports.count": minn})
+            if neg:
+                return ~res
+            return res
+        if neg:
+            # Mirror Mongo's ``$or`` of ``$lt`` / ``$gt``: the
+            # row passes when ``count`` falls outside *either*
+            # bound, so a host with very few open ports still
+            # matches even if it has more than ``maxn``.
+            clauses = []
+            if minn is not None:
+                clauses.append(Q("range", **{"openports.count": {"lt": minn}}))
+            if maxn is not None:
+                clauses.append(Q("range", **{"openports.count": {"gt": maxn}}))
+            if len(clauses) == 1:
+                return clauses[0]
+            return cls.flt_or(*clauses)
+        bounds: dict[str, int] = {}
+        if minn is not None:
+            bounds["gte"] = minn
+        if maxn is not None:
+            bounds["lte"] = maxn
+        return Q("range", **{"openports.count": bounds})
+
+    @classmethod
+    def searchfile(cls, fname=None, scripts=None):
+        """Filter records exposing a shared file by name (NSE
+        ``ls`` module).
+
+        Mirrors :meth:`MongoDB.searchfile`.  ``scripts``
+        narrows the script-id space (string, list, or ``None``
+        = any of the ``ls``-emitting scripts).
+        """
+        ls_path = "ports.scripts.ls.volumes.files.filename"
+        if fname is None:
+            file_q = Q("exists", field=ls_path)
+        elif isinstance(fname, list):
+            file_q = Q("terms", **{ls_path: fname})
+        elif isinstance(fname, utils.REGEXP_T):
+            file_q = Q("regexp", **{ls_path: cls._get_pattern(fname)})
+        else:
+            file_q = Q("match", **{ls_path: fname})
+        if scripts is None:
+            return Q(
+                "nested",
+                path="ports",
+                query=Q("nested", path="ports.scripts", query=file_q),
+            )
+        if isinstance(scripts, str):
+            scripts = [scripts]
+        if len(scripts) == 1:
+            id_q = Q("match", **{"ports.scripts.id": scripts[0]})
+        else:
+            id_q = Q("terms", **{"ports.scripts.id": scripts})
+        return Q(
+            "nested",
+            path="ports",
+            query=Q(
+                "nested",
+                path="ports.scripts",
+                query=id_q & file_q,
+            ),
+        )
+
+    @classmethod
+    def searchvuln(cls, vulnid=None, state=None):
+        """Filter records exposing a vulnerability matching
+        ``vulnid`` and / or ``state``.
+
+        Mirrors :meth:`MongoDB.searchvuln`: with neither
+        argument the predicate matches any host with at least
+        one ``ports.scripts.vulns.id`` field; with one or
+        both, it constrains the matching field on the
+        unwound vuln entry.
+        """
+        if state is None and vulnid is None:
+            inner = Q("exists", field="ports.scripts.vulns.id")
+        elif state is None:
+            if isinstance(vulnid, utils.REGEXP_T):
+                inner = Q(
+                    "regexp",
+                    **{"ports.scripts.vulns.id": cls._get_pattern(vulnid)},
+                )
+            else:
+                inner = Q("match", **{"ports.scripts.vulns.id": vulnid})
+        elif vulnid is None:
+            inner = Q("match", **{"ports.scripts.vulns.state": state})
+        else:
+            inner = Q("match", **{"ports.scripts.vulns.id": vulnid}) & Q(
+                "match", **{"ports.scripts.vulns.status": state}
+            )
+        return Q(
+            "nested",
+            path="ports",
+            query=Q("nested", path="ports.scripts", query=inner),
+        )
+
+    @staticmethod
+    def searchvulnintersil():
+        """Filter records exposing the Intersil HTTPd password
+        reset vulnerability (Boa HTTPd, MSF
+        ``admin/http/intersil_pass_reset``).
+
+        Mirrors :meth:`MongoDB.searchvulnintersil`: a nested
+        ``ports`` match on the canonical product / version
+        regex the MSF module checks.
+        """
+        return Q(
+            "nested",
+            path="ports",
+            query=(
+                Q("match", ports__protocol="tcp")
+                & Q("match", ports__state_state="open")
+                & Q("match", ports__service_product="Boa HTTPd")
+                & Q(
+                    "regexp",
+                    ports__service_version=(
+                        # Intersil firmware versions matching
+                        # the MSF probe.
+                        "0\\.9(3([^0-9]|).*"
+                        "|4\\.([0-9]|0[0-9]|1[0-1])([^0-9]|).*)"
+                    ),
+                )
+            ),
+        )
+
+    @classmethod
+    def searchcpe(cls, cpe_type=None, vendor=None, product=None, version=None):
+        """Filter records by CPE.  No argument matches any host
+        with at least one CPE; otherwise the named fields are
+        AND-ed against the same CPE entry (``cpes`` is a flat
+        array of objects on the Elasticsearch schema -- not
+        declared in :attr:`nested_fields` -- so a host with
+        ``cpes = [{vendor: A, product: P}, {vendor: B, product:
+        Q}]`` would match ``searchcpe(vendor="A", product="Q")``
+        even though no single entry has both; this matches the
+        existing schema's flat-array semantics for
+        ``hostnames.*`` and the rest of the non-nested arrays).
+
+        Mirrors :meth:`MongoDB.searchcpe`.
+        """
+        fields = [
+            ("type", cpe_type),
+            ("vendor", vendor),
+            ("product", product),
+            ("version", version),
+        ]
+        flt = [(name, value) for name, value in fields if value is not None]
+        if not flt:
+            return Q("exists", field="cpes")
+        clauses = []
+        for name, value in flt:
+            if isinstance(value, utils.REGEXP_T):
+                clauses.append(Q("regexp", **{f"cpes.{name}": cls._get_pattern(value)}))
+            else:
+                clauses.append(Q("match", **{f"cpes.{name}": value}))
+        return cls.flt_and(*clauses)
+
+    @classmethod
+    def searchos(cls, txt):
+        """Filter records by OS detection.  ``txt`` is matched
+        against any of ``os.osclass.{vendor, osfamily, osgen,
+        type}`` -- the same four sub-keys :meth:`MongoDB.searchos`
+        ORs.
+        """
+        keys = ("vendor", "osfamily", "osgen", "type")
+        if isinstance(txt, utils.REGEXP_T):
+            pattern = cls._get_pattern(txt)
+            return cls.flt_or(
+                *(Q("regexp", **{f"os.osclass.{key}": pattern}) for key in keys)
+            )
+        return cls.flt_or(*(Q("match", **{f"os.osclass.{key}": txt}) for key in keys))
+
+    @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results."""
         req = []
@@ -2161,6 +2399,15 @@ class ElasticDBView(ElasticDBActive, DBView):
         return cls._search_field(
             "infos.country_code", utils.country_unalias(country), neg=neg
         )
+
+    @classmethod
+    def searchcity(cls, city, neg=False):
+        """Filter records by GeoIP city.  Mirrors
+        :meth:`MongoDB.searchcity` (a ``match`` on
+        ``infos.city`` with the regex / list / scalar dispatch
+        :meth:`_search_field` provides).
+        """
+        return cls._search_field("infos.city", city, neg=neg)
 
     @classmethod
     def searchasnum(cls, asnum, neg=False):

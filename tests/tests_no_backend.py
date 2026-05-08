@@ -1943,6 +1943,223 @@ class ElasticDBSearchTier2Tests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBSearchTier3Tests -- pin the wire shape of the
+# Tier-3 ``search*`` parity helpers added on
+# ``ElasticDBActive`` / ``ElasticDBView``:
+# ``searchcountopenports`` / ``searchports`` / ``searchportsother``
+# / ``searchcity`` / ``searchfile`` / ``searchvuln`` /
+# ``searchvulnintersil`` / ``searchcpe`` / ``searchos``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBSearchTier3Tests(unittest.TestCase):
+    """Behaviour-pin for Tier-3 ``ElasticDBActive.search*``
+    parity helpers.  ``searchfile`` previously raised
+    ``NotImplementedError``; the rest were missing entirely.
+    """
+
+    @staticmethod
+    def _ED():
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView
+
+    # -- searchcountopenports ----------------------------------------
+
+    def test_searchcountopenports_equal_bounds_collapses_to_match(self):
+        body = self._ED().searchcountopenports(minn=5, maxn=5).to_dict()
+        self.assertEqual(body, {"match": {"openports.count": 5}})
+
+    def test_searchcountopenports_emits_range(self):
+        body = self._ED().searchcountopenports(minn=5, maxn=100).to_dict()
+        self.assertEqual(body, {"range": {"openports.count": {"gte": 5, "lte": 100}}})
+
+    def test_searchcountopenports_neg_with_both_bounds_uses_or(self):
+        # Mirrors Mongo's ``$or`` of ``$lt`` / ``$gt``: the
+        # row passes when count falls outside *either*
+        # bound.
+        body = self._ED().searchcountopenports(minn=5, maxn=100, neg=True).to_dict()
+        should = body["bool"]["should"]
+        self.assertEqual(len(should), 2)
+        self.assertEqual(should[0], {"range": {"openports.count": {"lt": 5}}})
+        self.assertEqual(should[1], {"range": {"openports.count": {"gt": 100}}})
+
+    def test_searchcountopenports_requires_at_least_one_bound(self):
+        with self.assertRaises(AssertionError):
+            self._ED().searchcountopenports()
+
+    # -- searchports / searchportsother ------------------------------
+
+    def test_searchports_default_ands_per_port_matches(self):
+        body = self._ED().searchports([22, 80]).to_dict()
+        # Each port becomes its own ``match`` against
+        # ``openports.tcp.ports``; the helper AND-s them.
+        must = body["bool"]["must"]
+        self.assertEqual(len(must), 2)
+        self.assertIn({"match": {"openports.tcp.ports": 22}}, must)
+        self.assertIn({"match": {"openports.tcp.ports": 80}}, must)
+
+    def test_searchports_any_uses_or(self):
+        body = self._ED().searchports([22, 80], any_=True).to_dict()
+        should = body["bool"]["should"]
+        self.assertEqual(len(should), 2)
+        self.assertIn({"match": {"openports.tcp.ports": 22}}, should)
+        self.assertIn({"match": {"openports.tcp.ports": 80}}, should)
+
+    def test_searchports_neg_and_any_is_an_error(self):
+        with self.assertRaises(ValueError):
+            self._ED().searchports([22], neg=True, any_=True)
+
+    def test_searchportsother_emits_terms_must_not(self):
+        body = self._ED().searchportsother([22, 80]).to_dict()
+        # Nested ports query with ``ports.port NOT IN (22, 80)``.
+        self.assertEqual(body["nested"]["path"], "ports")
+        bool_q = body["nested"]["query"]["bool"]
+        self.assertIn({"terms": {"ports.port": [22, 80]}}, bool_q["must_not"])
+        self.assertIn({"match": {"ports.protocol": "tcp"}}, bool_q["must"])
+        self.assertIn({"match": {"ports.state_state": "open"}}, bool_q["must"])
+
+    # -- searchcity ---------------------------------------------------
+
+    def test_searchcity_scalar(self):
+        body = self._ED().searchcity("Paris").to_dict()
+        self.assertEqual(body, {"match": {"infos.city": "Paris"}})
+
+    def test_searchcity_neg(self):
+        body = self._ED().searchcity("Paris", neg=True).to_dict()
+        self.assertEqual(
+            body, {"bool": {"must_not": [{"match": {"infos.city": "Paris"}}]}}
+        )
+
+    # -- searchfile ---------------------------------------------------
+
+    def test_searchfile_no_args_existence_check(self):
+        body = self._ED().searchfile().to_dict()
+        # Goes through ``Nested(ports, Nested(ports.scripts,
+        # exists))`` so the predicate is evaluated against
+        # the inner ``files`` array per script.
+        self.assertEqual(body["nested"]["path"], "ports")
+        inner = body["nested"]["query"]["nested"]
+        self.assertEqual(inner["path"], "ports.scripts")
+        self.assertEqual(
+            inner["query"],
+            {"exists": {"field": "ports.scripts.ls.volumes.files.filename"}},
+        )
+
+    def test_searchfile_with_filename(self):
+        body = self._ED().searchfile("README").to_dict()
+        inner = body["nested"]["query"]["nested"]["query"]
+        self.assertEqual(
+            inner,
+            {"match": {"ports.scripts.ls.volumes.files.filename": "README"}},
+        )
+
+    def test_searchfile_with_scripts_filter(self):
+        body = self._ED().searchfile(scripts=["nfs-ls", "smb-ls"]).to_dict()
+        inner = body["nested"]["query"]["nested"]["query"]["bool"]["must"]
+        self.assertIn({"terms": {"ports.scripts.id": ["nfs-ls", "smb-ls"]}}, inner)
+        self.assertIn(
+            {"exists": {"field": "ports.scripts.ls.volumes.files.filename"}},
+            inner,
+        )
+
+    def test_searchfile_with_single_script_uses_match(self):
+        body = self._ED().searchfile(scripts="nfs-ls").to_dict()
+        inner = body["nested"]["query"]["nested"]["query"]["bool"]["must"]
+        # Single-element scripts list collapses to ``match``
+        # (vs ``terms`` for multi-element).
+        self.assertIn({"match": {"ports.scripts.id": "nfs-ls"}}, inner)
+
+    # -- searchvuln / searchvulnintersil -----------------------------
+
+    def test_searchvuln_no_args_emits_existence(self):
+        body = self._ED().searchvuln().to_dict()
+        self.assertEqual(body["nested"]["path"], "ports")
+        inner = body["nested"]["query"]["nested"]
+        self.assertEqual(inner["path"], "ports.scripts")
+        self.assertEqual(
+            inner["query"], {"exists": {"field": "ports.scripts.vulns.id"}}
+        )
+
+    def test_searchvuln_with_id_only(self):
+        body = self._ED().searchvuln("CVE-2021-44228").to_dict()
+        inner = body["nested"]["query"]["nested"]["query"]
+        self.assertEqual(inner, {"match": {"ports.scripts.vulns.id": "CVE-2021-44228"}})
+
+    def test_searchvuln_with_state_only(self):
+        body = self._ED().searchvuln(state="VULNERABLE").to_dict()
+        inner = body["nested"]["query"]["nested"]["query"]
+        self.assertEqual(inner, {"match": {"ports.scripts.vulns.state": "VULNERABLE"}})
+
+    def test_searchvuln_with_id_and_state_uses_status_field(self):
+        # Mirrors the Mongo helper's ``$elemMatch`` shape:
+        # the *status* field (not ``state``) is used when
+        # both args are supplied.
+        body = self._ED().searchvuln("CVE-2021-44228", "VULNERABLE").to_dict()
+        must = body["nested"]["query"]["nested"]["query"]["bool"]["must"]
+        self.assertIn({"match": {"ports.scripts.vulns.id": "CVE-2021-44228"}}, must)
+        self.assertIn({"match": {"ports.scripts.vulns.status": "VULNERABLE"}}, must)
+
+    def test_searchvulnintersil_pins_full_fingerprint(self):
+        body = self._ED().searchvulnintersil().to_dict()
+        self.assertEqual(body["nested"]["path"], "ports")
+        must = body["nested"]["query"]["bool"]["must"]
+        self.assertIn({"match": {"ports.protocol": "tcp"}}, must)
+        self.assertIn({"match": {"ports.state_state": "open"}}, must)
+        self.assertIn({"match": {"ports.service_product": "Boa HTTPd"}}, must)
+        # The version regex matches Intersil firmware
+        # versions vulnerable to MSF's
+        # ``admin/http/intersil_pass_reset`` module.
+        regexp_clauses = [c for c in must if "regexp" in c]
+        self.assertEqual(len(regexp_clauses), 1)
+        self.assertIn("ports.service_version", regexp_clauses[0]["regexp"])
+
+    # -- searchcpe ----------------------------------------------------
+
+    def test_searchcpe_no_args_existence_check(self):
+        body = self._ED().searchcpe().to_dict()
+        self.assertEqual(body, {"exists": {"field": "cpes"}})
+
+    def test_searchcpe_single_field_uses_match(self):
+        body = self._ED().searchcpe(vendor="apache").to_dict()
+        self.assertEqual(body, {"match": {"cpes.vendor": "apache"}})
+
+    def test_searchcpe_multiple_fields_AND(self):
+        body = self._ED().searchcpe(vendor="apache", product="httpd").to_dict()
+        must = body["bool"]["must"]
+        self.assertIn({"match": {"cpes.vendor": "apache"}}, must)
+        self.assertIn({"match": {"cpes.product": "httpd"}}, must)
+
+    def test_searchcpe_regex_emits_regexp_query(self):
+        import re
+
+        body = self._ED().searchcpe(vendor=re.compile("^apache")).to_dict()
+        self.assertEqual(body, {"regexp": {"cpes.vendor": "apache.*"}})
+
+    # -- searchos -----------------------------------------------------
+
+    def test_searchos_scalar_ors_four_subkeys(self):
+        body = self._ED().searchos("Linux").to_dict()
+        should = body["bool"]["should"]
+        self.assertEqual(len(should), 4)
+        for key in ("vendor", "osfamily", "osgen", "type"):
+            self.assertIn({"match": {f"os.osclass.{key}": "Linux"}}, should)
+
+    def test_searchos_regex_uses_regexp_query(self):
+        import re
+
+        body = self._ED().searchos(re.compile("Linux")).to_dict()
+        should = body["bool"]["should"]
+        self.assertEqual(len(should), 4)
+        for key in ("vendor", "osfamily", "osgen", "type"):
+            self.assertIn({"regexp": {f"os.osclass.{key}": ".*Linux.*"}}, should)
+
+
+# ---------------------------------------------------------------------
 # PostgresExplainTests -- defence-in-depth check that values
 # inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
 # per-type literal binding, not Python ``repr``.
