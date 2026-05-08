@@ -173,15 +173,64 @@ class ElasticDB(DB):
         pass
 
     @staticmethod
+    def searchversion(version):
+        """Filter records by their stored ``schema_version``.
+
+        Mirrors :meth:`MongoDB.searchversion`: ``version=None``
+        matches records without a ``schema_version`` field,
+        ``version=N`` matches records whose ``schema_version``
+        equals ``N``.  ``ivre view --init`` always writes the
+        current :data:`ivre.xmlnmap.SCHEMA_VERSION` on every
+        document, so the ``version=None`` branch only matches
+        legacy data ingested by an older release.
+        """
+        if version is None:
+            return ~Q("exists", field="schema_version")
+        return Q("match", schema_version=version)
+
+    @staticmethod
+    def searchrange(start, stop, neg=False):
+        """Filter records by an inclusive IP-address range.
+
+        Mirrors :meth:`MongoDB.searchrange`.  ``addr`` is mapped
+        as Elasticsearch's native ``ip`` type, so the comparison
+        runs directly on the printable IP string -- no
+        ``ip2internal`` int128 split is needed (the Mongo helper
+        applies one because it stores addresses as a pair of
+        ``addr_0`` / ``addr_1`` 64-bit ints).
+
+        The base-class chain also routes
+        :meth:`DB.searchnet` / :meth:`DB.searchipv4` /
+        :meth:`DB.searchipv6` through this method, so adding it
+        here unlocks every CIDR / IP-family filter on the
+        Elastic backend in one step.
+        """
+        res = Q("range", addr={"gte": start, "lte": stop})
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
     def _get_pattern(regexp):
         # The equivalent to a MongoDB or PostgreSQL search for regexp
         # /Test/ would be /.*Test.*/ in Elasticsearch, while /Test/ in
         # Elasticsearch is equivalent to /^Test$/ in MongoDB or
         # PostgreSQL.
+        #
+        # Returns the pattern as a plain string.  Python regex
+        # flags have no direct Elasticsearch equivalent at this
+        # layer; a warning is issued for any flag other than
+        # ``re.UNICODE``.  Callers that build
+        # ``Q("regexp", **{field: ...})`` clauses on textual
+        # fields and want the ``re.IGNORECASE`` flag honored
+        # should use :meth:`_regexp_clause` instead, which
+        # routes through Elasticsearch's
+        # ``regexp.<field>.case_insensitive`` parameter (ES
+        # 7.10+).  This helper stays stable for ``terms.include``
+        # aggregation contexts and the certificate-hash
+        # call sites that ``.lower()`` the returned string.
         pattern, flags = utils.regexp2pattern(regexp)
         if flags & ~re.UNICODE:
-            # if a flag, other than re.UNICODE, is set, issue a
-            # warning as it will not be used
             utils.LOGGER.warning(
                 "Elasticsearch does not support flags in regular "
                 "expressions [%r with flags=%r]",
@@ -189,6 +238,44 @@ class ElasticDB(DB):
                 flags,
             )
         return pattern
+
+    @classmethod
+    def _regexp_clause(cls, field, value):
+        """Build a ``Q("regexp", ...)`` clause that honors
+        ``re.IGNORECASE`` on the source regex.
+
+        Elasticsearch's ``regexp`` query accepts a
+        ``case_insensitive`` parameter since 7.10; with the
+        flag set, the pattern is wrapped in
+        ``{"value": pattern, "case_insensitive": True}``.
+        Without ``re.IGNORECASE`` the legacy plain-string
+        shape is preserved for byte-for-byte compatibility
+        with the existing pin tests.
+
+        Used by helpers that translate user-supplied regex
+        filters where ``re.IGNORECASE`` is part of the IVRE
+        shorthand syntax (``/pattern/i``) and the underlying
+        textual content (e.g. ``http-user-agent`` script
+        values, host script outputs) needs case-insensitive
+        matching to mirror the Mongo backend.
+        """
+        if isinstance(value, utils.REGEXP_T):
+            pattern, flags = utils.regexp2pattern(value)
+            unsupported = flags & ~(re.UNICODE | re.IGNORECASE)
+            if unsupported:
+                utils.LOGGER.warning(
+                    "Elasticsearch does not support flags in regular "
+                    "expressions [%r with flags=%r]",
+                    pattern,
+                    flags,
+                )
+            if flags & re.IGNORECASE:
+                return Q(
+                    "regexp",
+                    **{field: {"value": pattern, "case_insensitive": True}},
+                )
+            return Q("regexp", **{field: pattern})
+        return Q("regexp", **{field: cls._get_pattern(value)})
 
     @classmethod
     def _search_field(cls, field, value, neg=False):
@@ -288,6 +375,16 @@ class ElasticDBActive(ElasticDB, DBActive):
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
         "ports.scripts.ssl-ja4-client",
+        # ``traces.hops`` is an array of objects; declaring it
+        # nested preserves cross-field correlation inside a
+        # single hop record (e.g. a ``searchhop(ip, ttl=N)``
+        # query must match a hop where *both* ``ipaddr`` and
+        # ``ttl`` come from the same array element, not any
+        # combination across elements).  ``include_in_parent``
+        # is implicit via :func:`_create_mappings` so flat
+        # single-field queries on ``traces.hops.<key>`` keep
+        # working unchanged.
+        "traces.hops",
         "tags",
     ]
     mappings = [
@@ -318,20 +415,327 @@ class ElasticDBActive(ElasticDB, DBActive):
             ignore_unavailable=True,
         )["count"]
 
-    def get(self, spec, fields=None, **kargs):
-        """Queries the active index."""
+    # Elasticsearch's ``index.max_result_window`` setting
+    # (default 10 000) caps ``from + size`` on any non-scroll
+    # ``_search`` request -- exceed it and the request fails
+    # with ``Result window is too large``.  IVRE's web
+    # paginators drive ``get()`` with successive ``skip:N``
+    # values (``RESULTS_COUNT = 200`` per page over the HTTP
+    # backend, ``WEB_LIMIT`` over the cgi/JSON one), so any
+    # ``size`` we pick has to leave room for ``skip`` no
+    # matter how deep the pagination goes.
+    _MAX_RESULT_WINDOW = 10000
+
+    # ``no_limit`` is the sentinel value that translates to
+    # "return every match" for the per-backend ``limit`` /
+    # ``size`` argument.  ``MongoDBActive`` uses ``0`` (Mongo
+    # cursor convention); the SQL and HTTP backends use
+    # ``None``; for Elasticsearch, ``None`` lets :meth:`get` /
+    # :meth:`distinct` apply their own scroll- or
+    # composite-pagination defaults instead of forcing a
+    # specific window.  Consumed by ``web/app.py:452`` (the
+    # ``/cgi/.../distinct`` route) and
+    # ``ivre/tools/ipinfo.py:377-379``.
+    no_limit = None
+
+    def get(self, spec, fields=None, sort=None, limit=None, skip=None, **kargs):
+        """Queries the active index.
+
+        ``sort`` / ``limit`` / ``skip`` are honored via the
+        ``search`` API (``from`` + ``size`` + ``sort``); when
+        none of them are set, the more efficient
+        ``helpers.scan`` scroll path streams every match.
+        ``sort`` follows IVRE's ``[(field, direction), ...]``
+        convention -- ``direction`` is ``1`` for ascending or
+        ``-1`` for descending.
+
+        Honoring ``skip`` is what unblocks the
+        :func:`tests.tests.IvreTests.find_record_cgi` paginated
+        web-API loop, which was previously infinite on the
+        Elastic backend: every page returned the same first
+        ``WEB_LIMIT`` records because the pagination kwargs
+        were silently swallowed by ``**kargs`` and the scroll
+        helper has no offset support.
+
+        ``size`` is always capped so ``from + size`` stays
+        within :attr:`_MAX_RESULT_WINDOW`; deep pagination
+        beyond that ceiling would need ``search_after`` /
+        ``scroll``, which the cgi paginators do not currently
+        exercise.  When ``limit`` is unspecified we still want
+        a sensible default (callers iterate the cursor and
+        break at their own consumer-level cap), so the size
+        falls back to 1000 -- larger than any in-tree
+        per-page consumer needs, and well clear of the
+        ``from + size`` cap for typical CI fixtures.
+        """
         query = {"query": spec.to_dict()}
         if fields is not None:
             query["_source"] = fields
-        for rec in helpers.scan(
-            self.db_client, query=query, index=self.indexes[0], ignore_unavailable=True
-        ):
+        # ``sort=[]`` (the default ``flt_params.sortby`` value
+        # the cgi handler hands us) is "not None" but means
+        # "no sort"; treat it as scan-friendly so the empty
+        # sort body does not push us into the search-API
+        # branch unnecessarily.
+        sort_active = bool(sort)
+        use_search = sort_active or limit is not None or skip is not None
+        if use_search:
+            if sort_active:
+                query["sort"] = [
+                    {field: ("desc" if direction == -1 else "asc")}
+                    for field, direction in sort
+                ]
+            search_kw = {
+                "index": self.indexes[0],
+                "ignore_unavailable": True,
+                "body": query,
+            }
+            from_ = skip or 0
+            if from_:
+                # ``from_`` (trailing underscore) avoids a
+                # collision with the Python keyword.
+                search_kw["from_"] = from_
+            requested = limit if limit is not None else 1000
+            cap = self._MAX_RESULT_WINDOW - from_
+            if cap <= 0:
+                # Past the ``index.max_result_window`` cap; no
+                # ``search_after`` cursor here, so yield
+                # nothing and let the caller stop paginating.
+                return
+            search_kw["size"] = min(requested, cap)
+            result = self.db_client.search(**search_kw)
+            records = result["hits"]["hits"]
+        else:
+            records = helpers.scan(
+                self.db_client,
+                query=query,
+                index=self.indexes[0],
+                ignore_unavailable=True,
+            )
+        for rec in records:
             host = dict(rec["_source"], _id=rec["_id"])
             if "coordinates" in host.get("infos", {}):
                 host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
             for field in self.datetime_fields:
                 self._set_datetime_field(host, field)
             yield host
+
+    @staticmethod
+    def _features_port_list_fields(use_service, use_product, use_version):
+        """Return the minimal ``_source`` projection the
+        ``features_port_list`` / ``features_port_get`` paths
+        need to read.  Pulled out as a tiny helper because both
+        :meth:`_features_port_list` and
+        :meth:`_features_port_get` need the same set; without
+        the projection the inherited ``_features_port_get``
+        would scan every host's full ``_source`` (including
+        every script output, every cert, every header) on
+        every ``features()`` call -- ~10 of which run in the
+        view test method, a few of those once per ``subflts``
+        entry.  On a fixture of even moderate size this turns
+        into many gigabytes of wire traffic and makes the test
+        appear to hang.  Restricting to ``addr`` plus the
+        few ``ports.*`` columns the feature extractor reads
+        keeps each scroll page small and bounds the wall-clock
+        cost.
+        """
+        fields = ["addr", "ports.port"]
+        if use_service:
+            fields.append("ports.service_name")
+            if use_product:
+                fields.append("ports.service_product")
+                if use_version:
+                    fields.append("ports.service_version")
+        return fields
+
+    def _features_port_list(self, flt, yieldall, use_service, use_product, use_version):
+        """Yield distinct ``(port, service_name?, service_product?,
+        service_version?)`` tuples for every matching host's
+        ports.  Mirrors :meth:`MongoDBActive._features_port_list`
+        which uses a ``$unwind ports`` / ``$group`` aggregation
+        pipeline; Elasticsearch has no native equivalent that
+        preserves nested-field cross-correlation here, so we
+        materialize the distinct set client-side via a Python
+        ``set``.
+
+        The base-class ``features_port_list`` wrapper (in
+        :class:`DB`) handles ``yieldall`` expansion and
+        canonical sorting on top of the raw tuples this
+        method yields.
+        """
+        fields = self._features_port_list_fields(use_service, use_product, use_version)
+        seen: set[tuple] = set()
+        for rec in self.get(flt, fields=fields):
+            for port in rec.get("ports", []):
+                if port["port"] == -1:
+                    continue
+                tup: list = [port["port"]]
+                if use_service:
+                    tup.append(port.get("service_name"))
+                    if use_product:
+                        tup.append(port.get("service_product"))
+                        if use_version:
+                            tup.append(port.get("service_version"))
+                seen.add(tuple(tup))
+        yield from seen
+
+    def _features_port_get(
+        self, features, flt, yieldall, use_service, use_product, use_version
+    ):
+        """Override :meth:`DBActive._features_port_get` to scope
+        the ``_source`` projection to the columns the feature
+        extractor actually reads.
+
+        The inherited helper iterates ``self.get(flt)`` with
+        no field filter, which on Elasticsearch routes through
+        ``helpers.scan`` with ``_source: True`` -- every host
+        document is shipped over the wire in full, including
+        every script output, every certificate, every HTTP
+        header.  The view test method runs ``features()`` ten
+        times (some of those once per ``subflts`` entry), so
+        the cumulative wire traffic on a fixture of even
+        moderate size made the test appear to hang.  Filtering
+        to ``addr`` plus the per-port columns the extractor
+        actually inspects collapses each scroll page to a
+        bounded size.
+        """
+        fields = self._features_port_list_fields(use_service, use_product, use_version)
+
+        if use_version:
+
+            def _extract(rec):
+                for port in rec.get("ports", []):
+                    if port["port"] == -1:
+                        continue
+                    yield (
+                        port["port"],
+                        port.get("service_name"),
+                        port.get("service_product"),
+                        port.get("service_version"),
+                    )
+                    if not yieldall:
+                        continue
+                    if port.get("service_version") is not None:
+                        yield (
+                            port["port"],
+                            port.get("service_name"),
+                            port.get("service_product"),
+                            None,
+                        )
+                    else:
+                        continue
+                    if port.get("service_product") is not None:
+                        yield (port["port"], port.get("service_name"), None, None)
+                    else:
+                        continue
+                    if port.get("service_name") is not None:
+                        yield (port["port"], None, None, None)
+
+        elif use_product:
+
+            def _extract(rec):
+                for port in rec.get("ports", []):
+                    if port["port"] == -1:
+                        continue
+                    yield (
+                        port["port"],
+                        port.get("service_name"),
+                        port.get("service_product"),
+                    )
+                    if not yieldall:
+                        continue
+                    if port.get("service_product") is not None:
+                        yield (port["port"], port.get("service_name"), None)
+                    else:
+                        continue
+                    if port.get("service_name") is not None:
+                        yield (port["port"], None, None)
+
+        elif use_service:
+
+            def _extract(rec):
+                for port in rec.get("ports", []):
+                    if port["port"] == -1:
+                        continue
+                    yield (port["port"], port.get("service_name"))
+                    if not yieldall:
+                        continue
+                    if port.get("service_name") is not None:
+                        yield (port["port"], None)
+
+        else:
+
+            def _extract(rec):
+                for port in rec.get("ports", []):
+                    if port["port"] == -1:
+                        continue
+                    yield (port["port"],)
+
+        n_features = len(features)
+        for rec in self.get(flt, fields=fields):
+            currec = [0] * n_features
+            for feat in _extract(rec):
+                try:
+                    currec[features[feat]] = 1
+                except KeyError:
+                    pass
+            yield (rec["addr"], currec)
+
+    def get_ips(self, flt, limit=None, skip=None):
+        """Return ``(records, count)`` where ``records`` yields
+        only the ``addr`` field of every matching host.  Used by
+        the ``/cgi/<view|scans>/onlyips`` web endpoint.
+
+        Mirrors :meth:`MongoDB.get_ips` but skips the int128
+        ``addr_0`` / ``addr_1`` reassembly because the Elastic
+        backend stores ``addr`` as a native ``ip`` field
+        already in printable form.
+        """
+        return (
+            self.get(flt, fields=["addr"], limit=limit, skip=skip),
+            self.count(flt),
+        )
+
+    def get_ips_ports(self, flt, limit=None, skip=None):
+        """Return ``(records, total_port_count)`` where
+        ``records`` yields each matching host with its ``addr``
+        and the ``port`` / ``state_state`` of every recorded
+        port.  Powers the ``/cgi/<view|scans>/ipsports`` web
+        endpoint.
+
+        Mirrors :meth:`MongoDB.get_ips_ports`; the ``count``
+        component is the total number of ``ports`` entries
+        across the result set, not the number of hosts (used
+        client-side for pagination of port-count UIs).
+        """
+        records = list(
+            self.get(
+                flt,
+                fields=["addr", "ports.port", "ports.state_state"],
+                limit=limit,
+                skip=skip,
+            )
+        )
+        count = sum(len(host.get("ports", [])) for host in records)
+        return iter(records), count
+
+    def get_open_port_count(self, flt, limit=None, skip=None):
+        """Return ``(records, host_count)`` where ``records``
+        yields ``addr`` / ``starttime`` / ``openports.count``
+        for every matching host.  Powers the
+        ``/cgi/<view|scans>/timeline`` and ``/countopenports``
+        endpoints.
+
+        Mirrors :meth:`MongoDB.get_open_port_count`.
+        """
+        return (
+            self.get(
+                flt,
+                fields=["addr", "starttime", "openports.count"],
+                limit=limit,
+                skip=skip,
+            ),
+            self.count(flt),
+        )
 
     def remove(self, host):
         """Removes the host from the active column. `host` must be the record as
@@ -359,12 +763,29 @@ class ElasticDBActive(ElasticDB, DBActive):
         if field == "infos.coordinates" and hasattr(self, "searchhaslocation"):
 
             def fix_result(value):
-                return tuple(float(v) for v in value.split(", "))
+                return tuple(float(v) for v in value.split(","))
 
+            # Read ``infos.coordinates`` from ``_source``
+            # rather than from the indexed ``geo_point``
+            # (``doc[...].value``) -- the geo_point storage
+            # round-trips floats through a 32-bit-precision
+            # internal representation, so e.g. ``48.86``
+            # comes back as ``48.85999997612089``.  Direct
+            # ``_source`` access keeps the original JSON
+            # values intact, which the ``/cgi/view/coordinates``
+            # endpoint (and other consumers comparing against
+            # the ``_source``-based ``get()`` path) relies on.
+            # ``_source`` is the post-:meth:`store_host` form
+            # ``[lng, lat]``; the script swaps back to IVRE's
+            # ``[lat, lng]`` convention so the parsed tuple
+            # matches Mongo's ``infos.coordinates`` group key.
             base_query = {
                 "script": {
                     "lang": "painless",
-                    "source": "doc['infos.coordinates'].value",
+                    "source": (
+                        "def c = params._source.infos.coordinates;"
+                        " return c[1] + ',' + c[0];"
+                    ),
                 }
             }
             flt = self.flt_and(flt, self.searchhaslocation())
@@ -394,6 +815,99 @@ class ElasticDBActive(ElasticDB, DBActive):
             if "after_key" not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
+
+    @staticmethod
+    def _dn_painless_source(scriptid, subkey):
+        """Build a painless ``terms.script.source`` that walks
+        every ``ports[*].scripts[*][<scriptid>][*].<subkey>``
+        object on the host's ``_source`` and emits one
+        ``\\u0001``-separated ``key\\u0001value\\u0001...``
+        string per matching DN -- one bucket entry per cert
+        observation, not per host.
+
+        Walking ``_source`` directly (no nested aggregation
+        wrapper) lets the script enumerate whatever DN
+        attributes the certificate actually carries, mirroring
+        Mongo's ``$unwind ports.scripts -> $group by subject``
+        shape exactly.  No whitelist of attribute names is
+        kept: a cert with an OID-named or future-X.509-extension
+        attribute reaches the bucket key with the same
+        fidelity Mongo's ``$group`` would produce.
+
+        ``\\u0001`` (Start of Heading) is never present in
+        X.509 DN values, so the resulting string is
+        unambiguously parseable client-side: split on
+        ``\\u0001`` and zip the resulting ``[k, v, k, v, ...]``
+        array into a Python dict.
+        """
+        # ``params._source`` access in aggregation contexts
+        # has the same per-document overhead :meth:`getlocations`
+        # already pays; the cert.subject / cert.issuer paths
+        # are infrequent enough (one ``terms`` request per UI
+        # interaction) that the trade-off is acceptable in
+        # exchange for whitelist-free correctness.
+        return (
+            "def out = [];"
+            " def ports = params._source.ports;"
+            " if (ports == null) return out;"
+            " for (def port : ports) {"
+            " def scripts = port.scripts;"
+            " if (scripts == null) continue;"
+            " for (def script : scripts) {"
+            f" if (script.id != '{scriptid}') continue;"
+            f" def certs = script['{scriptid}'];"
+            " if (certs == null) continue;"
+            " for (def cert : certs) {"
+            f" def dn = cert.{subkey};"
+            " if (dn == null) continue;"
+            " def parts = [];"
+            " for (def entry : dn.entrySet()) {"
+            " parts.add(entry.getKey());"
+            " parts.add(entry.getValue());"
+            " }"
+            " out.add(String.join('\u0001', parts));"
+            " }"
+            " }"
+            " }"
+            " return out;"
+        )
+
+    @staticmethod
+    def _build_script_nested_agg(scriptid, subfield, baseterms, terms_extra=None):
+        """Build a two-level nested aggregation
+        (``ports`` -> ``ports.scripts``) with a script-id
+        filter and a ``terms`` aggregation on
+        ``ports.scripts.<scriptid>.<subfield>``.
+
+        Mirrors the per-script counting semantics
+        :meth:`MongoDB.topvalues` produces by
+        ``$unwind``-ing ``ports`` then ``ports.scripts``: each
+        script subdocument contributes one observation to the
+        bucket, so a host that publishes the same NTLM /
+        SMB / modbus value on several ports counts once per
+        port (not once per host as a flat aggregation would).
+
+        ``terms_extra`` is merged into the inner ``terms``
+        clause, used by callers that need ``missing`` /
+        ``include`` / ``script`` / ... overrides.
+        """
+        terms = dict(baseterms, field=f"ports.scripts.{scriptid}.{subfield}")
+        if terms_extra is not None:
+            terms.update(terms_extra)
+        return {
+            "nested": {"path": "ports"},
+            "aggs": {
+                "patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {
+                        "patterns": {
+                            "filter": {"match": {"ports.scripts.id": scriptid}},
+                            "aggs": {"patterns": {"terms": terms}},
+                        },
+                    },
+                },
+            },
+        }
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None, least=False):
         """This method uses an aggregation to produce top values for a given
@@ -1275,6 +1789,414 @@ return result;
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
             field = {"field": f"ports.scripts.s7-info.{subfield}"}
+        elif field.startswith("ntlm."):
+            # Mirrors :meth:`MongoDB.topvalues` ``ntlm.<key>``
+            # branch.  The same friendly-name alias map the
+            # Mongo helper exposes (``os`` -> ``Product_Version``,
+            # ``domain`` -> ``NetBIOS_Domain_Name``, ...) is
+            # applied here so callers get identical results
+            # across backends.
+            #
+            # The aggregation runs inside a two-level nested
+            # context (``ports`` -> ``ports.scripts``) with a
+            # script-id filter so the per-key counts mirror
+            # Mongo's ``$unwind ports`` / ``$unwind ports.scripts``
+            # / ``$match {scripts.id: "ntlm-info"}`` pipeline.
+            # A flat aggregation would dedupe per parent
+            # document and undercount hosts that publish the
+            # same NTLM value on several ports.
+            flt = self.flt_and(flt, self.searchntlm())
+            subfield = field[5:]
+            subfield = {
+                "name": "Target_Name",
+                "server": "NetBIOS_Computer_Name",
+                "domain": "NetBIOS_Domain_Name",
+                "workgroup": "Workgroup",
+                "domain_dns": "DNS_Domain_Name",
+                "forest": "DNS_Tree_Name",
+                "fqdn": "DNS_Computer_Name",
+                "os": "Product_Version",
+                "version": "NTLM_Version",
+            }.get(subfield, subfield)
+            nested = self._build_script_nested_agg("ntlm-info", subfield, baseterms)
+        elif field.startswith("smb."):
+            # Mirrors :meth:`MongoDB.topvalues` ``smb.<key>``
+            # branch: per-port aggregation on
+            # ``ports.scripts.smb-os-discovery.<key>`` with the
+            # same nested wrapping as the ``ntlm.<key>`` arm.
+            flt = self.flt_and(flt, self.searchsmb())
+            subfield = field[4:]
+            nested = self._build_script_nested_agg(
+                "smb-os-discovery", subfield, baseterms
+            )
+        elif field.startswith("modbus."):
+            # Mirrors :meth:`MongoDB.topvalues` ``modbus.<key>``
+            # branch.  Per-port aggregation on
+            # ``ports.scripts.modbus-discover.<key>``;
+            # ``view_top_modbus_deviceids`` exercises the
+            # ``modbus.deviceid`` shape end-to-end.
+            flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
+            subfield = field[7:]
+            nested = self._build_script_nested_agg(
+                "modbus-discover", subfield, baseterms
+            )
+        elif field == "devicetype":
+            # Mirrors :meth:`MongoDB.topvalues` ``devicetype``
+            # branch: per-port top values of
+            # ``ports.service_devicetype``.  Wrapped in a
+            # ``nested(ports)`` aggregation so each port
+            # contributes its own count -- a host with three
+            # ports announcing the same ``service_devicetype``
+            # contributes three to the bucket, matching Mongo's
+            # ``$unwind ports`` count semantics.
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "terms": dict(baseterms, field="ports.service_devicetype"),
+                    },
+                },
+            }
+        elif field.startswith("devicetype:"):
+            # ``devicetype:<port>`` -- same per-port aggregation
+            # as the bare form but restricted to a specific
+            # port number.  The host-level :meth:`searchport`
+            # filter keeps the candidate document set small;
+            # the inner ``filter`` clause then narrows the
+            # nested aggregation to the matching port subdoc
+            # so other ports on the same host do not leak
+            # into the bucket count.
+            port = int(field.split(":", 1)[1])
+            flt = self.flt_and(flt, self.searchport(port))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"ports.port": port}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    field="ports.service_devicetype",
+                                ),
+                            },
+                        },
+                    },
+                },
+            }
+        elif field == "cpe" or (field.startswith("cpe") and field[3] in ":."):
+            # Mirrors :meth:`MongoDB.topvalues` ``cpe`` /
+            # ``cpe.<part>`` / ``cpe:<spec>`` /
+            # ``cpe.<part>:<spec>`` family.  Mongo concats
+            # the kept fields with ``:`` separators inside a
+            # ``$concat`` pipeline stage and the outputproc
+            # splits back into a tuple; Elastic uses a
+            # painless script for the same shape.  ``cpes`` is
+            # not declared in :attr:`nested_fields`, so the
+            # script reads the document fields directly.
+            try:
+                cpe_field, cpe_spec = field.split(":", 1)
+                cpe_spec_parts = cpe_spec.split(":", 3)
+            except ValueError:
+                cpe_field = field
+                cpe_spec_parts = []
+            try:
+                cpe_field = cpe_field.split(".", 1)[1]
+            except IndexError:
+                cpe_field = "version"
+            cpe_keys = ["type", "vendor", "product", "version"]
+            if cpe_field not in cpe_keys:
+                try:
+                    cpe_field = cpe_keys[int(cpe_field) - 1]
+                except (IndexError, ValueError):
+                    cpe_field = "version"
+            cpe_filters = list(
+                zip(
+                    cpe_keys,
+                    (utils.str2regexp(value) for value in cpe_spec_parts),
+                )
+            )
+            flt = self.flt_and(
+                flt,
+                self.searchcpe(
+                    **{("cpe_type" if k == "type" else k): v for k, v in cpe_filters}
+                ),
+            )
+            keep_count = max(cpe_keys.index(cpe_field) + 1, len(cpe_filters))
+            kept_keys = cpe_keys[:keep_count]
+            if len(kept_keys) == 1:
+                field = {"field": f"cpes.{kept_keys[0]}"}
+            else:
+
+                def outputproc(value):  # noqa: F811
+                    return tuple(value.split(":", len(kept_keys) - 1))
+
+                # Painless concats the kept keys with ``:``
+                # separators so the outputproc can split the
+                # tuple back.  ``doc[...].size() == 0`` guards
+                # against entries that lack a key (else ES
+                # raises at script-runtime).
+                source_parts = []
+                for i, key in enumerate(kept_keys):
+                    if i:
+                        source_parts.append("':'")
+                    source_parts.append(
+                        f"(doc['cpes.{key}'].size() == 0 ? '' : "
+                        f"doc['cpes.{key}'].value)"
+                    )
+                field = {
+                    "script": {
+                        "lang": "painless",
+                        "source": " + ".join(source_parts),
+                    }
+                }
+        elif field == "hop":
+            # Mirrors :meth:`MongoDB.topvalues` ``hop``
+            # branch: per-hop top values of
+            # ``traces.hops.ipaddr`` (a native ``ip`` field on
+            # the Elastic schema, no int128 split needed).
+            # Wrapped in ``nested(traces.hops)`` so each
+            # individual hop contributes one observation to
+            # the bucket -- mirrors Mongo's ``$unwind traces`` /
+            # ``$unwind traces.hops`` count semantics.  A flat
+            # aggregation (the previous behaviour) deduped per
+            # parent doc and produced host-wide counts instead
+            # of per-hop counts.
+            nested = {
+                "nested": {"path": "traces.hops"},
+                "aggs": {
+                    "patterns": {
+                        "terms": dict(baseterms, field="traces.hops.ipaddr"),
+                    },
+                },
+            }
+        elif field.startswith("hop") and field[3] in ":>":
+            # ``hop:<ttl>`` -- equality on the TTL,
+            # ``hop>N`` -- TTL strictly greater than ``N``.
+            # The inner ``filter`` clause runs *inside* the
+            # ``nested`` context, so cross-field correlation is
+            # preserved: only hops where ``ttl`` matches the
+            # predicate contribute their ``ipaddr`` to the
+            # bucket.  A flat ``range`` / ``match`` on
+            # ``traces.hops.ttl`` at the host-query level would
+            # select hosts that have *some* hop at the right
+            # TTL and then aggregate every hop's ``ipaddr`` --
+            # the cross-field-correlation bug that produced the
+            # ``view_top_hop_10+`` test failure.
+            ttl = int(field[4:])
+            if field[3] == ">":
+                ttl_filter = {"range": {"traces.hops.ttl": {"gt": ttl}}}
+            else:
+                ttl_filter = {"match": {"traces.hops.ttl": ttl}}
+            nested = {
+                "nested": {"path": "traces.hops"},
+                "aggs": {
+                    "patterns": {
+                        "filter": ttl_filter,
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(baseterms, field="traces.hops.ipaddr"),
+                            },
+                        },
+                    },
+                },
+            }
+        elif field == "file" or (field.startswith("file") and field[4] in ".:"):
+            # Mirrors :meth:`MongoDB.topvalues` ``file`` /
+            # ``file.<key>`` / ``file:<scripts>`` /
+            # ``file:<scripts>.<key>`` branches.  ``<scripts>``
+            # is a comma-separated list of NSE-script ids the
+            # file ingestion can come from (``nfs-ls`` /
+            # ``smb-ls`` / ...); ``<key>`` defaults to
+            # ``filename``.
+            #
+            # Two-level nested wrapper so each shared file
+            # contributes one observation to the bucket; a
+            # flat aggregation would dedupe per parent doc
+            # and undercount hosts publishing the same file
+            # on several ports.  The script-id constraint is
+            # enforced by the host-level :meth:`searchfile`
+            # filter.
+            scripts: list[str] | None = None
+            if field.startswith("file:"):
+                scripts_part = field[5:]
+                if "." in scripts_part:
+                    scripts_part, subfield = scripts_part.split(".", 1)
+                else:
+                    subfield = "filename"
+                scripts = scripts_part.split(",")
+            else:
+                subfield = field[5:] or "filename"
+            flt = self.flt_and(flt, self.searchfile(scripts=scripts))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    field=(
+                                        "ports.scripts.ls.volumes.files." f"{subfield}"
+                                    ),
+                                ),
+                            },
+                        },
+                    },
+                },
+            }
+        elif field == "vulns.id":
+            # Mirrors :meth:`MongoDB.topvalues` ``vulns.id``
+            # branch: per-script aggregation on
+            # ``ports.scripts.vulns.id``.  Two-level nested
+            # wrapper for per-script counting; the inner
+            # ``exists`` filter restricts the bucket to
+            # script subdocuments that actually carry a
+            # ``vulns.id`` (else painless / terms would
+            # iterate every script subdoc, including those
+            # that have nothing to do with vulnerabilities,
+            # and emit zero-key buckets that pollute the
+            # count).
+            flt = self.flt_and(flt, self.searchvuln())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "filter": {
+                                    "exists": {"field": "ports.scripts.vulns.id"}
+                                },
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(
+                                            baseterms,
+                                            field="ports.scripts.vulns.id",
+                                        ),
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        elif field.startswith("vulns."):
+            # Mirrors :meth:`MongoDB.topvalues` ``vulns.<other>``
+            # branch: tuple of ``(id, <other>)`` so the caller
+            # can correlate the field back to the specific
+            # vulnerability.  Painless concats the two with
+            # ``:`` separator, outputproc splits back.  The
+            # inner ``exists`` filter -- same as ``vulns.id``
+            # -- prevents the painless from running on
+            # script subdocuments that are not
+            # vulnerability scans.
+            subfield = field[6:]
+            flt = self.flt_and(flt, self.searchvuln())
+
+            def outputproc(value):  # noqa: F811
+                return tuple(value.split(":", 1))
+
+            terms_clause = dict(
+                baseterms,
+                script={
+                    "lang": "painless",
+                    "source": (
+                        "(doc['ports.scripts.vulns.id'].size() == 0 ? '' "
+                        ": doc['ports.scripts.vulns.id'].value) + ':' + "
+                        f"(doc['ports.scripts.vulns.{subfield}'].size() "
+                        f"== 0 ? '' : doc['ports.scripts.vulns.{subfield}']"
+                        ".value)"
+                    ),
+                },
+            )
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "filter": {
+                                    "exists": {"field": "ports.scripts.vulns.id"}
+                                },
+                                "aggs": {
+                                    "patterns": {"terms": terms_clause},
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        elif field == "screenwords":
+            # Mirrors :meth:`MongoDB.topvalues` ``screenwords``
+            # branch: per-port top values of the OCR-derived
+            # word list stored on ``ports.screenwords``.
+            # ``ports`` is nested so a host advertising the
+            # same word on several ports contributes one
+            # observation per port (mirrors Mongo's
+            # ``$unwind ports`` / ``$unwind ports.screenwords``
+            # pipeline).
+            flt = self.flt_and(flt, self.searchscreenshot(words=True))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "terms": dict(baseterms, field="ports.screenwords"),
+                    },
+                },
+            }
+        elif field == "sshkey.bits":
+            # Mirrors :meth:`MongoDB.topvalues` ``sshkey.bits``
+            # branch: tuple of ``(type, bits)`` from
+            # ``ssh-hostkey``.  The Mongo helper concats the
+            # two via a ``$project`` stage; painless emits the
+            # same shape here.  Two-level nested wrapper so
+            # each ``ssh-hostkey`` script subdocument
+            # contributes one ``(type, bits)`` observation.
+            flt = self.flt_and(flt, self.searchsshkey())
+
+            def outputproc(value):  # noqa: F811
+                return tuple(value.split(":", 1))
+
+            terms_clause = dict(
+                baseterms,
+                script={
+                    "lang": "painless",
+                    "source": (
+                        "(doc['ports.scripts.ssh-hostkey.type'].size() == "
+                        "0 ? '' : doc['ports.scripts.ssh-hostkey.type']"
+                        ".value) + ':' + "
+                        "(doc['ports.scripts.ssh-hostkey.bits'].size() == "
+                        "0 ? '' : doc['ports.scripts.ssh-hostkey.bits']"
+                        ".value)"
+                    ),
+                },
+            )
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "filter": {
+                                    "match": {"ports.scripts.id": "ssh-hostkey"}
+                                },
+                                "aggs": {"patterns": {"terms": terms_clause}},
+                            },
+                        },
+                    },
+                },
+            }
+        elif field.startswith("sshkey."):
+            # Mirrors :meth:`MongoDB.topvalues` ``sshkey.<other>``
+            # branch: scalar value of a single key on each
+            # ``ssh-hostkey`` script subdocument.
+            subfield = field[7:]
+            flt = self.flt_and(flt, self.searchsshkey())
+            nested = self._build_script_nested_agg("ssh-hostkey", subfield, baseterms)
         elif field.startswith("scanner.port:"):
             flt = self.flt_and(flt, self.searchscript(name="scanner"))
             field = {"field": f"ports.scripts.scanner.ports.{field[13:]}.ports"}
@@ -1460,37 +2382,80 @@ return result;
             }
         elif field.startswith("cert.") or field.startswith("cacert."):
             # Mirrors :meth:`MongoDB.topvalues` ``cert.<key>``
-            # / ``cacert.<key>`` branches: nested aggregation
-            # over ``ports.scripts.ssl-cert`` / ``ssl-cacert``
-            # with the script-id filter applied at the
-            # ``ports.scripts`` level so the per-key counts
-            # only see the right script's documents.
+            # / ``cacert.<key>`` branches.
+            #
+            # Two shapes share this branch:
+            #
+            # * Scalar leaves (``md5``, ``sha1``, ``sha256``,
+            #   ``pubkey.<hash>``, ``self_signed``, ...) use
+            #   the standard ``nested(ports) ->
+            #   nested(ports.scripts) -> filter(scripts.id =
+            #   <scriptid>) -> terms(field=...)`` chain so the
+            #   per-cert count matches Mongo's ``$unwind``
+            #   semantics.
+            #
+            # * Object leaves -- ``subject`` and ``issuer`` --
+            #   cannot use ``terms.field`` because Elastic's
+            #   ``terms`` aggregation refuses object-shaped
+            #   fields.  Instead, a painless script walks the
+            #   host's ``_source`` directly, finds every
+            #   ``ports[*].scripts[*][<scriptid>][*]`` entry,
+            #   reads the ``subject`` / ``issuer`` dict and
+            #   emits one ``\u0001``-separated bucket key per
+            #   cert observation (the script returns an
+            #   array, so each emission lands in its own
+            #   bucket -- equivalent to Mongo's
+            #   ``$unwind ports -> $unwind ports.scripts ->
+            #   $group``).  Because the script handles the
+            #   unwinding itself, no surrounding ``nested``
+            #   wrapper is needed.  The client-side
+            #   :func:`outputproc` splits on ``\u0001`` and
+            #   zips the result into a dict matching Mongo's
+            #   ``$group`` shape.
             cacert = field.startswith("cacert.")
             subkey = field[7:] if cacert else field[5:]
             scriptid = "ssl-cacert" if cacert else "ssl-cert"
             flt = self.flt_and(flt, self.searchcert(cacert=cacert))
-            inner_filter = Q("match", **{"ports.scripts.id": scriptid}).to_dict()
-            nested = {
-                "nested": {"path": "ports"},
-                "aggs": {
-                    "patterns": {
-                        "nested": {"path": "ports.scripts"},
-                        "aggs": {
-                            "patterns": {
-                                "filter": inner_filter,
-                                "aggs": {
-                                    "patterns": {
-                                        "terms": dict(
-                                            baseterms,
-                                            field=f"ports.scripts.{scriptid}.{subkey}",
-                                        )
-                                    }
-                                },
-                            }
-                        },
+            if subkey in ("subject", "issuer"):
+
+                def outputproc(value):  # noqa: F811
+                    if not value:
+                        return {}
+                    parts = value.split("\u0001")
+                    return dict(zip(parts[0::2], parts[1::2]))
+
+                field = {
+                    "script": {
+                        "lang": "painless",
+                        "source": self._dn_painless_source(scriptid, subkey),
                     }
-                },
-            }
+                }
+            else:
+                inner_filter = Q("match", **{"ports.scripts.id": scriptid}).to_dict()
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {
+                        "patterns": {
+                            "nested": {"path": "ports.scripts"},
+                            "aggs": {
+                                "patterns": {
+                                    "filter": inner_filter,
+                                    "aggs": {
+                                        "patterns": {
+                                            "terms": dict(
+                                                baseterms,
+                                                field=(
+                                                    "ports.scripts."
+                                                    f"{scriptid}.{subkey}"
+                                                ),
+                                            )
+                                        }
+                                    },
+                                }
+                            },
+                        }
+                    },
+                }
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
@@ -1589,14 +2554,17 @@ return result;
 
     # -- traces.hops -- mirroring :meth:`MongoDB.searchhop` /
     # ``searchhopname`` / ``searchhopdomain``.  ``traces.hops``
-    # is *not* declared in :attr:`nested_fields`, so each
-    # ``match`` flattens against the array directly: a query
-    # combining ``ipaddr`` and ``ttl`` matches host records
-    # where any single hop satisfies both predicates *or*
-    # different hops satisfy them separately.  The latter is a
-    # well-known limitation of non-nested array-of-objects on
-    # Elasticsearch and is consistent with the rest of the
-    # schema (e.g. ``hostnames.*``).
+    # is declared in :attr:`nested_fields`, so every multi-field
+    # predicate is wrapped in
+    # ``Q("nested", path="traces.hops", query=...)`` to preserve
+    # cross-field correlation inside a single hop array element
+    # -- a ``searchhop(ip, ttl=N)`` query must match a single
+    # array element where both ``ipaddr`` *and* ``ttl`` agree,
+    # not different elements satisfying each predicate
+    # separately.  Single-field helpers stay nested too for
+    # consistency and so the ``neg=True`` shape produces the
+    # ``$ne``-equivalent ("no hop matches") rather than the
+    # flat-array ``"at least one hop does not match"`` form.
     @classmethod
     def searchhop(cls, hop, ttl=None, neg=False):
         """Filter records that have a traceroute hop with the
@@ -1607,9 +2575,10 @@ return result;
         match takes a printable IP string directly without the
         ``ip2internal`` split the Mongo helper applies.
         """
-        res = Q("match", **{"traces.hops.ipaddr": hop})
+        inner = Q("match", **{"traces.hops.ipaddr": hop})
         if ttl is not None:
-            res &= Q("match", **{"traces.hops.ttl": ttl})
+            inner &= Q("match", **{"traces.hops.ttl": ttl})
+        res = Q("nested", path="traces.hops", query=inner)
         if neg:
             return ~res
         return res
@@ -1619,9 +2588,24 @@ return result;
         """Filter records by traceroute-hop domain.
 
         Mirrors :meth:`MongoDB.searchhopdomain`: a ``match``
-        against the indexed ``traces.hops.domains`` field.
+        against the indexed ``traces.hops.domains`` field,
+        wrapped in a ``nested(traces.hops)`` query so negation
+        means "no hop matches" rather than "at least one hop
+        differs" (the flat-array semantics).
         """
-        return cls._search_field("traces.hops.domains", hop, neg=neg)
+        if isinstance(hop, utils.REGEXP_T):
+            inner = Q("regexp", **{"traces.hops.domains": cls._get_pattern(hop)})
+        elif isinstance(hop, list):
+            if len(hop) == 1:
+                inner = Q("match", **{"traces.hops.domains": hop[0]})
+            else:
+                inner = Q("terms", **{"traces.hops.domains": hop})
+        else:
+            inner = Q("match", **{"traces.hops.domains": hop})
+        res = Q("nested", path="traces.hops", query=inner)
+        if neg:
+            return ~res
+        return res
 
     @classmethod
     def searchhopname(cls, hop, neg=False):
@@ -1629,15 +2613,23 @@ return result;
 
         Mirrors :meth:`MongoDB.searchhopname`: positive matches
         AND the indexed ``traces.hops.domains`` lookup with the
-        non-indexed ``traces.hops.host`` match (so the hot path
-        still goes through the index even though
-        ``traces.hops.host`` is not indexed); negative matches
-        only exclude ``traces.hops.host`` so the indexed filter
-        does not silently drop legitimate non-matches.
+        non-indexed ``traces.hops.host`` match -- both clauses
+        must be satisfied by the *same* hop array element, which
+        the ``nested(traces.hops)`` wrapper guarantees.
+        Negative matches only exclude ``traces.hops.host`` so
+        the indexed-domain filter does not silently drop
+        legitimate non-matches.
         """
         if neg:
-            return cls._search_field("traces.hops.host", hop, neg=True)
-        return cls.searchhopdomain(hop) & cls._search_field("traces.hops.host", hop)
+            return ~Q(
+                "nested",
+                path="traces.hops",
+                query=Q("match", **{"traces.hops.host": hop}),
+            )
+        inner = Q("match", **{"traces.hops.domains": hop}) & Q(
+            "match", **{"traces.hops.host": hop}
+        )
+        return Q("nested", path="traces.hops", query=inner)
 
     # -- per-port "fingerprint" filters --------------------
     @staticmethod
@@ -2167,19 +3159,25 @@ return result;
 
     @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
-        """Search a particular content in the scripts results."""
+        """Search a particular content in the scripts results.
+
+        ``re.IGNORECASE`` on any user-supplied regex (``name``,
+        ``output``, ``values``) translates to the
+        ``case_insensitive`` parameter on the corresponding
+        ``regexp`` clause via :meth:`_regexp_clause`, so the
+        IVRE shorthand ``/pattern/i`` matches case-insensitive
+        text the same way the Mongo backend does.
+        """
         req = []
         if isinstance(name, list):
             req.append(Q("terms", **{"ports.scripts.id": name}))
         elif isinstance(name, utils.REGEXP_T):
-            req.append(Q("regexp", **{"ports.scripts.id": cls._get_pattern(name)}))
+            req.append(cls._regexp_clause("ports.scripts.id", name))
         elif name is not None:
             req.append(Q("match", **{"ports.scripts.id": name}))
         if output is not None:
             if isinstance(output, utils.REGEXP_T):
-                req.append(
-                    Q("regexp", **{"ports.scripts.output": cls._get_pattern(output)})
-                )
+                req.append(cls._regexp_clause("ports.scripts.output", output))
             else:
                 req.append(Q("match", **{"ports.scripts.output": output}))
         if values:
@@ -2201,24 +3199,12 @@ return result;
             elif isinstance(values, str):
                 req.append(Q("match", **{f"ports.scripts.{key}": values}))
             elif isinstance(values, utils.REGEXP_T):
-                req.append(
-                    Q(
-                        "regexp",
-                        **{f"ports.scripts.{key}": cls._get_pattern(values)},
-                    )
-                )
+                req.append(cls._regexp_clause(f"ports.scripts.{key}", values))
             else:
                 for field, value in values.items():
                     if isinstance(value, utils.REGEXP_T):
                         req.append(
-                            Q(
-                                "regexp",
-                                **{
-                                    f"ports.scripts.{key}.{field}": cls._get_pattern(
-                                        value
-                                    )
-                                },
-                            )
+                            cls._regexp_clause(f"ports.scripts.{key}.{field}", value)
                         )
                     else:
                         req.append(
@@ -2616,6 +3602,23 @@ class ElasticDBView(ElasticDBActive, DBView):
         return cls._search_field("infos.as_name", asname, neg=neg)
 
     def getlocations(self, flt):
+        # Read the raw ``[lng, lat]`` array from ``_source``
+        # (Elasticsearch stores ``infos.coordinates`` as a
+        # native ``geo_point`` -- :meth:`store_host` flips
+        # IVRE's ``[lat, lng]`` convention for the GeoJSON
+        # ``[lng, lat]`` order ES expects).  ``doc[...].value``
+        # would route through the indexed geo_point and lose
+        # float precision (e.g. ``48.86`` round-trips as
+        # ``48.85999997612089``), which makes the
+        # ``/cgi/view/coordinates`` endpoint disagree with the
+        # ``_source``-based ``get()`` path that the test
+        # harness compares against.  ``params._source`` keeps
+        # the original JSON literals intact.  The painless
+        # script swaps the two components back to IVRE's
+        # ``[lat, lng]`` order so :meth:`MongoDBView.getlocations`
+        # parity holds and the ``r2res`` reversal in
+        # ``web/app.py`` produces a GeoJSON ``[lng, lat]``
+        # ``coordinates`` payload.
         query = {
             "size": PAGESIZE,
             "sources": [
@@ -2624,7 +3627,10 @@ class ElasticDBView(ElasticDBActive, DBView):
                         "terms": {
                             "script": {
                                 "lang": "painless",
-                                "source": "doc['infos.coordinates'].value",
+                                "source": (
+                                    "def c = params._source.infos.coordinates;"
+                                    " return c[1] + ',' + c[0];"
+                                ),
                             }
                         }
                     }
@@ -2641,7 +3647,7 @@ class ElasticDBView(ElasticDBActive, DBView):
             )
             for value in result["aggregations"]["values"]["buckets"]:
                 yield {
-                    "_id": tuple(float(v) for v in value["key"]["coords"].split(", ")),
+                    "_id": tuple(float(v) for v in value["key"]["coords"].split(",")),
                     "count": value["doc_count"],
                 }
             if "after_key" not in result["aggregations"]["values"]:

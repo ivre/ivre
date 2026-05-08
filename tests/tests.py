@@ -4198,12 +4198,6 @@ class IvreTests(unittest.TestCase):
             ),
         )
 
-        if DATABASE == "elastic":
-            # Support for Elasticsearch is experimental and lacks a
-            # lot of functionalities. The next tests will fail for
-            # lack of filters & topvalues.
-            return
-
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
         for hashtype in ["md5", "sha1", "sha256"]:

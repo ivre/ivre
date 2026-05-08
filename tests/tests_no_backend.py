@@ -1638,6 +1638,144 @@ class ElasticDBSearchTier1Tests(unittest.TestCase):
             {"bool": {"must_not": [{"match": {"hostnames.name": "foo.example.com"}}]}},
         )
 
+    # -- searchversion -------------------------------------------------
+
+    def test_searchversion_scalar_matches_field(self):
+        # ``searchversion(N)`` -> ``match`` query against
+        # ``schema_version``; mirrors Mongo's
+        # ``{"schema_version": N}`` shape.
+        body = self._ED().searchversion(22).to_dict()
+        self.assertEqual(body, {"match": {"schema_version": 22}})
+
+    def test_searchversion_none_matches_legacy_records(self):
+        # ``searchversion(None)`` -> negation of ``exists``;
+        # mirrors Mongo's ``{"$exists": False}`` shape and
+        # picks up only legacy documents ingested before the
+        # ``schema_version`` field was added.
+        body = self._ED().searchversion(None).to_dict()
+        self.assertEqual(
+            body,
+            {"bool": {"must_not": [{"exists": {"field": "schema_version"}}]}},
+        )
+
+    # -- searchrange / searchnet / searchipv4 / searchipv6 -------------
+
+    def test_searchrange_uses_native_ip_range(self):
+        # ``addr`` is mapped as ES's native ``ip`` type, so a
+        # range over printable IP strings works directly --
+        # no ``ip2internal`` int128 split (the Mongo helper
+        # needs one because it stores ``addr_0`` / ``addr_1``).
+        body = self._ED().searchrange("10.0.0.0", "10.0.0.255").to_dict()
+        self.assertEqual(
+            body,
+            {"range": {"addr": {"gte": "10.0.0.0", "lte": "10.0.0.255"}}},
+        )
+
+    def test_searchrange_neg_inverts_at_host_level(self):
+        body = self._ED().searchrange("10.0.0.0", "10.0.0.255", neg=True).to_dict()
+        self.assertEqual(
+            body,
+            {
+                "bool": {
+                    "must_not": [
+                        {"range": {"addr": {"gte": "10.0.0.0", "lte": "10.0.0.255"}}}
+                    ]
+                }
+            },
+        )
+
+    def test_searchnet_routes_through_searchrange(self):
+        # ``searchnet`` is inherited from :class:`DBActive` and
+        # delegates to :meth:`searchrange` -- pin that the CIDR
+        # gets translated to its ``[start, stop]`` boundaries
+        # via :func:`utils.net2range` and that the resulting
+        # query is the canonical ES ``range`` shape.
+        body = self._ED().searchnet("192.168.0.0/24").to_dict()
+        self.assertEqual(
+            body,
+            {"range": {"addr": {"gte": "192.168.0.0", "lte": "192.168.0.255"}}},
+        )
+
+    def test_searchipv4_covers_full_v4_range(self):
+        # ``searchipv4()`` -> ``searchnet("0.0.0.0/0")`` ->
+        # ``searchrange("0.0.0.0", "255.255.255.255")``.
+        body = self._ED().searchipv4().to_dict()
+        self.assertEqual(
+            body,
+            {"range": {"addr": {"gte": "0.0.0.0", "lte": "255.255.255.255"}}},
+        )
+
+    def test_searchipv6_negates_full_v4_range(self):
+        # ``searchipv6()`` -> ``searchnet("0.0.0.0/0", neg=True)``
+        # -> negated ``searchrange``; matches everything
+        # *outside* the IPv4 range, i.e. IPv6 hosts (the
+        # ``addr`` ``ip`` field also accepts IPv6 strings).
+        body = self._ED().searchipv6().to_dict()
+        self.assertEqual(
+            body,
+            {
+                "bool": {
+                    "must_not": [
+                        {
+                            "range": {
+                                "addr": {
+                                    "gte": "0.0.0.0",
+                                    "lte": "255.255.255.255",
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+        )
+
+    # -- regex case_insensitive routing -------------------------------
+
+    def test_searchscript_regex_value_honors_ignorecase(self):
+        # ``re.IGNORECASE`` (the IVRE shorthand ``/pattern/i``)
+        # translates to Elasticsearch's
+        # ``regexp.<field>.case_insensitive`` parameter (ES
+        # 7.10+) so the case-insensitive Mongo behaviour
+        # carries over.  Without this routing, the
+        # ``http-user-agent`` filter -- which the test fixture
+        # exercises with ``re.compile("URL/7.3", re.IGNORECASE)``
+        # -- silently matched zero records on Elasticsearch
+        # because ``regexp`` defaults to case-sensitive.
+        import re as _re
+
+        body = (
+            self._ED()
+            .searchuseragent(useragent=_re.compile("URL/7.3", _re.IGNORECASE))
+            .to_dict()
+        )
+        # Drill down through the two-level nested wrapper
+        # ``searchscript`` produces.
+        bool_must = body["nested"]["query"]["nested"]["query"]["bool"]["must"]
+        # The script-id ``match`` clause is unchanged; the
+        # interesting bit is the second clause -- the
+        # value ``regexp`` -- which now carries the dict form.
+        regexp_clause = next(c for c in bool_must if "regexp" in c)
+        self.assertEqual(
+            regexp_clause["regexp"]["ports.scripts.http-user-agent"],
+            {"value": ".*URL/7.3.*", "case_insensitive": True},
+        )
+
+    def test_searchscript_regex_value_without_ignorecase_stays_plain(self):
+        # Without ``re.IGNORECASE`` the historical
+        # plain-string shape is preserved -- both for
+        # byte-for-byte pin compatibility with the rest of
+        # the suite and so existing call sites that rely on
+        # case-sensitive matching keep working unchanged.
+        import re as _re
+
+        body = self._ED().searchuseragent(useragent=_re.compile("URL/7.3")).to_dict()
+        bool_must = body["nested"]["query"]["nested"]["query"]["bool"]["must"]
+        regexp_clause = next(c for c in bool_must if "regexp" in c)
+        self.assertEqual(
+            regexp_clause["regexp"]["ports.scripts.http-user-agent"],
+            ".*URL/7.3.*",
+        )
+
     # -- inherited (delegate to searchscript) --------------------------
 
     def test_inherited_helpers_compose_through_searchscript(self):
@@ -1706,46 +1844,108 @@ class ElasticDBSearchTier2Tests(unittest.TestCase):
     # -- traces.hops --------------------------------------------------
 
     def test_searchhop_scalar(self):
+        # ``traces.hops`` is declared in
+        # :attr:`ElasticDBActive.nested_fields`, so single-field
+        # hop queries are wrapped in
+        # ``Q("nested", path="traces.hops", ...)`` for shape
+        # consistency with the cross-field ``ttl`` form below
+        # and to make ``neg=True`` mean "no hop matches" rather
+        # than the flat-array "at least one hop differs" form.
         body = self._ED().searchhop("1.2.3.4").to_dict()
-        self.assertEqual(body, {"match": {"traces.hops.ipaddr": "1.2.3.4"}})
+        self.assertEqual(
+            body,
+            {
+                "nested": {
+                    "path": "traces.hops",
+                    "query": {"match": {"traces.hops.ipaddr": "1.2.3.4"}},
+                }
+            },
+        )
 
     def test_searchhop_with_ttl(self):
+        # Cross-field correlation: ``ipaddr`` and ``ttl`` must
+        # agree on the *same* hop array element, which the
+        # ``nested(traces.hops)`` wrapper enforces.  Without it,
+        # a flat ``bool.must`` of two ``match`` queries matched
+        # any host where one hop has the right ``ipaddr`` and
+        # any other hop has the right ``ttl`` -- the bug that
+        # made ``view_top_hop_10+`` rank every hop of every host
+        # with a TTL>10 hop, including the very-near-the-scanner
+        # gateway at TTL 0.
         body = self._ED().searchhop("1.2.3.4", ttl=5).to_dict()
         self.assertEqual(
             body,
             {
-                "bool": {
-                    "must": [
-                        {"match": {"traces.hops.ipaddr": "1.2.3.4"}},
-                        {"match": {"traces.hops.ttl": 5}},
-                    ]
+                "nested": {
+                    "path": "traces.hops",
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"match": {"traces.hops.ipaddr": "1.2.3.4"}},
+                                {"match": {"traces.hops.ttl": 5}},
+                            ]
+                        }
+                    },
                 }
             },
         )
 
     def test_searchhop_neg(self):
+        # Negation lands *outside* the ``nested`` wrapper so
+        # the predicate translates to "no hop matches" -- the
+        # ``$ne``-equivalent shape Mongo's
+        # :meth:`MongoDB.searchhop` produces.  An "inside"
+        # negation would mean "at least one hop differs",
+        # which matches strictly more documents.
         body = self._ED().searchhop("1.2.3.4", neg=True).to_dict()
-        self.assertEqual(
-            body,
-            {"bool": {"must_not": [{"match": {"traces.hops.ipaddr": "1.2.3.4"}}]}},
-        )
-
-    def test_searchhopdomain_scalar(self):
-        body = self._ED().searchhopdomain("example.com").to_dict()
-        self.assertEqual(body, {"match": {"traces.hops.domains": "example.com"}})
-
-    def test_searchhopname_combines_domain_and_host(self):
-        body = self._ED().searchhopname("foo.example.com").to_dict()
-        # Same indexed-domain + non-indexed-name shape
-        # ``searchhostname`` ships in M4.5.1.
         self.assertEqual(
             body,
             {
                 "bool": {
-                    "must": [
-                        {"match": {"traces.hops.domains": "foo.example.com"}},
-                        {"match": {"traces.hops.host": "foo.example.com"}},
+                    "must_not": [
+                        {
+                            "nested": {
+                                "path": "traces.hops",
+                                "query": {"match": {"traces.hops.ipaddr": "1.2.3.4"}},
+                            }
+                        }
                     ]
+                }
+            },
+        )
+
+    def test_searchhopdomain_scalar(self):
+        body = self._ED().searchhopdomain("example.com").to_dict()
+        self.assertEqual(
+            body,
+            {
+                "nested": {
+                    "path": "traces.hops",
+                    "query": {"match": {"traces.hops.domains": "example.com"}},
+                }
+            },
+        )
+
+    def test_searchhopname_combines_domain_and_host(self):
+        # Same indexed-domain + non-indexed-name shape
+        # ``searchhostname`` ships in the Tier-1 search work,
+        # but here both clauses must apply to the *same* hop
+        # array element -- the ``nested(traces.hops)`` wrapper
+        # enforces the per-element correlation.
+        body = self._ED().searchhopname("foo.example.com").to_dict()
+        self.assertEqual(
+            body,
+            {
+                "nested": {
+                    "path": "traces.hops",
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"match": {"traces.hops.domains": "foo.example.com"}},
+                                {"match": {"traces.hops.host": "foo.example.com"}},
+                            ]
+                        }
+                    },
                 }
             },
         )
@@ -1754,7 +1954,18 @@ class ElasticDBSearchTier2Tests(unittest.TestCase):
         body = self._ED().searchhopname("foo", neg=True).to_dict()
         self.assertEqual(
             body,
-            {"bool": {"must_not": [{"match": {"traces.hops.host": "foo"}}]}},
+            {
+                "bool": {
+                    "must_not": [
+                        {
+                            "nested": {
+                                "path": "traces.hops",
+                                "query": {"match": {"traces.hops.host": "foo"}},
+                            }
+                        }
+                    ]
+                }
+            },
         )
 
     # -- per-port fingerprints ---------------------------------------
@@ -2324,8 +2535,70 @@ class ElasticDBTopValuesTier1Tests(unittest.TestCase):
 
     # -- cert.* / cacert.* --------------------------------------------
 
-    def test_topvalues_cert_filters_on_ssl_cert_script(self):
+    def test_topvalues_cert_subject_walks_source(self):
+        # ``cert.subject`` cannot use a plain
+        # ``terms(field=...)`` clause -- Elastic's ``terms``
+        # aggregation refuses object-shaped fields -- and it
+        # cannot use a static-whitelist painless either, since
+        # X.509 DNs can carry OID-named or future-extension
+        # attributes that no whitelist can anticipate.
+        # Instead, a painless script walks the host's
+        # ``_source`` directly, finds every
+        # ``ports[*].scripts[*]['ssl-cert'][*]`` entry,
+        # iterates the ``subject`` dict via ``entrySet()``
+        # and emits a ``\u0001``-separated bucket key per
+        # cert -- one entry per Mongo-equivalent
+        # ``$unwind`` -- with no schema-side whitelist of
+        # attribute names.  No ``nested`` wrapper is needed:
+        # the script returns an array, ES creates one bucket
+        # per array element, and the unwinding happens inside
+        # the script.
         body = self._capture_body("cert.subject")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertNotIn("field", terms)
+        source = terms["script"]["source"]
+        # Pins for the script's structure: it walks
+        # ``params._source.ports``, filters on the script id,
+        # iterates ``entrySet`` (so any DN attribute is
+        # picked up), and joins with ``\u0001``.
+        self.assertIn("params._source.ports", source)
+        self.assertIn("ssl-cert", source)
+        self.assertIn("entrySet", source)
+        self.assertIn("\u0001", source)
+
+    def test_topvalues_cert_issuer_walks_source(self):
+        # ``cert.issuer`` mirrors ``cert.subject``: same
+        # ``_source``-walk script with ``cert.issuer``
+        # substituted for ``cert.subject``.
+        body = self._capture_body("cert.issuer")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertNotIn("field", terms)
+        source = terms["script"]["source"]
+        self.assertIn("cert.issuer", source)
+        self.assertNotIn("cert.subject", source)
+        self.assertIn("\u0001", source)
+
+    def test_topvalues_cacert_walks_source_with_cacert_script_id(self):
+        # ``cacert.subject`` reuses the same ``_source``-walk
+        # painless template, with ``ssl-cacert`` substituted
+        # for ``ssl-cert``.
+        body = self._capture_body("cacert.subject")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertNotIn("field", terms)
+        source = terms["script"]["source"]
+        self.assertIn("ssl-cacert", source)
+        self.assertNotIn("ssl-cert'", source)
+        self.assertIn("entrySet", source)
+
+    def test_topvalues_cert_md5_indexes_into_hash_field(self):
+        # Scalar leaves (``md5`` / ``sha1`` / ``sha256`` /
+        # ``pubkey.<hash>``) keep the
+        # ``nested(ports) -> nested(ports.scripts) -> filter ->
+        # terms(field=ports.scripts.ssl-cert.<key>)`` chain;
+        # only the object-shaped ``subject`` / ``issuer``
+        # branches re-route through the ``_source``-walking
+        # painless script.
+        body = self._capture_body("cert.md5")
         outer = body["aggs"]["patterns"]
         inner = outer["aggs"]["patterns"]
         filter_clause = inner["aggs"]["patterns"]
@@ -2333,41 +2606,277 @@ class ElasticDBTopValuesTier1Tests(unittest.TestCase):
             filter_clause["filter"],
             {"match": {"ports.scripts.id": "ssl-cert"}},
         )
-        self.assertEqual(
-            filter_clause["aggs"]["patterns"]["terms"]["field"],
-            "ports.scripts.ssl-cert.subject",
-        )
-
-    def test_topvalues_cacert_uses_ssl_cacert_script_id(self):
-        # ``cacert.<key>`` is the same shape as ``cert.<key>``
-        # but scoped to ``ssl-cacert`` rather than ``ssl-cert``;
-        # the per-key terms aggregation still indexes into
-        # the ``ports.scripts.ssl-cert.<key>`` *projection*
-        # (Mongo's hist-shape -- both NSE scripts share the
-        # ``ssl-cert`` data subkey on the parent document).
-        # Wait -- the Mongo helper at
-        # ``mongo.py:3743`` reads
-        # ``f"ports.scripts.ssl-cert.{field[7:]}"`` for both;
-        # double-check we mirror the same projection here.
-        body = self._capture_body("cacert.subject")
-        outer = body["aggs"]["patterns"]
-        inner = outer["aggs"]["patterns"]
-        filter_clause = inner["aggs"]["patterns"]
-        self.assertEqual(
-            filter_clause["filter"],
-            {"match": {"ports.scripts.id": "ssl-cacert"}},
-        )
-
-    def test_topvalues_cert_md5_indexes_into_hash_field(self):
-        body = self._capture_body("cert.md5")
-        # Drill down through the nested aggregation tree:
-        # outer Nested(ports) -> inner Nested(ports.scripts)
-        # -> filter -> terms.
-        outer = body["aggs"]["patterns"]
-        inner = outer["aggs"]["patterns"]
-        filter_clause = inner["aggs"]["patterns"]
         terms = filter_clause["aggs"]["patterns"]["terms"]
         self.assertEqual(terms["field"], "ports.scripts.ssl-cert.md5")
+
+
+# ---------------------------------------------------------------------
+# ElasticDBTopValuesTier2Tests -- pin the wire shape of the
+# Tier-2 ``topvalues`` parity branches added on
+# ``ElasticDBActive``: ``ntlm`` / ``ntlm.<key>``,
+# ``smb`` / ``smb.<key>``, ``modbus.<key>``, ``devicetype`` /
+# ``devicetype:<port>``, ``cpe[.<part>][:<spec>]``,
+# ``hop`` / ``hop:<ttl>`` / ``hop>N``,
+# ``file`` / ``file.<key>`` / ``file:<scripts>[.<key>]``,
+# ``vulns.id`` / ``vulns.<other>``, ``screenwords``,
+# ``sshkey.bits`` / ``sshkey.<key>``.  Closes M4.5 -- the
+# ``if DATABASE == "elastic": return`` skip block at
+# ``tests/tests.py:4201`` no longer needs to gate the rest
+# of the view test method.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBTopValuesTier2Tests(unittest.TestCase):
+    """Behaviour-pin for Tier-2 ``ElasticDBActive.topvalues``
+    parity branches.  Each branch was previously falling
+    through the catch-all ``else: field = {"field": field}``
+    arm at ``elastic.py`` and silently emitting an
+    aggregation against a non-existent literal field --
+    returning an empty bucket list instead of an error.
+    """
+
+    @staticmethod
+    def _ED_instance():
+        from ivre.db.elastic import ElasticDBView
+
+        return ElasticDBView.from_url("elastic://x:9200")
+
+    @classmethod
+    def _capture_body(cls, field):
+        captured = []
+
+        class _FakeClient:
+            def search(self, body=None, **kw):  # type: ignore[no-untyped-def]
+                captured.append(body)
+                return {"aggregations": {"patterns": {"buckets": []}}}
+
+            def count(self, **kw):  # type: ignore[no-untyped-def]
+                return {"count": 0}
+
+        db = cls._ED_instance()
+        type(db).db_client = property(lambda self: _FakeClient())
+        try:
+            list(db.topvalues(field))
+        finally:
+            del type(db).db_client
+        assert captured, "topvalues did not call db_client.search"
+        return captured[-1]
+
+    @staticmethod
+    def _walk_to_terms(body):
+        """Walk down the ``aggs.patterns`` chain to the inner
+        ``terms`` aggregation.  Tier-2 branches that target
+        per-port / per-script fields wrap the terms agg in
+        one or two ``nested`` levels (``ports`` ->
+        ``ports.scripts``) plus an optional ``filter`` stage,
+        so the depth varies per branch.  The helper hides
+        the wrapping from the assertion side."""
+        cur = body["aggs"]["patterns"]
+        while "aggs" in cur:
+            cur = cur["aggs"]["patterns"]
+        return cur["terms"]
+
+    def _terms_field(self, field):
+        return self._walk_to_terms(self._capture_body(field)).get("field")
+
+    def _terms_script_source(self, field):
+        return self._walk_to_terms(self._capture_body(field))["script"]["source"]
+
+    # -- ntlm ---------------------------------------------------------
+
+    def test_topvalues_ntlm_friendly_aliases(self):
+        # Same friendly-name alias map the SQL backend ships
+        # in M4.4.1 (M4.4 :class:`PostgresDBActive`).  Pin
+        # the nine entries here too so a future refactor of
+        # one backend cannot silently drift the other.
+        cases = [
+            ("ntlm.name", "Target_Name"),
+            ("ntlm.server", "NetBIOS_Computer_Name"),
+            ("ntlm.domain", "NetBIOS_Domain_Name"),
+            ("ntlm.workgroup", "Workgroup"),
+            ("ntlm.domain_dns", "DNS_Domain_Name"),
+            ("ntlm.forest", "DNS_Tree_Name"),
+            ("ntlm.fqdn", "DNS_Computer_Name"),
+            ("ntlm.os", "Product_Version"),
+            ("ntlm.version", "NTLM_Version"),
+        ]
+        for alias, target in cases:
+            with self.subTest(alias=alias):
+                self.assertEqual(
+                    self._terms_field(alias),
+                    f"ports.scripts.ntlm-info.{target}",
+                )
+
+    # -- smb ----------------------------------------------------------
+
+    def test_topvalues_smb_subkey_passthrough(self):
+        self.assertEqual(
+            self._terms_field("smb.os"),
+            "ports.scripts.smb-os-discovery.os",
+        )
+
+    # -- modbus -------------------------------------------------------
+
+    def test_topvalues_modbus_subkey_passthrough(self):
+        self.assertEqual(
+            self._terms_field("modbus.deviceid"),
+            "ports.scripts.modbus-discover.deviceid",
+        )
+
+    # -- devicetype ---------------------------------------------------
+
+    def test_topvalues_devicetype_aggregates_service_field(self):
+        # ``ports.service_devicetype`` is a per-port field;
+        # the aggregation runs inside a ``nested(ports)``
+        # context so each port contributes one observation
+        # to the bucket (mirrors Mongo's ``$unwind ports``
+        # count semantics).  Without the nested wrap, ES's
+        # default ``terms`` semantics dedupe per parent
+        # document and undercount hosts publishing the same
+        # ``service_devicetype`` on several ports.
+        self.assertEqual(self._terms_field("devicetype"), "ports.service_devicetype")
+        body = self._capture_body("devicetype")
+        self.assertEqual(body["aggs"]["patterns"]["nested"], {"path": "ports"})
+
+    def test_topvalues_devicetype_with_port_adds_filter(self):
+        # ``devicetype:<port>`` adds two filter layers:
+        # the host-level :meth:`searchport` constraint
+        # (``openports.tcp.ports`` lookup, indexed) and a
+        # nested ``filter`` clause inside the ``nested(ports)``
+        # aggregation that narrows the per-port count to the
+        # matching port subdocument.
+        body = self._capture_body("devicetype:80")
+        self.assertEqual(self._terms_field("devicetype:80"), "ports.service_devicetype")
+        self.assertIn("openports", str(body["query"]))
+        # Inner ``filter`` clause matches ``ports.port`` to
+        # the requested port.
+        self.assertIn("ports.port", str(body["aggs"]["patterns"]))
+
+    # -- cpe ----------------------------------------------------------
+
+    def test_topvalues_cpe_default_emits_painless_concat(self):
+        # Bare ``cpe`` projects all four keys (default
+        # ``<part>=version``); the painless script concats
+        # them with ``:`` separators.
+        source = self._terms_script_source("cpe")
+        for key in ("type", "vendor", "product", "version"):
+            self.assertIn(f"cpes.{key}", source)
+        self.assertIn(" + ':' + ", source)
+
+    def test_topvalues_cpe_part_truncates_projection(self):
+        # ``cpe.vendor`` projects only ``type`` and
+        # ``vendor``.  Multi-key form still goes through
+        # the painless concat.
+        source = self._terms_script_source("cpe.vendor")
+        self.assertIn("cpes.type", source)
+        self.assertIn("cpes.vendor", source)
+        self.assertNotIn("cpes.product", source)
+        self.assertNotIn("cpes.version", source)
+
+    def test_topvalues_cpe_single_kept_key_uses_field_form(self):
+        # ``cpe.type`` -> only one kept key -> a flat
+        # ``terms(field=cpes.type)`` aggregation rather
+        # than a script.
+        body = self._capture_body("cpe.type")
+        terms = body["aggs"]["patterns"]["terms"]
+        self.assertEqual(terms.get("field"), "cpes.type")
+        self.assertNotIn("script", terms)
+
+    # -- hop ----------------------------------------------------------
+
+    def test_topvalues_hop_aggregates_native_ip_field(self):
+        # ``traces.hops`` is nested, so the terms agg lands
+        # inside a ``nested(traces.hops)`` wrapper; the
+        # ``_walk_to_terms`` helper hides the wrapping from
+        # the assertion.  The terms field itself is still
+        # ``traces.hops.ipaddr`` (native ``ip`` type).
+        self.assertEqual(self._terms_field("hop"), "traces.hops.ipaddr")
+        body = self._capture_body("hop")
+        self.assertEqual(body["aggs"]["patterns"]["nested"], {"path": "traces.hops"})
+
+    def test_topvalues_hop_with_ttl(self):
+        # The TTL filter must run *inside* the
+        # ``nested(traces.hops)`` aggregation -- otherwise
+        # cross-field correlation breaks and the bucket count
+        # picks up every hop of every host that has *any* hop
+        # at the requested TTL.  Pin the inner-filter shape
+        # explicitly.
+        body = self._capture_body("hop:5")
+        self.assertEqual(self._terms_field("hop:5"), "traces.hops.ipaddr")
+        self.assertEqual(body["aggs"]["patterns"]["nested"], {"path": "traces.hops"})
+        inner_filter = body["aggs"]["patterns"]["aggs"]["patterns"]["filter"]
+        self.assertEqual(inner_filter, {"match": {"traces.hops.ttl": 5}})
+
+    def test_topvalues_hop_gt_uses_range(self):
+        body = self._capture_body("hop>10")
+        self.assertEqual(self._terms_field("hop>10"), "traces.hops.ipaddr")
+        self.assertEqual(body["aggs"]["patterns"]["nested"], {"path": "traces.hops"})
+        inner_filter = body["aggs"]["patterns"]["aggs"]["patterns"]["filter"]
+        self.assertEqual(inner_filter, {"range": {"traces.hops.ttl": {"gt": 10}}})
+
+    # -- file ---------------------------------------------------------
+
+    def test_topvalues_file_default_filename(self):
+        self.assertEqual(
+            self._terms_field("file"),
+            "ports.scripts.ls.volumes.files.filename",
+        )
+
+    def test_topvalues_file_subkey(self):
+        self.assertEqual(
+            self._terms_field("file.uid"),
+            "ports.scripts.ls.volumes.files.uid",
+        )
+
+    def test_topvalues_file_with_scripts(self):
+        body = self._capture_body("file:nfs-ls,smb-ls")
+        self.assertEqual(
+            self._terms_field("file:nfs-ls,smb-ls"),
+            "ports.scripts.ls.volumes.files.filename",
+        )
+        # ``searchfile(scripts=[...])`` filter lands in the
+        # host query.
+        self.assertIn("nfs-ls", str(body["query"]))
+
+    def test_topvalues_file_with_scripts_and_subkey(self):
+        self.assertEqual(
+            self._terms_field("file:nfs-ls.size"),
+            "ports.scripts.ls.volumes.files.size",
+        )
+
+    # -- vulns --------------------------------------------------------
+
+    def test_topvalues_vulns_id_aggregates_id_field(self):
+        self.assertEqual(self._terms_field("vulns.id"), "ports.scripts.vulns.id")
+
+    def test_topvalues_vulns_other_emits_id_tuple(self):
+        # ``vulns.<other>`` returns a ``(id, <other>)``
+        # tuple via a painless concat.
+        source = self._terms_script_source("vulns.state")
+        self.assertIn("ports.scripts.vulns.id", source)
+        self.assertIn("ports.scripts.vulns.state", source)
+
+    # -- screenwords --------------------------------------------------
+
+    def test_topvalues_screenwords_aggregates_array_field(self):
+        self.assertEqual(self._terms_field("screenwords"), "ports.screenwords")
+
+    # -- sshkey -------------------------------------------------------
+
+    def test_topvalues_sshkey_bits_emits_type_bits_tuple(self):
+        source = self._terms_script_source("sshkey.bits")
+        self.assertIn("ports.scripts.ssh-hostkey.type", source)
+        self.assertIn("ports.scripts.ssh-hostkey.bits", source)
+
+    def test_topvalues_sshkey_passthrough_other_key(self):
+        self.assertEqual(
+            self._terms_field("sshkey.fingerprint"),
+            "ports.scripts.ssh-hostkey.fingerprint",
+        )
 
 
 # ---------------------------------------------------------------------
