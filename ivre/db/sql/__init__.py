@@ -44,6 +44,7 @@ from sqlalchemy import (
     insert,
     join,
     not_,
+    null,
     nulls_first,
     or_,
     select,
@@ -54,6 +55,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import aliased
 
 from ivre import config, utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
@@ -721,6 +723,73 @@ class SQLDB(DB):
         return req
 
 
+class SQLFlowFilter:
+    """Wraps a parsed :class:`ivre.flow.Query` for the SQL
+    backend.
+
+    :meth:`SQLDBFlow.from_filters` returns one of these so the
+    ``flow.Query`` clauses can be deferred until query time --
+    the translation to a SQLAlchemy ``WHERE`` expression
+    happens inside :meth:`SQLDBFlow.get`, where the
+    ``src`` / ``dst`` :class:`Host` aliases are bound and can
+    be referenced by the ``addr`` / ``src.addr`` / ``dst.addr``
+    shortcuts.
+
+    The wrapper is intentionally small; richer filter-language
+    constructs (``=~`` regex, ``ANY`` / ``ALL`` / ``NONE``
+    array modes, ``LEN`` length mode) are layered on top in
+    follow-up work without changing the public ``from_filters``
+    return-type contract.
+    """
+
+    __slots__ = ("query",)
+
+    def __init__(self, query):
+        self.query = query
+
+    def __repr__(self):
+        return f"SQLFlowFilter(query={self.query!r})"
+
+
+# Translation table from IVRE's filter-language operator
+# tokens to the corresponding SQLAlchemy ``ColumnOperators``
+# magic methods.  ``:`` is the legacy "match" token Mongo
+# treats as ``$eq``; we map it the same way.
+_FLOW_FLT_OPS: dict[str, str] = {
+    ":": "__eq__",
+    "=": "__eq__",
+    "==": "__eq__",
+    "!=": "__ne__",
+    "<": "__lt__",
+    "<=": "__le__",
+    ">": "__gt__",
+    ">=": "__ge__",
+}
+
+
+# Direct column attributes on :class:`Flow` the filter
+# language can reference by their bare name (no ``meta.``
+# prefix, no ``src.`` / ``dst.`` prefix).  ``firstseen`` /
+# ``lastseen`` are split out below because the IVRE web
+# layer ships ISO-8601 strings and we coerce them to
+# :class:`datetime.datetime` before comparison.
+_FLOW_DIRECT_COLS: frozenset[str] = frozenset(
+    {
+        "proto",
+        "dport",
+        "type",
+        "count",
+        "cspkts",
+        "scpkts",
+        "csbytes",
+        "scbytes",
+        "schema_version",
+    }
+)
+
+_FLOW_DATE_COLS: frozenset[str] = frozenset({"firstseen", "lastseen"})
+
+
 class SQLDBFlow(SQLDB, DBFlow):
     # ``host`` is the per-address endpoint table referenced by
     # :attr:`Flow.src` / :attr:`Flow.dst`; SQL diverges from
@@ -782,16 +851,305 @@ class SQLDBFlow(SQLDB, DBFlow):
     def flow_details(self, flow_id):
         raise NotImplementedError()
 
+    @classmethod
     def from_filters(
-        self, filters, limit=None, skip=0, orderby="", mode=None, timeline=False
+        cls,
+        filters,
+        limit=None,
+        skip=0,
+        orderby="",
+        mode=None,
+        timeline=False,
+        after=None,
+        before=None,
+        precision=None,
     ):
-        raise NotImplementedError()
+        """Translate the web-UI / CLI filter dict into a
+        :class:`SQLFlowFilter` carrying the parsed
+        :class:`ivre.flow.Query`.
 
-    def to_graph(self, query):
-        raise NotImplementedError()
+        Mirrors :meth:`MongoDBFlow.from_filters` (which returns
+        a Mongo filter dict via ``flt_from_query``); the SQL
+        equivalent defers the per-clause SA expression building
+        to :meth:`get`, where the per-query ``Host`` aliases
+        are in scope for the ``addr`` / ``src.addr`` /
+        ``dst.addr`` shortcuts.
 
-    def to_iter(self, query):
-        raise NotImplementedError()
+        ``after`` / ``before`` / ``precision`` parameters mirror
+        the Mongo signature; they are accepted but ignored by
+        the SQL backend, which has no per-flow ``times`` array
+        (the field is documented as MongoDB-only in
+        :mod:`ivre.flow`).  ``limit`` / ``skip`` / ``orderby`` /
+        ``mode`` / ``timeline`` are accepted for the same
+        signature-compatibility reason and forwarded to the
+        base ``flow.Query`` builder, which itself ignores them.
+        """
+        query = super().from_filters(
+            filters,
+            limit=limit,
+            skip=skip,
+            orderby=orderby,
+            mode=mode,
+            timeline=timeline,
+        )
+        return SQLFlowFilter(query)
+
+    @classmethod
+    def _flow_col_for_attr(cls, attr, src_alias, dst_alias):
+        """Resolve a filter-language attribute path to the
+        SQLAlchemy column it should compare against.
+
+        ``addr`` is special-cased by the caller (it expands to
+        ``src.addr OR dst.addr`` and so cannot be a single
+        column).  ``src.addr`` / ``dst.addr`` resolve to the
+        per-side host alias's ``addr`` column.
+        ``meta.<proto>[.<key>]`` paths route through the
+        ``Flow.meta`` JSONB column via PostgreSQL's
+        ``->`` / ``->>`` accessors.  Plain column names land in
+        :data:`_FLOW_DIRECT_COLS` / :data:`_FLOW_DATE_COLS`.
+
+        Returns ``None`` when the attribute does not match any
+        known column shape; callers turn that into a
+        ``ValueError``.
+        """
+        if attr == "src.addr":
+            return src_alias.addr
+        if attr == "dst.addr":
+            return dst_alias.addr
+        if attr in _FLOW_DIRECT_COLS or attr in _FLOW_DATE_COLS:
+            return getattr(cls.tables.flow, attr)
+        if attr.startswith("meta."):
+            # ``meta.http`` -> ``meta -> 'http'``
+            # ``meta.http.method`` -> ``meta -> 'http' -> 'method'``
+            parts = attr.split(".")[1:]
+            col = cls.tables.flow.meta
+            for part in parts[:-1]:
+                col = col.op("->")(part)
+            # Last hop uses ``->>`` so the result is text and
+            # can be compared with ``=`` to the user's literal.
+            col = col.op("->>")(parts[-1])
+            return col
+        return None
+
+    @classmethod
+    def _coerce_flow_value(cls, attr, value):
+        """Coerce a filter-language literal to the Python type
+        the column expects.  ISO-8601 timestamps in the date
+        columns get parsed via :func:`utils.all2datetime`; all
+        other columns leave the value untouched (the SQLAlchemy
+        ``ColumnOperators`` handle their own coercion against
+        the column type)."""
+        if attr in _FLOW_DATE_COLS and isinstance(value, str):
+            return utils.all2datetime(value)
+        return value
+
+    @classmethod
+    def _flt_from_clause(cls, clause, src_alias, dst_alias):
+        """Translate a single :mod:`ivre.flow` clause into a
+        SQLAlchemy boolean expression.
+
+        Supported shapes:
+        * Simple comparison: ``attr op value``.
+        * Existence check: bare ``attr`` (no operator) ->
+          ``attr IS NOT NULL`` (or ``IS NULL`` under negation).
+        * ``addr op value`` -> ``(src.addr op value) OR
+          (dst.addr op value)``.
+        * Negation prefix (``!``, ``-``, ``~``) wraps the result
+          in :func:`not_`.
+
+        Deferred to follow-up sub-PRs:
+        * ``=~`` regex match.
+        * ``ANY`` / ``ALL`` / ``NONE`` / ``ONE`` array modes.
+        * ``LEN <attr> <op> <n>`` length mode.
+        """
+        if clause.get("array_mode") is not None:
+            raise NotImplementedError(
+                "array-mode filters (ANY/ALL/NONE/ONE) are not yet "
+                "supported on the SQL flow backend"
+            )
+        if clause.get("len_mode"):
+            raise NotImplementedError(
+                "LEN-mode filters are not yet supported on the SQL flow backend"
+            )
+        op_token = clause.get("operator")
+        if op_token == "=~":
+            raise NotImplementedError(
+                "regex filters (=~) are not yet supported on the SQL flow backend"
+            )
+        attr = clause["attr"]
+        neg = bool(clause.get("neg"))
+
+        # Bare attribute without an operator: existence check.
+        if op_token is None:
+            if attr == "addr":
+                expr = or_(src_alias.addr != null(), dst_alias.addr != null())
+            else:
+                col = cls._flow_col_for_attr(attr, src_alias, dst_alias)
+                if col is None:
+                    raise ValueError(f"Unknown flow filter attribute {attr!r}")
+                expr = col != null()
+            return not_(expr) if neg else expr
+
+        sa_op = _FLOW_FLT_OPS.get(op_token)
+        if sa_op is None:
+            raise ValueError(f"Unknown flow filter operator {op_token!r}")
+        value = cls._coerce_flow_value(attr, clause["value"])
+
+        if attr == "addr":
+            # ``addr`` matches either side of the flow.  ``!=``
+            # gets De Morgan'd into ``AND`` of ``!=`` so a host
+            # appearing on either side is correctly excluded.
+            src_expr = getattr(src_alias.addr, sa_op)(value)
+            dst_expr = getattr(dst_alias.addr, sa_op)(value)
+            expr = (
+                and_(src_expr, dst_expr)
+                if op_token == "!="
+                else or_(src_expr, dst_expr)
+            )
+            return not_(expr) if neg else expr
+
+        col = cls._flow_col_for_attr(attr, src_alias, dst_alias)
+        if col is None:
+            raise ValueError(f"Unknown flow filter attribute {attr!r}")
+        expr = getattr(col, sa_op)(value)
+        return not_(expr) if neg else expr
+
+    @classmethod
+    def _flt_from_query(cls, query, src_alias, dst_alias):
+        """Translate a :class:`flow.Query` (an AND of OR
+        groups) into a SQLAlchemy ``WHERE`` expression scoped
+        to the supplied per-side :class:`Host` aliases.
+
+        Returns :func:`true` when the query has no clauses so
+        the caller can plug the result straight into
+        ``select(...).where(...)``.
+        """
+        and_clauses = []
+        for or_group in query.clauses:
+            or_exprs = [cls._flt_from_clause(c, src_alias, dst_alias) for c in or_group]
+            if not or_exprs:
+                continue
+            and_clauses.append(or_exprs[0] if len(or_exprs) == 1 else or_(*or_exprs))
+        if not and_clauses:
+            return true()
+        if len(and_clauses) == 1:
+            return and_clauses[0]
+        return and_(*and_clauses)
+
+    @staticmethod
+    def _orderby_to_sa(orderby, src_alias, dst_alias):
+        """Translate IVRE's ``[(field, direction), ...]``
+        orderby convention into a list of SQLAlchemy
+        ``ColumnElement`` instances suitable for
+        ``select().order_by(*...)``.  ``direction`` is ``1``
+        for ascending or ``-1`` for descending; unknown fields
+        raise ``ValueError`` so a typo at the CLI surfaces
+        eagerly rather than silently sorting by a no-op.
+        """
+        if not orderby:
+            return []
+        out = []
+        for field, direction in orderby:
+            if field == "src.addr":
+                col = src_alias.addr
+            elif field == "dst.addr":
+                col = dst_alias.addr
+            elif field in _FLOW_DIRECT_COLS or field in _FLOW_DATE_COLS:
+                col = getattr(SQLDBFlow.tables.flow, field)
+            else:
+                raise ValueError(f"Unknown flow orderby field {field!r}")
+            out.append(desc(col) if direction == -1 else col)
+        return out
+
+    @staticmethod
+    def _row2flow(row):
+        """Project a JOINed (Flow, src_addr, dst_addr) row into
+        the dict shape :class:`MongoDBFlow.get` returns -- the
+        contract :func:`DBFlow._flow2host` /
+        :func:`DBFlow._edge2json_default` consume.
+
+        ``meta`` round-trips as a Python dict thanks to the
+        ``SQLJSONB`` column; ``sports`` / ``codes`` come out as
+        Python lists thanks to the ``SQLARRAY(Integer)`` column
+        type.
+        """
+        flow_obj, src_addr, dst_addr = row
+        return {
+            "_id": flow_obj.id,
+            "src_addr": str(src_addr) if src_addr is not None else None,
+            "dst_addr": str(dst_addr) if dst_addr is not None else None,
+            "proto": flow_obj.proto,
+            "dport": flow_obj.dport,
+            "type": flow_obj.type,
+            "firstseen": flow_obj.firstseen,
+            "lastseen": flow_obj.lastseen,
+            "cspkts": flow_obj.cspkts,
+            "scpkts": flow_obj.scpkts,
+            "csbytes": flow_obj.csbytes,
+            "scbytes": flow_obj.scbytes,
+            "count": flow_obj.count,
+            "sports": flow_obj.sports,
+            "codes": flow_obj.codes,
+            "meta": flow_obj.meta,
+            "schema_version": flow_obj.schema_version,
+        }
+
+    def get(self, spec, limit=None, skip=None, orderby=None, fields=None):
+        """Iterate flows matching ``spec`` (a :class:`SQLFlowFilter`
+        as returned by :meth:`from_filters`, or ``None`` for the
+        match-all case).  ``spec`` keeps the
+        :meth:`DB.get` parameter name so the inherited
+        :meth:`DBFlow.to_iter` / :meth:`DBFlow.to_graph`
+        helpers (which call ``self.get(flt, ...)``
+        positionally) keep working unchanged.
+
+        Each yielded row is a Mongo-shaped dict (see
+        :meth:`_row2flow`) so the inherited
+        :meth:`DBFlow.to_iter` / :meth:`DBFlow.to_graph` work
+        unchanged on top.
+
+        ``fields`` is accepted for API compatibility with
+        :meth:`DBActive.get` but ignored on the flow path: the
+        whole flow row is cheap to project (no nested array
+        unwinding), and downstream :func:`DBFlow.cursor2json_*`
+        helpers expect every column anyway.
+        """
+        del fields  # unused; signature parity with DBActive.get
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        if spec is None:
+            where = true()
+        elif isinstance(spec, SQLFlowFilter):
+            where = self._flt_from_query(spec.query, src_alias, dst_alias)
+        else:
+            # Allow callers to pass a pre-built SA expression
+            # (used by :meth:`host_details` / :meth:`flow_details`
+            # in follow-up sub-PRs that bypass the parser).
+            where = spec
+        stmt = (
+            select(
+                self.tables.flow,
+                src_alias.addr,
+                dst_alias.addr,
+            )
+            .select_from(
+                join(
+                    self.tables.flow,
+                    src_alias,
+                    self.tables.flow.src == src_alias.id,
+                ).join(dst_alias, self.tables.flow.dst == dst_alias.id)
+            )
+            .where(where)
+        )
+        for col in self._orderby_to_sa(orderby, src_alias, dst_alias):
+            stmt = stmt.order_by(col)
+        if skip:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                yield self._row2flow(row)
 
     def count(self, flt):
         raise NotImplementedError()

@@ -6574,6 +6574,335 @@ class SQLDBFlowSchemaTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBFlowFromFiltersTests -- pin the wire shape of the
+# ``from_filters`` -> ``get`` translation on ``SQLDBFlow``: the
+# parsed :class:`ivre.flow.Query` clauses must lower into the
+# expected SQLAlchemy ``WHERE`` expressions, and the JOINed
+# ``(Flow, src_addr, dst_addr)`` row must project into the
+# Mongo-shaped dict :func:`DBFlow._flow2host` /
+# :func:`DBFlow._edge2json_default` consume.  Without that
+# parity, the inherited :meth:`DBFlow.to_iter` /
+# :meth:`DBFlow.to_graph` (which feed the ``flowcli`` /
+# ``/cgi/flows`` paths) would silently return malformed graphs.
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql import SQLDBFlow as _SQLDBFlow_for_filters_test
+    from ivre.db.sql import SQLFlowFilter as _SQLFlowFilter_for_filters_test
+    from ivre.db.sql.tables import Flow as _Flow_for_filters_test
+    from ivre.db.sql.tables import Host as _Host_for_filters_test
+
+    _HAVE_SQLDB_FLOW_FILTERS = True
+except ImportError:
+    _HAVE_SQLDB_FLOW_FILTERS = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_FLOW_FILTERS,
+    "SQLAlchemy is required for SQLDBFlowFromFiltersTests",
+)
+class SQLDBFlowFromFiltersTests(unittest.TestCase):
+    """Behaviour-pin for :meth:`SQLDBFlow.from_filters` and
+    :meth:`SQLDBFlow.get`.
+
+    Mirrors :meth:`MongoDBFlow.flt_from_query` (which produces
+    a Mongo filter dict via the same parsed
+    :class:`flow.Query`).  Every supported clause shape gets
+    its expected SQLAlchemy ``WHERE`` translation pinned to
+    the literal-binds-rendered SQL fragment, so a future
+    refactor of the translator cannot silently drift the two
+    backends apart.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        return str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @classmethod
+    def _where_sql(cls, filters):
+        """Compile ``from_filters(filters)`` -> SA ``WHERE``
+        expression -> PostgreSQL fragment for assertion."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import aliased
+
+        flt = _SQLDBFlow_for_filters_test.from_filters(filters)
+        src = aliased(_Host_for_filters_test, name="src_h")
+        dst = aliased(_Host_for_filters_test, name="dst_h")
+        where = _SQLDBFlow_for_filters_test._flt_from_query(flt.query, src, dst)
+        return cls._compile_pg(select(_Flow_for_filters_test.id).where(where))
+
+    # -- return type --------------------------------------------------
+
+    def test_from_filters_returns_sqlflow_filter(self):
+        # ``from_filters`` does not eagerly translate the
+        # ``flow.Query`` clauses -- it returns a wrapper so the
+        # SA expression can be built later, when the per-query
+        # ``Host`` aliases are bound inside :meth:`get`.
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        self.assertIsInstance(flt, _SQLFlowFilter_for_filters_test)
+        # Empty filters -> empty clauses list (no AND of ORs).
+        self.assertEqual(flt.query.clauses, [])
+
+    # -- direct-column comparisons ------------------------------------
+
+    def test_proto_equality(self):
+        # Plain ``proto = tcp`` lowers to a flat
+        # ``flow.proto = 'tcp'`` predicate; no JOIN, no host
+        # alias reference -- SA prunes the unused FROM list.
+        sql = self._where_sql({"edges": ["proto = tcp"]})
+        self.assertIn("flow.proto = 'tcp'", sql)
+        self.assertNotIn("host", sql)
+
+    def test_count_gt(self):
+        sql = self._where_sql({"edges": ["count > 5"]})
+        self.assertIn("flow.count > 5", sql)
+
+    def test_negation_swaps_to_neq(self):
+        # ``!proto = tcp`` lowers to ``flow.proto != 'tcp'``;
+        # the translator wraps the comparison in ``NOT(...)``
+        # rather than swapping operators (the SQL planner
+        # inverts the comparison itself).  The flow filter
+        # parser only treats ``!`` as a negation prefix when
+        # it directly precedes the attribute (no separating
+        # whitespace), matching Mongo's
+        # :meth:`MongoDBFlow.flt_from_clause` convention.
+        sql = self._where_sql({"edges": ["!proto = tcp"]})
+        self.assertIn("flow.proto != 'tcp'", sql)
+
+    # -- AND / OR composition -----------------------------------------
+
+    def test_and_composition(self):
+        # Multiple clauses without an explicit ``OR`` are
+        # AND-ed together at the top level.
+        sql = self._where_sql({"edges": ["proto = tcp", "dport = 443"]})
+        self.assertIn("flow.proto = 'tcp'", sql)
+        self.assertIn("flow.dport = 443", sql)
+        self.assertIn(" AND ", sql)
+
+    def test_or_composition(self):
+        sql = self._where_sql({"edges": ["proto = tcp || proto = udp"]})
+        self.assertIn(" OR ", sql)
+
+    # -- addr / src.addr / dst.addr -----------------------------------
+
+    def test_addr_shortcut_expands_to_or(self):
+        # ``addr = X`` expands to ``src_h.addr = X OR
+        # dst_h.addr = X``: the JOINs to both ``Host`` aliases
+        # come from the surrounding :meth:`get` query, but the
+        # WHERE expression itself references both aliases'
+        # ``addr`` columns.
+        sql = self._where_sql({"nodes": ["addr = 1.2.3.4"]})
+        self.assertIn("src_h.addr", sql)
+        self.assertIn("dst_h.addr", sql)
+        self.assertIn(" OR ", sql)
+
+    def test_addr_neq_uses_and(self):
+        # ``addr != X`` is the De Morgan dual of ``addr = X``:
+        # exclude flows where *either* side matches, i.e.
+        # ``src_h.addr != X AND dst_h.addr != X``.  Without
+        # this special-case, ``OR`` would let through every
+        # flow where the *other* side does not match.
+        sql = self._where_sql({"nodes": ["addr != 1.2.3.4"]})
+        self.assertIn("src_h.addr !=", sql)
+        self.assertIn("dst_h.addr !=", sql)
+        self.assertIn(" AND ", sql)
+
+    def test_src_addr_only(self):
+        sql = self._where_sql({"nodes": ["src.addr = 1.2.3.4"]})
+        self.assertIn("src_h.addr = ", sql)
+        self.assertNotIn("dst_h.addr", sql)
+
+    def test_dst_addr_only(self):
+        sql = self._where_sql({"nodes": ["dst.addr = 1.2.3.4"]})
+        self.assertIn("dst_h.addr = ", sql)
+        self.assertNotIn("src_h.addr", sql)
+
+    # -- existence (no operator) --------------------------------------
+
+    def test_bare_attr_is_existence_check(self):
+        # ``proto`` (no operator) -> ``flow.proto IS NOT NULL``.
+        sql = self._where_sql({"edges": ["proto"]})
+        self.assertIn("flow.proto IS NOT NULL", sql)
+
+    def test_bare_attr_negated_is_null_check(self):
+        # SQLAlchemy folds ``NOT (col IS NOT NULL)`` straight
+        # into ``col IS NULL`` (and ditto for the addr-OR
+        # case).  Pin the simplified shape so a future
+        # rewrite of the translator that emits an explicit
+        # ``NOT`` wrapper without the simplification surfaces
+        # in this test instead of silently changing the
+        # rendered SQL.
+        sql = self._where_sql({"edges": ["!proto"]})
+        self.assertIn("flow.proto IS NULL", sql)
+
+    # -- meta.<proto>[.<key>] paths -----------------------------------
+
+    def test_meta_proto_existence(self):
+        # ``meta.http`` (bare) -> ``meta ->> 'http' IS NOT
+        # NULL``: the JSONB ``->>`` extractor returns ``NULL``
+        # when the key is absent, so the existence check
+        # composes naturally.
+        sql = self._where_sql({"edges": ["meta.http"]})
+        self.assertIn("meta", sql)
+        self.assertIn("'http'", sql)
+        self.assertIn("IS NOT NULL", sql)
+
+    def test_meta_proto_key_equality(self):
+        # ``meta.http.method = GET`` -> ``(meta -> 'http') ->>
+        # 'method' = 'GET'``.  Intermediate hops use ``->`` so
+        # they keep the JSONB shape; only the leaf hops uses
+        # ``->>`` to produce a comparable text value.
+        sql = self._where_sql({"edges": ["meta.http.method = GET"]})
+        self.assertIn("'http'", sql)
+        self.assertIn("'method'", sql)
+        self.assertIn("'GET'", sql)
+
+    # -- date columns -------------------------------------------------
+
+    def test_firstseen_iso_string_is_coerced_to_datetime(self):
+        # IVRE's web layer ships ISO-8601 timestamps; the
+        # translator routes them through
+        # :func:`utils.all2datetime` so SQLAlchemy renders them
+        # with the right ``TIMESTAMP`` literal.
+        sql = self._where_sql({"edges": ["firstseen >= 2024-01-01 00:00:00"]})
+        self.assertIn("flow.firstseen >= ", sql)
+        self.assertIn("'2024-01-01 00:00:00'", sql)
+
+    # -- error paths --------------------------------------------------
+
+    def test_unknown_attribute_raises(self):
+        # Typos / unknown columns surface eagerly rather than
+        # silently being lowered to ``NULL = ...``.
+        with self.assertRaises(ValueError):
+            self._where_sql({"edges": ["bogus_col = 5"]})
+
+    def test_array_mode_raises_not_implemented(self):
+        # ``ANY`` / ``ALL`` / ``NONE`` / ``ONE`` array modes
+        # are deferred to follow-up SQL flow work; the
+        # translator surfaces the gap explicitly so a CLI
+        # caller does not silently get an empty result set.
+        with self.assertRaises(NotImplementedError):
+            self._where_sql({"edges": ["ANY sports = 80"]})
+
+    def test_len_mode_raises_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            self._where_sql({"edges": ["LEN sports > 0"]})
+
+    def test_regex_operator_raises_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            self._where_sql({"edges": ["proto =~ tcp"]})
+
+    # -- _row2flow projection -----------------------------------------
+
+    def test_row2flow_returns_mongo_shaped_dict(self):
+        # The base ``DBFlow.cursor2json_iter`` consumes flow
+        # rows via ``row.get("addr")`` / ``row.get("_id")`` /
+        # ``row.get("proto")`` / etc.  Pin the per-key
+        # projection so the SA-row -> dict conversion stays
+        # compatible with the inherited helpers; without it,
+        # ``to_iter`` / ``to_graph`` would silently emit empty
+        # graph nodes.
+        class _FakeFlow:
+            id = 42
+            proto = "tcp"
+            dport = 443
+            type = None
+            firstseen = "2024-01-01"
+            lastseen = "2024-01-02"
+            scpkts = 100
+            scbytes = 4000
+            cspkts = 80
+            csbytes = 3500
+            count = 3
+            sports = [50000, 50001]
+            codes = None
+            meta = {"http": {"method": "GET"}}
+            schema_version = 1
+
+        rec = _SQLDBFlow_for_filters_test._row2flow(
+            (_FakeFlow(), "10.0.0.1", "10.0.0.2")
+        )
+        self.assertEqual(rec["_id"], 42)
+        self.assertEqual(rec["src_addr"], "10.0.0.1")
+        self.assertEqual(rec["dst_addr"], "10.0.0.2")
+        self.assertEqual(rec["proto"], "tcp")
+        self.assertEqual(rec["dport"], 443)
+        self.assertEqual(rec["sports"], [50000, 50001])
+        self.assertEqual(rec["meta"], {"http": {"method": "GET"}})
+        # Exhaustive key set so a new column added to ``Flow``
+        # shows up in the projection or fails the test.
+        self.assertEqual(
+            set(rec),
+            {
+                "_id",
+                "src_addr",
+                "dst_addr",
+                "proto",
+                "dport",
+                "type",
+                "firstseen",
+                "lastseen",
+                "scpkts",
+                "scbytes",
+                "cspkts",
+                "csbytes",
+                "count",
+                "sports",
+                "codes",
+                "meta",
+                "schema_version",
+            },
+        )
+
+    def test_row2flow_preserves_none_addresses(self):
+        # ``src_addr`` / ``dst_addr`` come from the JOIN; if a
+        # downstream consumer ever passes a NULL (e.g. a
+        # placeholder dangling pointer), ``_row2flow`` keeps
+        # that as ``None`` rather than the string ``"None"``.
+        class _FakeFlow:
+            id = 1
+            proto = None
+            dport = None
+            type = None
+            firstseen = None
+            lastseen = None
+            scpkts = None
+            scbytes = None
+            cspkts = None
+            csbytes = None
+            count = None
+            sports = None
+            codes = None
+            meta = None
+            schema_version = None
+
+        rec = _SQLDBFlow_for_filters_test._row2flow((_FakeFlow(), None, None))
+        self.assertIsNone(rec["src_addr"])
+        self.assertIsNone(rec["dst_addr"])
+
+    # -- to_iter / to_graph delegate to the base class ----------------
+
+    def test_to_iter_inherited_from_dbflow(self):
+        # The ``NotImplementedError`` stubs in ``SQLDBFlow``
+        # (``to_iter`` / ``to_graph``) were dropped so the
+        # base-class versions in :class:`DBFlow` take over;
+        # both delegate to ``self.get(...)``, which now works
+        # on the SQL backend.
+        from ivre.db import DBFlow
+
+        self.assertIs(_SQLDBFlow_for_filters_test.to_iter, DBFlow.to_iter)
+        self.assertIs(_SQLDBFlow_for_filters_test.to_graph, DBFlow.to_graph)
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
