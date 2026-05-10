@@ -28,7 +28,7 @@ from functools import update_wrapper
 from getpass import getpass
 from io import BytesIO
 from urllib.parse import quote
-from urllib.request import build_opener
+from urllib.request import Request, build_opener
 
 try:
     import pycurl
@@ -38,7 +38,7 @@ else:
     HAS_CURL = True
 
 
-from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBRir, DBView
+from ivre.db import DB, DBActive, DBData, DBFlow, DBNmap, DBPassive, DBRir, DBView
 
 try:
     from ivre.db.maxmind import MaxMindDBData
@@ -47,16 +47,37 @@ except ImportError:
 try:
     from ivre.db.mongo import (
         MongoDBActive,
+        MongoDBFlow,
         MongoDBNmap,
         MongoDBPassive,
         MongoDBRir,
         MongoDBView,
     )
 except ImportError:
-    MongoDBActive = MongoDBNmap = MongoDBPassive = MongoDBRir = MongoDBView = None
+    MongoDBActive = MongoDBFlow = MongoDBNmap = MongoDBPassive = MongoDBRir = (
+        MongoDBView
+    ) = None
 from ivre import VERSION, utils
 
 RESULTS_COUNT = 200
+
+# Canonical datetime-valued keys shared by every flow record
+# source (``ivre/tools/zeek2db.py:_zeek2flow``,
+# ``ivre/parser/argus.py``, ``ivre/parser/netflow.py``,
+# ``ivre/parser/iptables.py``).  ``ts`` is always renamed to
+# ``start_time`` / ``end_time`` by ``_zeek2flow`` before the
+# record reaches the bulk; we keep it in the list so future
+# parsers that pre-date the rename keep round-tripping.
+#
+# :meth:`HttpDBFlow._serialize_record` and the server-side
+# :func:`ivre.web.app._flow_record_from_payload` MUST honour the
+# same set so a value that becomes a ``float`` on the wire ends
+# up back as a :class:`datetime` on the receiving side.  Adding
+# a new datetime-valued field anywhere in the ingestion pipeline
+# requires updating this constant; any other ``datetime`` value
+# in a record raises :class:`TypeError` at ``json.dumps`` time
+# rather than silently arriving as a float on the server.
+FLOW_DATETIME_KEYS: frozenset[str] = frozenset({"start_time", "end_time", "ts"})
 
 
 def serialize(obj):
@@ -471,3 +492,416 @@ class HttpDBRir(HttpDB, DBRir):
     reference = MongoDBRir
 
     route = "rir"
+
+
+class _HttpFlowQuery:
+    """Opaque wrapper around the original :class:`HttpDBFlow.from_filters`
+    inputs.
+
+    Methods like :meth:`HttpDBFlow.count` / :meth:`HttpDBFlow.to_graph` /
+    :meth:`HttpDBFlow.host_details` / :meth:`HttpDBFlow.flow_details`
+    receive this wrapper and forward the captured ``filters`` (the raw
+    ``{nodes, edges}`` dict the caller passed in) to the remote IVRE
+    via the ``GET /flows`` endpoint.  Forwarding the *raw* query
+    rather than the parsed :class:`ivre.flow.Query` keeps the wire
+    format identical to the JSON the AngularJS UI already sends, so
+    no server-side translation is needed.
+    """
+
+    __slots__ = ("filters", "kwargs")
+
+    def __init__(self, filters, **kwargs):
+        # ``filters`` is the ``{nodes, edges}`` dict the caller
+        # passed in; ``kwargs`` holds the rest (``limit`` / ``skip``
+        # / ``orderby`` / ``mode`` / ``timeline`` / ``after`` /
+        # ``before`` / ``precision``).  The per-method overrides
+        # (e.g. :meth:`HttpDBFlow.to_graph`'s own ``limit`` /
+        # ``skip``) layer on top at request-build time.
+        self.filters = filters or {}
+        self.kwargs = kwargs
+
+
+class HttpDBFlow(HttpDB, DBFlow):
+    """HTTP proxy for the flow database.
+
+    Forwards every query to the remote IVRE's ``/flows`` web endpoint
+    (read-side) and ``/flows`` ``POST`` (ingestion).  The server-side
+    backend (Mongo / PostgreSQL) handles the actual storage; this
+    class only translates calls into HTTP requests.
+
+    The ``reference`` attribute (used by :meth:`HttpDB.__getattribute__`
+    to surface ``searchXXX`` helpers) points to :class:`MongoDBFlow`
+    so search-clause names match the canonical Mongo backend.
+    """
+
+    reference = MongoDBFlow
+
+    route = "flows"
+
+    @staticmethod
+    def _serialize_value(value):
+        """JSON-friendly representation of a single Python value.
+
+        The flow query format already uses ``"YYYY-MM-DD HH:MM"``
+        strings for ``before`` / ``after`` (parsed server-side via
+        :func:`datetime.strptime`); other ``datetime`` objects
+        round-trip through the same shape so timeline / timeslot
+        bounds keep working.  Other values pass through unchanged.
+        """
+        if isinstance(value, datetime):
+            return value.strftime("%Y-%m-%d %H:%M")
+        return value
+
+    @classmethod
+    def _build_query_dict(cls, flt, overrides=None):
+        """Merge an :class:`_HttpFlowQuery` into the JSON payload
+        the ``/flows`` endpoint expects.
+
+        ``overrides`` are the per-method kwargs the caller passes
+        on top of the ones captured by :meth:`from_filters` (e.g.
+        :meth:`to_graph`'s own ``limit`` / ``skip`` block).  An
+        override that resolves to ``None`` is dropped so the
+        server-side defaults kick in (matching the way the
+        AngularJS UI omits unset keys).
+        """
+        if flt is None:
+            payload = {}
+        else:
+            # ``filters`` carries ``nodes`` / ``edges`` -- both go
+            # at the top level of the JSON payload because that's
+            # the shape ``ivre/web/app.py:get_flow`` reads.
+            payload = dict(flt.filters)
+            for key, value in flt.kwargs.items():
+                if value is None:
+                    continue
+                payload[key] = cls._serialize_value(value)
+        for key, value in (overrides or {}).items():
+            if value is None:
+                continue
+            payload[key] = cls._serialize_value(value)
+        return payload
+
+    @classmethod
+    def from_filters(
+        cls,
+        filters,
+        limit=None,
+        skip=0,
+        orderby="",
+        mode=None,
+        timeline=False,
+        after=None,
+        before=None,
+        precision=None,
+    ):
+        """Capture the inputs of a flow query without parsing them.
+
+        The remote IVRE re-parses the same dict via its own
+        :meth:`DBFlow.from_filters`; running the parser locally
+        would only build a :class:`ivre.flow.Query` we'd then
+        have to round-trip back to JSON, so we keep the original
+        shape verbatim.
+        """
+        return _HttpFlowQuery(
+            filters,
+            limit=limit,
+            skip=skip,
+            orderby=orderby,
+            mode=mode,
+            timeline=timeline,
+            after=after,
+            before=before,
+            precision=precision,
+        )
+
+    def _flow_get_url(self, payload, action=None):
+        """Render the ``GET /flows`` URL for a JSON payload."""
+        url = f"{self.db.baseurl}/{self.route}?q={quote(json.dumps(payload, default=utils.serialize))}"
+        if action:
+            url += f"&action={quote(action)}"
+        return url
+
+    def count(self, spec, **kargs):
+        """Return ``{clients, servers, flows}`` for ``spec``.
+
+        Mirrors :meth:`MongoDBFlow.count` over the wire by
+        appending ``count=true`` to the ``/flows`` payload (which
+        the server interprets in ``ivre/web/app.py:get_flow``).
+        The ``spec`` parameter name matches :meth:`HttpDB.count`'s
+        signature so the keyword-arg dispatch in shared call sites
+        keeps working unchanged.
+        """
+        del kargs  # unused; signature parity with HttpDB.count
+        payload = self._build_query_dict(spec, overrides={"count": True})
+        url = self._flow_get_url(payload)
+        req = self.db.open(url)
+        return json.loads(req.read())
+
+    def to_graph(
+        self,
+        flt,
+        limit=None,
+        skip=None,
+        orderby=None,
+        mode=None,
+        timeline=False,
+        after=None,
+        before=None,
+    ):
+        """Forward a graph query to ``/flows`` and parse the JSON
+        response.
+
+        The server runs the equivalent of
+        :meth:`DBFlow.cursor2json_graph` over its own backend so
+        the returned dict has the canonical ``{"nodes": [...],
+        "edges": [...]}`` shape, regardless of which engine the
+        remote IVRE uses.
+        """
+        payload = self._build_query_dict(
+            flt,
+            overrides={
+                "limit": limit,
+                "skip": skip,
+                "orderby": orderby,
+                "mode": mode,
+                "timeline": timeline,
+                "after": after,
+                "before": before,
+            },
+        )
+        url = self._flow_get_url(payload)
+        req = self.db.open(url)
+        return json.loads(req.read())
+
+    def host_details(self, node_id):
+        """Forward a ``host_details`` query to the remote IVRE.
+
+        Mirrors :meth:`MongoDBFlow.host_details`'s contract by
+        wrapping the node id in the ``{type, id}`` payload
+        ``ivre/web/app.py:get_flow`` reads when ``action=details``.
+        Returns ``None`` if the server reports the host as
+        missing (the endpoint emits a 404 in that case).
+        """
+        payload = {"type": "node", "id": node_id}
+        url = self._flow_get_url(payload, action="details")
+        try:
+            req = self.db.open(url)
+        except Exception:
+            # 404 / network failure both surface as exceptions
+            # from ``urllib`` / ``pycurl``; the caller (web UI
+            # or CLI) treats ``None`` as "not found" already.
+            utils.LOGGER.warning(
+                "host_details %r failed against %r", node_id, url, exc_info=True
+            )
+            return None
+        return json.loads(req.read())
+
+    def flow_details(self, flow_id):
+        """Forward a ``flow_details`` query to the remote IVRE.
+
+        Mirrors :meth:`MongoDBFlow.flow_details` -- same wire
+        shape as :meth:`host_details` but with ``type=edge``.
+        """
+        payload = {"type": "edge", "id": flow_id}
+        url = self._flow_get_url(payload, action="details")
+        try:
+            req = self.db.open(url)
+        except Exception:
+            utils.LOGGER.warning(
+                "flow_details %r failed against %r", flow_id, url, exc_info=True
+            )
+            return None
+        return json.loads(req.read())
+
+    # -- ingestion path ------------------------------------------------
+    #
+    # The bulk handle is opaque to callers (``zeek2db`` / ``flow2db``
+    # treat it as a black box); we shape it as a list of JSON-friendly
+    # dicts so :meth:`bulk_commit` can ``POST`` the whole bulk in a
+    # single round-trip.
+
+    @staticmethod
+    def start_bulk_insert():
+        """Allocate a fresh in-memory bulk-insert buffer."""
+        return []
+
+    @staticmethod
+    def _serialize_record(rec):
+        """Convert a parsed Zeek / NetFlow record to a JSON-safe
+        dict.
+
+        Only the canonical datetime keys listed in
+        :data:`FLOW_DATETIME_KEYS` are converted to ``float``
+        epoch seconds; other values pass through unchanged.
+        Restricting the conversion keeps the wire contract
+        symmetric with the server-side
+        :func:`ivre.web.app._flow_record_from_payload` (which
+        only rehydrates the same keys): a ``datetime`` value
+        under any other key would silently arrive as a float
+        on the server otherwise.
+
+        Any other ``datetime`` value left in the record falls
+        through to :func:`json.dumps` later, which raises
+        :class:`TypeError` ("Object of type datetime is not
+        JSON serializable") -- a loud failure that surfaces
+        the missing key as a contract bug rather than letting
+        it round-trip with the wrong type.
+        """
+        out = {}
+        for key, value in rec.items():
+            if key in FLOW_DATETIME_KEYS and isinstance(value, datetime):
+                out[key] = value.timestamp()
+            else:
+                out[key] = value
+        return out
+
+    @classmethod
+    def any2flow(cls, bulk, name, rec):
+        """Queue a non-conn Zeek log record for remote ingestion.
+
+        Mirrors :meth:`MongoDBFlow.any2flow`'s contract; the
+        actual upsert happens on the remote IVRE when
+        :meth:`bulk_commit` POSTs the bulk.
+        """
+        bulk.append({"kind": "any", "name": name, "rec": cls._serialize_record(rec)})
+
+    @classmethod
+    def conn2flow(cls, bulk, rec):
+        """Queue a Zeek ``conn.log`` record for remote ingestion."""
+        bulk.append({"kind": "conn", "rec": cls._serialize_record(rec)})
+
+    @classmethod
+    def flow2flow(cls, bulk, rec):
+        """Queue a NetFlow / Argus record for remote ingestion."""
+        bulk.append({"kind": "flow", "rec": cls._serialize_record(rec)})
+
+    def _post(self, url, body):
+        """Issue a ``POST`` request against the remote IVRE.
+
+        Reuses the urllib opener configured by
+        :class:`HttpFetcherBasic` (so the URL-fragment-derived
+        headers -- ``X-API-Key`` / ``Authorization: Bearer ...``
+        / ``Referer`` -- carry over to the write path) and adds
+        an explicit ``Content-Type: application/json`` to the
+        request itself.
+
+        The pycurl-based fetchers (Kerberos / PKCS#11) are
+        GET-only today; POST support requires extra
+        ``POSTFIELDS`` / ``CUSTOMREQUEST`` curl options and is
+        deferred.  Hitting this path against one of those
+        fetchers raises a clear ``NotImplementedError`` so the
+        operator can fall back to the basic auth flow.
+        """
+        opener = getattr(self.db, "urlop", None)
+        if opener is None:
+            raise NotImplementedError(
+                "POST is not yet supported with the pycurl-based "
+                "HTTP fetchers (Kerberos / PKCS#11); use the basic "
+                "auth flow for flow ingestion until that lands"
+            )
+        req = Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        # Mirror the headers ``HttpFetcherBasic`` already
+        # injected onto the opener (``User-Agent`` plus the
+        # fragment-derived headers) so the auth posture
+        # matches the GET path one-for-one.
+        for hname, hval in opener.addheaders:
+            req.add_header(hname, hval)
+        return opener.open(req)
+
+    def bulk_commit(self, bulk):
+        """POST the queued records to the remote IVRE.
+
+        Mirrors :meth:`MongoDBFlow.bulk_commit`'s contract: an
+        empty bulk is a no-op (no HTTP round-trip), every other
+        bulk hits ``POST /flows`` once.  The server-side handler
+        (``ivre/web/app.py:post_flow``) deserialises the record
+        timestamps and dispatches to the matching ``any2flow`` /
+        ``conn2flow`` / ``flow2flow`` on its own backend,
+        followed by a single ``bulk_commit`` at the end.
+        """
+        if not bulk:
+            return
+        url = f"{self.db.baseurl}/{self.route}"
+        body = json.dumps({"records": bulk}).encode()
+        self._post(url, body).read()
+
+    def cleanup_flows(self):
+        """Trigger the remote IVRE's ``cleanup_flows`` heuristic.
+
+        Mirrors :meth:`MongoDBFlow.cleanup_flows`; the server
+        runs its own backend's implementation (a no-op on the
+        SQL backend until the host-swap heuristic is ported).
+        """
+        url = f"{self.db.baseurl}/{self.route}/cleanup"
+        self._post(url, b"").read()
+
+    # -- deferred read methods ----------------------------------------
+    #
+    # The existing ``GET /flows`` endpoint covers ``count`` /
+    # ``to_graph`` / ``host_details`` / ``flow_details`` already; the
+    # ``flowcli``-only methods below need new server-side action
+    # handlers.  They raise a clear ``NotImplementedError`` until those
+    # land in a follow-up sub-PR -- a silent fallthrough would either
+    # hang on a missing endpoint or return mis-shaped JSON.
+
+    def to_iter(self, *args, **kwargs):
+        """Not implemented yet on the HTTP backend.
+
+        Requires a new ``action=iter`` server route mirroring
+        :meth:`DBFlow.cursor2json_iter`'s per-edge yield shape;
+        the existing ``GET /flows`` only emits the aggregated
+        graph or a single ``{clients, servers, flows}`` count.
+        """
+        del args, kwargs
+        raise NotImplementedError("to_iter is not yet supported on the HTTP backend")
+
+    def topvalues(self, *args, **kwargs):
+        """Not implemented yet on the HTTP backend (deferred)."""
+        del args, kwargs
+        raise NotImplementedError("topvalues is not yet supported on the HTTP backend")
+
+    def top(self, *args, **kwargs):
+        """Not implemented yet on the HTTP backend (deferred)."""
+        del args, kwargs
+        raise NotImplementedError("top is not yet supported on the HTTP backend")
+
+    def flow_daily(self, *args, **kwargs):
+        """Not implemented yet on the HTTP backend (deferred)."""
+        del args, kwargs
+        raise NotImplementedError("flow_daily is not yet supported on the HTTP backend")
+
+    def list_precisions(self):
+        """Not implemented yet on the HTTP backend (deferred)."""
+        raise NotImplementedError(
+            "list_precisions is not yet supported on the HTTP backend"
+        )
+
+    def reduce_precision(self, *args, **kwargs):
+        """Not implemented yet on the HTTP backend (deferred)."""
+        del args, kwargs
+        raise NotImplementedError(
+            "reduce_precision is not yet supported on the HTTP backend"
+        )
+
+    def init(self):
+        """No-op on the HTTP backend.
+
+        The remote IVRE owns the schema; the operator must run
+        ``ivre flowcli --init`` against the *real* backend host
+        directly.  We log a warning rather than raising so
+        ``ivre flowcli --init`` against a misconfigured ``DB =
+        http://...`` does not abort with a confusing
+        traceback.
+        """
+        utils.LOGGER.warning(
+            "flow init is a no-op on the HTTP backend; "
+            "run flowcli --init on the remote IVRE instead",
+        )
+
+    def ensure_indexes(self):
+        """No-op on the HTTP backend (see :meth:`init`)."""
+        utils.LOGGER.warning(
+            "flow ensure_indexes is a no-op on the HTTP backend; "
+            "run flowcli --ensure-indexes on the remote IVRE instead",
+        )

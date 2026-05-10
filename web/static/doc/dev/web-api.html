@@ -385,6 +385,62 @@ node or edge id supplied in <code class="docutils literal notranslate"><span cla
 </dl>
 </dd></dl>
 
+<dl class="http post">
+<dt class="sig sig-object http" id="post--flows">
+<span class="sig-name descname"><span class="pre">POST</span> </span><span class="sig-name descname"><span class="pre">/flows</span></span><a class="headerlink" href="#post--flows" title="Link to this definition"></a></dt>
+<dd><p>Ingest a bulk of flow records.</p>
+<p>Mirrors the bulk-insert API documented in
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ivre.db.mongo.MongoDBFlow</span></code>: the request body is a
+JSON object <code class="docutils literal notranslate"><span class="pre">{&quot;records&quot;:</span> <span class="pre">[{&quot;kind&quot;:</span> <span class="pre">&quot;...&quot;,</span> <span class="pre">...},</span> <span class="pre">...]}</span></code>
+where each entry carries one of the three ingestion kinds:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;kind&quot;:</span> <span class="pre">&quot;any&quot;,</span> <span class="pre">&quot;name&quot;:</span> <span class="pre">&quot;&lt;zeek-log&gt;&quot;,</span> <span class="pre">&quot;rec&quot;:</span> <span class="pre">{...}}</span></code>
+maps to <code class="xref py py-meth docutils literal notranslate"><span class="pre">db.flow.any2flow()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;kind&quot;:</span> <span class="pre">&quot;conn&quot;,</span> <span class="pre">&quot;rec&quot;:</span> <span class="pre">{...}}</span></code> maps to
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">db.flow.conn2flow()</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;kind&quot;:</span> <span class="pre">&quot;flow&quot;,</span> <span class="pre">&quot;rec&quot;:</span> <span class="pre">{...}}</span></code> maps to
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">db.flow.flow2flow()</span></code>.</p></li>
+</ul>
+<p>Records are dispatched in order, then a single
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">db.flow.bulk_commit()</span></code> flushes the bulk.  Returns
+<code class="docutils literal notranslate"><span class="pre">{&quot;count&quot;:</span> <span class="pre">&lt;records-ingested&gt;}</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Status Codes<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer or malformed body</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – module is not exposed by this server</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Object<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>count</strong> (<em>int</em>) – number of records ingested</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http post">
+<dt class="sig sig-object http" id="post--flows-cleanup">
+<span class="sig-name descname"><span class="pre">POST</span> </span><span class="sig-name descname"><span class="pre">/flows/cleanup</span></span><a class="headerlink" href="#post--flows-cleanup" title="Link to this definition"></a></dt>
+<dd><p>Run the backend’s <code class="docutils literal notranslate"><span class="pre">cleanup_flows</span></code> heuristic.</p>
+<p>The handler dispatches to the configured backend’s
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">cleanup_flows()</span></code> (a no-op on the SQL backend until
+the host-swap heuristic is ported); the response carries
+no body besides <code class="docutils literal notranslate"><span class="pre">{&quot;status&quot;:</span> <span class="pre">&quot;ok&quot;}</span></code> so the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">ivre.db.http.HttpDBFlow</span></code> client can treat any
+non-2xx as an error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Status Codes<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – cleanup completed</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid referer</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – module is not exposed by this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="http get">
 <dt class="sig sig-object http" id="get--ipdata-(addr)">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/ipdata/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">addr</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--ipdata-(addr)" title="Link to this definition"></a></dt>

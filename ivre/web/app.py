@@ -35,6 +35,7 @@ from bottle import abort, request, response
 
 from ivre import VERSION, config, utils
 from ivre.db import db
+from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
@@ -820,6 +821,115 @@ def get_flow():
             )
     yield json.dumps(res, default=utils.serialize)
     yield "\n"
+
+
+def _flow_record_from_payload(rec):
+    """Rebuild a parsed flow record from its JSON wire form.
+
+    The :class:`ivre.db.http.HttpDBFlow` ingestion path serialises
+    the canonical datetime keys listed in
+    :data:`ivre.db.http.FLOW_DATETIME_KEYS` (``start_time`` /
+    ``end_time`` / ``ts``) as epoch floats so the wire format
+    stays JSON-native.  Convert them back to :class:`datetime`
+    objects so the backend's ``any2flow`` / ``conn2flow`` /
+    ``flow2flow`` helpers see the same shapes their direct
+    callers (``zeek2db`` / ``flow2db``) produce.
+
+    Sourcing the key set from
+    :data:`~ivre.db.http.FLOW_DATETIME_KEYS` keeps the wire
+    contract symmetric with the client-side
+    :meth:`HttpDBFlow._serialize_record`: every key the client
+    folds to a float is rebuilt here, and any other ``datetime``
+    value would have raised at ``json.dumps`` time on the client
+    rather than silently arriving as a float here.
+    """
+    if not isinstance(rec, dict):
+        abort(400, "ERROR: record must be an object\n")
+    out = dict(rec)
+    for ts_key in FLOW_DATETIME_KEYS:
+        if ts_key in out and isinstance(out[ts_key], (int, float)):
+            out[ts_key] = datetime.datetime.fromtimestamp(out[ts_key])
+    return out
+
+
+@application.post("/flows")
+@check_referer
+def post_flow():
+    """Ingest a bulk of flow records.
+
+    Mirrors the bulk-insert API documented in
+    :class:`ivre.db.mongo.MongoDBFlow`: the request body is a
+    JSON object ``{"records": [{"kind": "...", ...}, ...]}``
+    where each entry carries one of the three ingestion kinds:
+
+    * ``{"kind": "any", "name": "<zeek-log>", "rec": {...}}``
+      maps to :meth:`db.flow.any2flow`,
+    * ``{"kind": "conn", "rec": {...}}`` maps to
+      :meth:`db.flow.conn2flow`,
+    * ``{"kind": "flow", "rec": {...}}`` maps to
+      :meth:`db.flow.flow2flow`.
+
+    Records are dispatched in order, then a single
+    :meth:`db.flow.bulk_commit` flushes the bulk.  Returns
+    ``{"count": <records-ingested>}``.
+
+    :status 200: no error
+    :status 400: invalid referer or malformed body
+    :status 404: module is not exposed by this server
+    :>json int count: number of records ingested
+    """
+    require_module("flow")
+    response.set_header("Content-Type", "application/json")
+    try:
+        payload = json.loads(request.body.read())
+    except (TypeError, ValueError) as exc:
+        abort(400, f"ERROR: invalid JSON body: {exc}\n")
+    records = payload.get("records") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        abort(400, "ERROR: 'records' must be a list\n")
+    bulk = db.flow.start_bulk_insert()
+    count = 0
+    for entry in records:
+        if not isinstance(entry, dict):
+            abort(400, "ERROR: each record must be an object\n")
+        kind = entry.get("kind")
+        rec = _flow_record_from_payload(entry.get("rec"))
+        if kind == "any":
+            name = entry.get("name")
+            if not isinstance(name, str):
+                abort(400, "ERROR: 'any' records must carry a string 'name'\n")
+            db.flow.any2flow(bulk, name, rec)
+        elif kind == "conn":
+            db.flow.conn2flow(bulk, rec)
+        elif kind == "flow":
+            db.flow.flow2flow(bulk, rec)
+        else:
+            abort(400, f"ERROR: unknown record kind {kind!r}\n")
+        count += 1
+    db.flow.bulk_commit(bulk)
+    return {"count": count}
+
+
+@application.post("/flows/cleanup")
+@check_referer
+def post_flow_cleanup():
+    """Run the backend's ``cleanup_flows`` heuristic.
+
+    The handler dispatches to the configured backend's
+    :meth:`cleanup_flows` (a no-op on the SQL backend until
+    the host-swap heuristic is ported); the response carries
+    no body besides ``{"status": "ok"}`` so the
+    :class:`ivre.db.http.HttpDBFlow` client can treat any
+    non-2xx as an error.
+
+    :status 200: cleanup completed
+    :status 400: invalid referer
+    :status 404: module is not exposed by this server
+    """
+    require_module("flow")
+    response.set_header("Content-Type", "application/json")
+    db.flow.cleanup_flows()
+    return {"status": "ok"}
 
 
 #

@@ -7935,6 +7935,419 @@ class SQLDBFlowIngestionTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
+# request-body shapes.  The HTTP backend proxies every flow query
+# to a remote IVRE's ``/flows`` endpoint; without these tests a
+# refactor of either side could silently drift the wire format.
+#
+# Each test mocks the urllib opener that backs
+# :class:`HttpFetcherBasic` so the captured calls expose either the
+# rendered GET URL (read methods) or the POST ``Request`` object
+# (ingestion path).
+# ---------------------------------------------------------------------
+
+
+from ivre.db.http import HttpDBFlow as _HttpDBFlow_for_tests  # noqa: E402
+from ivre.db.http import _HttpFlowQuery as _HttpFlowQuery_for_tests  # noqa: E402
+
+
+class HttpDBFlowTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.http.HttpDBFlow`.
+
+    Mirrors :class:`ivre.db.mongo.MongoDBFlow`'s public method
+    surface so an ``DB = http://...`` configuration can drive
+    ``zeek2db`` ingestion and the read endpoints.  The mocked
+    opener captures every emitted HTTP call -- GET URLs as
+    strings, POST requests as :class:`urllib.request.Request`
+    objects -- so the assertions cover both shape (URL /
+    method / headers) and payload.
+    """
+
+    @staticmethod
+    def _make_db(read_payload=b'{"clients": 0, "servers": 0, "flows": 0}'):
+        from unittest.mock import MagicMock
+
+        calls = []
+
+        class _FakeResp:
+            def __init__(self, payload):
+                self._payload = payload
+
+            def read(self):
+                return self._payload
+
+        class _FakeOpener:
+            addheaders = [("User-Agent", "test/1.0")]
+
+            def open(self, url_or_req):
+                calls.append(url_or_req)
+                return _FakeResp(read_payload)
+
+        class _FakeFetcher:
+            baseurl = "http://test.example/api"
+
+            def __init__(self):
+                self.urlop = _FakeOpener()
+
+            def open(self, url):
+                return self.urlop.open(url)
+
+        db = _HttpDBFlow_for_tests.__new__(_HttpDBFlow_for_tests)
+        db.db = _FakeFetcher()
+        db.reference = MagicMock()
+        return db, calls
+
+    # -- backend registration -----------------------------------------
+
+    def test_backend_registered(self):
+        # The ``http://`` URL scheme dispatches to ``HttpDBFlow``
+        # via :attr:`DBFlow.backends`; without the registration
+        # ``ivre.db.db.flow`` would fall back to a generic
+        # ``DBFlow`` and every call would raise
+        # ``NotImplementedError``.
+        from ivre.db import DBFlow
+
+        self.assertEqual(
+            DBFlow.backends.get("http"),
+            ("http", "HttpDBFlow"),
+        )
+
+    # -- from_filters / wrapper ---------------------------------------
+
+    def test_from_filters_returns_wrapper(self):
+        # The wrapper holds the raw filters dict + the
+        # ``from_filters`` kwargs so per-method overrides can
+        # layer on top at request-build time.  The remote IVRE
+        # re-parses the same dict via its own
+        # :meth:`DBFlow.from_filters`, so we never run the
+        # parser locally.
+        flt = _HttpDBFlow_for_tests.from_filters(
+            {"nodes": [], "edges": []},
+            limit=10,
+            skip=5,
+            mode="flow_map",
+        )
+        self.assertIsInstance(flt, _HttpFlowQuery_for_tests)
+        self.assertEqual(flt.filters, {"nodes": [], "edges": []})
+        self.assertEqual(flt.kwargs["limit"], 10)
+        self.assertEqual(flt.kwargs["skip"], 5)
+        self.assertEqual(flt.kwargs["mode"], "flow_map")
+
+    # -- count() URL shape --------------------------------------------
+
+    def test_count_url_shape(self):
+        # Mirrors ``GET /flows?count=true&q=<json>``; the
+        # server side reads ``count`` out of the JSON ``q``
+        # payload and returns ``{clients, servers, flows}``.
+        db, calls = self._make_db(
+            b'{"clients": 1, "servers": 2, "flows": 3}',
+        )
+        flt = _HttpDBFlow_for_tests.from_filters(
+            {"nodes": [], "edges": []},
+        )
+        result = db.count(flt)
+        self.assertEqual(result, {"clients": 1, "servers": 2, "flows": 3})
+        self.assertEqual(len(calls), 1)
+        url = calls[0]
+        self.assertTrue(url.startswith("http://test.example/api/flows?q="))
+        # The ``count=true`` flag travels inside the JSON
+        # payload (URL-encoded), not as a separate query
+        # parameter.
+        self.assertIn("count", url)
+        self.assertIn("true", url)
+
+    # -- to_graph() URL shape -----------------------------------------
+
+    def test_to_graph_forwards_overrides(self):
+        # Per-call ``limit`` / ``skip`` / ``mode`` etc. layer
+        # on top of the wrapper-captured kwargs and replace
+        # them in the JSON payload (``None`` values drop out
+        # so the server-side defaults kick in).
+        db, calls = self._make_db(b'{"nodes": [], "edges": []}')
+        flt = _HttpDBFlow_for_tests.from_filters(
+            {"nodes": [{"attr": ["addr"]}], "edges": []},
+            limit=10,
+            mode="default",
+        )
+        db.to_graph(flt, limit=20, skip=0, mode="flow_map", timeline=True)
+        self.assertEqual(len(calls), 1)
+        url = calls[0]
+        from urllib.parse import parse_qs, urlparse
+
+        params = parse_qs(urlparse(url).query)
+        payload = json.loads(params["q"][0])
+        # Per-call overrides win over wrapper kwargs.
+        self.assertEqual(payload["limit"], 20)
+        self.assertEqual(payload["mode"], "flow_map")
+        self.assertEqual(payload["timeline"], True)
+        # Wrapper-captured filters are forwarded verbatim.
+        self.assertEqual(payload["nodes"], [{"attr": ["addr"]}])
+        self.assertEqual(payload["edges"], [])
+
+    def test_to_graph_serializes_datetime_overrides(self):
+        # ``before`` / ``after`` round-trip as
+        # ``"YYYY-MM-DD HH:MM"`` strings so the server-side
+        # ``datetime.strptime`` (in ``ivre/web/app.py:get_flow``)
+        # parses them back without timezone guesswork.
+        from datetime import datetime as _dt
+
+        db, calls = self._make_db(b'{"nodes": [], "edges": []}')
+        flt = _HttpDBFlow_for_tests.from_filters({"nodes": [], "edges": []})
+        db.to_graph(
+            flt,
+            after=_dt(2024, 1, 1, 12, 30),
+            before=_dt(2024, 1, 2, 13, 45),
+        )
+        from urllib.parse import parse_qs, urlparse
+
+        payload = json.loads(parse_qs(urlparse(calls[0]).query)["q"][0])
+        self.assertEqual(payload["after"], "2024-01-01 12:30")
+        self.assertEqual(payload["before"], "2024-01-02 13:45")
+
+    # -- host_details / flow_details ---------------------------------
+
+    def test_host_details_url_shape(self):
+        # Mirrors :meth:`MongoDBFlow.host_details`'s contract:
+        # the wire shape is
+        # ``GET /flows?action=details&q={"type":"node","id":<addr>}``.
+        db, calls = self._make_db(b'{"elt": {"addr": "10.0.0.1"}}')
+        result = db.host_details("10.0.0.1")
+        self.assertEqual(result["elt"]["addr"], "10.0.0.1")
+        url = calls[0]
+        self.assertIn("action=details", url)
+        from urllib.parse import parse_qs, urlparse
+
+        payload = json.loads(parse_qs(urlparse(url).query)["q"][0])
+        self.assertEqual(payload, {"type": "node", "id": "10.0.0.1"})
+
+    def test_flow_details_url_shape(self):
+        # Same shape as ``host_details`` but with
+        # ``type=edge`` and the integer flow id.
+        db, calls = self._make_db(b'{"elt": {"_id": "42"}}')
+        db.flow_details(42)
+        url = calls[0]
+        self.assertIn("action=details", url)
+        from urllib.parse import parse_qs, urlparse
+
+        payload = json.loads(parse_qs(urlparse(url).query)["q"][0])
+        self.assertEqual(payload, {"type": "edge", "id": 42})
+
+    def test_host_details_returns_none_on_failure(self):
+        # The remote IVRE emits 404 for unknown nodes.
+        # ``urllib`` surfaces 404 as a raised exception; the
+        # caller (web UI / flowcli) expects ``None`` so we
+        # downgrade the failure here.
+        db, _ = self._make_db()
+        db.db.urlop.open = lambda *a, **k: (_ for _ in ()).throw(
+            RuntimeError("404 Not Found")
+        )
+        self.assertIsNone(db.host_details("10.0.0.99"))
+
+    # -- ingestion queue helpers --------------------------------------
+
+    def test_start_bulk_insert_returns_empty_list(self):
+        bulk = _HttpDBFlow_for_tests.start_bulk_insert()
+        self.assertEqual(bulk, [])
+
+    def test_queue_helpers_serialize_datetime(self):
+        # ``start_time`` / ``end_time`` round-trip as epoch
+        # floats so the server-side handler can rebuild
+        # :class:`datetime` via :func:`datetime.fromtimestamp`
+        # without timezone guesswork.
+        from datetime import datetime as _dt
+
+        bulk = _HttpDBFlow_for_tests.start_bulk_insert()
+        rec = {
+            "src": "10.0.0.1",
+            "dst": "10.0.0.2",
+            "proto": "tcp",
+            "start_time": _dt(2024, 1, 1, 0, 0, 0),
+            "end_time": _dt(2024, 1, 1, 0, 0, 5),
+            "sport": 1234,
+            "dport": 80,
+        }
+        _HttpDBFlow_for_tests.any2flow(bulk, "http", rec)
+        _HttpDBFlow_for_tests.conn2flow(bulk, rec)
+        _HttpDBFlow_for_tests.flow2flow(bulk, rec)
+        self.assertEqual(len(bulk), 3)
+        self.assertEqual(bulk[0]["kind"], "any")
+        self.assertEqual(bulk[0]["name"], "http")
+        self.assertEqual(bulk[1]["kind"], "conn")
+        self.assertEqual(bulk[2]["kind"], "flow")
+        # All three carry a JSON-friendly ``rec`` with epoch
+        # floats in place of ``datetime`` objects.
+        for entry in bulk:
+            self.assertIsInstance(entry["rec"]["start_time"], float)
+            self.assertIsInstance(entry["rec"]["end_time"], float)
+
+    def test_serialize_record_is_restricted_to_canonical_keys(self):
+        # The wire contract is symmetric: only the keys listed
+        # in :data:`ivre.db.http.FLOW_DATETIME_KEYS` round-trip
+        # as floats.  A ``datetime`` value under any other key
+        # falls through unchanged (and would later raise at
+        # ``json.dumps`` time) so the type asymmetry between
+        # client and server -- silently arriving as a float on
+        # the receiving side -- can never happen.
+        from datetime import datetime as _dt
+
+        from ivre.db.http import FLOW_DATETIME_KEYS
+
+        # Sanity check the canonical set: missing a key here
+        # would make the test pass for the wrong reason.
+        self.assertEqual(
+            FLOW_DATETIME_KEYS,
+            frozenset({"start_time", "end_time", "ts"}),
+        )
+        ts = _dt(2024, 1, 1, 0, 0, 0)
+        rec = {
+            "start_time": ts,
+            "end_time": ts,
+            "ts": ts,
+            # An out-of-band datetime under a non-canonical
+            # key stays a ``datetime`` -- the caller picks up
+            # the foot-gun via ``json.dumps`` rather than
+            # silently producing a float on the wire.
+            "rogue_time": ts,
+        }
+        out = _HttpDBFlow_for_tests._serialize_record(rec)
+        for key in ("start_time", "end_time", "ts"):
+            self.assertIsInstance(out[key], float)
+        self.assertIsInstance(out["rogue_time"], _dt)
+        # ``json.dumps`` raises on the rogue key so a future
+        # parser that adds a new datetime field fails loudly
+        # rather than silently dropping the type.
+        with self.assertRaises(TypeError):
+            json.dumps(out)
+
+    def test_server_rehydration_uses_same_canonical_keys(self):
+        # The server's ``_flow_record_from_payload`` must
+        # rehydrate exactly the keys the client serialised.
+        # The shared :data:`FLOW_DATETIME_KEYS` constant is
+        # the single source of truth -- pin it here so a
+        # future refactor that drifts the two sides apart
+        # surfaces immediately.
+        from ivre.db.http import FLOW_DATETIME_KEYS
+        from ivre.web.app import _flow_record_from_payload
+
+        payload = {
+            "start_time": 1704067200.0,
+            "end_time": 1704067205.0,
+            "ts": 1704067200.0,
+            "rogue_time": 1704067200.0,
+            "src": "10.0.0.1",
+        }
+        out = _flow_record_from_payload(payload)
+        from datetime import datetime as _dt
+
+        for key in FLOW_DATETIME_KEYS:
+            self.assertIsInstance(out[key], _dt)
+        # The rogue float stays a float -- the asymmetry
+        # would have surfaced at ``json.dumps`` on the
+        # client, not as a silent type mismatch here.
+        self.assertIsInstance(out["rogue_time"], float)
+        # Non-datetime values pass through unchanged.
+        self.assertEqual(out["src"], "10.0.0.1")
+
+    # -- bulk_commit ---------------------------------------------------
+
+    def test_bulk_commit_empty_skips_post(self):
+        # Empty bulks must not hit the network -- the bulk
+        # boundary in ``zeek2db`` would otherwise hammer the
+        # server with empty POSTs on quiet ingestion runs.
+        db, calls = self._make_db()
+        db.bulk_commit([])
+        self.assertEqual(calls, [])
+
+    def test_bulk_commit_posts_records_payload(self):
+        # The POST body is a JSON object
+        # ``{"records": [...]}`` carrying the queue verbatim.
+        # The Content-Type header is ``application/json`` so
+        # the server-side handler picks the right body parser.
+        db, calls = self._make_db()
+        bulk = [{"kind": "conn", "rec": {"proto": "tcp"}}]
+        db.bulk_commit(bulk)
+        self.assertEqual(len(calls), 1)
+        from urllib.request import Request
+
+        req = calls[0]
+        self.assertIsInstance(req, Request)
+        self.assertEqual(req.method, "POST")
+        self.assertEqual(req.full_url, "http://test.example/api/flows")
+        self.assertEqual(req.get_header("Content-type"), "application/json")
+        self.assertEqual(json.loads(req.data), {"records": bulk})
+
+    def test_bulk_commit_propagates_opener_headers(self):
+        # The opener-level ``addheaders`` (``User-Agent``,
+        # plus the URL-fragment-derived ``X-API-Key`` /
+        # ``Authorization: Bearer`` headers
+        # ``HttpFetcherBasic`` injects) must travel on the
+        # POST request too -- otherwise an authenticated
+        # GET-only setup would 401 on ingestion.
+        db, calls = self._make_db()
+        db.db.urlop.addheaders = [
+            ("User-Agent", "test/1.0"),
+            ("X-API-Key", "secret"),
+        ]
+        db.bulk_commit([{"kind": "conn", "rec": {}}])
+        req = calls[0]
+        self.assertEqual(req.get_header("User-agent"), "test/1.0")
+        self.assertEqual(req.get_header("X-api-key"), "secret")
+
+    def test_cleanup_flows_posts_to_cleanup(self):
+        # Mirrors :meth:`MongoDBFlow.cleanup_flows`: hits a
+        # dedicated POST endpoint so the server can dispatch
+        # to its backend's heuristic without conflating with
+        # the ingestion path.
+        db, calls = self._make_db()
+        db.cleanup_flows()
+        self.assertEqual(len(calls), 1)
+        req = calls[0]
+        self.assertEqual(req.method, "POST")
+        self.assertEqual(req.full_url, "http://test.example/api/flows/cleanup")
+
+    def test_post_raises_when_opener_missing(self):
+        # The pycurl-based fetchers (Kerberos / PKCS#11) do
+        # not yet support POST; the proxy raises a clear
+        # NotImplementedError so the operator can fall back
+        # to the basic auth flow rather than seeing a vague
+        # ``AttributeError``.
+        db, _ = self._make_db()
+        db.db.urlop = None
+        with self.assertRaises(NotImplementedError):
+            db.bulk_commit([{"kind": "conn", "rec": {}}])
+
+    # -- deferred read methods ----------------------------------------
+
+    def test_deferred_read_methods_raise(self):
+        # Methods that need server-side action handlers we
+        # haven't shipped yet must surface as
+        # NotImplementedError so the caller fails fast (a
+        # silent no-op would mask data loss in
+        # ``flowcli --top``-style runs).
+        db, _ = self._make_db()
+        for method, args in [
+            ("to_iter", ()),
+            ("topvalues", (None, [])),
+            ("top", (None, [])),
+            ("flow_daily", (60, None)),
+            ("list_precisions", ()),
+            ("reduce_precision", (60,)),
+        ]:
+            with self.assertRaises(NotImplementedError):
+                getattr(db, method)(*args)
+
+    def test_init_and_ensure_indexes_are_noops(self):
+        # ``flowcli --init`` against a misconfigured ``DB =
+        # http://...`` should warn rather than raise so the
+        # operator gets a clear message instead of a
+        # traceback.  The remote IVRE owns the schema; the
+        # operator must run ``--init`` there directly.
+        db, _ = self._make_db()
+        db.init()
+        db.ensure_indexes()
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
