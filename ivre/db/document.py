@@ -106,6 +106,7 @@ from ivre.db.mongo import (
     MongoDBFlow,
     MongoDBNmap,
     MongoDBPassive,
+    MongoDBRir,
     MongoDBView,
 )
 
@@ -130,3 +131,18 @@ class DocumentDBPassive(MongoDBPassive):
 
 class DocumentDBFlow(MongoDBFlow):
     is_documentdb = True
+
+
+class DocumentDBRir(MongoDBRir):
+    is_documentdb = True
+    # Drop the trailing ``"text"`` index entry from
+    # :data:`MongoDBRir.indexes` (the GIN-equivalent index over
+    # ``netname`` / ``descr`` / ``remarks`` / ``notify`` /
+    # ``org``); DocumentDB rejects text indexes wholesale.
+    # Every other index (range lookup, ``aut-num``, country,
+    # source, schema version, size) is a regular B-tree and
+    # works unchanged.  ``searchXXX`` helpers on
+    # :class:`MongoDBRir` do not call ``$text`` so the
+    # text-index removal is the only adjustment needed for
+    # parity.
+    indexes = [MongoDBRir.indexes[0][:-1]]

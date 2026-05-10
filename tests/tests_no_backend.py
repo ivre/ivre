@@ -9061,6 +9061,126 @@ class DuckDBRirLiveIntegrationTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DocumentDBRirTests -- pin :class:`ivre.db.document.DocumentDBRir`.
+#
+# DocumentDB lacks the ``"text"`` index type and the ``$text``
+# operator entirely; the subclass overrides
+# :attr:`MongoDBRir.indexes` to drop the text-index entry while
+# inheriting every other index unchanged.  The MongoDBRir
+# ``searchXXX`` helpers never emit ``$text`` (RIR records have
+# no equivalent of the active backend's
+# :meth:`MongoDBView.searchtext` path), so the text-index
+# removal is the only adjustment needed for parity.
+#
+# Tests are gated on the ``pymongo`` import (DocumentDB shares
+# the MongoDB wire protocol, but the test class only inspects
+# the in-process class attributes -- no live cluster required).
+# ---------------------------------------------------------------------
+
+
+try:
+    import pymongo as _pymongo_for_docdb_tests  # type: ignore[import-untyped]  # noqa: F401, E402
+
+    _HAVE_PYMONGO = True
+except ImportError:
+    _HAVE_PYMONGO = False
+
+
+@unittest.skipUnless(
+    _HAVE_PYMONGO,
+    "pymongo is required for DocumentDBRirTests",
+)
+class DocumentDBRirTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.document.DocumentDBRir`."""
+
+    def test_backend_registered(self):
+        from ivre.db import DBRir
+
+        self.assertEqual(
+            DBRir.backends.get("documentdb"),
+            ("document", "DocumentDBRir"),
+        )
+
+    def test_subclasses_mongodb_rir(self):
+        # Pure inheritance from :class:`MongoDBRir`; the
+        # ``is_documentdb`` flag triggers the existing
+        # ``MongoDBRir`` workarounds (``$floor`` rewrite,
+        # cursor-timeout flip).
+        from ivre.db.document import DocumentDBRir
+        from ivre.db.mongo import MongoDBRir
+
+        self.assertTrue(issubclass(DocumentDBRir, MongoDBRir))
+        self.assertTrue(DocumentDBRir.is_documentdb)
+
+    def test_text_index_omitted(self):
+        # DocumentDB rejects text indexes wholesale; the
+        # subclass drops the trailing ``"text"`` index
+        # :class:`MongoDBRir` declares so
+        # :meth:`MongoDBRir.create_indexes` doesn't crash on a
+        # DocumentDB cluster.
+        from ivre.db.document import DocumentDBRir
+        from ivre.db.mongo import MongoDBRir
+
+        # Walk every index spec on the rir column; no entry
+        # may carry a ``"text"`` index type.
+        for index_keys, _kwargs in DocumentDBRir.indexes[0]:
+            for _field, index_type in index_keys:
+                self.assertNotEqual(
+                    index_type,
+                    "text",
+                    f"DocumentDBRir.indexes contains a text index: {index_keys}",
+                )
+        # Sanity check the count -- exactly one fewer entry
+        # than MongoDBRir (the text index that got dropped).
+        self.assertEqual(
+            len(DocumentDBRir.indexes[0]),
+            len(MongoDBRir.indexes[0]) - 1,
+        )
+
+    def test_non_text_indexes_preserved(self):
+        # Every non-text index from :class:`MongoDBRir`
+        # survives.  Pin the inventory so a refactor that
+        # accidentally drops a non-text entry surfaces here,
+        # not on a slow live query.
+        from ivre.db.document import DocumentDBRir
+        from ivre.db.mongo import MongoDBRir
+
+        non_text_mongo_indexes = [
+            spec
+            for spec in MongoDBRir.indexes[0]
+            if not any(t == "text" for _f, t in spec[0])
+        ]
+        self.assertEqual(
+            len(DocumentDBRir.indexes[0]),
+            len(non_text_mongo_indexes),
+        )
+
+    def test_searchhost_inherits_unchanged(self):
+        # Range-lookup search uses ``$lt`` / ``$lte`` /
+        # ``$gt`` / ``$gte`` / ``$and`` / ``$or`` -- all
+        # supported on DocumentDB.  Pin that the inherited
+        # method produces the same filter dict
+        # :class:`MongoDBRir` does.
+        from ivre.db.document import DocumentDBRir
+        from ivre.db.mongo import MongoDBRir
+
+        self.assertEqual(
+            DocumentDBRir.searchhost("10.0.0.1"),
+            MongoDBRir.searchhost("10.0.0.1"),
+        )
+
+    def test_searchasnum_inherits_unchanged(self):
+        from ivre.db.document import DocumentDBRir
+        from ivre.db.mongo import MongoDBRir
+
+        for value in (15169, "AS15169"):
+            self.assertEqual(
+                DocumentDBRir.searchasnum(value),
+                MongoDBRir.searchasnum(value),
+            )
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

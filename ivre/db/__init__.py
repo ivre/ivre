@@ -5156,6 +5156,7 @@ class DBRir(DB):
     backends = {
         "http": ("http", "HttpDBRir"),
         "mongodb": ("mongo", "MongoDBRir"),
+        "documentdb": ("document", "DocumentDBRir"),
         "postgresql": ("sql.postgres", "PostgresDBRir"),
         "duckdb": ("sql.duckdb", "DuckDBRir"),
     }
