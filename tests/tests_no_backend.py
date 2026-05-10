@@ -6522,15 +6522,37 @@ class SQLDBFlowSchemaTests(unittest.TestCase):
     def test_flow_lookup_index_covers_upsert_key(self):
         # The ingestion paths upsert flows on
         # ``(src, dst, proto, dport-or-type, schema_version)``;
-        # the composite ``flow_idx_lookup`` must cover every
+        # the composite ``flow_unique_lookup`` must cover every
         # lookup column in that order so the planner can use
-        # the index for the ``WHERE`` clause matching the
-        # upsert spec.
+        # the index both for the ``WHERE`` clause matching the
+        # upsert spec and as the ``ON CONFLICT`` target the
+        # SQL ingestion path infers in
+        # :meth:`SQLDBFlow._flow_upsert_stmt`.  The index is
+        # ``UNIQUE`` so duplicate keys collapse on ingestion
+        # (mirroring Mongo's ``upsert=True`` semantics); the
+        # ``COALESCE(<col>, -1)`` wrappers fold the otherwise
+        # NULL-distinct ``dport`` / ``type`` columns onto a
+        # single constraint slot so every protocol shape
+        # (TCP/UDP, ICMP, other) shares the same uniqueness
+        # rule.
         idx_by_name = {i.name: i for i in _Flow_for_schema_test.__table__.indexes}
-        self.assertIn("flow_idx_lookup", idx_by_name)
+        self.assertIn("flow_unique_lookup", idx_by_name)
+        idx = idx_by_name["flow_unique_lookup"]
+        self.assertTrue(idx.unique)
+        # ``Index.columns`` mixes plain :class:`Column`
+        # objects and the SQL function expressions that wrap
+        # ``dport`` / ``type``.  Pin the column-name sequence
+        # for the bare columns (``src``, ``dst``, ``proto``,
+        # ``schema_version``) and check that the COALESCE
+        # expressions land between them in the expected
+        # positions.
+        col_names = [c.name if hasattr(c, "name") else None for c in idx.expressions]
+        # The ``coalesce(...)`` expressions surface with
+        # ``.name == "coalesce"``; the bare columns surface
+        # with their own name.
         self.assertEqual(
-            [c.name for c in idx_by_name["flow_idx_lookup"].columns],
-            ["src", "dst", "proto", "dport", "type", "schema_version"],
+            col_names,
+            ["src", "dst", "proto", "coalesce", "coalesce", "schema_version"],
         )
 
     def test_flow_individual_metric_indexes(self):
@@ -7585,6 +7607,331 @@ class SQLDBFlowDetailsTests(unittest.TestCase):
             result["meta"],
             {"http": {"method": "GET", "host": "example.com"}},
         )
+
+
+# ---------------------------------------------------------------------
+# SQLDBFlowIngestionTests -- pin :meth:`SQLDBFlow.start_bulk_insert`,
+# ``any2flow`` / ``conn2flow`` / ``flow2flow``, ``bulk_commit`` and
+# ``cleanup_flows``.  These methods feed the ``zeek2db`` / ``flow2db``
+# entry points; before this sub-PR they raised ``NotImplementedError``
+# and the whole ingestion lane was unusable on the SQL backend.
+#
+# Each test mocks the SQLAlchemy engine via :class:`MagicMock` and
+# captures every executed statement, asserting:
+#   * the per-record statement count (host upsert x2 + flow upsert),
+#   * the conflict target matches the partial unique index
+#     ``flow_unique_lookup`` declared in ``ivre/db/sql/tables.py``,
+#   * the SET list mirrors Mongo's ``$min`` / ``$max`` / ``$inc`` /
+#     ``$addToSet`` blocks for the matching record kind.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_FLOW_FILTERS,
+    "SQLAlchemy is required for SQLDBFlowIngestionTests",
+)
+class SQLDBFlowIngestionTests(unittest.TestCase):
+    """Behaviour-pin for the SQL backend's flow ingestion path.
+
+    The tests run with no live database -- the engine is replaced by
+    a :class:`MagicMock` whose ``begin()`` context yields a fake
+    connection that captures every executed SA statement.  Each
+    statement is then compiled against the PostgreSQL dialect so
+    individual tests can assert on substrings of the rendered SQL.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        # ``literal_binds=True`` would error on JSONB / DATETIME
+        # bind values (no literal renderer for those types).  The
+        # default compile path renders binds as ``%(name)s``
+        # placeholders, which is enough for substring assertions
+        # on the SET / ON CONFLICT clauses.
+        return str(stmt.compile(dialect=postgresql.dialect()))
+
+    @staticmethod
+    def _make_db():
+        """Construct a :class:`SQLDBFlow` with a mocked engine.
+
+        Returns ``(db, captured)`` where ``captured`` is the list
+        every call to ``conn.execute(stmt)`` appends to.  The
+        mocked ``execute`` returns a stub whose ``scalar_one()``
+        yields a deterministic 1 -- the only consumer is the
+        host-upsert path, which uses the value as the FK
+        identifier.
+        """
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeResult:
+            def scalar_one(self):
+                return 1
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return _FakeResult()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.begin.return_value = _FakeConn()
+        return db, captured
+
+    # -- start_bulk_insert / queue helpers ----------------------------
+
+    def test_start_bulk_insert_returns_empty_list(self):
+        # Mirrors :meth:`MongoDBFlow.start_bulk_insert`: callers
+        # treat the return value as opaque, but it must be
+        # mutable and falsy on init so :meth:`bulk_commit`'s
+        # empty-bulk fast path triggers.
+        bulk = _SQLDBFlow_for_filters_test.start_bulk_insert()
+        self.assertEqual(bulk, [])
+        self.assertFalse(bulk)
+
+    def test_queue_helpers_record_kind(self):
+        # The queue helpers tag every entry with the kind
+        # :meth:`bulk_commit` then dispatches on; without the
+        # tag the dispatch table would have to introspect the
+        # record shape, defeating the parity with Mongo's
+        # opaque ``pymongo.UpdateOne`` queue.
+        bulk = _SQLDBFlow_for_filters_test.start_bulk_insert()
+        rec = {"src": "10.0.0.1", "dst": "10.0.0.2", "proto": "tcp"}
+        _SQLDBFlow_for_filters_test.any2flow(bulk, "http", rec)
+        _SQLDBFlow_for_filters_test.conn2flow(bulk, rec)
+        _SQLDBFlow_for_filters_test.flow2flow(bulk, rec)
+        self.assertEqual(len(bulk), 3)
+        self.assertEqual(bulk[0][0], "any")
+        self.assertEqual(bulk[0][1], "http")
+        self.assertEqual(bulk[1][0], "conn")
+        self.assertEqual(bulk[2][0], "flow")
+
+    # -- bulk_commit ---------------------------------------------------
+
+    def test_bulk_commit_empty_is_noop(self):
+        # An empty bulk must not open a transaction (mirrors
+        # Mongo's ``InvalidOperation`` swallow) -- ``zeek2db``
+        # commits one bulk per file, and empty input files would
+        # otherwise hammer the database with empty txns.
+        db, captured = self._make_db()
+        db.bulk_commit([])
+        self.assertEqual(captured, [])
+        # ``begin`` must not even be called on the empty path.
+        db._db.begin.assert_not_called()
+
+    def test_bulk_commit_unknown_kind_raises(self):
+        # Defensive guard: a malformed bulk entry surfaces as a
+        # ``ValueError`` rather than a silent no-op so a future
+        # refactor that adds a new entry kind without updating
+        # the dispatch table fails loudly.
+        db, _ = self._make_db()
+        with self.assertRaises(ValueError):
+            db.bulk_commit([("bogus", {})])
+
+    # -- conn2flow upsert SQL shape -----------------------------------
+
+    def _commit_conn(self, **rec_overrides):
+        from datetime import datetime
+
+        db, captured = self._make_db()
+        rec = {
+            "src": "10.0.0.1",
+            "dst": "10.0.0.2",
+            "proto": "tcp",
+            "sport": 1234,
+            "dport": 80,
+            "start_time": datetime(2024, 1, 1, 0, 0, 0),
+            "end_time": datetime(2024, 1, 1, 0, 0, 5),
+            "orig_pkts": 5,
+            "resp_pkts": 7,
+            "orig_ip_bytes": 500,
+            "resp_ip_bytes": 700,
+        }
+        rec.update(rec_overrides)
+        bulk = _SQLDBFlow_for_filters_test.start_bulk_insert()
+        _SQLDBFlow_for_filters_test.conn2flow(bulk, rec)
+        db.bulk_commit(bulk)
+        return captured
+
+    def test_conn2flow_emits_three_statements(self):
+        # One conn record drives two host upserts (src + dst)
+        # and one flow upsert -- three round trips per record.
+        # The bulk-grouping optimisation that would collapse
+        # this into a COPY pipeline is a follow-up.
+        captured = self._commit_conn()
+        self.assertEqual(len(captured), 3)
+
+    def test_conn2flow_host_upsert_shape(self):
+        # The host upsert keys on ``addr``, widens the
+        # observation window via LEAST/GREATEST, and returns
+        # the FK identifier the flow upsert then uses.
+        captured = self._commit_conn()
+        host_sql = self._compile_pg(captured[0])
+        self.assertIn("INSERT INTO host", host_sql)
+        self.assertIn("ON CONFLICT (addr)", host_sql)
+        self.assertIn("least(host.firstseen", host_sql)
+        self.assertIn("greatest(host.lastseen", host_sql)
+        self.assertIn("RETURNING host.id", host_sql)
+
+    def test_conn2flow_flow_upsert_targets_unique_lookup(self):
+        # The conflict target must list the same expressions
+        # the partial unique index ``flow_unique_lookup``
+        # carries (``COALESCE(<col>, -1)`` for ``dport`` and
+        # ``type`` so NULLs collapse onto a single constraint
+        # slot).
+        captured = self._commit_conn()
+        flow_sql = self._compile_pg(captured[2])
+        self.assertIn("INSERT INTO flow", flow_sql)
+        self.assertIn(
+            "ON CONFLICT (src, dst, proto, coalesce(dport, ",
+            flow_sql,
+        )
+        self.assertIn("coalesce(type, ", flow_sql)
+        self.assertIn("schema_version", flow_sql)
+
+    def test_conn2flow_flow_upsert_accumulates_counters(self):
+        # Mongo's ``$inc cspkts`` etc. translates to
+        # ``coalesce(flow.col, 0) + excluded.col`` so an
+        # earlier ``any2flow`` row that left the counter NULL
+        # does not poison the accumulation.
+        captured = self._commit_conn()
+        flow_sql = self._compile_pg(captured[2])
+        for col in ("cspkts", "scpkts", "csbytes", "scbytes", "count"):
+            self.assertIn(
+                f"{col} = (coalesce(flow.{col}, ",
+                flow_sql,
+            )
+            self.assertIn(f"+ excluded.{col})", flow_sql)
+
+    def test_conn2flow_flow_upsert_concatenates_arrays(self):
+        # Mongo's ``$addToSet sports`` translates to an
+        # ``array_cat`` of the existing column with the new
+        # value; ``COALESCE`` on both sides tolerates NULL
+        # arrays so the very first conn2flow on a key seeds
+        # the column without raising.
+        captured = self._commit_conn()
+        flow_sql = self._compile_pg(captured[2])
+        self.assertIn("sports = array_cat(coalesce(flow.sports, ", flow_sql)
+        self.assertIn("codes = array_cat(coalesce(flow.codes, ", flow_sql)
+
+    def test_conn2flow_widens_timestamp_window(self):
+        # ``firstseen`` / ``lastseen`` must collapse via
+        # LEAST / GREATEST on every ingestion path -- it's
+        # the only update an ``any2flow`` followed by a
+        # ``conn2flow`` pair leaves on the row's timestamp
+        # columns.
+        captured = self._commit_conn()
+        flow_sql = self._compile_pg(captured[2])
+        self.assertIn("firstseen = least(flow.firstseen", flow_sql)
+        self.assertIn("lastseen = greatest(flow.lastseen", flow_sql)
+
+    # -- icmp / non-port protocols ------------------------------------
+
+    def test_conn2flow_icmp_uses_type_and_codes(self):
+        # ICMP records leave ``dport`` NULL and populate
+        # ``type`` / ``codes`` instead -- mirrors Mongo's
+        # ``MongoDBFlow._get_flow_key`` dispatch.
+        captured = self._commit_conn(
+            proto="icmp",
+            type=8,
+            code=0,
+            sport=None,
+            dport=None,
+        )
+        flow_sql = self._compile_pg(captured[2])
+        # The conflict target still lists both COALESCE
+        # wrappers so the partial unique index stays the
+        # inferred conflict resolution path regardless of
+        # which protocol the record carries.
+        self.assertIn("coalesce(dport, ", flow_sql)
+        self.assertIn("coalesce(type, ", flow_sql)
+
+    # -- any2flow ------------------------------------------------------
+
+    def test_any2flow_does_not_increment_counters(self):
+        # Per :meth:`MongoDBFlow.any2flow`'s contract the
+        # top-level ``count`` is *not* bumped (only
+        # ``meta.<name>.count`` is, which the SQL backend
+        # defers).  The SET clause must therefore omit the
+        # counter ``+`` accumulation -- only the timestamp
+        # widening survives.
+        from datetime import datetime
+
+        db, captured = self._make_db()
+        rec = {
+            "src": "10.0.0.1",
+            "dst": "10.0.0.2",
+            "proto": "tcp",
+            "dport": 80,
+            "start_time": datetime(2024, 1, 1, 0, 0, 0),
+            "end_time": datetime(2024, 1, 1, 0, 0, 1),
+        }
+        bulk = _SQLDBFlow_for_filters_test.start_bulk_insert()
+        _SQLDBFlow_for_filters_test.any2flow(bulk, "http", rec)
+        db.bulk_commit(bulk)
+        flow_sql = self._compile_pg(captured[2])
+        self.assertIn("firstseen = least(flow.firstseen", flow_sql)
+        self.assertIn("lastseen = greatest(flow.lastseen", flow_sql)
+        # The counter columns stay out of the SET list (they
+        # appear in the INSERT VALUES only).
+        for col in ("cspkts", "scpkts", "csbytes", "scbytes", "count"):
+            self.assertNotIn(f"{col} = (coalesce(flow.{col}", flow_sql)
+
+    # -- flow2flow -----------------------------------------------------
+
+    def test_flow2flow_takes_counters_verbatim(self):
+        # NetFlow / Argus records already carry the
+        # ``cspkts`` / ``scpkts`` / ``csbytes`` / ``scbytes``
+        # field names ``conn2flow`` derives from Zeek's
+        # ``orig_*`` / ``resp_*`` keys, so the upsert path
+        # must read them as-is.  The SET clause shape is
+        # identical to ``conn2flow``.
+        from datetime import datetime
+
+        db, captured = self._make_db()
+        rec = {
+            "src": "10.0.0.1",
+            "dst": "10.0.0.2",
+            "proto": "udp",
+            "sport": 4242,
+            "dport": 53,
+            "start_time": datetime(2024, 1, 1, 0, 0, 0),
+            "end_time": datetime(2024, 1, 1, 0, 0, 1),
+            "cspkts": 1,
+            "scpkts": 1,
+            "csbytes": 60,
+            "scbytes": 80,
+        }
+        bulk = _SQLDBFlow_for_filters_test.start_bulk_insert()
+        _SQLDBFlow_for_filters_test.flow2flow(bulk, rec)
+        db.bulk_commit(bulk)
+        flow_sql = self._compile_pg(captured[2])
+        for col in ("cspkts", "scpkts", "csbytes", "scbytes", "count"):
+            self.assertIn(
+                f"{col} = (coalesce(flow.{col}, ",
+                flow_sql,
+            )
+
+    # -- cleanup_flows -------------------------------------------------
+
+    def test_cleanup_flows_is_a_noop(self):
+        # ``zeek2db`` calls ``cleanup_flows`` after every
+        # bulk unless ``--no-cleanup`` is set; the SQL
+        # backend's host-swap heuristic is deferred to a
+        # follow-up so the method must not raise (and must
+        # not issue any SQL).
+        db, captured = self._make_db()
+        db.cleanup_flows()
+        self.assertEqual(captured, [])
+        db._db.begin.assert_not_called()
 
 
 # ---------------------------------------------------------------------

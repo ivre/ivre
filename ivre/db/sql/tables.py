@@ -34,6 +34,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     cast,
+    column,
     func,
     literal_column,
 )
@@ -363,21 +364,32 @@ class Flow(Base):
     # can scope updates to specific generations.
     schema_version = Column(Integer)
     __table_args__ = (
-        # Composite index covering the upsert lookup key Mongo
-        # uses in ``MongoDBFlow._get_flow_key``: TCP/UDP rows
-        # match on (src, dst, proto, dport, schema_version), ICMP
-        # rows on (src, dst, proto, type, schema_version).  A
-        # single B-tree index over the union covers both shapes
-        # because ``dport`` / ``type`` are mutually exclusive
-        # (one is always NULL).
+        # Composite *unique* index covering the upsert lookup
+        # key Mongo uses in ``MongoDBFlow._get_flow_key``:
+        # TCP/UDP rows match on (src, dst, proto, dport,
+        # schema_version), ICMP rows on (src, dst, proto,
+        # type, schema_version), other protocols on (src,
+        # dst, proto, schema_version) only.  A single B-tree
+        # index over the union covers every shape because
+        # ``dport`` / ``type`` are mutually exclusive (one is
+        # always ``NULL``).  ``COALESCE(<col>, -1)`` collapses
+        # the otherwise-distinct ``NULL`` values so the
+        # uniqueness constraint matches Mongo's
+        # ``$elemMatch``-style upsert key (port numbers are
+        # always >= 0, so ``-1`` is a safe sentinel for "this
+        # column does not apply to this protocol").  The
+        # index doubles as the read-side lookup index and as
+        # the ``ON CONFLICT`` target for the per-record
+        # upsert path in :meth:`SQLDBFlow.bulk_commit`.
         Index(
-            "flow_idx_lookup",
+            "flow_unique_lookup",
             "src",
             "dst",
             "proto",
-            "dport",
-            "type",
+            func.coalesce(column("dport"), -1),
+            func.coalesce(column("type"), -1),
             "schema_version",
+            unique=True,
         ),
         Index("flow_idx_proto", "proto"),
         Index("flow_idx_dport", "dport"),

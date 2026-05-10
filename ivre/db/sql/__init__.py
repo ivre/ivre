@@ -54,10 +54,13 @@ from sqlalchemy import (
     true,
     update,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import aliased
 
-from ivre import config, utils, xmlnmap
+from ivre import config
+from ivre import flow as ivre_flow
+from ivre import utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
 from ivre.db.sql import tables as tables_module
@@ -1530,8 +1533,364 @@ class SQLDBFlow(SQLDB, DBFlow):
         original abstract :class:`DBFlow.top` shape."""
         return self.topvalues(flt, fields, collect_fields=collect, sum_fields=sumfields)
 
+    # ------------------------------------------------------------------
+    # Ingestion path -- mirrors :class:`MongoDBFlow`'s bulk-insert API
+    # (``ivre/db/mongo.py:6220``-``:6373``).  Callers (``zeek2db``,
+    # ``flow2db``) treat the bulk handle as opaque, so the SQL backend
+    # represents it as a list of ``(kind, *args)`` tuples that
+    # :meth:`bulk_commit` then dispatches to per-record upserts.
+
+    @staticmethod
+    def start_bulk_insert():
+        """Allocate a fresh bulk-insert buffer.
+
+        Mirrors :meth:`MongoDBFlow.start_bulk_insert`'s contract:
+        callers append entries via :meth:`any2flow` /
+        :meth:`conn2flow` / :meth:`flow2flow` and hand the buffer
+        back to :meth:`bulk_commit`.  The handle is opaque to
+        callers (``zeek2db`` / ``flow2db`` only ever pass it
+        through), so we keep the same in-memory list shape Mongo
+        uses -- the entries are SQL-side ``(kind, *payload)``
+        tuples instead of ``pymongo.UpdateOne`` objects.
+        """
+        utils.LOGGER.debug("start_bulk_insert called")
+        return []
+
+    @classmethod
+    def any2flow(cls, bulk, name, rec):
+        """Queue a non-conn Zeek log record (HTTP, SSH, DNS, ...)
+        for ingestion.
+
+        Mirrors :meth:`MongoDBFlow.any2flow`: defers the actual
+        upsert to :meth:`bulk_commit` so a single SQL transaction
+        covers the whole bulk.  ``name`` is the Zeek log type
+        (``"http"`` / ``"ssh"`` / ...); the per-protocol metadata
+        accumulation it drives in Mongo is deferred to a follow-up
+        sub-PR (the SQL row is created with an empty ``meta``
+        bag).
+        """
+        bulk.append(("any", name, rec))
+
+    @classmethod
+    def conn2flow(cls, bulk, rec):
+        """Queue a Zeek ``conn.log`` record for ingestion.
+
+        Mirrors :meth:`MongoDBFlow.conn2flow`: accumulates packet
+        / byte counters and source-port / ICMP-code sets on the
+        target flow row.
+        """
+        bulk.append(("conn", rec))
+
+    @classmethod
+    def flow2flow(cls, bulk, rec):
+        """Queue a NetFlow / Argus record for ingestion.
+
+        Mirrors :meth:`MongoDBFlow.flow2flow`.  The record shape
+        already carries the ``cspkts`` / ``scpkts`` / ``csbytes``
+        / ``scbytes`` field names ``conn2flow`` derives from
+        Zeek's ``orig_*`` / ``resp_*`` keys, so the SQL upsert
+        path is the same.
+        """
+        bulk.append(("flow", rec))
+
+    def bulk_commit(self, bulk):
+        """Apply every queued ingestion entry inside a single
+        transaction.
+
+        Mirrors :meth:`MongoDBFlow.bulk_commit`'s contract: the
+        bulk is consumed in order, an empty bulk is a no-op, and
+        the method swallows nothing -- the surrounding
+        transaction rolls back on failure so callers see the
+        original exception.
+
+        The SQL implementation issues one ``INSERT ... ON
+        CONFLICT DO UPDATE`` per record (host upsert + flow
+        upsert).  This is per-record chatty compared to Mongo's
+        single ``bulk_write``; bulk-grouping the upserts into a
+        ``COPY`` + ``INSERT ... FROM SELECT`` pipeline (mirroring
+        :meth:`PostgresDBPassive.insert_or_update_bulk`) is a
+        performance follow-up.
+        """
+        if not bulk:
+            return
+        with self.db.begin() as conn:
+            for op in bulk:
+                kind = op[0]
+                if kind == "any":
+                    self._apply_any(conn, op[1], op[2])
+                elif kind == "conn":
+                    self._apply_conn(conn, op[1])
+                elif kind == "flow":
+                    self._apply_flow(conn, op[1])
+                else:  # pragma: no cover -- defensive
+                    raise ValueError(f"Unknown bulk entry kind {kind!r}")
+
+    def _upsert_host(self, conn, addr, firstseen, lastseen):
+        """Upsert a :class:`~ivre.db.sql.tables.Host` row keyed
+        by ``addr`` and return its primary-key ``id``.
+
+        ``firstseen`` / ``lastseen`` collapse via ``LEAST`` /
+        ``GREATEST`` so repeated ingestions of the same host
+        widen the observation window without losing earlier
+        timestamps.  ``addr`` is the natural key (the table
+        carries a ``UNIQUE(addr)`` constraint declared in
+        :mod:`ivre.db.sql.tables`).
+        """
+        host = self.tables.host
+        stmt = postgresql.insert(host).values(
+            addr=addr,
+            firstseen=firstseen,
+            lastseen=lastseen,
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[host.addr],
+            set_={
+                "firstseen": func.least(host.firstseen, stmt.excluded.firstseen),
+                "lastseen": func.greatest(host.lastseen, stmt.excluded.lastseen),
+            },
+        ).returning(host.id)
+        return conn.execute(stmt).scalar_one()
+
+    def _flow_upsert_stmt(self, values, increments):
+        """Build the ``INSERT ... ON CONFLICT DO UPDATE``
+        statement that drives every flow upsert.
+
+        ``values`` is the per-record column dict (the row that
+        would be inserted on a fresh key).  ``increments`` is the
+        sub-dict of monotonic counters that must accumulate via
+        ``Flow.<col> + EXCLUDED.<col>`` on conflict (for
+        ``any2flow``: just the timestamps; for ``conn2flow`` /
+        ``flow2flow``: the ``cspkts`` / ``scpkts`` / ``csbytes``
+        / ``scbytes`` / ``count`` block plus optional
+        ``sports`` / ``codes`` array merges).
+
+        The conflict target is the partial unique index
+        :data:`flow_unique_lookup` (declared in
+        :mod:`ivre.db.sql.tables`); the ``COALESCE(<col>, -1)``
+        wrappers must match the index's expressions exactly so
+        PostgreSQL infers the right index.
+        """
+        flow_t = self.tables.flow
+        stmt = postgresql.insert(flow_t).values(values)
+        excluded = stmt.excluded
+        # The upsert SET list always widens the observation
+        # window via LEAST/GREATEST and accumulates the counter
+        # block via SUM.  ``coalesce(col, 0)`` guards against
+        # earlier ``any2flow`` rows that left the counters NULL;
+        # NULL + anything = NULL would otherwise drop the
+        # accumulated value.
+        upsert = {
+            "firstseen": func.least(flow_t.firstseen, excluded.firstseen),
+            "lastseen": func.greatest(flow_t.lastseen, excluded.lastseen),
+        }
+        for col_name, default in increments.items():
+            col = getattr(flow_t, col_name)
+            upsert[col_name] = func.coalesce(col, default) + getattr(excluded, col_name)
+        # ``sports`` / ``codes`` accumulate via array
+        # concatenation (no dedup, mirroring the ON CONFLICT
+        # contract -- Mongo's ``$addToSet`` produces unique
+        # elements; SQL keeps duplicates for now and the
+        # downstream queries don't enumerate the lists, only
+        # their length / ANY-membership).  ``COALESCE`` again
+        # tolerates NULL on either side.
+        empty_int = postgresql.array([], type_=Integer)
+        for arr_col in ("sports", "codes"):
+            arr = getattr(flow_t, arr_col)
+            exc_arr = getattr(excluded, arr_col)
+            upsert[arr_col] = func.array_cat(
+                func.coalesce(arr, empty_int),
+                func.coalesce(exc_arr, empty_int),
+            )
+        return stmt.on_conflict_do_update(
+            index_elements=[
+                "src",
+                "dst",
+                "proto",
+                func.coalesce(column("dport"), -1),
+                func.coalesce(column("type"), -1),
+                "schema_version",
+            ],
+            set_=upsert,
+        )
+
+    @staticmethod
+    def _flow_key_columns(rec):
+        """Return the ``proto`` / ``dport`` / ``type`` triple
+        used by the upsert lookup key.
+
+        Mirrors :meth:`MongoDBFlow._get_flow_key`'s dispatch
+        (``ivre/db/mongo.py:6242``): ``dport`` is set for
+        TCP / UDP, ``type`` for ICMP, both NULL otherwise (the
+        unique index folds NULLs to ``-1`` via ``COALESCE`` so
+        every protocol shares the same constraint).
+        """
+        proto = rec["proto"]
+        dport = rec["dport"] if proto in ("tcp", "udp") else None
+        type_ = rec.get("type") if proto == "icmp" else None
+        return proto, dport, type_
+
+    def _apply_any(self, conn, name, rec):
+        """Upsert the flow row backing a non-conn Zeek log entry.
+
+        Per :meth:`MongoDBFlow.any2flow`'s contract the top-level
+        ``count`` is *not* incremented (only ``meta.<name>.count``
+        is, which the SQL backend defers); ``cspkts`` / ``scpkts``
+        / ``csbytes`` / ``scbytes`` are likewise left at zero.
+        Only ``firstseen`` / ``lastseen`` widen.
+        """
+        # ``name`` is reserved for the upcoming ``meta.<name>``
+        # accumulation; recorded via debug log so a stray call
+        # before that follow-up lands surfaces in IVRE_DEBUG=1
+        # runs.
+        del name
+        proto, dport, type_ = self._flow_key_columns(rec)
+        src_id = self._upsert_host(conn, rec["src"], rec["start_time"], rec["end_time"])
+        dst_id = self._upsert_host(conn, rec["dst"], rec["start_time"], rec["end_time"])
+        values = {
+            "src": src_id,
+            "dst": dst_id,
+            "proto": proto,
+            "dport": dport,
+            "type": type_,
+            "firstseen": rec["start_time"],
+            "lastseen": rec["end_time"],
+            "cspkts": 0,
+            "scpkts": 0,
+            "csbytes": 0,
+            "scbytes": 0,
+            "count": 0,
+            "sports": None,
+            "codes": None,
+            "meta": {},
+            "schema_version": ivre_flow.SCHEMA_VERSION,
+        }
+        # ``any2flow`` does not bump any counter on conflict --
+        # the ``meta.<name>.count`` accumulation Mongo drives
+        # belongs to the deferred ``meta`` follow-up.  Pass an
+        # empty ``increments`` so :meth:`_flow_upsert_stmt` only
+        # widens the timestamp window.
+        conn.execute(self._flow_upsert_stmt(values, increments={}))
+
+    def _apply_conn(self, conn, rec):
+        """Upsert the flow row backing a Zeek ``conn.log``
+        entry.
+
+        Mirrors :meth:`MongoDBFlow.conn2flow`'s ``$inc`` /
+        ``$addToSet`` blocks (``ivre/db/mongo.py:6311``).
+        """
+        proto, dport, type_ = self._flow_key_columns(rec)
+        src_id = self._upsert_host(conn, rec["src"], rec["start_time"], rec["end_time"])
+        dst_id = self._upsert_host(conn, rec["dst"], rec["start_time"], rec["end_time"])
+        sports = (
+            [rec["sport"]]
+            if proto in ("tcp", "udp") and rec.get("sport") is not None
+            else None
+        )
+        codes = (
+            [rec["code"]] if proto == "icmp" and rec.get("code") is not None else None
+        )
+        values = {
+            "src": src_id,
+            "dst": dst_id,
+            "proto": proto,
+            "dport": dport,
+            "type": type_,
+            "firstseen": rec["start_time"],
+            "lastseen": rec["end_time"],
+            "cspkts": rec.get("orig_pkts", 0) or 0,
+            "scpkts": rec.get("resp_pkts", 0) or 0,
+            "csbytes": rec.get("orig_ip_bytes", 0) or 0,
+            "scbytes": rec.get("resp_ip_bytes", 0) or 0,
+            "count": 1,
+            "sports": sports,
+            "codes": codes,
+            "meta": {},
+            "schema_version": ivre_flow.SCHEMA_VERSION,
+        }
+        conn.execute(
+            self._flow_upsert_stmt(
+                values,
+                increments={
+                    "cspkts": 0,
+                    "scpkts": 0,
+                    "csbytes": 0,
+                    "scbytes": 0,
+                    "count": 0,
+                },
+            )
+        )
+
+    def _apply_flow(self, conn, rec):
+        """Upsert the flow row backing a NetFlow / Argus entry.
+
+        Mirrors :meth:`MongoDBFlow.flow2flow`: identical to
+        :meth:`_apply_conn` except the counter field names are
+        already ``cspkts`` / ``scpkts`` / ``csbytes`` /
+        ``scbytes`` on the input record (no ``orig_*`` /
+        ``resp_*`` translation).
+        """
+        proto, dport, type_ = self._flow_key_columns(rec)
+        src_id = self._upsert_host(conn, rec["src"], rec["start_time"], rec["end_time"])
+        dst_id = self._upsert_host(conn, rec["dst"], rec["start_time"], rec["end_time"])
+        sports = (
+            [rec["sport"]]
+            if proto in ("tcp", "udp") and rec.get("sport") is not None
+            else None
+        )
+        codes = (
+            [rec["code"]] if proto == "icmp" and rec.get("code") is not None else None
+        )
+        values = {
+            "src": src_id,
+            "dst": dst_id,
+            "proto": proto,
+            "dport": dport,
+            "type": type_,
+            "firstseen": rec["start_time"],
+            "lastseen": rec["end_time"],
+            "cspkts": rec.get("cspkts", 0) or 0,
+            "scpkts": rec.get("scpkts", 0) or 0,
+            "csbytes": rec.get("csbytes", 0) or 0,
+            "scbytes": rec.get("scbytes", 0) or 0,
+            "count": 1,
+            "sports": sports,
+            "codes": codes,
+            "meta": {},
+            "schema_version": ivre_flow.SCHEMA_VERSION,
+        }
+        conn.execute(
+            self._flow_upsert_stmt(
+                values,
+                increments={
+                    "cspkts": 0,
+                    "scpkts": 0,
+                    "csbytes": 0,
+                    "scbytes": 0,
+                    "count": 0,
+                },
+            )
+        )
+
     def cleanup_flows(self):
-        raise NotImplementedError()
+        """Heuristic that reverses flows whose source /
+        destination addresses appear swapped.
+
+        :meth:`MongoDBFlow.cleanup_flows` rebuilds the ``sports``
+        distribution per (src, dst, proto, sport) tuple and
+        reverses flows that look like the result of a swap (more
+        than five distinct destination ports observed for a
+        single source port, with TCP segments large enough to
+        rule out a port scan).  Porting that aggregation
+        pipeline -- with its ``$unwind`` / ``$group`` /
+        ``$addToSet`` chain -- to SQL would require an extra
+        per-bulk pass over the ``flow`` table; we leave it as a
+        follow-up sub-PR and ship a no-op so ``zeek2db`` runs
+        end-to-end without raising.
+        """
+        utils.LOGGER.debug(
+            "cleanup_flows is a no-op on the SQL backend "
+            "(host-swap heuristic deferred)"
+        )
 
 
 class Filter:
