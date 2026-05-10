@@ -8788,6 +8788,279 @@ class SQLDBRirTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DuckDBRirTests -- pin :class:`ivre.db.sql.duckdb.DuckDBRir`.
+#
+# DuckDB-specific concerns covered:
+#   * the schema's ``Numeric(40, 0)`` ``size`` column collapses
+#     to ``Numeric(38, 0)`` on DuckDB via ``with_variant``,
+#   * the DuckDB-incompatible indexes
+#     (``rir_idx_range`` over INET, ``rir_idx_aut_num``
+#     partial WHERE, ``rir_idx_fts`` GIN) are flagged by
+#     :func:`_is_unsupported_on_duckdb` so
+#     :meth:`DuckDBMixin.init` strips them at create-time
+#     without breaking the read paths,
+#   * the INET round-trip dict struct DuckDB returns is
+#     coerced back into a printable string via
+#     :meth:`DuckDBMixin.internal2ip` so ``_row2rec`` yields
+#     the same wire shape PG does,
+#   * (with duckdb-engine installed) the full ingestion +
+#     search roundtrip against an in-memory DuckDB engine.
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql.duckdb import DuckDBRir as _DuckDBRir_for_tests  # noqa: E402
+
+    _HAVE_DUCKDB_RIR = True
+except ImportError:
+    _HAVE_DUCKDB_RIR = False
+
+
+@unittest.skipUnless(
+    _HAVE_DUCKDB_RIR,
+    "SQLAlchemy is required for DuckDBRirTests",
+)
+class DuckDBRirTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.sql.duckdb.DuckDBRir`."""
+
+    def test_backend_registered(self):
+        from ivre.db import DBRir
+
+        self.assertEqual(
+            DBRir.backends.get("duckdb"),
+            ("sql.duckdb", "DuckDBRir"),
+        )
+
+    def test_class_inherits_postgres_rir(self):
+        # DuckDBRir inherits the SQLDBRir search / aggregate
+        # / ingestion path from :class:`PostgresDBRir`.  The
+        # MRO must place ``DuckDBMixin`` first so its dialect
+        # overrides win the lookup against PostgresDB's
+        # defaults; ``PostgresDBRir`` follows so the SQL
+        # implementation is reachable.
+        mro = [c.__name__ for c in _DuckDBRir_for_tests.__mro__]
+        self.assertEqual(mro[0], "DuckDBRir")
+        self.assertEqual(mro[1], "DuckDBMixin")
+        self.assertEqual(mro[2], "PostgresDBRir")
+
+    def test_size_column_variant_collapses_on_duckdb(self):
+        # ``size`` is ``Numeric(40, 0)`` on PG (covers /0
+        # IPv6 = 2**128 addresses, 39 digits) but DuckDB
+        # caps DECIMAL precision at 38, so the
+        # ``with_variant(Numeric(38, 0), "duckdb")`` adapter
+        # narrows the column on DuckDB.  Pin the rendered
+        # type so a future refactor of the variant surfaces
+        # here.
+        from sqlalchemy import create_engine
+        from sqlalchemy.schema import CreateTable
+
+        try:
+            engine = create_engine("duckdb:///:memory:")
+        except Exception as exc:  # pragma: no cover -- import-only
+            self.skipTest(f"duckdb-engine not installed: {exc}")
+        sql = str(CreateTable(_Rir_for_tests.__table__).compile(dialect=engine.dialect))
+        self.assertIn("size NUMERIC(38, 0)", sql)
+        # PostgreSQL stays at 40 digits.
+        from sqlalchemy.dialects import postgresql
+
+        pg_sql = str(
+            CreateTable(_Rir_for_tests.__table__).compile(dialect=postgresql.dialect())
+        )
+        self.assertIn("size NUMERIC(40, 0)", pg_sql)
+
+    def test_duckdb_unsupported_indexes_get_stripped(self):
+        # The three indexes incompatible with DuckDB (range
+        # over INET, partial WHERE clause, GIN FTS) must be
+        # flagged by :func:`_is_unsupported_on_duckdb` so
+        # :meth:`DuckDBMixin.init` strips them before
+        # ``create_all``.  A regression that adds a fresh
+        # rir index without considering DuckDB would surface
+        # here.
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+
+        idx_by_name = {ix.name: ix for ix in _Rir_for_tests.__table__.indexes}
+        for name in ("rir_idx_range", "rir_idx_aut_num", "rir_idx_fts"):
+            self.assertTrue(
+                _is_unsupported_on_duckdb(idx_by_name[name]),
+                f"{name} must be flagged unsupported on DuckDB",
+            )
+        # The simple BTrees over scalar columns survive.
+        for name in (
+            "rir_idx_country",
+            "rir_idx_source",
+            "rir_idx_source_file",
+            "rir_idx_source_hash",
+            "rir_idx_schema_version",
+            "rir_idx_size",
+        ):
+            self.assertFalse(
+                _is_unsupported_on_duckdb(idx_by_name[name]),
+                f"{name} must survive on DuckDB",
+            )
+
+
+# Live-engine integration test -- gated on ``duckdb-engine``
+# installed.  Exercises bulk insert + every read path against
+# an in-memory DuckDB so the DuckDB-specific tweaks (INET dict
+# struct, Numeric width variant, stripped indexes) are verified
+# end-to-end against parity with the PG semantics.
+try:
+    import duckdb_engine as _duckdb_engine_for_rir_tests  # type: ignore[import-untyped]  # noqa: F401, E402
+
+    _HAVE_DUCKDB_ENGINE_FOR_RIR = True
+except ImportError:
+    _HAVE_DUCKDB_ENGINE_FOR_RIR = False
+
+
+@unittest.skipUnless(
+    _HAVE_DUCKDB_RIR and _HAVE_DUCKDB_ENGINE_FOR_RIR,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
+class DuckDBRirLiveIntegrationTests(unittest.TestCase):
+    """End-to-end RIR ingestion + search against an in-memory
+    DuckDB.
+
+    Verifies that the shared :class:`SQLDBRir` path works on
+    DuckDB without modification once :class:`DuckDBMixin`'s
+    ``internal2ip`` override and the ``Numeric(40, 0)`` ->
+    ``Numeric(38, 0)`` variant are wired.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        import tempfile
+
+        import sqlalchemy as sa  # type: ignore[import-untyped]
+
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import Base
+
+        # Strip the indexes DuckDB rejects at CREATE time.
+        # Mirrors :meth:`DuckDBMixin.init`'s bookkeeping; we
+        # skip the full ``init()`` because the test's
+        # short-lived engine doesn't need the FTS extension
+        # loader.  Save and restore so sibling test classes
+        # sharing the module-level metadata see the original
+        # declarations.
+        cls._saved_idx = []
+        for ix in list(_Rir_for_tests.__table__.indexes):
+            if _is_unsupported_on_duckdb(ix):
+                cls._saved_idx.append(ix)
+                _Rir_for_tests.__table__.indexes.discard(ix)
+        fd, cls._path = tempfile.mkstemp(suffix=".duckdb")
+        os.close(fd)
+        os.unlink(cls._path)
+        cls._engine = sa.create_engine(f"duckdb:///{cls._path}")
+        Base.metadata.create_all(cls._engine, tables=[_Rir_for_tests.__table__])
+
+    @classmethod
+    def tearDownClass(cls):
+        import os
+
+        cls._engine.dispose()
+        if os.path.exists(cls._path):
+            os.unlink(cls._path)
+        for ix in cls._saved_idx:
+            _Rir_for_tests.__table__.indexes.add(ix)
+
+    def _make_db(self):
+        db = _DuckDBRir_for_tests.__new__(_DuckDBRir_for_tests)
+        db._db = self._engine
+        return db
+
+    def test_inetnum_record_roundtrip(self):
+        # Bulk-insert an inetnum record, then look it up via
+        # ``searchhost`` and verify the dict shape matches
+        # what Mongo returns (printable IPs, ``Decimal``
+        # ``size``, etc.).
+        db = self._make_db()
+        bulk = db.start_bulk()
+        bulk = db.insert_bulk(
+            bulk,
+            {
+                "start": "10.0.0.0",
+                "stop": "10.255.255.255",
+                "netname": "TEST-INETNUM",
+                "country": "FR",
+                "source_file": "ripe.db.inetnum.gz",
+                "source_hash": "deadbeef",
+            },
+        )
+        db.stop_bulk(bulk)
+        results = list(db.get(db.searchhost("10.5.0.1")))
+        self.assertEqual(len(results), 1)
+        rec = results[0]
+        # DuckDB's INET dict struct must be flattened to a
+        # printable string via :meth:`DuckDBMixin.internal2ip`.
+        self.assertEqual(rec["start"], "10.0.0.0")
+        self.assertEqual(rec["stop"], "10.255.255.255")
+        self.assertEqual(rec["netname"], "TEST-INETNUM")
+        # /8 = 2**24 = 16777216 addresses; the Numeric(38, 0)
+        # column round-trips as ``Decimal`` regardless of
+        # backend.
+        self.assertEqual(int(rec["size"]), 16777216)
+
+    def test_aut_num_record_roundtrip(self):
+        # Aut-num records leave ``start`` / ``stop`` /
+        # ``size`` NULL and the wire-shaped output renames
+        # ``aut_num`` / ``as_name`` back to ``aut-num`` /
+        # ``as-name``.
+        db = self._make_db()
+        bulk = db.start_bulk()
+        bulk = db.insert_bulk(
+            bulk,
+            {
+                "aut-num": 64512,
+                "as-name": "TEST-AS",
+                "country": "FR",
+                "source_file": "ripe.db.gz",
+                "source_hash": "feedface",
+            },
+        )
+        db.stop_bulk(bulk)
+        results = list(db.get(db.searchasnum(64512)))
+        self.assertEqual(len(results), 1)
+        rec = results[0]
+        self.assertEqual(rec["aut-num"], 64512)
+        self.assertEqual(rec["as-name"], "TEST-AS")
+        self.assertNotIn("start", rec)
+        self.assertNotIn("size", rec)
+
+    def test_count_and_distinct(self):
+        # ``count`` + ``distinct`` work without dialect
+        # overrides -- pin so a future refactor that
+        # introduces an ON CONFLICT / window function in the
+        # default :class:`SQLDBRir` path doesn't break the
+        # DuckDB lane silently.
+        db = self._make_db()
+        # Ingest a few more records to exercise the
+        # aggregations.  All records share the existing
+        # ``country=FR`` ones so ``count(country='FR') >= 2``.
+        bulk = db.start_bulk()
+        for cc, name in [("US", "TEST-A"), ("DE", "TEST-B"), ("FR", "TEST-C")]:
+            bulk = db.insert_bulk(
+                bulk,
+                {
+                    "start": "192.0.2.0",
+                    "stop": "192.0.2.255",
+                    "netname": name,
+                    "country": cc,
+                    "source_file": "extra.gz",
+                    "source_hash": f"hash{cc}",
+                },
+            )
+        db.stop_bulk(bulk)
+        # At least the FR record from the first test plus
+        # one new FR record above.
+        self.assertGreaterEqual(db.count(db.searchcountry("FR")), 2)
+        countries = set(db.distinct("country"))
+        self.assertIn("FR", countries)
+        self.assertIn("US", countries)
+        self.assertIn("DE", countries)
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

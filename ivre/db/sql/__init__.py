@@ -6050,12 +6050,20 @@ class SQLDBRir(SQLDB, DBRir):
         the ``extra`` JSONB bag are flattened into the top-level
         dict.  ``size`` round-trips as :class:`Decimal` (matches
         Mongo's ``Decimal128`` shape after the JSON decode).
+        ``start`` / ``stop`` are coerced through
+        :meth:`SQLDB.internal2ip` so the DuckDB backend
+        (where ``INET`` round-trips as a ``{'ip_type',
+        'address', 'mask'}`` dict struct rather than a
+        printable string) yields the same wire shape PG does.
         """
         rec = {}
         for col_name, key in _RIR_TYPED_COLUMNS_INVERSE.items():
             value = getattr(row, col_name)
-            if value is not None:
-                rec[key] = value
+            if value is None:
+                continue
+            if col_name in ("start", "stop"):
+                value = cls.internal2ip(value)
+            rec[key] = value
         if row.size is not None:
             rec["size"] = row.size
         if row.schema_version is not None:
@@ -6080,6 +6088,10 @@ class SQLDBRir(SQLDB, DBRir):
         anyway.
         """
         del fields  # unused; signature parity with DB.get
+        # ``select(self.tables.rir)`` expands to every column on
+        # the table (Core form), so each yielded row is a
+        # :class:`sqlalchemy.engine.Row` with column attribute
+        # access -- pass it straight to :meth:`_row2rec`.
         stmt = select(self.tables.rir)
         if spec is not None:
             stmt = stmt.where(spec)
@@ -6091,7 +6103,7 @@ class SQLDBRir(SQLDB, DBRir):
             stmt = stmt.limit(limit)
         with self.db.connect() as conn:
             for row in conn.execute(stmt):
-                yield self._row2rec(row[0])
+                yield self._row2rec(row)
 
     def _sort_to_sa(self, sort):
         """Translate a Mongo-shaped ``sort=[(field, dir), ...]``

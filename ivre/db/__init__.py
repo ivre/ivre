@@ -5157,6 +5157,7 @@ class DBRir(DB):
         "http": ("http", "HttpDBRir"),
         "mongodb": ("mongo", "MongoDBRir"),
         "postgresql": ("sql.postgres", "PostgresDBRir"),
+        "duckdb": ("sql.duckdb", "DuckDBRir"),
     }
 
     ipaddr_fields = ["start", "stop"]

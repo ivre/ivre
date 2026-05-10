@@ -823,8 +823,15 @@ class Rir(Base):
     # insert time so the web ``/rir`` route can sort
     # narrowest-first without a runtime expression.  ``Numeric``
     # rather than ``BigInteger`` because IPv6 ranges can reach
-    # ``2 ** 128`` (overflows ``BigInt``); 40 digits cover that.
-    size = Column(Numeric(40, 0))
+    # ``2 ** 128`` (overflows ``BigInt``); 40 digits cover that
+    # on PostgreSQL.  DuckDB caps ``DECIMAL`` precision at 38,
+    # so the variant collapses to ``NUMERIC(38, 0)`` there.  In
+    # practice the narrowest real-world RIR allocation is a /3
+    # (2 ** 125 addresses, 38 digits) so DuckDB still covers
+    # every observed range; only a hypothetical /0-/2 IPv6
+    # allocation would overflow, which we don't currently
+    # ingest.
+    size = Column(Numeric(40, 0).with_variant(Numeric(38, 0), "duckdb"))
     # ``aut-num`` records carry an integer AS number instead of a
     # range.  Mutually exclusive with ``start`` / ``stop`` on the
     # wire; the partial index below targets the populated form.

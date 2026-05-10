@@ -74,6 +74,7 @@ from ivre.db.sql.postgres import (
     PostgresDBFlow,
     PostgresDBNmap,
     PostgresDBPassive,
+    PostgresDBRir,
     PostgresDBView,
 )
 from ivre.db.sql.tables import Base
@@ -1000,3 +1001,40 @@ class DuckDBFlow(DuckDBMixin, PostgresDBFlow):
                 empty_int if new_arr is None else postgresql.array(new_arr),
             )
         conn.execute(update(flow_t).where(flow_t.id == existing_id).values(update_set))
+
+
+class DuckDBRir(DuckDBMixin, PostgresDBRir):
+    """DuckDB backend for the RIR (whois) data category.
+
+    Pure inheritance from :class:`PostgresDBRir`: the read /
+    search / aggregate / ingestion path lives in
+    :class:`SQLDBRir` and works on both backends unchanged.
+    The schema also inherits unchanged thanks to two
+    dialect-aware adapters declared in
+    :mod:`ivre.db.sql.tables`:
+
+    * :attr:`Rir.size` is ``Numeric(40, 0)`` on PostgreSQL
+      and ``Numeric(38, 0)`` on DuckDB (DuckDB caps DECIMAL
+      precision at 38).  Real-world RIR data tops out at /3
+      IPv6 prefixes (38 digits exactly), so the cap is a
+      no-op in practice; only hypothetical /0-/2 IPv6
+      allocations would overflow.
+    * :class:`DuckDBMixin.internal2ip` (already inherited
+      from the active / passive lanes) converts DuckDB's
+      ``INET`` round-trip dict struct (``{'ip_type',
+      'address', 'mask'}``) back into a printable IP string,
+      which :meth:`SQLDBRir._row2rec` calls through
+      ``cls.internal2ip`` so PG and DuckDB yield the same
+      wire shape.
+
+    DuckDB-incompatible indexes
+    (:data:`rir_idx_range` over ``INET`` columns,
+    :data:`rir_idx_aut_num` partial WHERE clause,
+    :data:`rir_idx_fts` GIN) are stripped at create-time by
+    :func:`_is_unsupported_on_duckdb` -- the read paths
+    fall back to sequential scans on DuckDB.  The
+    ``rir_idx_fts``-equivalent FTS path via the ``fts``
+    extension's ``match_bm25`` will land in a follow-up
+    sub-PR alongside the equivalent DuckDB
+    ``PRAGMA create_fts_index`` glue.
+    """
