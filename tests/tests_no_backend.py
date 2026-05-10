@@ -7697,6 +7697,48 @@ class SQLDBFlowIngestionTests(unittest.TestCase):
         self.assertEqual(bulk, [])
         self.assertFalse(bulk)
 
+    def test_postgres_flow_instance_start_bulk_insert(self):
+        # Regression pin: the per-row :class:`BulkInsert`
+        # factory (used by the active ingestion path's
+        # ``store_or_merge_host`` / ``start_store_hosts``)
+        # used to live on :class:`PostgresDB` and shadowed
+        # :meth:`SQLDBFlow.start_bulk_insert` via MRO on
+        # :class:`PostgresDBFlow`'s ``(PostgresDB, SQLDBFlow)``
+        # bases.  ``db.start_bulk_insert()`` on a
+        # :class:`PostgresDBFlow` instance therefore returned
+        # a :class:`BulkInsert` object instead of the empty
+        # list :meth:`SQLDBFlow.bulk_commit` expects.
+        #
+        # The fix moved the factory down to
+        # :class:`PostgresDBActive` (its only consumer),
+        # leaving the name unreachable on the flow MRO so
+        # :meth:`SQLDBFlow.start_bulk_insert`'s ``[]``
+        # tuple-list factory wins by inheritance.  Pin both
+        # the instance-level call and the class-level
+        # ``__qualname__`` so a future regression that
+        # re-introduces ``start_bulk_insert`` on
+        # :class:`PostgresDB` (or any earlier MRO ancestor)
+        # surfaces here.
+        from unittest.mock import MagicMock
+
+        from ivre.db.sql import SQLDBFlow
+        from ivre.db.sql.postgres import PostgresDBFlow
+
+        # Class-level resolution must point at the flow
+        # ingestion path's static method, not the active
+        # path's :class:`BulkInsert` factory.
+        self.assertEqual(
+            PostgresDBFlow.start_bulk_insert.__qualname__,
+            SQLDBFlow.start_bulk_insert.__qualname__,
+        )
+        db = PostgresDBFlow.__new__(PostgresDBFlow)
+        db._db = MagicMock()
+        bulk = db.start_bulk_insert()
+        self.assertEqual(bulk, [])
+        # The Mongo-shape append must work.
+        bulk.append(("conn", {}))
+        self.assertEqual(len(bulk), 1)
+
     def test_queue_helpers_record_kind(self):
         # The queue helpers tag every entry with the kind
         # :meth:`bulk_commit` then dispatches on; without the

@@ -220,9 +220,6 @@ class PostgresDB(SQLDB):
         t.create(bind=conn if conn is not None else self.db, checkfirst=True)
         return t
 
-    def start_bulk_insert(self, size=None, retries=0):
-        return BulkInsert(self.db, size=size, retries=retries)
-
     def explain(self, req, **_):
         """Return the PostgreSQL ``EXPLAIN`` output for a SQLAlchemy
         query expression.
@@ -335,10 +332,43 @@ class BulkInsert:
 
 
 class PostgresDBFlow(PostgresDB, SQLDBFlow):
-    pass
+    """PostgreSQL backend for the ``flow`` data category.
+
+    Pure inheritance: the MRO ``(PostgresDB, SQLDBFlow)``
+    matches the pattern of every other ``PostgresDB*`` subclass
+    so the dialect-specific helpers (``ip2internal``,
+    ``_searchstring_re``, ...) win the lookup unchanged.  The
+    flow ingestion path's :meth:`SQLDBFlow.start_bulk_insert`
+    is reachable directly because the per-row
+    :class:`BulkInsert` factory it would have collided with
+    lives on :class:`PostgresDBActive` (next to its only
+    consumer :meth:`PostgresDBActive.start_store_hosts`)
+    rather than on :class:`PostgresDB`, so the name is no
+    longer reachable on this MRO branch.
+    """
 
 
 class PostgresDBActive(PostgresDB, SQLDBActive):
+    def start_bulk_insert(self, size=None, retries=0):
+        """Open a per-row :class:`BulkInsert` transaction.
+
+        Used exclusively by :meth:`start_store_hosts` to batch
+        the per-record inserts driven by
+        :meth:`store_or_merge_host`.  Lives on
+        :class:`PostgresDBActive` (rather than the shared
+        :class:`PostgresDB` base it used to share with the
+        passive / flow lanes) so the name does not collide
+        with :meth:`SQLDBFlow.start_bulk_insert`'s ``[]``
+        tuple-list factory in
+        :class:`~ivre.db.sql.postgres.PostgresDBFlow`'s MRO --
+        the active and flow ingestion lanes use the same name
+        for very different return shapes (per-row
+        :class:`BulkInsert` here, ``list[(kind, *payload)]``
+        over there), and only the active path actually consumes
+        :class:`BulkInsert`.
+        """
+        return BulkInsert(self.db, size=size, retries=retries)
+
     def _migrate_schema_10_11(self):
         """Converts a record from version 10 to version 11.
 
