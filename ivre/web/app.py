@@ -39,7 +39,7 @@ from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
-from ivre.web.base import application, check_referer
+from ivre.web.base import application, check_referer, check_upload_ok
 from ivre.web.modules import enabled_modules, require_module
 
 #
@@ -684,6 +684,7 @@ def import_files(subdb, source, categories, files):
 
 @application.post("/<subdb:re:scans|view>")
 @check_referer
+@check_upload_ok
 def post_nmap(subdb):
     """Add records to Nmap & View databases
 
@@ -693,6 +694,7 @@ def post_nmap(subdb):
     :form result: scan results (as XML or JSON files)
     :status 200: no error
     :status 400: invalid referer, source or username missing
+    :status 403: uploads disabled (``WEB_UPLOAD_OK`` is ``False``)
     :status 404: module is not exposed by this server
     :>json int count: number of inserted results
 
@@ -854,6 +856,7 @@ def _flow_record_from_payload(rec):
 
 @application.post("/flows")
 @check_referer
+@check_upload_ok
 def post_flow():
     """Ingest a bulk of flow records.
 
@@ -875,6 +878,7 @@ def post_flow():
 
     :status 200: no error
     :status 400: invalid referer or malformed body
+    :status 403: uploads disabled (``WEB_UPLOAD_OK`` is ``False``)
     :status 404: module is not exposed by this server
     :>json int count: number of records ingested
     """
@@ -912,6 +916,7 @@ def post_flow():
 
 @application.post("/flows/cleanup")
 @check_referer
+@check_upload_ok
 def post_flow_cleanup():
     """Run the backend's ``cleanup_flows`` heuristic.
 
@@ -924,6 +929,7 @@ def post_flow_cleanup():
 
     :status 200: cleanup completed
     :status 400: invalid referer
+    :status 403: uploads disabled (``WEB_UPLOAD_OK`` is ``False``)
     :status 404: module is not exposed by this server
     """
     require_module("flow")

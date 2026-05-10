@@ -92,3 +92,42 @@ def check_referer(func):
         return _die(referer)
 
     return _newfunc
+
+
+def check_upload_ok(func):
+    """Wrapper for write-side route functions that gates the
+    handler on the ``WEB_UPLOAD_OK`` knob.
+
+    Setting ``WEB_UPLOAD_OK = False`` (the default in
+    ``ivre/config.py``) makes the decorated handler return 403
+    *Forbidden* before the body is consumed.  ``WEB_UPLOAD_OK``
+    was historically only surfaced to the JS client through
+    ``/config`` so the AngularJS UI could hide its upload
+    widgets, leaving every ``POST`` route open to any
+    referrer-conformant client.  This decorator turns the flag
+    into a real server-side gate.
+
+    The flag is read on every call (rather than once at
+    decoration time) so an operator can flip the value in
+    ``ivre.conf`` without restarting the WSGI worker.
+    """
+
+    @wraps(func)
+    def _newfunc(*args, **kargs):
+        if not config.WEB_UPLOAD_OK:
+            utils.LOGGER.critical(
+                "Upload attempt while WEB_UPLOAD_OK is disabled",
+            )
+            response.set_header("Content-Type", "application/json")
+            response.status = "403 Forbidden"
+            return json.dumps(
+                {
+                    "error": (
+                        "Uploads are disabled. Set WEB_UPLOAD_OK = True in "
+                        "ivre.conf to enable write endpoints."
+                    ),
+                }
+            )
+        return func(*args, **kargs)
+
+    return _newfunc

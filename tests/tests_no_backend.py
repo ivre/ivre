@@ -9580,6 +9580,146 @@ class DnsMergeTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# WebUploadOkTests -- pin :func:`ivre.web.base.check_upload_ok`'s
+# server-side gate.  Without this guard ``WEB_UPLOAD_OK`` was only
+# a UI hint: the JS client hid its upload widgets while the
+# referer-conformant write routes (``POST /scans|view`` and the
+# new ``POST /flows`` family) accepted bodies regardless.  These
+# tests cover both the decorator's contract (mocked at the
+# function level) and the integration with every write route
+# (verified through the route table).
+# ---------------------------------------------------------------------
+
+
+class WebUploadOkTests(unittest.TestCase):
+    """Pin :func:`ivre.web.base.check_upload_ok`."""
+
+    def setUp(self):
+        from ivre import config
+
+        self._saved = config.WEB_UPLOAD_OK
+
+    def tearDown(self):
+        from ivre import config
+
+        config.WEB_UPLOAD_OK = self._saved
+
+    def test_disabled_returns_403_and_skips_handler(self):
+        # ``WEB_UPLOAD_OK = False`` is the default; the
+        # decorator must short-circuit the handler with a
+        # 403 *before* the request body is read.  A test
+        # double tracks whether the inner function was
+        # invoked so a regression that drops the
+        # short-circuit shows up here, not just on the
+        # status code.
+        from bottle import response
+
+        from ivre import config
+        from ivre.web.base import check_upload_ok
+
+        called = []
+
+        def handler():
+            called.append(True)
+            return {"count": 1}
+
+        config.WEB_UPLOAD_OK = False
+        wrapped = check_upload_ok(handler)
+        body = wrapped()
+        self.assertEqual(response.status, "403 Forbidden")
+        self.assertEqual(called, [])
+        # The error body is JSON so the HTTP client (browser
+        # or :class:`HttpDBFlow`) can surface a clear
+        # message rather than a generic 403 page.
+        self.assertIn("Uploads are disabled", body)
+
+    def test_enabled_calls_handler(self):
+        from ivre import config
+        from ivre.web.base import check_upload_ok
+
+        config.WEB_UPLOAD_OK = True
+        wrapped = check_upload_ok(lambda: {"count": 42})
+        self.assertEqual(wrapped(), {"count": 42})
+
+    def test_decorator_reads_config_lazily(self):
+        # Operators flip ``WEB_UPLOAD_OK`` in ``ivre.conf``
+        # without restarting the WSGI worker; the decorator
+        # therefore reads the value on every call rather
+        # than capturing it at decoration time.
+        from ivre import config
+        from ivre.web.base import check_upload_ok
+
+        wrapped = check_upload_ok(lambda: "OK")
+        config.WEB_UPLOAD_OK = False
+        self.assertNotEqual(wrapped(), "OK")
+        config.WEB_UPLOAD_OK = True
+        self.assertEqual(wrapped(), "OK")
+
+    def test_every_post_route_is_gated(self):
+        # The decorator is only useful if it sits on every
+        # write route -- a missing ``@check_upload_ok`` on
+        # one of them defeats the purpose.  Walk
+        # :attr:`Bottle.routes` for every POST and confirm
+        # the gate is on the call chain by flipping
+        # ``WEB_UPLOAD_OK`` and checking the response.
+        from bottle import response
+
+        from ivre import config
+        from ivre.web.app import application
+
+        config.WEB_UPLOAD_OK = False
+        # Auth routes (``/auth/...``) handle login / API-key
+        # management; they're outside the upload gate
+        # (``WEB_UPLOAD_OK`` specifically targets *data*
+        # ingestion).  Filter them out before the inventory
+        # check so the test stays stable in deployments
+        # where ``ivre.web.auth`` is loaded.
+        post_rules = [
+            r
+            for r in application.routes
+            if r.method == "POST" and not r.rule.startswith("/auth/")
+        ]
+        # Every data-ingestion POST route in the
+        # application must be gated.  Pin both the inventory
+        # (so a new write route added without the decorator
+        # is caught) and the gating itself.
+        expected_rules = {
+            "/<subdb:re:scans|view>",
+            "/flows",
+            "/flows/cleanup",
+        }
+        self.assertEqual({r.rule for r in post_rules}, expected_rules)
+        # Stub the request so ``check_referer`` (the outer
+        # decorator) lets the call through to
+        # ``check_upload_ok`` -- we want to verify the gate
+        # is on the chain, not re-test the CSRF helper.
+        # ``X-API-Key`` short-circuits the referer check.
+        from unittest.mock import patch
+
+        fake_headers = {"X-API-Key": "test"}
+        with patch("ivre.web.base.request") as fake_request:
+            fake_request.headers.get.side_effect = fake_headers.get
+            for route in post_rules:
+                response.status = 200
+                try:
+                    body = route.call()
+                except TypeError:
+                    # ``post_nmap(subdb)`` requires a
+                    # positional arg; call with a placeholder
+                    # so the decorator runs first.  If the
+                    # gate fires we never reach the handler
+                    # body, so the placeholder value is
+                    # irrelevant.
+                    body = route.call("scans")
+                self.assertEqual(
+                    response.status,
+                    "403 Forbidden",
+                    f"route {route.rule} did not honour WEB_UPLOAD_OK",
+                )
+                self.assertIn("Uploads are disabled", body)
+
+
+# ---------------------------------------------------------------------
 # WebModulesTests -- WEB_MODULES allowlist & per-module backend gating
 # ---------------------------------------------------------------------
 
