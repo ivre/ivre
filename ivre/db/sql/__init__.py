@@ -1151,18 +1151,256 @@ class SQLDBFlow(SQLDB, DBFlow):
             for row in conn.execute(stmt):
                 yield self._row2flow(row)
 
-    def count(self, flt):
-        raise NotImplementedError()
+    def _build_where(self, spec, src_alias, dst_alias):
+        """Return the SQLAlchemy ``WHERE`` expression for a
+        :class:`SQLFlowFilter` / pre-built SA expression /
+        ``None`` (match-all)."""
+        if spec is None:
+            return true()
+        if isinstance(spec, SQLFlowFilter):
+            return self._flt_from_query(spec.query, src_alias, dst_alias)
+        return spec
 
-    def flow_daily(self, query):
-        raise NotImplementedError()
+    def _flow_join(self, src_alias, dst_alias):
+        """Return the canonical
+        ``flow JOIN host AS src_h JOIN host AS dst_h`` join
+        expression.  Pulled out as a tiny helper because every
+        read-side method (``get`` / ``count`` /
+        ``flow_daily`` / ``topvalues``) needs the same join."""
+        return join(
+            self.tables.flow,
+            src_alias,
+            self.tables.flow.src == src_alias.id,
+        ).join(dst_alias, self.tables.flow.dst == dst_alias.id)
 
-    def top(self, query, fields, collect=None, sumfields=None):
-        """Returns an iterator of:
-        {fields: <fields>, count: <number of occurrence or sum of sumfields>,
-         collected: <collected fields>}.
+    @classmethod
+    def _topvalues_col(cls, field, src_alias, dst_alias):
+        """Resolve a ``topvalues`` field name to the
+        SQLAlchemy expression to GROUP BY / aggregate against.
+
+        Mirrors :meth:`MongoDBFlow.topvalues`'s
+        ``special_fields`` translation table: ``src.addr`` /
+        ``dst.addr`` route through the per-side host alias's
+        ``addr`` column; the rest go through
+        :meth:`_flow_col_for_attr` which already handles
+        direct columns and ``meta.<proto>[.<key>]`` JSONB
+        paths.
         """
-        raise NotImplementedError()
+        if field == "src.addr":
+            return src_alias.addr
+        if field == "dst.addr":
+            return dst_alias.addr
+        col = cls._flow_col_for_attr(field, src_alias, dst_alias)
+        if col is None:
+            raise ValueError(f"Unsupported flow topvalues field {field!r}")
+        return col
+
+    def count(self, flt):
+        """Return ``{"clients": N, "servers": M, "flows": K}``
+        for the matching flows -- mirrors
+        :meth:`MongoDBFlow.count` exactly.
+
+        ``clients`` / ``servers`` are computed as ``COUNT(DISTINCT
+        flow.src)`` / ``COUNT(DISTINCT flow.dst)`` rather than
+        Mongo's two-stage ``$group`` because PostgreSQL handles
+        ``DISTINCT`` aggregation natively (Mongo's pipeline
+        construction was a workaround for ``$count`` only being
+        available in 3.4+).
+        """
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        where = self._build_where(flt, src_alias, dst_alias)
+        stmt = (
+            select(
+                func.count().label("flows"),
+                func.count(self.tables.flow.src.distinct()).label("clients"),
+                func.count(self.tables.flow.dst.distinct()).label("servers"),
+            )
+            .select_from(self._flow_join(src_alias, dst_alias))
+            .where(where)
+        )
+        with self.db.connect() as conn:
+            row = conn.execute(stmt).one()
+        return {
+            "flows": int(row.flows or 0),
+            "clients": int(row.clients or 0),
+            "servers": int(row.servers or 0),
+        }
+
+    @staticmethod
+    def _flow_daily_buckets(rows, precision):
+        """Bucket ``(firstseen, proto, dport, type)`` rows by
+        time-of-day at ``precision`` granularity, accumulating
+        per-bucket ``proto/dport`` histograms.
+
+        Pulled out as a static helper so the bucketing logic
+        can be pin-tested without a live PostgreSQL
+        connection.  Yields the same ``{"flows": [(name,
+        count), ...], "time_in_day": datetime.time}`` dicts
+        :meth:`MongoDBFlow.flow_daily` produces, sorted by
+        time-of-day ascending.
+        """
+        buckets: dict[tuple[int, int, int], dict[str, int]] = {}
+        for row in rows:
+            ts = row.firstseen
+            if ts is None:
+                continue
+            second = ts.second
+            if precision and precision > 0:
+                second = (second // precision) * precision
+            key = (ts.hour, ts.minute, second)
+            if row.proto in ("tcp", "udp") and row.dport is not None:
+                name = f"{row.proto}/{int(row.dport)}"
+            elif row.type is not None:
+                name = f"{row.proto}/{int(row.type)}"
+            else:
+                name = row.proto or ""
+            bucket = buckets.setdefault(key, {})
+            bucket[name] = bucket.get(name, 0) + 1
+        for hour, minute, second in sorted(buckets):
+            yield {
+                "flows": list(buckets[(hour, minute, second)].items()),
+                "time_in_day": datetime.time(hour=hour, minute=minute, second=second),
+            }
+
+    def flow_daily(self, precision, flt, after=None, before=None):
+        """Yield per-time-bucket flow counts for the
+        ``flow daily`` UI / CLI plot.
+
+        Mirrors :meth:`MongoDBFlow.flow_daily`'s output shape:
+        each yielded dict carries ``{"flows": [("proto/dport",
+        count), ...], "time_in_day": datetime.time}``.
+
+        SQL diverges from the Mongo bucketing source -- Mongo
+        unwinds the per-flow ``times`` array (each timeslot is
+        recorded separately on the flow document); the SQL
+        schema has no ``times`` column (it is documented as
+        MongoDB-only in :mod:`ivre.flow`) so we bucket on
+        ``firstseen`` instead.  Each flow contributes once per
+        day (its first-observed timestamp), which under-counts
+        relative to Mongo for long-lived flows but is the most
+        faithful translation the schema supports.
+
+        ``after`` / ``before`` filter on ``firstseen`` (Mongo
+        applies them to ``times.start``); ``precision``
+        bucketing is implemented client-side so the same value
+        the Mongo backend honors works on SQL.
+        """
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        where = self._build_where(flt, src_alias, dst_alias)
+        if after is not None:
+            where = and_(where, self.tables.flow.firstseen >= after)
+        if before is not None:
+            where = and_(where, self.tables.flow.firstseen < before)
+        stmt = (
+            select(
+                self.tables.flow.firstseen,
+                self.tables.flow.proto,
+                self.tables.flow.dport,
+                self.tables.flow.type,
+            )
+            .select_from(self._flow_join(src_alias, dst_alias))
+            .where(where)
+        )
+        with self.db.connect() as conn:
+            yield from self._flow_daily_buckets(conn.execute(stmt), precision)
+
+    def topvalues(
+        self,
+        flt,
+        fields,
+        collect_fields=None,
+        sum_fields=None,
+        limit=None,
+        skip=None,
+        least=False,
+        topnbr=10,
+    ):
+        """Group flows by ``fields`` and yield ``{fields,
+        count, collected}`` dicts -- the contract documented
+        at :meth:`DBFlow.topvalues`.
+
+        ``count`` is ``COUNT(*)`` per group, or ``SUM(<expr>)``
+        when ``sum_fields`` is set (the per-row addition mirrors
+        :meth:`MongoDBFlow.topvalues`'s ``$add`` projection).
+
+        ``collect_fields`` are aggregated per group via
+        ``array_agg(<col>)`` (no SQL-side ``DISTINCT``: each
+        per-collect-field array stays aligned with the others
+        so the per-row tuple can be reconstructed in Python
+        before the final ``set`` deduplication).  Skipping
+        SQL-side ``DISTINCT`` on each column independently is
+        necessary because ``array_agg(DISTINCT col1)`` and
+        ``array_agg(DISTINCT col2)`` would produce arrays of
+        different lengths / orderings that cannot be zipped.
+
+        Limitations vs the Mongo backend (deferred to follow-up
+        sub-PRs):
+
+        * The ``sport`` shortcut (which Mongo unwinds via its
+          ``sports`` array) is not yet supported on SQL.
+        * Direct grouping on ``meta.<proto>[.<key>]`` JSONB
+          paths is not yet supported -- only as ``collect_fields``.
+        """
+        del limit, skip  # legacy aliases; ``topnbr`` is the cap.
+        collect_fields = list(collect_fields) if collect_fields else []
+        sum_fields = list(sum_fields) if sum_fields else []
+        if not fields:
+            raise ValueError("topvalues requires at least one field")
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        where = self._build_where(flt, src_alias, dst_alias)
+        group_cols = [self._topvalues_col(f, src_alias, dst_alias) for f in fields]
+        if sum_fields:
+            sum_cols = [
+                self._topvalues_col(f, src_alias, dst_alias) for f in sum_fields
+            ]
+            count_expr = func.sum(sum(sum_cols[1:], sum_cols[0])).label("_count")
+        else:
+            count_expr = func.count().label("_count")
+        collect_exprs = [
+            func.array_agg(self._topvalues_col(f, src_alias, dst_alias)).label(
+                f"_collect_{i}"
+            )
+            for i, f in enumerate(collect_fields)
+        ]
+        stmt = (
+            select(*group_cols, count_expr, *collect_exprs)
+            .select_from(self._flow_join(src_alias, dst_alias))
+            .where(where)
+            .group_by(*group_cols)
+            .order_by(count_expr.asc() if least else count_expr.desc())
+        )
+        if topnbr is not None:
+            stmt = stmt.limit(topnbr)
+        n_fields = len(fields)
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                field_vals = tuple(row[:n_fields])
+                count_val = int(row[n_fields] or 0)
+                if collect_fields:
+                    arrays = [
+                        row[n_fields + 1 + i] or [] for i in range(len(collect_fields))
+                    ]
+                    # Zip per-row across the per-collect-field
+                    # arrays so each element of the resulting
+                    # ``set`` carries one matched tuple of
+                    # ``collect_fields`` values.
+                    collected = set(zip(*arrays))
+                else:
+                    collected = set()
+                yield {
+                    "fields": field_vals,
+                    "count": count_val,
+                    "collected": collected,
+                }
+
+    def top(self, flt, fields, collect=None, sumfields=None):
+        """Alias of :meth:`topvalues` accepting the legacy
+        ``collect`` / ``sumfields`` parameter names from the
+        original abstract :class:`DBFlow.top` shape."""
+        return self.topvalues(flt, fields, collect_fields=collect, sum_fields=sumfields)
 
     def cleanup_flows(self):
         raise NotImplementedError()

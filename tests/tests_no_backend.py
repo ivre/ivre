@@ -6903,6 +6903,381 @@ class SQLDBFlowFromFiltersTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBFlowAggregationsTests -- pin the wire shape of the
+# read-side aggregation helpers (``count`` / ``flow_daily`` /
+# ``topvalues`` / ``top``) on :class:`SQLDBFlow`.  These power
+# the ``flowcli --count`` / ``--top`` / ``--flow-daily`` paths
+# and the ``/cgi/flows/count`` web route; without them, every
+# such call raised ``NotImplementedError``.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_FLOW_FILTERS,
+    "SQLAlchemy is required for SQLDBFlowAggregationsTests",
+)
+class SQLDBFlowAggregationsTests(unittest.TestCase):
+    """Behaviour-pin for ``count`` / ``flow_daily`` /
+    ``topvalues`` / ``top`` on :class:`SQLDBFlow`.
+
+    Mirrors :meth:`MongoDBFlow.count` / ``flow_daily`` /
+    ``topvalues`` -- the contract is identical (same return
+    shape so :mod:`ivre.tools.flowcli` and
+    :mod:`ivre.web.app` consume both backends interchangeably);
+    SQL diverges on the bucketing source for ``flow_daily``
+    only -- the per-flow ``times`` array is documented as
+    MongoDB-only in :mod:`ivre.flow`, so the SQL path buckets
+    on ``firstseen`` instead.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        return str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    # -- count() ------------------------------------------------------
+
+    def test_count_signature_returns_dict(self):
+        # ``count`` must accept a :class:`SQLFlowFilter` -- the
+        # type :meth:`SQLDBFlow.from_filters` returns -- and
+        # produce the canonical ``{clients, servers, flows}``
+        # dict :func:`ivre.tools.flowcli` and
+        # :class:`MongoDBFlow.count` agree on.  Without a live
+        # PostgreSQL we mock the connection to assert the
+        # SELECT shape and the return-dict construction in one
+        # pass.
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                row = MagicMock()
+                row.flows = 5
+                row.clients = 3
+                row.servers = 4
+                result = MagicMock()
+                result.one.return_value = row
+                return result
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+
+        flt = _SQLDBFlow_for_filters_test.from_filters({"edges": ["proto = tcp"]})
+        result = db.count(flt)
+        self.assertEqual(result, {"flows": 5, "clients": 3, "servers": 4})
+
+        # The captured SELECT must group COUNT(*) for flows and
+        # COUNT(DISTINCT) for clients / servers, with the
+        # canonical ``flow JOIN host AS src JOIN host AS dst``
+        # join shape and the WHERE clause from the filter.
+        self.assertEqual(len(captured), 1)
+        sql = self._compile_pg(captured[0])
+        self.assertIn("count(*)", sql)
+        self.assertIn("count(DISTINCT flow.src)", sql)
+        self.assertIn("count(DISTINCT flow.dst)", sql)
+        self.assertIn("flow.proto = 'tcp'", sql)
+        self.assertIn("JOIN host", sql)
+
+    def test_count_none_spec_treated_as_match_all(self):
+        # ``count(None)`` should not raise -- the
+        # ``DBFlow.from_filters`` chain returns ``None``-able
+        # values from time to time, and the count result for an
+        # empty filter is well-defined.
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                row = MagicMock()
+                row.flows = 0
+                row.clients = 0
+                row.servers = 0
+                result = MagicMock()
+                result.one.return_value = row
+                return result
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        result = db.count(None)
+        self.assertEqual(result, {"flows": 0, "clients": 0, "servers": 0})
+        self.assertIn("WHERE true", self._compile_pg(captured[0]))
+
+    # -- topvalues() / top() -------------------------------------------
+
+    def test_topvalues_unsupported_field_raises(self):
+        # ``sport`` would need a ``sports`` array unwind we
+        # have not implemented yet; surface that explicitly so
+        # the CLI does not silently return an empty result.
+        from unittest.mock import MagicMock
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        with self.assertRaises(ValueError):
+            list(db.topvalues(flt, ["sport"]))
+
+    def test_topvalues_empty_fields_raises(self):
+        from unittest.mock import MagicMock
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        with self.assertRaises(ValueError):
+            list(db.topvalues(flt, []))
+
+    def test_topvalues_select_shape(self):
+        # Capture the SQL the topvalues GROUP BY emits and
+        # pin the column / alias / ORDER BY layout.  This is
+        # the wire contract :meth:`MongoDBFlow.topvalues`
+        # produces (counts descending by default; LIMIT
+        # ``topnbr``); a future refactor that reorders or
+        # renames the columns surfaces here instead of as a
+        # silent CLI regression.
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return iter([])
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        list(db.topvalues(flt, ["proto", "dport"], topnbr=5))
+        sql = self._compile_pg(captured[0])
+        self.assertIn("GROUP BY flow.proto, flow.dport", sql)
+        self.assertIn("count(*) AS _count", sql)
+        # SQLAlchemy references the labeled column by its
+        # alias in ORDER BY rather than re-emitting the
+        # ``count(*)`` expression.
+        self.assertIn("ORDER BY _count DESC", sql)
+        self.assertIn("LIMIT 5", sql)
+
+    def test_topvalues_collect_uses_array_agg(self):
+        # ``collect_fields`` translate to ``array_agg`` (no
+        # SQL-side ``DISTINCT`` -- the per-row arrays must
+        # stay aligned across collect fields so the
+        # ``zip(*arrays)`` step in the result decoder produces
+        # well-formed tuples; SQL-side ``DISTINCT`` per
+        # column would produce mis-aligned arrays).
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return iter([])
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        list(
+            db.topvalues(
+                flt,
+                ["proto"],
+                collect_fields=["src.addr", "dst.addr"],
+            )
+        )
+        sql = self._compile_pg(captured[0])
+        self.assertIn("array_agg(", sql)
+        self.assertNotIn("array_agg(DISTINCT", sql)
+        self.assertIn("AS _collect_0", sql)
+        self.assertIn("AS _collect_1", sql)
+
+    def test_topvalues_least_orders_ascending(self):
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return iter([])
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        list(db.topvalues(flt, ["proto"], least=True))
+        sql = self._compile_pg(captured[0])
+        self.assertIn("ORDER BY _count ASC", sql)
+
+    def test_topvalues_sum_fields_uses_sum(self):
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return iter([])
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        list(db.topvalues(flt, ["proto"], sum_fields=["scbytes", "csbytes"]))
+        sql = self._compile_pg(captured[0])
+        # SQLAlchemy renders ``a + b`` for the per-row sum
+        # expression; the outer ``sum(...)`` aggregates that
+        # across the group.  Mirrors Mongo's ``$add`` ->
+        # ``$sum`` projection chain.
+        self.assertIn("sum(", sql)
+        self.assertIn("scbytes", sql)
+        self.assertIn("csbytes", sql)
+
+    def test_top_is_alias_of_topvalues(self):
+        # ``DBFlow.top`` was an abstract method on the base
+        # class; the SQL backend ships ``top`` as a thin
+        # parameter-renaming alias of ``topvalues`` so callers
+        # of either name keep working unchanged.
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return iter([])
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        flt = _SQLDBFlow_for_filters_test.from_filters({})
+        list(db.top(flt, ["proto"], collect=["src.addr"], sumfields=["count"]))
+        sql = self._compile_pg(captured[0])
+        self.assertIn("array_agg(", sql)
+        self.assertIn("sum(flow.count)", sql)
+
+    # -- flow_daily() bucketing ---------------------------------------
+
+    def test_flow_daily_buckets_by_precision(self):
+        # The bucketing helper is independent of the DB
+        # connection: feed it a hand-crafted iterable and
+        # inspect the per-bucket histogram.  Here ``precision=10``
+        # collapses seconds 0..9 into bucket 0; seconds 10..19
+        # into bucket 10; the proto/dport histogram aggregates
+        # within each bucket.
+        import datetime as _datetime
+
+        class _Row:
+            def __init__(self, ts, proto, dport=None, type=None):
+                self.firstseen = ts
+                self.proto = proto
+                self.dport = dport
+                self.type = type
+
+        rows = [
+            _Row(_datetime.datetime(2024, 1, 1, 10, 30, 3), "tcp", dport=443),
+            _Row(_datetime.datetime(2024, 1, 1, 10, 30, 7), "tcp", dport=443),
+            _Row(_datetime.datetime(2024, 1, 1, 10, 30, 12), "tcp", dport=443),
+            _Row(_datetime.datetime(2024, 1, 1, 10, 30, 15), "udp", dport=53),
+        ]
+        out = list(_SQLDBFlow_for_filters_test._flow_daily_buckets(rows, precision=10))
+        self.assertEqual(len(out), 2)
+        # First bucket: 10:30:00 (seconds 3 and 7 collapse to 0).
+        self.assertEqual(out[0]["time_in_day"], _datetime.time(10, 30, 0))
+        self.assertEqual(out[0]["flows"], [("tcp/443", 2)])
+        # Second bucket: 10:30:10 (seconds 12 and 15 collapse to 10).
+        self.assertEqual(out[1]["time_in_day"], _datetime.time(10, 30, 10))
+        self.assertEqual(sorted(out[1]["flows"]), [("tcp/443", 1), ("udp/53", 1)])
+
+    def test_flow_daily_handles_icmp_via_type(self):
+        # ICMP flows have no ``dport``; the entry name uses
+        # ``proto/type`` instead.  Mirrors Mongo's
+        # ``$cond``-driven entry-name construction at
+        # :meth:`MongoDBFlow.flow_daily`.
+        import datetime as _datetime
+
+        class _Row:
+            def __init__(self, ts, proto, dport, type):
+                self.firstseen = ts
+                self.proto = proto
+                self.dport = dport
+                self.type = type
+
+        rows = [
+            _Row(_datetime.datetime(2024, 1, 1, 0, 0, 0), "icmp", None, 8),
+        ]
+        out = list(_SQLDBFlow_for_filters_test._flow_daily_buckets(rows, precision=60))
+        self.assertEqual(out[0]["flows"], [("icmp/8", 1)])
+
+    def test_flow_daily_skips_null_firstseen(self):
+        # ``firstseen`` can in theory be ``NULL`` (the column is
+        # nullable on the schema); skip those rows rather than
+        # crashing the iterator.
+        class _Row:
+            firstseen = None
+            proto = "tcp"
+            dport = 80
+            type = None
+
+        out = list(
+            _SQLDBFlow_for_filters_test._flow_daily_buckets([_Row()], precision=60)
+        )
+        self.assertEqual(out, [])
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
