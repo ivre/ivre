@@ -62,7 +62,7 @@ from ivre import config
 from ivre import flow as ivre_flow
 from ivre import utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
-from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
+from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBRir, DBView
 from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
     Flow,
@@ -79,6 +79,7 @@ from ivre.db.sql.tables import (
     N_Trace,
     Passive,
     Point,
+    Rir,
     V_Association_Scan_Category,
     V_Association_Scan_Hostname,
     V_Category,
@@ -5819,3 +5820,493 @@ class SQLDBPassive(SQLDB, DBPassive):
         field = cls.tables.passive.firstseen if new else cls.tables.passive.lastseen
         timestamp = utils.all2datetime(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else field > timestamp))
+
+
+# ---------------------------------------------------------------------
+# SQLDBRir -- shared base for the SQL backends' RIR (Regional
+# Internet Registry whois) data category.  The schema (declared in
+# :class:`~ivre.db.sql.tables.Rir`) mirrors :class:`MongoDBRir`'s
+# wire shape: each row is one ``inetnum`` / ``inet6num`` /
+# ``aut-num`` whois block, with the IP range stored as native
+# ``INET`` columns instead of Mongo's ``(start_0, start_1)`` /
+# ``(stop_0, stop_1)`` int128 split (PostgreSQL handles range
+# comparisons on ``INET`` natively).
+#
+# The text columns (``netname`` / ``descr`` / ``remarks`` /
+# ``notify`` / ``org`` / ``as_name``) are surfaced as filterable
+# columns; everything else lands in the ``extra`` JSONB bag for
+# forward compatibility with new RIR attributes.
+# ---------------------------------------------------------------------
+
+
+# Keys the RIR parser :meth:`DBRir.gen_records` emits that map to
+# typed columns.  Anything outside this set lands in
+# :attr:`Rir.extra` (JSONB) so a new RIR field doesn't need a
+# schema migration.  The leading-key set must match
+# :data:`MongoDBRir.text_fields` plus the structural fields
+# :meth:`DBRir.import_files` synthesises (``start`` / ``stop`` /
+# ``aut-num`` / ``source_file`` / ``source_hash``).
+_RIR_TYPED_COLUMNS: dict[str, str] = {
+    "start": "start",
+    "stop": "stop",
+    "aut-num": "aut_num",
+    "as-name": "as_name",
+    "netname": "netname",
+    "descr": "descr",
+    "remarks": "remarks",
+    "notify": "notify",
+    "org": "org",
+    "country": "country",
+    "lang": "lang",
+    "source": "source",
+    "source_file": "source_file",
+    "source_hash": "source_hash",
+}
+
+# Reverse mapping for :meth:`SQLDBRir._row2rec`.
+_RIR_TYPED_COLUMNS_INVERSE: dict[str, str] = {
+    v: k for k, v in _RIR_TYPED_COLUMNS.items()
+}
+
+
+class SQLDBRir(SQLDB, DBRir):
+    """SQL-backend base for the RIR data category.
+
+    Concrete dialects subclass this together with the dialect's
+    ``SQLDB`` flavour (e.g. :class:`PostgresDB`) -- see
+    :class:`~ivre.db.sql.postgres.PostgresDBRir`.
+    """
+
+    table_layout = namedtuple("rir_layout", ["rir"])
+    tables = table_layout(Rir)
+
+    # Bound to :data:`MongoDBRir.schema_latest_versions` so a
+    # mixed PG / Mongo deployment shares the same migration
+    # generation marker.  Bumped via
+    # ``_migrate_schema_NN_MM`` on PG when the wire shape changes
+    # (the SQL backend has no records pre-dating this PR, so no
+    # historical migration is required at this point).
+    SCHEMA_VERSION = 2
+
+    @classmethod
+    def searchhost(cls, addr, neg=False):
+        """Filter rows whose IP range covers ``addr``.
+
+        Uses native ``INET`` ordering (``start <= addr <= stop``);
+        the ``rir_idx_range`` B-tree accelerates the lookup on
+        same-family ranges.  ``neg=True`` is rejected to mirror
+        :meth:`MongoDBRir.searchhost`.
+
+        ``addr`` is bound as a plain string; the
+        :class:`~ivre.db.sql.tables.INETLiteral` column type's
+        ``bind_expression`` wraps the value in ``CAST(? AS
+        INET)`` so PostgreSQL coerces the literal at execution
+        time -- no explicit cast needed at the call site.
+        """
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        return and_(cls.tables.rir.start <= addr, cls.tables.rir.stop >= addr)
+
+    @classmethod
+    def searchnet(cls, net, neg=False):
+        """Filter rows whose ``(start, stop)`` range overlaps
+        with ``net``.
+
+        Mirrors :meth:`MongoDBRir.searchnet`: any kind of
+        overlap matches (record fully contains ``net``, record
+        fully contained in ``net``, partial overlap on either
+        side).  ``neg=True`` is unsupported (mirrors
+        :meth:`searchhost`).
+        """
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        net_start, net_stop = utils.net2range(net)
+        return cls._searchrange_overlap(net_start, net_stop)
+
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
+        """Filter rows whose ``(start, stop)`` range overlaps
+        with the ``[start, stop]`` window.
+
+        Same overlap semantics as :meth:`searchnet`.  ``neg=True``
+        is unsupported.
+        """
+        if neg:
+            raise ValueError("neg == True is not supported for this purpose")
+        return cls._searchrange_overlap(start, stop)
+
+    @classmethod
+    def _searchrange_overlap(cls, win_start, win_stop):
+        """Return the SA expression for ``record.start <=
+        win_stop AND record.stop >= win_start``.
+
+        Mirrors :meth:`MongoDBRir._searchrange_overlap` byte-for-
+        byte; the single B-tree :data:`rir_idx_range` covers both
+        comparisons.  ``win_start`` / ``win_stop`` are bound as
+        plain strings; the column's ``INETLiteral`` bind
+        expression wraps each value in ``CAST(? AS INET)`` so
+        PostgreSQL handles the cast at execution time.
+        """
+        return and_(
+            cls.tables.rir.start <= win_stop,
+            cls.tables.rir.stop >= win_start,
+        )
+
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
+        """Filter ``aut-num`` records by integer AS number.
+
+        Accepts an int, a string (``"AS1234"`` / ``"1234"``), or
+        a list of either (mirrors
+        :meth:`MongoDBRir.searchasnum`'s shape).  Strings are
+        coerced to int via :func:`_coerce_asnum_sql`.
+        """
+        return cls._search_field(
+            cls.tables.rir.aut_num,
+            asnum,
+            neg=neg,
+            map_=_coerce_asnum_sql,
+        )
+
+    @classmethod
+    def searchasname(cls, name, neg=False):
+        """Filter ``aut-num`` records by their ``as-name`` text
+        field.  Accepts a string, a list, or a regex.
+        """
+        return cls._search_field(cls.tables.rir.as_name, name, neg=neg)
+
+    @classmethod
+    def searchcountry(cls, country, neg=False):
+        """Filter rows by two-letter country code(s)."""
+        return cls._search_field(
+            cls.tables.rir.country,
+            utils.country_unalias(country),
+            neg=neg,
+        )
+
+    @classmethod
+    def searchsourcefile(cls, src, neg=False):
+        """Filter rows by the basename of the imported RIR
+        database file (``ripe.db.inetnum.gz`` etc.).
+        """
+        return cls._search_field(cls.tables.rir.source_file, src, neg=neg)
+
+    @classmethod
+    def searchfileid(cls, fileid, neg=False):
+        """Filter rows by the SHA-256 hex digest of the imported
+        RIR database file.
+        """
+        return cls._search_field(cls.tables.rir.source_hash, fileid, neg=neg)
+
+    @staticmethod
+    def flt_and(*args):
+        """Combine filter expressions via SQL ``AND``.
+
+        ``None`` arguments are dropped so callers can chain
+        optional filters (``flt_and(searchhost(addr), spec)``
+        with ``spec`` possibly ``None`` is the common shape).
+        """
+        clauses = [a for a in args if a is not None]
+        if not clauses:
+            return None
+        if len(clauses) == 1:
+            return clauses[0]
+        return and_(*clauses)
+
+    @staticmethod
+    def flt_or(*args):
+        """Combine filter expressions via SQL ``OR``."""
+        clauses = [a for a in args if a is not None]
+        if not clauses:
+            return None
+        if len(clauses) == 1:
+            return clauses[0]
+        return or_(*clauses)
+
+    flt_empty = None
+
+    def remove_many(self, flt):
+        """Delete every row matching ``flt``.
+
+        Mirrors :meth:`MongoDBRir.remove_many` -- used by the
+        idempotent re-import path
+        (:meth:`DBRir.import_files`) to drop the prior
+        generation of records sourced from the same file.
+        """
+        with self.db.begin() as conn:
+            conn.execute(
+                delete(self.tables.rir).where(flt if flt is not None else true())
+            )
+
+    @classmethod
+    def _row2rec(cls, row):
+        """Project a :class:`Rir` row into the dict shape the
+        Mongo path returns (so ``rirlookup`` /
+        :meth:`DBRir.import_files` consumers see one shape on
+        either backend).
+
+        ``aut_num`` / ``as_name`` are renamed back to the
+        whois-native ``aut-num`` / ``as-name`` keys; values from
+        the ``extra`` JSONB bag are flattened into the top-level
+        dict.  ``size`` round-trips as :class:`Decimal` (matches
+        Mongo's ``Decimal128`` shape after the JSON decode).
+        """
+        rec = {}
+        for col_name, key in _RIR_TYPED_COLUMNS_INVERSE.items():
+            value = getattr(row, col_name)
+            if value is not None:
+                rec[key] = value
+        if row.size is not None:
+            rec["size"] = row.size
+        if row.schema_version is not None:
+            rec["schema_version"] = row.schema_version
+        if row.extra:
+            for key, value in row.extra.items():
+                rec.setdefault(key, value)
+        rec["_id"] = row.id
+        return rec
+
+    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+        """Iterate rows matching ``spec`` (a SA expression
+        returned by one of the ``searchXXX`` helpers, or
+        ``None`` for the match-all case).
+
+        Mirrors :meth:`MongoDBRir.get`'s contract: each yielded
+        record is a dict with the same key shape Mongo
+        produces.  ``fields`` is accepted for API compatibility
+        with the abstract :meth:`DB.get` signature but ignored
+        here -- the projection is cheap (one row, one table)
+        and the ``rirlookup`` consumer expects every column
+        anyway.
+        """
+        del fields  # unused; signature parity with DB.get
+        stmt = select(self.tables.rir)
+        if spec is not None:
+            stmt = stmt.where(spec)
+        for col in self._sort_to_sa(sort):
+            stmt = stmt.order_by(col)
+        if skip is not None:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                yield self._row2rec(row[0])
+
+    def _sort_to_sa(self, sort):
+        """Translate a Mongo-shaped ``sort=[(field, dir), ...]``
+        list into SA ``order_by`` columns.
+
+        ``dir`` is ``-1`` for descending, anything else for
+        ascending (matches PyMongo).  Unknown field names raise
+        ``ValueError`` so a caller drift surfaces here, not on
+        the live DB lane.
+        """
+        if not sort:
+            return []
+        out = []
+        for field, direction in sort:
+            col_name = _RIR_TYPED_COLUMNS.get(field, field)
+            try:
+                col = getattr(self.tables.rir, col_name)
+            except AttributeError as exc:
+                raise ValueError(f"Unknown rir sort field {field!r}") from exc
+            out.append(desc(col) if direction == -1 else col)
+        return out
+
+    def count(self, flt):
+        """Return the row count matching ``flt``."""
+        stmt = select(func.count()).select_from(self.tables.rir)
+        if flt is not None:
+            stmt = stmt.where(flt)
+        with self.db.connect() as conn:
+            return conn.execute(stmt).scalar() or 0
+
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
+        """Yield distinct values of ``field`` matching ``flt``.
+
+        ``field`` accepts either a typed column name
+        (``country``, ``netname``, ``aut-num``, ...) or a JSONB
+        path into ``extra`` (the shape ``MongoDBRir.distinct``
+        accepts).  Typed columns map to the SQL column directly;
+        JSONB paths use the ``->>`` operator.
+        """
+        col = self._field_to_sa(field)
+        stmt = select(col).distinct()
+        if flt is not None:
+            stmt = stmt.where(flt)
+        if sort:
+            for s_field, direction in sort:
+                s_col = self._field_to_sa(s_field)
+                stmt = stmt.order_by(desc(s_col) if direction == -1 else s_col)
+        if skip is not None:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                yield row[0]
+
+    def _field_to_sa(self, field):
+        """Translate a Mongo-style field path into a SA column /
+        JSONB accessor.
+
+        Typed columns (the keys of :data:`_RIR_TYPED_COLUMNS`,
+        plus ``size`` / ``schema_version``) map to the column
+        directly.  Anything else is treated as a JSONB path into
+        :attr:`Rir.extra` via the ``->>`` operator (textual
+        projection).
+        """
+        if field in _RIR_TYPED_COLUMNS:
+            return getattr(self.tables.rir, _RIR_TYPED_COLUMNS[field])
+        if field in {"size", "schema_version", "id"}:
+            return getattr(self.tables.rir, field)
+        return self.tables.rir.extra.op("->>")(field)
+
+    def topvalues(
+        self,
+        field,
+        flt=None,
+        topnbr=10,
+        sort=None,
+        limit=None,
+        skip=None,
+        least=False,
+    ):
+        """Yield ``(value, count)`` pairs of the most common
+        values of ``field`` matching ``flt``.
+
+        Mirrors :meth:`MongoDBRir.topvalues` -- ``least=True``
+        flips the order to least-common-first, ``topnbr`` caps
+        the number of buckets, ``flt`` narrows the population.
+        """
+        del sort, limit, skip  # absorbed into the aggregation below
+        col = self._field_to_sa(field)
+        cnt = func.count().label("count")
+        stmt = select(col.label("value"), cnt)
+        if flt is not None:
+            stmt = stmt.where(flt)
+        stmt = stmt.group_by(col)
+        stmt = stmt.order_by(cnt.asc() if least else cnt.desc())
+        if topnbr:
+            stmt = stmt.limit(int(topnbr))
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                yield {"_id": row.value, "count": row.count}
+
+    # -- Ingestion path ----------------------------------------------
+    #
+    # The shared :meth:`DBRir.import_files` parser drives one
+    # ``insert_bulk(bulk, rec)`` call per parsed whois block; the
+    # SQL backend accumulates bound rows in the bulk and flushes
+    # via ``executemany`` either when the batch fills up or at
+    # ``stop_bulk`` time.  Mirrors
+    # :meth:`MongoDBRir.start_bulk` / ``insert_bulk`` /
+    # ``stop_bulk``.
+
+    @staticmethod
+    def start_bulk():
+        """Allocate a fresh in-memory bulk-insert buffer."""
+        return []
+
+    def insert_bulk(self, bulk, rec):
+        """Append a parsed whois record to the bulk buffer.
+
+        Flushes the bulk to the database (and resets it to an
+        empty list) once it reaches
+        :data:`config.POSTGRES_BATCH_SIZE`, matching the
+        chunk-flush rhythm :meth:`MongoDBRir.insert_bulk` uses
+        for ``MONGODB_BATCH_SIZE``.
+        """
+        bulk.append(self._record_to_row(rec))
+        if len(bulk) >= config.POSTGRES_BATCH_SIZE:
+            self._flush_bulk(bulk)
+            return []
+        return bulk
+
+    def stop_bulk(self, bulk):
+        """Flush any remaining buffered rows."""
+        if bulk:
+            self._flush_bulk(bulk)
+
+    def _flush_bulk(self, bulk):
+        """Issue an ``executemany`` ``INSERT`` for ``bulk``.
+
+        SQLAlchemy's :func:`insert` plus a list-of-dicts
+        executemany is enough on the SQL side -- RIR rows are
+        bulk-only loaded (no per-record updates), so no ON
+        CONFLICT path is needed.
+        """
+        if not bulk:
+            return
+        utils.LOGGER.debug("DB:SQL bulk RIR insert: %d", len(bulk))
+        with self.db.begin() as conn:
+            conn.execute(insert(self.tables.rir), bulk)
+
+    @classmethod
+    def _record_to_row(cls, rec):
+        """Translate a parsed whois record dict (the shape
+        :meth:`DBRir.import_files` passes to ``insert_bulk``)
+        into a SQL row dict for :class:`Rir`.
+
+        The typed columns (:data:`_RIR_TYPED_COLUMNS`) are
+        projected directly; ``size`` is computed for
+        inet[6]num records via :func:`_compute_rir_size_sql`
+        (mirrors :meth:`MongoDBRir._compute_rir_size`); every
+        other key lands in :attr:`Rir.extra` for forward
+        compatibility.
+        """
+        row = {col_name: None for col_name in _RIR_TYPED_COLUMNS_INVERSE}
+        extra = {}
+        for key, value in rec.items():
+            col_name = _RIR_TYPED_COLUMNS.get(key)
+            if col_name is None:
+                extra[key] = value
+                continue
+            row[col_name] = value
+        # ``aut-num`` records carry the integer in ``aut_num``
+        # already (the parser coerces it via ``int(...)`` in
+        # :meth:`DBRir.import_files`).  Pin the type so
+        # SQLAlchemy doesn't bind it as a string.
+        if row["aut_num"] is not None and not isinstance(row["aut_num"], int):
+            row["aut_num"] = int(row["aut_num"])
+        row["size"] = _compute_rir_size_sql(row.get("start"), row.get("stop"))
+        row["extra"] = extra or None
+        row["schema_version"] = cls.SCHEMA_VERSION
+        return row
+
+
+def _coerce_asnum_sql(asnum):
+    """Coerce an AS-number argument to ``int``.
+
+    Mirrors :func:`ivre.db.mongo._coerce_asnum`'s scalar shape
+    (the SA-side ``_search_field`` already handles regex / list
+    dispatch around it).  Strings starting with ``"AS"`` /
+    ``"as"`` strip the prefix; bare strings parse as ``int``.
+    """
+    if isinstance(asnum, int):
+        return asnum
+    s = str(asnum).strip()
+    if s[:2].upper() == "AS":
+        s = s[2:]
+    return int(s)
+
+
+def _compute_rir_size_sql(start, stop):
+    """Return the inclusive address-count of a ``(start, stop)``
+    IP range as a Python ``int`` (cast to ``Decimal`` by the SA
+    layer thanks to the ``Numeric(40, 0)`` column type).
+
+    Mirrors :meth:`MongoDBRir._compute_rir_size` -- the value is
+    pinned at insert time so the web ``/rir`` route can sort
+    narrowest-first without an aggregation pipeline.  Returns
+    ``None`` for ``aut-num`` records (no range).
+    """
+    if start is None or stop is None:
+        return None
+    try:
+        start_int = int(utils.ip2int(start))
+        stop_int = int(utils.ip2int(stop))
+    except (ValueError, OSError):
+        return None
+    return stop_int - start_int + 1

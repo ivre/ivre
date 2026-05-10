@@ -29,6 +29,7 @@ from sqlalchemy import (
     Index,
     Integer,
     LargeBinary,
+    Numeric,
     Sequence,
     String,
     Text,
@@ -772,3 +773,137 @@ class Passive(Base):
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
     schema_version = Column(Integer, default=passive.SCHEMA_VERSION)
+
+
+# RIR (Regional Internet Registry whois data)
+#
+# Schema mirrors :class:`MongoDBRir` (``ivre/db/mongo.py:5796``);
+# every record is one ``inetnum`` / ``inet6num`` / ``aut-num``
+# block from a downloaded RIR database file (RIPE / ARIN / APNIC
+# / AFRINIC / LACNIC).  Mongo decomposes the IP range into a
+# ``(start_0, start_1)`` / ``(stop_0, stop_1)`` pair of int128
+# halves; the SQL backend uses native ``INET`` columns instead so
+# range queries can use the dialect-native ``<=`` / ``>=`` /
+# ``<<=`` operators rather than dual-key compares.  ``aut-num``
+# records leave ``start`` / ``stop`` ``NULL`` and populate
+# ``aut_num`` instead (mutually exclusive on the wire, so the
+# ``aut_num`` partial index keeps the lookup tight).
+#
+# Text columns (``netname`` / ``descr`` / ``remarks`` / ``notify``
+# / ``org``) are projected from :data:`DBRir.text_fields` and
+# accelerate ``searchtext`` via the GIN index declared below.  All
+# other RIR fields land in the ``extra`` :data:`SQLJSONB` bag for
+# forward compatibility (RIR formats grow keys over time; we
+# don't want a schema migration on every new attribute).
+_seq_rir_id = Sequence("seq_rir_id")
+
+
+class Rir(Base):
+    """One ``inetnum`` / ``inet6num`` / ``aut-num`` whois record.
+
+    Populated by :meth:`SQLDBRir.import_files` (the shared
+    ingestion path inherited from :class:`DBRir`); read by the
+    ``ivre rirlookup`` CLI and the ``/rir`` web route.
+    """
+
+    __tablename__ = "rir"
+    id = Column(
+        Integer,
+        _seq_rir_id,
+        server_default=_seq_rir_id.next_value(),
+        primary_key=True,
+    )
+    # IP-range columns -- NULL on ``aut-num`` records, populated
+    # on ``inetnum`` / ``inet6num``.  Native ``INET`` keeps range
+    # comparisons simple and lets PostgreSQL pick a B-tree index.
+    start = Column(SQLINET)
+    stop = Column(SQLINET)
+    # Pre-computed inclusive address-count of the range, mirrors
+    # Mongo's ``size`` field (``mongo.py:6160``).  Pinned at
+    # insert time so the web ``/rir`` route can sort
+    # narrowest-first without a runtime expression.  ``Numeric``
+    # rather than ``BigInteger`` because IPv6 ranges can reach
+    # ``2 ** 128`` (overflows ``BigInt``); 40 digits cover that.
+    size = Column(Numeric(40, 0))
+    # ``aut-num`` records carry an integer AS number instead of a
+    # range.  Mutually exclusive with ``start`` / ``stop`` on the
+    # wire; the partial index below targets the populated form.
+    aut_num = Column(Integer)
+    as_name = Column(Text)
+    # Text columns surfaced as filterable attributes (mirrors
+    # :data:`DBRir.text_fields`).  Multi-line values are joined
+    # with ``\n`` by the shared :meth:`DBRir.gen_records` parser.
+    netname = Column(Text)
+    descr = Column(Text)
+    remarks = Column(Text)
+    notify = Column(Text)
+    org = Column(Text)
+    # Two-letter country code on inet[6]num records.
+    country = Column(String(8))
+    # ``language`` was renamed to ``lang`` by
+    # :meth:`DBRir.gen_records` (``ivre/db/__init__.py:5199``)
+    # to work around a historical Mongo bulk-insert bug.  Keep
+    # the same name on the SQL side for wire-format parity.
+    lang = Column(String(64))
+    # Source RIR (``afrinic`` / ``apnic`` / ``arin`` /
+    # ``lacnic`` / ``ripe``).  Set from the imported file's
+    # name when the parser doesn't yield it.
+    source = Column(String(64))
+    # ``source_file`` is the basename of the imported RIR
+    # database file; ``source_hash`` is its SHA-256 hex digest.
+    # Together they support the ``ivre rirlookup --remove`` /
+    # idempotent re-import paths (see
+    # :meth:`DBRir.import_files`).
+    source_file = Column(String(256))
+    source_hash = Column(String(128))
+    # Forward-compatible bag for any RIR attribute we don't
+    # call out as a typed column above (``mnt-by``, ``admin-c``,
+    # ``tech-c``, ...).  Kept as JSONB so future ``searchXX``
+    # helpers can index into the bag without a schema migration.
+    extra = Column(SQLJSONB)
+    # Bound to ``MongoDBRir.schema_latest_versions[0]`` so a
+    # mixed PG / Mongo deployment shares the same migration
+    # generation marker.
+    schema_version = Column(Integer)
+    __table_args__ = (
+        # Range lookup index covering the
+        # ``searchhost`` / ``searchnet`` / ``searchrange`` paths
+        # (PostgreSQL B-tree over ``INET`` accepts ``<=`` /
+        # ``>=`` / range-overlap predicates; the planner picks
+        # this index for the ``WHERE start <= addr AND stop >=
+        # addr`` shape :meth:`SQLDBRir.searchhost` builds).
+        Index("rir_idx_range", "start", "stop"),
+        # Partial index targeting the populated half of the
+        # mutually-exclusive ``aut_num`` / range columns; keeps
+        # the lookup tight for ``aut-num`` records.
+        Index(
+            "rir_idx_aut_num",
+            "aut_num",
+            postgresql_where=column("aut_num").isnot(None),
+        ),
+        Index("rir_idx_country", "country"),
+        Index("rir_idx_source", "source"),
+        Index("rir_idx_source_file", "source_file"),
+        Index("rir_idx_source_hash", "source_hash"),
+        Index("rir_idx_schema_version", "schema_version"),
+        # Pre-computed range-size index; the web ``/rir`` route
+        # sorts by ``size`` ascending to surface the most
+        # specific allocation first (mirrors the Mongo path's
+        # ``sort=[("size", 1)]`` default).
+        Index("rir_idx_size", "size"),
+        # GIN FTS index over the concatenation of every text
+        # column.  Same expression on both sides of the
+        # query / index split so the planner picks the index
+        # for ``to_tsvector('english', ...) @@ plainto_tsquery
+        # ('english', :term)`` clauses (see
+        # :func:`_fts_index` for the byte-for-byte match
+        # rationale).  Stripped on DuckDB by
+        # :func:`ivre.db.sql.duckdb._is_unsupported_on_duckdb`
+        # (no GIN support); the FTS extension's
+        # ``match_bm25`` path is wired in a follow-up sub-PR.
+        _fts_index(
+            "rir_idx_fts",
+            "rir",
+            ("netname", "descr", "remarks", "notify", "org", "as_name"),
+        ),
+    )

@@ -67,6 +67,7 @@ from ivre.db.sql import (
     SQLDBFlow,
     SQLDBNmap,
     SQLDBPassive,
+    SQLDBRir,
     SQLDBView,
 )
 
@@ -2687,3 +2688,20 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 except KeyError:
                     pass
             yield (addr, currec)
+
+
+class PostgresDBRir(PostgresDB, SQLDBRir):
+    """PostgreSQL backend for the RIR data category.
+
+    Pure inheritance: every method is reachable via the MRO
+    ``(PostgresDB, SQLDBRir)``.  PostgresDB layers the dialect
+    helpers (``ip2internal`` / ``_searchstring_re`` / FTS
+    operator dispatch) on top of :class:`SQLDBRir`'s
+    backend-agnostic search / aggregate / ingestion path.  No
+    per-method override is needed at this point: PostgreSQL
+    natively supports every operator the RIR queries emit
+    (``INET`` ordering for range overlap, ``to_tsvector(...) @@
+    plainto_tsquery(...)`` for full-text matches against the
+    ``rir_idx_fts`` GIN index, ``executemany`` ``INSERT`` for
+    the bulk ingestion path).
+    """

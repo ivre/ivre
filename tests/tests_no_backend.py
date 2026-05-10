@@ -8441,6 +8441,353 @@ class DuckDBFlowLiveIntegrationTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBRirTests -- pin :class:`ivre.db.sql.SQLDBRir`'s schema +
+# search SQL shapes + ingestion record translation.
+#
+# The schema part walks the declared :class:`Rir` table and pins
+# every column / index inventory item so a future refactor that
+# drops one surfaces here.  The search part compiles each ``search
+# XXX`` helper against the PostgreSQL dialect (with literal_binds)
+# and asserts the rendered SQL fragment.  The ingestion part
+# exercises :meth:`SQLDBRir._record_to_row` /
+# :meth:`SQLDBRir._row2rec` round-trip semantics so the wire
+# shapes Mongo / SQL share stay aligned byte-for-byte.
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql import SQLDBRir as _SQLDBRir_for_tests  # noqa: E402
+    from ivre.db.sql.tables import Rir as _Rir_for_tests  # noqa: E402
+
+    _HAVE_SQLDB_RIR = True
+except ImportError:
+    _HAVE_SQLDB_RIR = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_RIR,
+    "SQLAlchemy is required for SQLDBRirTests",
+)
+class SQLDBRirTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.sql.SQLDBRir`.
+
+    Mirrors :class:`ivre.db.mongo.MongoDBRir`'s public method
+    surface so a ``DB = postgresql://...`` configuration drives
+    the same ``ivre rirlookup`` paths Mongo does.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        return str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    # -- schema -------------------------------------------------------
+
+    def test_schema_columns_present(self):
+        # Every typed column the ingestion / search paths
+        # reference must be declared on the table.  A missing
+        # column would surface here, not at runtime.
+        cols = {c.name for c in _Rir_for_tests.__table__.columns}
+        for expected in (
+            "id",
+            "start",
+            "stop",
+            "size",
+            "aut_num",
+            "as_name",
+            "netname",
+            "descr",
+            "remarks",
+            "notify",
+            "org",
+            "country",
+            "lang",
+            "source",
+            "source_file",
+            "source_hash",
+            "extra",
+            "schema_version",
+        ):
+            self.assertIn(expected, cols)
+
+    def test_schema_inet_columns_render_natively(self):
+        # ``start`` / ``stop`` must compile as ``INET`` on PG so
+        # range comparisons use the dialect-native operators.
+        from sqlalchemy.schema import CreateTable
+
+        sql = self._compile_pg(CreateTable(_Rir_for_tests.__table__))
+        self.assertIn("start INET", sql)
+        self.assertIn("stop INET", sql)
+        # ``size`` must be ``NUMERIC(40, 0)`` so IPv6 ranges
+        # (up to 2**128 addresses) round-trip without
+        # overflow.
+        self.assertIn("size NUMERIC(40, 0)", sql)
+
+    def test_schema_indexes_inventory(self):
+        # The full set of expected indexes -- pin so a refactor
+        # that drops one surfaces here, not on a slow live
+        # query.
+        names = {ix.name for ix in _Rir_for_tests.__table__.indexes}
+        for expected in (
+            "rir_idx_range",
+            "rir_idx_aut_num",
+            "rir_idx_country",
+            "rir_idx_source",
+            "rir_idx_source_file",
+            "rir_idx_source_hash",
+            "rir_idx_schema_version",
+            "rir_idx_size",
+            "rir_idx_fts",
+        ):
+            self.assertIn(expected, names)
+
+    def test_schema_fts_index_is_gin(self):
+        # The FTS index must be declared with ``USING GIN`` so
+        # the planner picks it for ``to_tsvector(...) @@
+        # plainto_tsquery(...)`` clauses.
+        idx_by_name = {ix.name: ix for ix in _Rir_for_tests.__table__.indexes}
+        self.assertEqual(
+            idx_by_name["rir_idx_fts"].kwargs.get("postgresql_using"),
+            "gin",
+        )
+
+    def test_schema_aut_num_partial_index(self):
+        # The aut-num index is partial (``WHERE aut_num IS
+        # NOT NULL``) so it doesn't bloat with the inet[6]num
+        # rows that always leave ``aut_num`` NULL.
+        idx_by_name = {ix.name: ix for ix in _Rir_for_tests.__table__.indexes}
+        where = idx_by_name["rir_idx_aut_num"].kwargs.get("postgresql_where")
+        self.assertIsNotNone(where)
+        sql = self._compile_pg(where)
+        self.assertIn("aut_num IS NOT NULL", sql)
+
+    # -- search* SQL shapes ------------------------------------------
+
+    def test_searchhost_shape(self):
+        # ``WHERE start <= addr AND stop >= addr`` -- the
+        # ``rir_idx_range`` B-tree accelerates the lookup on
+        # same-family ranges.
+        sql = self._compile_pg(_SQLDBRir_for_tests.searchhost("10.0.0.1"))
+        self.assertIn("rir.start <=", sql)
+        self.assertIn("rir.stop >=", sql)
+        # The ``INETLiteral.bind_expression`` wraps the literal
+        # in ``CAST('10.0.0.1'::inet AS INET)`` so PostgreSQL
+        # coerces the value at execution time even when the
+        # column is created on a different connection.
+        self.assertIn("'10.0.0.1'::inet", sql)
+
+    def test_searchhost_neg_raises(self):
+        # Mirrors :meth:`MongoDBRir.searchhost`'s contract --
+        # negation has no meaningful interpretation on a range
+        # overlap, so the helper raises rather than silently
+        # returning a no-op clause.
+        with self.assertRaises(ValueError):
+            _SQLDBRir_for_tests.searchhost("10.0.0.1", neg=True)
+
+    def test_searchnet_overlap_shape(self):
+        # ``net2range('10.0.0.0/8') == ('10.0.0.0',
+        # '10.255.255.255')``; the overlap predicate is
+        # ``record.start <= 10.255.255.255 AND record.stop
+        # >= 10.0.0.0``.
+        sql = self._compile_pg(_SQLDBRir_for_tests.searchnet("10.0.0.0/8"))
+        self.assertIn("'10.0.0.0'::inet", sql)
+        self.assertIn("'10.255.255.255'::inet", sql)
+
+    def test_searchasnum_int_and_string(self):
+        # Both ``15169`` (int) and ``"AS15169"`` / ``"15169"``
+        # (string) must coerce to the same SQL clause.
+        for value in (15169, "AS15169", "as15169", "15169"):
+            sql = self._compile_pg(_SQLDBRir_for_tests.searchasnum(value))
+            self.assertIn("rir.aut_num = 15169", sql)
+
+    def test_searchasnum_list(self):
+        # A list of AS numbers translates to ``IN (...)``;
+        # mixed int / string values normalise to int via
+        # ``_coerce_asnum_sql``.
+        sql = self._compile_pg(_SQLDBRir_for_tests.searchasnum([15169, "AS32934"]))
+        self.assertIn("rir.aut_num IN", sql)
+        self.assertIn("15169", sql)
+        self.assertIn("32934", sql)
+
+    def test_searchasname_regex(self):
+        # Regex match through PG's ``~*`` (case-insensitive)
+        # / ``~`` (case-sensitive) operators.
+        import re as _re
+
+        sql = self._compile_pg(
+            _SQLDBRir_for_tests.searchasname(_re.compile("Google", _re.IGNORECASE))
+        )
+        self.assertIn("rir.as_name ~*", sql)
+        self.assertIn("Google", sql)
+
+    def test_searchcountry_unaliased(self):
+        # ``country_unalias`` collapses synonyms (``"UK"``
+        # -> ``"GB"``); pin so a future tweak to the alias
+        # table doesn't silently change query behaviour.
+        sql = self._compile_pg(_SQLDBRir_for_tests.searchcountry("UK"))
+        self.assertIn("rir.country", sql)
+        self.assertIn("GB", sql)
+
+    def test_searchsourcefile_and_searchfileid(self):
+        sql = self._compile_pg(
+            _SQLDBRir_for_tests.searchsourcefile("ripe.db.inetnum.gz")
+        )
+        self.assertIn("rir.source_file = 'ripe.db.inetnum.gz'", sql)
+        sql = self._compile_pg(_SQLDBRir_for_tests.searchfileid("deadbeef"))
+        self.assertIn("rir.source_hash = 'deadbeef'", sql)
+
+    def test_flt_and_or_drop_none(self):
+        # ``flt_and(None, x)`` returns ``x`` directly; mirrors
+        # Mongo's ``flt_and`` shape so call sites that chain
+        # optional filters keep working unchanged.
+        clause = _SQLDBRir_for_tests.searchcountry("FR")
+        self.assertIs(_SQLDBRir_for_tests.flt_and(None, clause), clause)
+        self.assertIsNone(_SQLDBRir_for_tests.flt_and(None, None))
+
+    # -- ingestion record translation --------------------------------
+
+    def test_record_to_row_inetnum(self):
+        # An ``inetnum`` record gets ``size`` computed and
+        # ``aut_num`` left NULL; unknown keys go to ``extra``.
+        rec = {
+            "start": "10.0.0.0",
+            "stop": "10.255.255.255",
+            "netname": "TEST-NET",
+            "country": "FR",
+            "descr": "test description",
+            "source_file": "ripe.db.inetnum.gz",
+            "source_hash": "deadbeef",
+            "mnt-by": "MAINTAINER-MNT",
+        }
+        row = _SQLDBRir_for_tests._record_to_row(rec)
+        self.assertEqual(row["start"], "10.0.0.0")
+        self.assertEqual(row["stop"], "10.255.255.255")
+        self.assertEqual(row["netname"], "TEST-NET")
+        self.assertEqual(row["country"], "FR")
+        self.assertEqual(row["source_file"], "ripe.db.inetnum.gz")
+        self.assertEqual(row["source_hash"], "deadbeef")
+        # /8 = 2**24 = 16 777 216 addresses.
+        self.assertEqual(row["size"], 16777216)
+        self.assertIsNone(row["aut_num"])
+        # ``mnt-by`` is not a typed column -> ``extra`` bag.
+        self.assertEqual(row["extra"], {"mnt-by": "MAINTAINER-MNT"})
+        self.assertEqual(row["schema_version"], _SQLDBRir_for_tests.SCHEMA_VERSION)
+
+    def test_record_to_row_aut_num(self):
+        # An ``aut-num`` record carries ``aut_num`` (int) and
+        # leaves ``start`` / ``stop`` / ``size`` NULL.  The
+        # parser's whois-native ``aut-num`` / ``as-name`` keys
+        # rename to the SQL columns ``aut_num`` / ``as_name``.
+        rec = {
+            "aut-num": 15169,
+            "as-name": "GOOGLE",
+            "country": "US",
+            "source_file": "arin.db.gz",
+            "source_hash": "cafebabe",
+        }
+        row = _SQLDBRir_for_tests._record_to_row(rec)
+        self.assertEqual(row["aut_num"], 15169)
+        self.assertEqual(row["as_name"], "GOOGLE")
+        self.assertIsNone(row["start"])
+        self.assertIsNone(row["stop"])
+        self.assertIsNone(row["size"])
+        self.assertIsNone(row["extra"])
+
+    def test_record_to_row_size_overflow(self):
+        # IPv6 ranges can reach 2**128 -- the size column is
+        # ``Numeric(40, 0)`` precisely so the value
+        # round-trips through the SQL layer without overflow.
+        rec = {"start": "::", "stop": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
+        row = _SQLDBRir_for_tests._record_to_row(rec)
+        self.assertEqual(row["size"], 2**128)
+
+    def test_row2rec_round_trip(self):
+        # ``_row2rec`` must rebuild the Mongo-shaped dict the
+        # ``rirlookup`` consumer expects: typed columns map
+        # back to whois-native keys (``aut-num`` / ``as-name``),
+        # ``extra`` JSONB flattens into the top level, and
+        # NULLs drop out so a sparse record stays compact.
+
+        class _FakeRow:
+            id = 1
+            start = "10.0.0.0"
+            stop = "10.255.255.255"
+            size = 16777216
+            aut_num = None
+            as_name = None
+            netname = "TEST-NET"
+            descr = "test"
+            remarks = None
+            notify = None
+            org = None
+            country = "FR"
+            lang = None
+            source = None
+            source_file = "ripe.db.inetnum.gz"
+            source_hash = "deadbeef"
+            extra = {"mnt-by": "MAINTAINER-MNT"}
+            schema_version = 2
+
+        rec = _SQLDBRir_for_tests._row2rec(_FakeRow())
+        self.assertEqual(rec["start"], "10.0.0.0")
+        self.assertEqual(rec["stop"], "10.255.255.255")
+        self.assertEqual(rec["netname"], "TEST-NET")
+        self.assertEqual(rec["country"], "FR")
+        self.assertEqual(rec["mnt-by"], "MAINTAINER-MNT")
+        self.assertEqual(rec["size"], 16777216)
+        self.assertEqual(rec["schema_version"], 2)
+        self.assertEqual(rec["_id"], 1)
+        # NULL columns must not surface in the dict.
+        self.assertNotIn("aut-num", rec)
+        self.assertNotIn("as-name", rec)
+        self.assertNotIn("remarks", rec)
+
+    def test_row2rec_aut_num_renames(self):
+        class _FakeRow:
+            id = 7
+            start = None
+            stop = None
+            size = None
+            aut_num = 15169
+            as_name = "GOOGLE"
+            netname = None
+            descr = None
+            remarks = None
+            notify = None
+            org = None
+            country = "US"
+            lang = None
+            source = None
+            source_file = "arin.db.gz"
+            source_hash = "cafebabe"
+            extra = None
+            schema_version = 2
+
+        rec = _SQLDBRir_for_tests._row2rec(_FakeRow())
+        # aut_num / as_name rename to whois-native keys.
+        self.assertEqual(rec["aut-num"], 15169)
+        self.assertEqual(rec["as-name"], "GOOGLE")
+        self.assertNotIn("aut_num", rec)
+        self.assertNotIn("as_name", rec)
+
+    # -- backend registration ----------------------------------------
+
+    def test_postgres_backend_registered(self):
+        from ivre.db import DBRir
+
+        self.assertEqual(
+            DBRir.backends.get("postgresql"),
+            ("sql.postgres", "PostgresDBRir"),
+        )
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

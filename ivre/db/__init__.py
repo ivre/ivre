@@ -5156,6 +5156,7 @@ class DBRir(DB):
     backends = {
         "http": ("http", "HttpDBRir"),
         "mongodb": ("mongo", "MongoDBRir"),
+        "postgresql": ("sql.postgres", "PostgresDBRir"),
     }
 
     ipaddr_fields = ["start", "stop"]
