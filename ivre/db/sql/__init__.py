@@ -846,10 +846,138 @@ class SQLDBFlow(SQLDB, DBFlow):
         raise NotImplementedError()
 
     def host_details(self, node_id):
-        raise NotImplementedError()
+        """Return ``{elt, in_flows, out_flows, clients,
+        servers}`` for the host whose IP address is
+        ``node_id``.
+
+        Mirrors :meth:`MongoDBFlow.host_details`'s contract
+        byte-for-byte:
+
+        * ``elt`` -- ``{addr, firstseen, lastseen}`` where
+          ``firstseen`` / ``lastseen`` are the min / max of
+          the flow timestamps the host participates in.
+        * ``in_flows`` -- list of ``(proto, dport)`` tuples
+          observed on flows where the host is the
+          destination.
+        * ``out_flows`` -- list of ``(proto, dport)`` tuples
+          observed on flows where the host is the source.
+        * ``clients`` -- list of source IPs that talked to
+          the host.
+        * ``servers`` -- list of destination IPs the host
+          talked to.
+
+        Sets are returned as lists for JSON-serialisability
+        (the ``/cgi/flow/host/<addr>`` web endpoint expects
+        the same shape Mongo's helper produces).
+        """
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        # Filter to flows that touch ``node_id`` on either
+        # side.  ``addr`` is a native ``INET`` column so the
+        # printable-IP literal compares directly.
+        where = or_(
+            src_alias.addr == node_id,
+            dst_alias.addr == node_id,
+        )
+        stmt = (
+            select(self.tables.flow, src_alias.addr, dst_alias.addr)
+            .select_from(self._flow_join(src_alias, dst_alias))
+            .where(where)
+        )
+        result = {
+            "elt": {"addr": node_id},
+            "in_flows": set(),
+            "out_flows": set(),
+            "clients": set(),
+            "servers": set(),
+        }
+        firstseen = None
+        lastseen = None
+        with self.db.connect() as conn:
+            for row in conn.execute(stmt):
+                rec = self._row2flow(row)
+                if rec["firstseen"] is not None and (
+                    firstseen is None or rec["firstseen"] < firstseen
+                ):
+                    firstseen = rec["firstseen"]
+                if rec["lastseen"] is not None and (
+                    lastseen is None or rec["lastseen"] > lastseen
+                ):
+                    lastseen = rec["lastseen"]
+                if rec["src_addr"] == node_id:
+                    # Host is the source of this flow ->
+                    # outgoing observation; the other side is
+                    # one of the host's "servers".
+                    result["out_flows"].add((rec["proto"], rec["dport"]))
+                    if rec["dst_addr"] is not None:
+                        result["servers"].add(rec["dst_addr"])
+                else:
+                    # Host is the destination of this flow ->
+                    # incoming observation; the source is one
+                    # of the host's "clients".
+                    result["in_flows"].add((rec["proto"], rec["dport"]))
+                    if rec["src_addr"] is not None:
+                        result["clients"].add(rec["src_addr"])
+        result["elt"]["firstseen"] = firstseen
+        result["elt"]["lastseen"] = lastseen
+        # Materialise the sets as lists; the inherited
+        # :class:`DBFlow` consumers (and the web JSON
+        # encoder) rely on the canonical Mongo list shape.
+        result["clients"] = list(result["clients"])
+        result["servers"] = list(result["servers"])
+        result["in_flows"] = list(result["in_flows"])
+        result["out_flows"] = list(result["out_flows"])
+        return result
 
     def flow_details(self, flow_id):
-        raise NotImplementedError()
+        """Return ``{elt[, meta]}`` for the flow with the
+        given ``flow_id`` (the integer ``Flow.id`` primary
+        key).
+
+        Mirrors :meth:`MongoDBFlow.flow_details`: ``elt``
+        carries the flow's "edge" data exactly as
+        :meth:`DBFlow._edge2json_default` produces it (so the
+        web UI can drop the dict straight into its graph
+        edge), with ``firstseen`` / ``lastseen`` echoed at the
+        top level for direct access.  ``meta`` is included
+        only when the flow carries any per-protocol metadata
+        -- the empty-meta case omits the key so callers can
+        ``"meta" in result`` without an emptiness check.
+
+        Returns ``None`` when no flow row matches ``flow_id``;
+        Mongo's helper returns ``None`` in the equivalent
+        ``find_one`` -> ``None`` branch.
+        """
+        try:
+            flow_id_int = int(flow_id)
+        except (TypeError, ValueError):
+            # Mongo accepts ``ObjectId`` strings; the SQL
+            # backend uses an integer PK.  Bad input ->
+            # ``None`` rather than a 500.
+            return None
+        src_alias = aliased(Host, name="flow_src_host")
+        dst_alias = aliased(Host, name="flow_dst_host")
+        stmt = (
+            select(self.tables.flow, src_alias.addr, dst_alias.addr)
+            .select_from(self._flow_join(src_alias, dst_alias))
+            .where(self.tables.flow.id == flow_id_int)
+        )
+        with self.db.connect() as conn:
+            row = conn.execute(stmt).first()
+        if row is None:
+            return None
+        rec = self._row2flow(row)
+        elt = self._edge2json_default(rec)["data"]
+        # Echo ``firstseen`` / ``lastseen`` at the elt root
+        # the same way :meth:`MongoDBFlow.flow_details`
+        # does -- some callers read them off ``elt`` rather
+        # than ``elt["data"]``.
+        elt["firstseen"] = rec["firstseen"]
+        elt["lastseen"] = rec["lastseen"]
+        result = {"elt": elt}
+        if rec.get("meta"):
+            result["meta"] = rec["meta"]
+        return result
 
     @classmethod
     def from_filters(

@@ -7278,6 +7278,316 @@ class SQLDBFlowAggregationsTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBFlowDetailsTests -- pin :meth:`SQLDBFlow.host_details`
+# and :meth:`SQLDBFlow.flow_details`.  Both feed
+# ``/cgi/flows/host/<addr>`` and ``/cgi/flows/flow/<id>``
+# respectively; without them the flow-graph drill-downs raised
+# ``NotImplementedError`` on the SQL backend.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_FLOW_FILTERS,
+    "SQLAlchemy is required for SQLDBFlowDetailsTests",
+)
+class SQLDBFlowDetailsTests(unittest.TestCase):
+    """Behaviour-pin for ``host_details`` and
+    ``flow_details`` on :class:`SQLDBFlow`.
+
+    Both helpers mirror :meth:`MongoDBFlow.host_details` /
+    :meth:`MongoDBFlow.flow_details`'s contracts byte-for-byte
+    so the web UI / flowcli paths consume both backends
+    interchangeably.
+
+    The connection is mocked via :class:`unittest.mock.MagicMock`
+    so the assertions cover both the SELECT shape (compiled to
+    PostgreSQL via ``literal_binds``) and the result dict the
+    helper returns from the canned rows.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        return str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @staticmethod
+    def _make_db(rows):
+        """Construct a :class:`SQLDBFlow` instance with a
+        mocked engine that yields ``rows`` from any
+        ``execute`` call.  Returns the db along with the
+        ``captured`` list collecting every executed SA
+        statement (so individual tests can inspect the
+        compiled SQL).
+        """
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeResult:
+            def __init__(self, rows):
+                self._rows = list(rows)
+
+            def __iter__(self):
+                return iter(self._rows)
+
+            def first(self):
+                return self._rows[0] if self._rows else None
+
+        class _FakeConn:
+            def execute(self, stmt):
+                captured.append(stmt)
+                return _FakeResult(rows)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        db = _SQLDBFlow_for_filters_test.__new__(_SQLDBFlow_for_filters_test)
+        db._db = MagicMock()
+        db._db.connect.return_value = _FakeConn()
+        return db, captured
+
+    @staticmethod
+    def _make_flow(**overrides):
+        """Build a stand-in :class:`Flow`-shaped object the
+        ``_row2flow`` helper accepts as the first row item.
+        Pinned attribute set so a future column addition that
+        breaks the projection surfaces here, not on the live
+        DB lane."""
+        attrs = {
+            "id": 1,
+            "proto": "tcp",
+            "dport": 80,
+            "type": None,
+            "firstseen": None,
+            "lastseen": None,
+            "scpkts": 0,
+            "scbytes": 0,
+            "cspkts": 0,
+            "csbytes": 0,
+            "count": 1,
+            "sports": [],
+            "codes": None,
+            "meta": None,
+            "schema_version": 1,
+        }
+        attrs.update(overrides)
+        return type("_FakeFlow", (), attrs)
+
+    # -- host_details() -----------------------------------------------
+
+    def test_host_details_select_shape(self):
+        # The SELECT must filter on
+        # ``src_alias.addr = node_id OR dst_alias.addr =
+        # node_id`` so a single round-trip retrieves every
+        # flow the host participates in (incoming and
+        # outgoing).
+        db, captured = self._make_db([])
+        result = db.host_details("10.0.0.1")
+        self.assertEqual(len(captured), 1)
+        sql = self._compile_pg(captured[0])
+        self.assertIn("flow_src_host.addr", sql)
+        self.assertIn("flow_dst_host.addr", sql)
+        self.assertIn(" OR ", sql)
+        # Empty result -> empty sets returned as lists.
+        self.assertEqual(result["clients"], [])
+        self.assertEqual(result["servers"], [])
+        self.assertEqual(result["in_flows"], [])
+        self.assertEqual(result["out_flows"], [])
+        self.assertEqual(result["elt"]["addr"], "10.0.0.1")
+        self.assertIsNone(result["elt"]["firstseen"])
+        self.assertIsNone(result["elt"]["lastseen"])
+
+    def test_host_details_classifies_flows_by_side(self):
+        # Mongo's helper classifies each flow by which side
+        # of the source / destination addresses matches the
+        # queried ``node_id``: incoming flows accumulate
+        # ``in_flows`` ((proto, dport)) and ``clients``
+        # (source IPs); outgoing flows accumulate ``out_flows``
+        # and ``servers``.  Pin the same dispatch on SQL.
+        import datetime as _datetime
+
+        rows = [
+            # node is the source -> outgoing flow.
+            (
+                self._make_flow(
+                    id=1,
+                    proto="tcp",
+                    dport=80,
+                    firstseen=_datetime.datetime(2024, 1, 1, 10, 0, 0),
+                    lastseen=_datetime.datetime(2024, 1, 1, 10, 5, 0),
+                ),
+                "10.0.0.1",  # src_addr
+                "1.2.3.4",  # dst_addr
+            ),
+            # node is the destination -> incoming flow.
+            (
+                self._make_flow(
+                    id=2,
+                    proto="udp",
+                    dport=53,
+                    firstseen=_datetime.datetime(2024, 1, 1, 9, 30, 0),
+                    lastseen=_datetime.datetime(2024, 1, 1, 11, 0, 0),
+                ),
+                "5.6.7.8",  # src_addr
+                "10.0.0.1",  # dst_addr
+            ),
+            # Another outgoing flow to an already-seen server
+            # IP -- the ``servers`` set must dedupe by
+            # converting via ``set`` before the list cast.
+            (
+                self._make_flow(id=3, proto="tcp", dport=443),
+                "10.0.0.1",
+                "1.2.3.4",
+            ),
+        ]
+        db, _ = self._make_db(rows)
+        result = db.host_details("10.0.0.1")
+        self.assertEqual(set(result["clients"]), {"5.6.7.8"})
+        self.assertEqual(set(result["servers"]), {"1.2.3.4"})
+        self.assertEqual(set(result["out_flows"]), {("tcp", 80), ("tcp", 443)})
+        self.assertEqual(set(result["in_flows"]), {("udp", 53)})
+        # ``firstseen`` / ``lastseen`` aggregate to
+        # min / max across every flow the host touches.
+        self.assertEqual(
+            result["elt"]["firstseen"],
+            _datetime.datetime(2024, 1, 1, 9, 30, 0),
+        )
+        self.assertEqual(
+            result["elt"]["lastseen"],
+            _datetime.datetime(2024, 1, 1, 11, 0, 0),
+        )
+
+    def test_host_details_skips_null_timestamps(self):
+        # ``firstseen`` / ``lastseen`` columns are nullable;
+        # rows with NULL timestamps must not poison the
+        # min / max aggregation (Python ``None`` would
+        # compare with the chained-comparison operators).
+        import datetime as _datetime
+
+        rows = [
+            (
+                self._make_flow(
+                    id=1,
+                    firstseen=_datetime.datetime(2024, 1, 1),
+                    lastseen=_datetime.datetime(2024, 1, 2),
+                ),
+                "10.0.0.1",
+                "1.2.3.4",
+            ),
+            (
+                self._make_flow(id=2, firstseen=None, lastseen=None),
+                "10.0.0.1",
+                "5.6.7.8",
+            ),
+        ]
+        db, _ = self._make_db(rows)
+        result = db.host_details("10.0.0.1")
+        self.assertEqual(result["elt"]["firstseen"], _datetime.datetime(2024, 1, 1))
+        self.assertEqual(result["elt"]["lastseen"], _datetime.datetime(2024, 1, 2))
+
+    # -- flow_details() -----------------------------------------------
+
+    def test_flow_details_returns_none_for_missing(self):
+        db, captured = self._make_db([])
+        self.assertIsNone(db.flow_details(42))
+        sql = self._compile_pg(captured[0])
+        # ``flow.id = 42`` -- the ``int(flow_id)`` coerce
+        # is what enables this literal binding.
+        self.assertIn("flow.id = 42", sql)
+
+    def test_flow_details_returns_none_for_invalid_id(self):
+        # Mongo accepts ``ObjectId`` strings; the SQL backend
+        # cannot translate "abc" into an integer PK so it
+        # short-circuits to ``None`` rather than raising.
+        db, captured = self._make_db([])
+        self.assertIsNone(db.flow_details("not-an-int"))
+        # No SQL emitted on the bad-input path.
+        self.assertEqual(captured, [])
+
+    def test_flow_details_projects_edge2json_data(self):
+        # The ``elt`` payload follows the
+        # :meth:`DBFlow._edge2json_default` shape: same keys
+        # as the graph-edge representation (``proto``,
+        # ``dport``, ``cspkts`` / ``scpkts`` / ``csbytes`` /
+        # ``scbytes``, ``addr_src`` / ``addr_dst``,
+        # ``firstseen`` / ``lastseen``, ``__key__``,
+        # ``count``).  Pin the per-key projection so a
+        # future refactor of either helper does not silently
+        # change the API for the web UI.
+        import datetime as _datetime
+
+        rows = [
+            (
+                self._make_flow(
+                    id=99,
+                    proto="tcp",
+                    dport=443,
+                    firstseen=_datetime.datetime(2024, 1, 1),
+                    lastseen=_datetime.datetime(2024, 1, 2),
+                    cspkts=10,
+                    scpkts=20,
+                    csbytes=1000,
+                    scbytes=2000,
+                    count=5,
+                    sports=[50000],
+                ),
+                "10.0.0.1",
+                "1.2.3.4",
+            ),
+        ]
+        db, _ = self._make_db(rows)
+        result = db.flow_details(99)
+        self.assertIn("elt", result)
+        elt = result["elt"]
+        self.assertEqual(elt["proto"], "tcp")
+        self.assertEqual(elt["dport"], 443)
+        self.assertEqual(elt["cspkts"], 10)
+        self.assertEqual(elt["scpkts"], 20)
+        self.assertEqual(elt["csbytes"], 1000)
+        self.assertEqual(elt["scbytes"], 2000)
+        self.assertEqual(elt["count"], 5)
+        self.assertEqual(elt["addr_src"], "10.0.0.1")
+        self.assertEqual(elt["addr_dst"], "1.2.3.4")
+        self.assertEqual(elt["sports"], [50000])
+        self.assertEqual(elt["__key__"], "99")
+        self.assertEqual(elt["firstseen"], _datetime.datetime(2024, 1, 1))
+        self.assertEqual(elt["lastseen"], _datetime.datetime(2024, 1, 2))
+        # No ``meta`` -> the key is omitted (Mongo helper
+        # leaves it out, not present-with-empty-value).
+        self.assertNotIn("meta", result)
+
+    def test_flow_details_includes_meta_when_present(self):
+        rows = [
+            (
+                self._make_flow(
+                    id=7,
+                    proto="tcp",
+                    dport=80,
+                    meta={"http": {"method": "GET", "host": "example.com"}},
+                ),
+                "10.0.0.1",
+                "1.2.3.4",
+            ),
+        ]
+        db, _ = self._make_db(rows)
+        result = db.flow_details(7)
+        self.assertIn("meta", result)
+        self.assertEqual(
+            result["meta"],
+            {"http": {"method": "GET", "host": "example.com"}},
+        )
+
+
+# ---------------------------------------------------------------------
 # CertExtensionFormatTests -- pin the format of
 # ``result["san"]`` produced by ``ivre.utils.get_cert_info`` after
 # the migration off pyOpenSSL's removed ``X509.get_extension(i)``
