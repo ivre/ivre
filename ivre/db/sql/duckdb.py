@@ -50,14 +50,28 @@ methods win the MRO lookup against ``PostgresDB*``'s defaults.
 import re
 from typing import Any, override
 
-from sqlalchemy import and_, event, exists, func, not_, or_, select
+from sqlalchemy import (
+    Integer,
+    and_,
+    event,
+    exists,
+    func,
+    insert,
+    not_,
+    or_,
+    select,
+)
 from sqlalchemy import text as sa_text
-from sqlalchemy import true
+from sqlalchemy import (
+    true,
+    update,
+)
 from sqlalchemy.dialects import postgresql
 
 from ivre import utils
 from ivre.db.sql import NmapFilter, ViewFilter
 from ivre.db.sql.postgres import (
+    PostgresDBFlow,
     PostgresDBNmap,
     PostgresDBPassive,
     PostgresDBView,
@@ -890,10 +904,99 @@ class DuckDBPassive(DuckDBMixin, PostgresDBPassive):
     """
 
 
-# Flow ingestion on SQL backends is currently a stub:
-# ``ivre.db.sql.tables.Flow`` references a ``host`` table that
-# is not declared anywhere in :data:`Base.metadata`, so
-# ``PostgresDBFlow().init()`` raises
-# ``NoReferencedTableError`` on PostgreSQL too. A working flow
-# backend is tracked separately and will land alongside the
-# corresponding registration in :class:`~ivre.db.DBFlow`.
+class DuckDBFlow(DuckDBMixin, PostgresDBFlow):
+    """DuckDB backend for the ``flow`` data category.
+
+    The read side -- ``from_filters`` / ``count`` /
+    ``flow_daily`` / ``topvalues`` / ``host_details`` /
+    ``flow_details`` / ``to_graph`` / ``to_iter`` -- inherits
+    from :class:`~ivre.db.sql.postgres.PostgresDBFlow`
+    unchanged.  The schema also inherits from the shared
+    :mod:`ivre.db.sql.tables`, with the
+    :data:`~ivre.db.sql.tables.SQLINET_KEY` variant collapsing
+    ``Host.addr`` to ``VARCHAR(64)`` so the natural-key
+    ``UniqueConstraint`` can be enforced (DuckDB rejects
+    ``INET`` as an index key).
+
+    The write side overrides :meth:`_flow_merge` because DuckDB
+    does not yet support expression-based ``ON CONFLICT``
+    targets (``Not implemented Error: Non-column index element
+    not supported yet!``) -- the PG path's
+    ``ON CONFLICT (..., COALESCE(dport, -1), COALESCE(type, -1),
+    ...)`` cannot be inferred against the partial unique index
+    :data:`flow_unique_lookup`.  The DuckDB merge path reads
+    the existing row by key first, then dispatches to
+    :class:`Insert` or :class:`Update` accordingly.  The
+    SELECT-then-merge race window is harmless under DuckDB's
+    single-writer model (one process holds the file in write
+    mode at a time).
+    """
+
+    @override
+    def _flow_merge(self, conn: Any, values: dict[str, Any], increments: dict[str, int]) -> None:  # type: ignore[override]
+        """Apply a single flow upsert via SELECT-then-merge.
+
+        DuckDB's ON CONFLICT inference does not match the
+        :data:`flow_unique_lookup` partial unique index because
+        the index keys on ``COALESCE(dport, -1)`` /
+        ``COALESCE(type, -1)`` -- expression-based index
+        elements are unsupported.  The alternative is a
+        per-record SELECT by the same key (with NULL-aware
+        equality on ``dport`` / ``type``) followed by an
+        explicit ``INSERT`` (no existing row) or ``UPDATE``
+        (existing row).  Both branches are wrapped in the
+        caller's transaction so a partial bulk fails atomically.
+        """
+        flow_t = self.tables.flow
+        # ``dport`` / ``type`` carry NULL when the protocol does
+        # not define them; SQL equality returns NULL on a NULL
+        # operand, so the lookup must use ``IS NULL`` /
+        # ``IS NOT DISTINCT FROM`` semantics.  We branch on the
+        # value from ``values`` (known at construction time) to
+        # build the right predicate without paying for a
+        # backend-side ``IS NOT DISTINCT FROM`` rewrite.
+        dport_value = values.get("dport")
+        type_value = values.get("type")
+        where = and_(
+            flow_t.src == values["src"],
+            flow_t.dst == values["dst"],
+            flow_t.proto == values["proto"],
+            (
+                flow_t.dport.is_(None)
+                if dport_value is None
+                else flow_t.dport == dport_value
+            ),
+            (
+                flow_t.type.is_(None)
+                if type_value is None
+                else flow_t.type == type_value
+            ),
+            flow_t.schema_version == values["schema_version"],
+        )
+        existing_id = conn.execute(select(flow_t.id).where(where)).scalar()
+        if existing_id is None:
+            conn.execute(insert(flow_t).values(values))
+            return
+        # The UPDATE branch carries the same widening / accumulation /
+        # array-merge semantics as the PG ON CONFLICT path
+        # (:meth:`SQLDBFlow._flow_upsert_stmt`); ``coalesce(col, 0)``
+        # guards against earlier ``any2flow`` rows that left the
+        # counters NULL.  ``excluded.<col>`` becomes the literal
+        # ``values[<col>]`` because the UPDATE statement does not
+        # carry an inserted-row pseudo-table.
+        update_set: dict[str, Any] = {
+            "firstseen": func.least(flow_t.firstseen, values["firstseen"]),
+            "lastseen": func.greatest(flow_t.lastseen, values["lastseen"]),
+        }
+        for col_name, default in increments.items():
+            col = getattr(flow_t, col_name)
+            update_set[col_name] = func.coalesce(col, default) + values[col_name]
+        empty_int = postgresql.array([], type_=Integer)
+        for arr_col in ("sports", "codes"):
+            arr = getattr(flow_t, arr_col)
+            new_arr = values.get(arr_col)
+            update_set[arr_col] = func.array_cat(
+                func.coalesce(arr, empty_int),
+                empty_int if new_arr is None else postgresql.array(new_arr),
+            )
+        conn.execute(update(flow_t).where(flow_t.id == existing_id).values(update_set))

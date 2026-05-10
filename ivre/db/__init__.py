@@ -5371,6 +5371,7 @@ class DBFlow(DB):
         "mongodb": ("mongo", "MongoDBFlow"),
         "documentdb": ("document", "DocumentDBFlow"),
         "postgresql": ("sql.postgres", "PostgresDBFlow"),
+        "duckdb": ("sql.duckdb", "DuckDBFlow"),
         "http": ("http", "HttpDBFlow"),
     }
 

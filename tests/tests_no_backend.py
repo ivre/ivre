@@ -7977,6 +7977,470 @@ class SQLDBFlowIngestionTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DuckDBFlowTests -- pin :class:`ivre.db.sql.duckdb.DuckDBFlow`.
+#
+# DuckDB does not support expression-based ``ON CONFLICT`` targets
+# (``Not implemented Error: Non-column index element not supported
+# yet!``), so the flow ingestion path's COALESCE-based unique index
+# inference (the partial unique index ``flow_unique_lookup``) is
+# unusable.  :class:`DuckDBFlow` overrides
+# :meth:`_flow_merge` with a SELECT-by-key-then-INSERT-or-UPDATE
+# strategy that produces the same end-state without touching the
+# per-record ``_apply_*`` helpers.
+#
+# Tests cover:
+#   * backend dispatch (``DBFlow.backends["duckdb"]``),
+#   * ``start_bulk_insert`` returns ``[]`` after the MRO override
+#     on ``PostgresDBFlow`` (PostgresDB's same-named method
+#     otherwise shadows :meth:`SQLDBFlow.start_bulk_insert`),
+#   * mocked SELECT-then-merge SQL shape,
+#   * (with duckdb-engine installed) a full live-engine roundtrip
+#     so the counter / timestamp / array-merge semantics match the
+#     PG ON CONFLICT path byte-for-byte.
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql.duckdb import DuckDBFlow as _DuckDBFlow_for_tests  # noqa: E402
+    from ivre.db.sql.tables import Flow as _Flow_for_duckdb_tests  # noqa: E402
+    from ivre.db.sql.tables import Host as _Host_for_duckdb_tests  # noqa: E402
+
+    _HAVE_DUCKDB_FLOW = True
+except ImportError:
+    _HAVE_DUCKDB_FLOW = False
+
+
+@unittest.skipUnless(
+    _HAVE_DUCKDB_FLOW,
+    "SQLAlchemy is required for DuckDBFlowTests",
+)
+class DuckDBFlowTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.sql.duckdb.DuckDBFlow`."""
+
+    # -- backend registration -----------------------------------------
+
+    def test_backend_registered(self):
+        # Without the ``"duckdb"`` entry in
+        # :attr:`DBFlow.backends` an ``DB = duckdb:///...`` URL
+        # would silently fall back to a generic ``DBFlow`` and
+        # every call would raise ``NotImplementedError``.
+        from ivre.db import DBFlow
+
+        self.assertEqual(
+            DBFlow.backends.get("duckdb"),
+            ("sql.duckdb", "DuckDBFlow"),
+        )
+
+    def test_class_inherits_postgres_flow_read_path(self):
+        # DuckDBFlow inherits the read-side methods (count,
+        # to_graph, host_details, flow_details, topvalues,
+        # flow_daily, ...) from :class:`PostgresDBFlow`.  The
+        # MRO must place ``DuckDBMixin`` first so its dialect
+        # overrides win the lookup against PostgresDB's
+        # defaults; ``PostgresDBFlow`` follows so the
+        # ON-CONFLICT-free read path is reachable.
+        mro = [c.__name__ for c in _DuckDBFlow_for_tests.__mro__]
+        self.assertEqual(mro[0], "DuckDBFlow")
+        self.assertEqual(mro[1], "DuckDBMixin")
+        self.assertEqual(mro[2], "PostgresDBFlow")
+
+    # -- start_bulk_insert inheritance --------------------------------
+
+    def test_start_bulk_insert_returns_empty_list(self):
+        # Pure-inheritance regression pin: the per-row
+        # :class:`BulkInsert` factory used to live on
+        # :class:`PostgresDB` and shadowed
+        # :meth:`SQLDBFlow.start_bulk_insert` via MRO on
+        # :class:`DuckDBFlow`'s ``(DuckDBMixin,
+        # PostgresDBFlow, ...)`` bases.  After moving the
+        # factory down to :class:`PostgresDBActive`, the
+        # flow MRO branch inherits
+        # :meth:`SQLDBFlow.start_bulk_insert`'s ``[]``
+        # tuple-list factory directly -- no override needed.
+        from unittest.mock import MagicMock
+
+        db = _DuckDBFlow_for_tests.__new__(_DuckDBFlow_for_tests)
+        db._db = MagicMock()
+        bulk = db.start_bulk_insert()
+        self.assertEqual(bulk, [])
+        # Append accepts the Mongo-shape entry the queue
+        # helpers produce.
+        bulk.append(("conn", {}))
+        self.assertEqual(len(bulk), 1)
+
+    # -- _flow_merge SELECT-then-merge SQL shape ----------------------
+
+    @staticmethod
+    def _make_db():
+        """Construct a :class:`DuckDBFlow` with a mocked engine
+        that captures every SA statement.
+
+        ``execute`` returns a stub whose ``.scalar()`` yields
+        ``None`` (no existing row) so the SELECT-then-merge
+        path takes the INSERT branch by default; individual
+        tests can override the return on a per-call basis to
+        exercise the UPDATE branch.
+        """
+        from unittest.mock import MagicMock
+
+        captured = []
+
+        class _FakeResult:
+            def __init__(self, value=None):
+                self._value = value
+
+            def scalar(self):
+                return self._value
+
+            def scalar_one(self):
+                return 1
+
+        class _FakeConn:
+            def __init__(self):
+                self._next_select = None
+
+            def execute(self, stmt):
+                captured.append(stmt)
+                # First execute call in _flow_merge is the
+                # SELECT; emit ``next_select`` if set, else
+                # ``None`` (= no existing row).
+                value = self._next_select
+                self._next_select = None
+                return _FakeResult(value)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        conn = _FakeConn()
+        db = _DuckDBFlow_for_tests.__new__(_DuckDBFlow_for_tests)
+        db._db = MagicMock()
+        db._db.begin.return_value = conn
+        return db, conn, captured
+
+    def test_flow_merge_insert_branch_emits_insert(self):
+        # When the SELECT returns no existing row the merge
+        # path must emit a plain ``INSERT INTO flow``
+        # statement (no ``ON CONFLICT`` clause -- that's the
+        # whole point of the override).
+        from datetime import datetime
+
+        db, _conn, captured = self._make_db()
+        bulk = db.start_bulk_insert()
+        db.conn2flow(
+            bulk,
+            {
+                "src": "10.0.0.1",
+                "dst": "10.0.0.2",
+                "proto": "tcp",
+                "sport": 1234,
+                "dport": 80,
+                "start_time": datetime(2024, 1, 1, 0, 0, 0),
+                "end_time": datetime(2024, 1, 1, 0, 0, 5),
+                "orig_pkts": 5,
+                "resp_pkts": 7,
+                "orig_ip_bytes": 500,
+                "resp_ip_bytes": 700,
+            },
+        )
+        db.bulk_commit(bulk)
+        # Three statements per record: src host upsert + dst
+        # host upsert + flow SELECT.  Since SELECT returned
+        # ``None`` we then issue an INSERT -> total 4.
+        self.assertEqual(len(captured), 4)
+        from sqlalchemy.dialects import postgresql
+
+        # The flow path's last statement must be a SELECT
+        # (the lookup) followed by an INSERT (the no-row
+        # branch).
+        select_sql = str(captured[2].compile(dialect=postgresql.dialect()))
+        insert_sql = str(captured[3].compile(dialect=postgresql.dialect()))
+        self.assertIn("SELECT flow.id", select_sql)
+        self.assertIn("FROM flow", select_sql)
+        self.assertIn("INSERT INTO flow", insert_sql)
+        # No ON CONFLICT clause -- the whole point of the
+        # SELECT-then-merge path is to bypass it.
+        self.assertNotIn("ON CONFLICT", insert_sql)
+
+    def test_flow_merge_update_branch_emits_update(self):
+        # When the SELECT returns an existing flow id the
+        # merge path must emit an ``UPDATE`` with the same
+        # widening / accumulation / array-merge semantics as
+        # the PG ON CONFLICT path.
+        from datetime import datetime
+
+        db, conn, captured = self._make_db()
+        # Make the flow SELECT (the third execute) return an
+        # existing id so the merge takes the UPDATE branch.
+        # The two host upserts come first, both via the same
+        # connection, so we need the third execute to yield
+        # the id.  Track the call number directly.
+        call_idx = [0]
+        original_execute = conn.execute
+
+        def execute_with_select_id(stmt):
+            call_idx[0] += 1
+            if call_idx[0] == 3:  # the flow SELECT
+                conn._next_select = 42
+            return original_execute(stmt)
+
+        conn.execute = execute_with_select_id
+
+        bulk = db.start_bulk_insert()
+        db.conn2flow(
+            bulk,
+            {
+                "src": "10.0.0.1",
+                "dst": "10.0.0.2",
+                "proto": "tcp",
+                "sport": 1234,
+                "dport": 80,
+                "start_time": datetime(2024, 1, 1, 0, 0, 0),
+                "end_time": datetime(2024, 1, 1, 0, 0, 5),
+                "orig_pkts": 5,
+                "resp_pkts": 7,
+                "orig_ip_bytes": 500,
+                "resp_ip_bytes": 700,
+            },
+        )
+        db.bulk_commit(bulk)
+        from sqlalchemy.dialects import postgresql
+
+        update_sql = str(captured[3].compile(dialect=postgresql.dialect()))
+        self.assertIn("UPDATE flow SET", update_sql)
+        # The SET clause must widen the timestamp window via
+        # LEAST/GREATEST -- mirrors the PG ON CONFLICT path.
+        self.assertIn("least(flow.firstseen", update_sql)
+        self.assertIn("greatest(flow.lastseen", update_sql)
+        # Counters accumulate via ``coalesce(col, 0) + <value>``.
+        # Pin both halves separately (the SET clause renders
+        # ``col=(coalesce(...) + ...)`` without a space around
+        # ``=`` on UPDATE, so a single substring match would be
+        # whitespace-fragile).
+        for col in ("cspkts", "scpkts", "csbytes", "scbytes", "count"):
+            self.assertIn(f"coalesce(flow.{col}, ", update_sql)
+
+    def test_flow_merge_select_uses_is_null_for_missing_dport(self):
+        # ICMP records carry ``dport=NULL`` / ``type=<int>``;
+        # SQL equality on ``NULL`` returns ``NULL`` so the
+        # SELECT must use ``IS NULL`` instead of ``= NULL``
+        # to find existing rows.  Pin this so a future
+        # refactor doesn't silently introduce duplicate
+        # rows.
+        from datetime import datetime
+
+        db, _conn, captured = self._make_db()
+        bulk = db.start_bulk_insert()
+        db.conn2flow(
+            bulk,
+            {
+                "src": "10.0.0.1",
+                "dst": "10.0.0.2",
+                "proto": "icmp",
+                "type": 8,
+                "code": 0,
+                "start_time": datetime(2024, 1, 1, 0, 0, 0),
+                "end_time": datetime(2024, 1, 1, 0, 0, 5),
+                "orig_pkts": 1,
+                "resp_pkts": 1,
+                "orig_ip_bytes": 60,
+                "resp_ip_bytes": 60,
+            },
+        )
+        db.bulk_commit(bulk)
+        from sqlalchemy.dialects import postgresql
+
+        select_sql = str(captured[2].compile(dialect=postgresql.dialect()))
+        # ICMP path: dport is NULL -> ``IS NULL``; type is
+        # set -> ``= :type_1``.
+        self.assertIn("flow.dport IS NULL", select_sql)
+        self.assertIn("flow.type = ", select_sql)
+
+
+# Live-engine integration test -- gated on ``duckdb-engine``
+# installed.  Exercises the full ingestion path against an
+# in-memory DuckDB so the SELECT-then-merge logic is verified
+# end-to-end (counter accumulation / timestamp widening / array
+# concatenation).
+try:
+    import duckdb_engine as _duckdb_engine_for_flow_tests  # type: ignore[import-untyped]  # noqa: F401, E402
+
+    _HAVE_DUCKDB_ENGINE_FOR_FLOW = True
+except ImportError:
+    _HAVE_DUCKDB_ENGINE_FOR_FLOW = False
+
+
+@unittest.skipUnless(
+    _HAVE_DUCKDB_FLOW and _HAVE_DUCKDB_ENGINE_FOR_FLOW,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
+class DuckDBFlowLiveIntegrationTests(unittest.TestCase):
+    """End-to-end ingestion against an in-memory DuckDB.
+
+    The PG-targeted ``ON CONFLICT (..., COALESCE(dport, -1),
+    ...)`` path raises
+    ``NotImplementedException: Non-column index element not
+    supported yet!`` on DuckDB; this class verifies that
+    :meth:`DuckDBFlow._flow_merge`'s SELECT-then-merge override
+    produces the same end-state as the PG path would have.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        import tempfile
+
+        import sqlalchemy as sa  # type: ignore[import-untyped]
+
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import Base
+
+        # Strip the indexes / FK constraints DuckDB rejects at
+        # CREATE TABLE time.  Mirrors the bookkeeping
+        # :meth:`DuckDBMixin.init` does in production; we
+        # skip the full ``init()`` because the test's
+        # short-lived engine doesn't need the FTS index loader.
+        # Track every mutation so :meth:`tearDownClass` can
+        # restore the metadata declarations exactly -- the
+        # ``Base.metadata`` object is module-level state shared
+        # with sibling test classes (e.g.
+        # :class:`SQLDBFlowSchemaTests`), and a partial restore
+        # would silently break the assertions there.
+        cls._saved_idx = []
+        cls._saved_fkc = []
+        cls._saved_col_fks = []
+        for tbl in (
+            _Host_for_duckdb_tests.__table__,
+            _Flow_for_duckdb_tests.__table__,
+        ):
+            for ix in list(tbl.indexes):
+                if _is_unsupported_on_duckdb(ix):
+                    cls._saved_idx.append((tbl, ix))
+                    tbl.indexes.discard(ix)
+            for fkc in list(tbl.foreign_key_constraints):
+                cls._saved_fkc.append((tbl, fkc))
+                tbl.constraints.discard(fkc)
+            for col in list(tbl.columns):
+                if col.foreign_keys:
+                    cls._saved_col_fks.append((col, set(col.foreign_keys)))
+                    for fk in list(col.foreign_keys):
+                        col.foreign_keys.discard(fk)
+                        tbl.foreign_keys.discard(fk)
+        fd, cls._path = tempfile.mkstemp(suffix=".duckdb")
+        os.close(fd)
+        os.unlink(cls._path)
+        cls._engine = sa.create_engine(f"duckdb:///{cls._path}")
+        Base.metadata.create_all(
+            cls._engine,
+            tables=[
+                _Host_for_duckdb_tests.__table__,
+                _Flow_for_duckdb_tests.__table__,
+            ],
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        import os
+
+        cls._engine.dispose()
+        if os.path.exists(cls._path):
+            os.unlink(cls._path)
+        # Restore the schema declarations so sibling test
+        # classes (notably :class:`SQLDBFlowSchemaTests`,
+        # which assert on the exact FK / index inventory) see
+        # them unchanged.  Per-column ``ForeignKey`` objects
+        # need to land back on both the column and the
+        # table's ``foreign_keys`` set; missing the latter
+        # leaves :attr:`Column.foreign_keys` empty even
+        # though the table-level constraint is restored.
+        for tbl, ix in cls._saved_idx:
+            tbl.indexes.add(ix)
+        for tbl, fkc in cls._saved_fkc:
+            tbl.append_constraint(fkc)
+        for col, fks in cls._saved_col_fks:
+            for fk in fks:
+                col.foreign_keys.add(fk)
+                col.table.foreign_keys.add(fk)
+
+    def test_repeated_conn_records_accumulate(self):
+        # Mirrors the PG counter-accumulation contract: two
+        # records with the same flow key must collapse onto a
+        # single row whose counters / sports list / timestamp
+        # window reflect both observations.
+        from datetime import datetime
+
+        import sqlalchemy as sa
+
+        db = _DuckDBFlow_for_tests.__new__(_DuckDBFlow_for_tests)
+        db._db = self._engine
+
+        bulk = db.start_bulk_insert()
+        db.conn2flow(
+            bulk,
+            {
+                "src": "10.0.0.10",
+                "dst": "10.0.0.20",
+                "proto": "tcp",
+                "sport": 1234,
+                "dport": 80,
+                "start_time": datetime(2024, 1, 1, 0, 0, 0),
+                "end_time": datetime(2024, 1, 1, 0, 0, 5),
+                "orig_pkts": 5,
+                "resp_pkts": 7,
+                "orig_ip_bytes": 500,
+                "resp_ip_bytes": 700,
+            },
+        )
+        db.bulk_commit(bulk)
+        bulk = db.start_bulk_insert()
+        db.conn2flow(
+            bulk,
+            {
+                "src": "10.0.0.10",
+                "dst": "10.0.0.20",
+                "proto": "tcp",
+                "sport": 5678,
+                "dport": 80,
+                "start_time": datetime(2024, 1, 1, 0, 0, 10),
+                "end_time": datetime(2024, 1, 1, 0, 0, 15),
+                "orig_pkts": 3,
+                "resp_pkts": 4,
+                "orig_ip_bytes": 300,
+                "resp_ip_bytes": 400,
+            },
+        )
+        db.bulk_commit(bulk)
+        with self._engine.connect() as conn:
+            row = conn.execute(
+                sa.select(
+                    _Flow_for_duckdb_tests.cspkts,
+                    _Flow_for_duckdb_tests.scpkts,
+                    _Flow_for_duckdb_tests.csbytes,
+                    _Flow_for_duckdb_tests.scbytes,
+                    _Flow_for_duckdb_tests.count,
+                    _Flow_for_duckdb_tests.sports,
+                    _Flow_for_duckdb_tests.firstseen,
+                    _Flow_for_duckdb_tests.lastseen,
+                ).where(
+                    sa.and_(
+                        _Flow_for_duckdb_tests.proto == "tcp",
+                        _Flow_for_duckdb_tests.dport == 80,
+                    )
+                )
+            ).fetchone()
+        self.assertEqual(row.cspkts, 8)
+        self.assertEqual(row.scpkts, 11)
+        self.assertEqual(row.csbytes, 800)
+        self.assertEqual(row.scbytes, 1100)
+        self.assertEqual(row.count, 2)
+        self.assertEqual(sorted(row.sports), [1234, 5678])
+        self.assertEqual(row.firstseen, datetime(2024, 1, 1, 0, 0, 0))
+        self.assertEqual(row.lastseen, datetime(2024, 1, 1, 0, 0, 15))
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

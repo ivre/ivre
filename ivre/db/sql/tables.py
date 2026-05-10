@@ -178,6 +178,28 @@ class INETLiteral(postgresql.INET):
 
 SQLINET = INETLiteral()
 
+# DuckDB accepts ``INET`` as a column type but rejects it as an
+# index key with ``Invalid type for index key``.  IVRE's existing
+# DuckDB tables work around this by stripping any ``Index`` whose
+# columns include INET (via :func:`_is_unsupported_on_duckdb`),
+# accepting the missing index as a known degradation.  A
+# ``UniqueConstraint`` cannot be stripped the same way: DuckDB
+# materialises the constraint as a backing index at ``CREATE
+# TABLE`` time and rejects the whole DDL with the same error
+# before the ``init()`` filter has a chance to run.
+#
+# :class:`~ivre.db.sql.tables.Host` keys on ``addr`` via a
+# ``UniqueConstraint`` (the natural key for the per-flow upsert
+# path) and therefore must use the variant below: PostgreSQL keeps
+# the native ``INET`` column (with the ``::inet`` cast on every
+# bind so cross-process tests round-trip cleanly), while DuckDB
+# falls back to a ``VARCHAR(64)`` column that accepts the same
+# printable IP literals (``'10.0.0.1'`` / ``'2001:db8::1'``) as
+# string equality keys -- enough for the constraint and the
+# upsert lookup.  The 64-byte cap covers IPv6 with embedded
+# IPv4 plus an optional ``/<prefix>`` suffix.
+SQLINET_KEY = SQLINET.with_variant(String(64), "duckdb")
+
 
 class Point(UserDefinedType):
     cache_ok = True
@@ -303,7 +325,11 @@ class Host(Base):
         server_default=_seq_host_id.next_value(),
         primary_key=True,
     )
-    addr = Column(SQLINET, nullable=False)
+    # ``SQLINET_KEY`` collapses to ``VARCHAR(64)`` on DuckDB so
+    # the ``UniqueConstraint`` below can build its backing index
+    # (DuckDB rejects ``INET`` as an index key); on PostgreSQL it
+    # stays the native ``INET`` type.
+    addr = Column(SQLINET_KEY, nullable=False)
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
     __table_args__ = (

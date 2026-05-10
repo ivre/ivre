@@ -1713,6 +1713,20 @@ class SQLDBFlow(SQLDB, DBFlow):
             set_=upsert,
         )
 
+    def _flow_merge(self, conn, values, increments):
+        """Apply a single flow upsert via the PG ``ON CONFLICT``
+        path.
+
+        Indirection point so backends without expression-index
+        ``ON CONFLICT`` inference (notably DuckDB, which raises
+        ``Not implemented Error: Non-column index element not
+        supported yet!``) can override with a SELECT-then-merge
+        strategy without touching the per-record ``_apply_*``
+        helpers.  PostgreSQL keeps the single-statement upsert
+        path :meth:`_flow_upsert_stmt` builds.
+        """
+        conn.execute(self._flow_upsert_stmt(values, increments))
+
     @staticmethod
     def _flow_key_columns(rec):
         """Return the ``proto`` / ``dport`` / ``type`` triple
@@ -1767,9 +1781,9 @@ class SQLDBFlow(SQLDB, DBFlow):
         # ``any2flow`` does not bump any counter on conflict --
         # the ``meta.<name>.count`` accumulation Mongo drives
         # belongs to the deferred ``meta`` follow-up.  Pass an
-        # empty ``increments`` so :meth:`_flow_upsert_stmt` only
+        # empty ``increments`` so :meth:`_flow_merge` only
         # widens the timestamp window.
-        conn.execute(self._flow_upsert_stmt(values, increments={}))
+        self._flow_merge(conn, values, increments={})
 
     def _apply_conn(self, conn, rec):
         """Upsert the flow row backing a Zeek ``conn.log``
@@ -1807,17 +1821,16 @@ class SQLDBFlow(SQLDB, DBFlow):
             "meta": {},
             "schema_version": ivre_flow.SCHEMA_VERSION,
         }
-        conn.execute(
-            self._flow_upsert_stmt(
-                values,
-                increments={
-                    "cspkts": 0,
-                    "scpkts": 0,
-                    "csbytes": 0,
-                    "scbytes": 0,
-                    "count": 0,
-                },
-            )
+        self._flow_merge(
+            conn,
+            values,
+            increments={
+                "cspkts": 0,
+                "scpkts": 0,
+                "csbytes": 0,
+                "scbytes": 0,
+                "count": 0,
+            },
         )
 
     def _apply_flow(self, conn, rec):
@@ -1858,17 +1871,16 @@ class SQLDBFlow(SQLDB, DBFlow):
             "meta": {},
             "schema_version": ivre_flow.SCHEMA_VERSION,
         }
-        conn.execute(
-            self._flow_upsert_stmt(
-                values,
-                increments={
-                    "cspkts": 0,
-                    "scpkts": 0,
-                    "csbytes": 0,
-                    "scbytes": 0,
-                    "count": 0,
-                },
-            )
+        self._flow_merge(
+            conn,
+            values,
+            increments={
+                "cspkts": 0,
+                "scpkts": 0,
+                "csbytes": 0,
+                "scbytes": 0,
+                "count": 0,
+            },
         )
 
     def cleanup_flows(self):
