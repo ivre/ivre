@@ -1,4 +1,5 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { DomainTree } from "@/components/DomainTree";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +13,16 @@ import {
   getCountryFlag,
   getPortColor,
   getTagColor,
+  sortTagsByImportance,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/** Cap on the number of tag chips rendered on a collapsed host card.
+ *  Pathological hosts (the AS-MSN bulk-tagged ones) can carry several
+ *  hundred ``Client …`` tags; rendering them all turns a single card
+ *  into a screen-tall wall. The card stays compact until the user
+ *  clicks "Show N more". */
+const TAGS_COLLAPSED_LIMIT = 12;
 
 export interface HostCardProps {
   host: HostRecord;
@@ -74,6 +83,32 @@ export function HostCard({
   const productHL = highlights?.get("product");
   const domainHL = highlights?.get("domain");
   const hostnameHL = highlights?.get("hostname");
+
+  // Sort tags so highlighted ones (those matching an active tag
+  // filter) come first, each bucket ranked by importance (error >
+  // warning > success > info > default) and stable within a rank.
+  // This pins what the user cares about right now to the head of
+  // the row so it stays visible even when the card is collapsed.
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const sortedTags = useMemo(
+    () =>
+      sortTagsByImportance(
+        host.tags ?? [],
+        tagHL ? (t) => tagHL.has(t.value.toLowerCase()) : undefined,
+      ),
+    [host.tags, tagHL],
+  );
+  const hasOverflow = sortedTags.length > TAGS_COLLAPSED_LIMIT;
+  const hiddenCount = hasOverflow
+    ? sortedTags.length - TAGS_COLLAPSED_LIMIT
+    : 0;
+  const visibleTags = useMemo(
+    () =>
+      tagsExpanded || !hasOverflow
+        ? sortedTags
+        : sortedTags.slice(0, TAGS_COLLAPSED_LIMIT),
+    [sortedTags, tagsExpanded, hasOverflow],
+  );
 
   return (
     // Soften the card chrome compared to shadcn's default ``<Card>``:
@@ -193,7 +228,7 @@ export function HostCard({
                 </Badge>
               </button>
             ))}
-            {host.tags?.map((tag) => (
+            {visibleTags.map((tag) => (
               <button
                 type="button"
                 key={`tag-${tag.value}`}
@@ -214,6 +249,28 @@ export function HostCard({
                 </Badge>
               </button>
             ))}
+            {hasOverflow ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-1 py-0 text-xs"
+                aria-expanded={tagsExpanded}
+                onClick={() => setTagsExpanded((v) => !v)}
+              >
+                {tagsExpanded ? (
+                  <>
+                    <ChevronUp className="size-3" />
+                    Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" />
+                    Show {hiddenCount} more
+                  </>
+                )}
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

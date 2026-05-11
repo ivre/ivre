@@ -7,6 +7,7 @@ import {
   getCountryFlag,
   getPortColor,
   getTagColor,
+  sortTagsByImportance,
 } from "./format";
 
 describe("getCountryFlag", () => {
@@ -90,6 +91,131 @@ describe("formatPort", () => {
     expect(formatPort({ protocol: "tcp" })).toBe("");
     expect(formatPort({ port: 443 })).toBe("");
     expect(formatPort({})).toBe("");
+  });
+});
+
+describe("sortTagsByImportance", () => {
+  it("orders error > warning > success > info > default/unknown", () => {
+    const input = [
+      { value: "a", type: "info" },
+      { value: "b", type: "default" },
+      { value: "c", type: "error" },
+      { value: "d", type: "success" },
+      { value: "e" }, // missing type → default rank
+      { value: "f", type: "warning" },
+    ];
+    expect(sortTagsByImportance(input).map((t) => t.value)).toEqual([
+      "c", // error
+      "f", // warning
+      "d", // success
+      "a", // info
+      "b", // default (string "default" is not a known rank → default bucket)
+      "e", // missing type
+    ]);
+  });
+
+  it("is stable within a rank bucket (preserves server order)", () => {
+    const input = [
+      { value: "x1" },
+      { value: "x2" },
+      { value: "x3", type: "info" },
+      { value: "x4" },
+      { value: "x5", type: "info" },
+    ];
+    expect(sortTagsByImportance(input).map((t) => t.value)).toEqual([
+      "x3",
+      "x5",
+      "x1",
+      "x2",
+      "x4",
+    ]);
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [
+      { value: "a" },
+      { value: "b", type: "error" },
+    ];
+    const before = [...input];
+    sortTagsByImportance(input);
+    expect(input).toEqual(before);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(sortTagsByImportance([])).toEqual([]);
+  });
+
+  it("pulls highlighted tags ahead of every non-highlighted tag", () => {
+    // Highlighted info should still beat non-highlighted error
+    // because the highlight key dominates the type key.
+    const input = [
+      { value: "a", type: "error" },
+      { value: "b", type: "info" },
+      { value: "c", type: "warning" },
+    ];
+    const highlighted = new Set(["b"]);
+    expect(
+      sortTagsByImportance(input, (t) => highlighted.has(t.value)).map(
+        (t) => t.value,
+      ),
+    ).toEqual(["b", "a", "c"]);
+  });
+
+  it("ranks highlighted tags among themselves by importance", () => {
+    const input = [
+      { value: "h-info", type: "info" },
+      { value: "h-default" },
+      { value: "h-error", type: "error" },
+      { value: "h-warning", type: "warning" },
+      { value: "h-success", type: "success" },
+      { value: "plain", type: "error" },
+    ];
+    const highlighted = new Set([
+      "h-info",
+      "h-default",
+      "h-error",
+      "h-warning",
+      "h-success",
+    ]);
+    expect(
+      sortTagsByImportance(input, (t) => highlighted.has(t.value)).map(
+        (t) => t.value,
+      ),
+    ).toEqual([
+      "h-error",
+      "h-warning",
+      "h-success",
+      "h-info",
+      "h-default",
+      "plain",
+    ]);
+  });
+
+  it("is stable within the highlighted same-type bucket", () => {
+    const input = [
+      { value: "n1", type: "info" },
+      { value: "h1", type: "info" },
+      { value: "h2", type: "info" },
+      { value: "n2", type: "info" },
+      { value: "h3", type: "info" },
+    ];
+    const highlighted = new Set(["h1", "h2", "h3"]);
+    expect(
+      sortTagsByImportance(input, (t) => highlighted.has(t.value)).map(
+        (t) => t.value,
+      ),
+    ).toEqual(["h1", "h2", "h3", "n1", "n2"]);
+  });
+
+  it("treats an always-false predicate as no predicate at all", () => {
+    const input = [
+      { value: "a", type: "info" },
+      { value: "b", type: "error" },
+      { value: "c" },
+    ];
+    expect(
+      sortTagsByImportance(input, () => false).map((t) => t.value),
+    ).toEqual(sortTagsByImportance(input).map((t) => t.value));
   });
 });
 

@@ -1,4 +1,11 @@
-import { ChevronLeft, ChevronRight, Link as LinkIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Link as LinkIcon,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +25,16 @@ import {
   getCountryFlag,
   getPortColor,
   getTagColor,
+  sortTagsByImportance,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/** Cap on the number of tag chips rendered in the collapsed
+ *  "Tags" section of the detail sheet. Larger than the host card
+ *  cap because the detail sheet is the place users go to inspect
+ *  everything, but still bounded so a 500-tag host doesn't paint
+ *  a wall of chips on open. */
+const TAGS_COLLAPSED_LIMIT = 30;
 
 export interface HostDetailSheetProps {
   host: HostRecord | null;
@@ -177,6 +192,34 @@ function HostDetailBody({
   const serviceHL = highlights?.get("service");
   const productHL = highlights?.get("product");
 
+  // Sort + slice tags to keep the "Tags" section from painting a
+  // wall of hundreds of chips on bulk-tagged hosts. Mirrors the
+  // behaviour on ``HostCard`` (see ``TAGS_COLLAPSED_LIMIT`` there)
+  // with a looser cap because the detail sheet is the inspection
+  // surface. Highlighted tags (those matching an active tag filter)
+  // sort to the head of the list so they always stay visible when
+  // collapsed.
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const sortedTags = useMemo(
+    () =>
+      sortTagsByImportance(
+        host.tags ?? [],
+        tagHL ? (t) => tagHL.has(t.value.toLowerCase()) : undefined,
+      ),
+    [host.tags, tagHL],
+  );
+  const hasTagOverflow = sortedTags.length > TAGS_COLLAPSED_LIMIT;
+  const hiddenTagCount = hasTagOverflow
+    ? sortedTags.length - TAGS_COLLAPSED_LIMIT
+    : 0;
+  const visibleTags = useMemo(
+    () =>
+      tagsExpanded || !hasTagOverflow
+        ? sortedTags
+        : sortedTags.slice(0, TAGS_COLLAPSED_LIMIT),
+    [sortedTags, tagsExpanded, hasTagOverflow],
+  );
+
   return (
     <div className="space-y-6">
       <Section title="Network">
@@ -267,7 +310,7 @@ function HostDetailBody({
       {host.tags && host.tags.length > 0 ? (
         <Section title="Tags">
           <div className="flex flex-wrap gap-1.5">
-            {host.tags.map((tag) => (
+            {visibleTags.map((tag) => (
               <button
                 type="button"
                 key={tag.value}
@@ -288,6 +331,28 @@ function HostDetailBody({
                 </Badge>
               </button>
             ))}
+            {hasTagOverflow ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-1 py-0 text-xs"
+                aria-expanded={tagsExpanded}
+                onClick={() => setTagsExpanded((v) => !v)}
+              >
+                {tagsExpanded ? (
+                  <>
+                    <ChevronUp className="size-3" />
+                    Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" />
+                    Show {hiddenTagCount} more
+                  </>
+                )}
+              </Button>
+            ) : null}
           </div>
         </Section>
       ) : null}

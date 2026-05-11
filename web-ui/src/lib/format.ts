@@ -46,6 +46,62 @@ export function getTagColor(type: string | undefined): string {
   return TAG_TONES.default;
 }
 
+/**
+ * Importance rank used when collapsing long tag lists on the host
+ * card / detail sheet.
+ *
+ * Lower rank = higher importance = shown first. Anything with an
+ * unknown / missing ``type`` (e.g. the default-purple "Client …"
+ * inventory tags emitted in bulk by some IVRE plugins) sorts to the
+ * end so the signal tags remain visible when the list is collapsed.
+ *
+ * Order is ``error > warning > success > info > default``.
+ */
+export const TAG_TYPE_RANK: Record<string, number> = {
+  error: 0,
+  warning: 1,
+  success: 2,
+  info: 3,
+};
+const TAG_TYPE_DEFAULT_RANK = 4;
+
+/**
+ * Return a new array of tags sorted by importance (see
+ * :data:`TAG_TYPE_RANK`). Stable: ties preserve the original server
+ * order, so e.g. two ``info`` tags keep their incoming sequence.
+ *
+ * If ``isHighlighted`` is provided, tags it returns ``true`` for are
+ * pulled to the head of the result and ranked among themselves by
+ * the same importance order. Concretely the sort key is the tuple
+ * ``(isHighlighted ? 0 : 1, typeRank, originalIndex)``, ascending,
+ * so the final order is:
+ *
+ *   ``error★ > warning★ > success★ > info★ > default★ > error > warning > … > default``
+ *
+ * (``★`` = matches the highlight predicate.)
+ *
+ * Rationale: a highlighted tag is part of the active filter set, so
+ * it's what the user cares about right now and should anchor the
+ * head of the list — but severity still matters as a secondary key
+ * within each bucket.
+ */
+export function sortTagsByImportance<T extends { type?: string }>(
+  tags: readonly T[],
+  isHighlighted?: (tag: T) => boolean,
+): T[] {
+  return tags
+    .map((t, i) => ({
+      t,
+      i,
+      hl: isHighlighted !== undefined && isHighlighted(t) ? 0 : 1,
+      rank: t.type !== undefined && t.type in TAG_TYPE_RANK
+        ? TAG_TYPE_RANK[t.type]
+        : TAG_TYPE_DEFAULT_RANK,
+    }))
+    .sort((a, b) => a.hl - b.hl || a.rank - b.rank || a.i - b.i)
+    .map((x) => x.t);
+}
+
 /** Port colours by ``state_state`` field on a port record. */
 export function getPortColor(state: string | undefined): string {
   switch (state) {
