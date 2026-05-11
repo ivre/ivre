@@ -9786,6 +9786,140 @@ class DocumentDBAuthTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# CapabilityRegistryTests -- pin :attr:`DB.supports` per backend.
+#
+# The capability registry lets the test suite branch on backend
+# behaviour without hard-coding the ``DATABASE`` environment
+# variable; the migration is documented inline in
+# ``tests/tests.py``.  These tests pin the per-backend
+# capability flags so a future refactor that drops one
+# silently (and re-introduces a ``DATABASE`` skip) surfaces
+# here.
+# ---------------------------------------------------------------------
+
+
+class CapabilityRegistryTests(unittest.TestCase):
+    """Behaviour-pin for the ``supports`` frozenset on each
+    concrete backend class.
+
+    Only the backends importable without optional dependencies
+    (MongoDB / DocumentDB / the abstract ``DB`` base) are
+    exercised here; the SQL backends pull in ``sqlalchemy`` at
+    import time and live in
+    :class:`SQLCapabilityRegistryTests` below.
+    """
+
+    def test_base_supports_is_empty(self):
+        # The opt-in default: a backend without any capability
+        # flag inherits the empty frozenset from
+        # :class:`DB`.
+        from ivre.db import DB
+
+        self.assertEqual(DB.supports, frozenset())
+
+    def test_mongo_nmap_supports_init_terminates(self):
+        from ivre.db.mongo import MongoDBNmap
+
+        self.assertIn("nmap_init_terminates", MongoDBNmap.supports)
+
+    def test_documentdb_nmap_inherits_init_terminates(self):
+        # :class:`DocumentDBNmap` inherits the Mongo flag set
+        # unchanged.
+        from ivre.db.document import DocumentDBNmap
+
+        self.assertIn("nmap_init_terminates", DocumentDBNmap.supports)
+
+    def test_mongo_passive_supports_no_bulk_and_source_invariant(self):
+        from ivre.db.mongo import MongoDBPassive
+
+        self.assertIn("passive_no_bulk_ingestion", MongoDBPassive.supports)
+        self.assertIn("passive_source_field_invariant", MongoDBPassive.supports)
+
+    def test_mongo_flow_supports_array_topvalues(self):
+        from ivre.db.mongo import MongoDBFlow
+
+        self.assertIn("flow_array_topvalues", MongoDBFlow.supports)
+
+    def test_database_skip_count_under_threshold(self):
+        # Defence in depth: re-grep ``tests/tests.py`` for
+        # ``DATABASE [!=]= "..."`` and fail if the count
+        # ever creeps back up.  The acceptance bar is
+        # ``<= 5`` lines, each commented as intentional;
+        # the current code carries 4 (the dialect-specific
+        # explain assertion split + the maxmind data lane
+        # + the mongodump producer).
+        import os
+        import re
+
+        tests_path = os.path.join(os.path.dirname(__file__), "tests.py")
+        with open(tests_path, encoding="utf-8") as fdesc:
+            matches = [
+                lineno
+                for lineno, line in enumerate(fdesc, start=1)
+                if re.search(r"DATABASE\s*[!=]=", line)
+            ]
+        self.assertLessEqual(
+            len(matches),
+            5,
+            f"tests.py has {len(matches)} ``DATABASE [!=]=`` lines "
+            f"(>5 acceptance bar); migrate excess to capability "
+            f"flags. Lines: {matches}",
+        )
+
+
+# SQL-side capability tests live in a separate class so the
+# ``sqlalchemy`` import they trigger via
+# ``ivre/db/sql/__init__.py`` doesn't break the no-backend CI
+# job (which deliberately skips the ``[postgres]`` / ``[duckdb]``
+# extras).  The ``_HAVE_SQLALCHEMY`` flag declared earlier in
+# this file gates the whole class.
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or " "``duckdb`` extras)",
+)
+class SQLCapabilityRegistryTests(unittest.TestCase):
+    """Capability-registry pins for the SQL backends."""
+
+    def test_postgres_nmap_drops_init_terminates(self):
+        # PostgreSQL's ``scancli --init`` hangs in the test
+        # cleanup phase; the missing flag gates the
+        # corresponding ``test_90_cleanup`` block.
+        from ivre.db.sql.postgres import PostgresDBNmap
+
+        self.assertNotIn("nmap_init_terminates", PostgresDBNmap.supports)
+
+    def test_duckdb_nmap_supports_init_terminates(self):
+        from ivre.db.sql.duckdb import DuckDBNmap
+
+        self.assertIn("nmap_init_terminates", DuckDBNmap.supports)
+
+    def test_postgres_passive_drops_no_bulk(self):
+        # PG's per-row passive ingestion path is broken
+        # under the real-world p0f fixture pending a
+        # deferred investigation; the missing flag forces
+        # ``test_40_passive`` to bulk-only mode.
+        from ivre.db.sql.postgres import PostgresDBPassive
+
+        self.assertNotIn("passive_no_bulk_ingestion", PostgresDBPassive.supports)
+
+    def test_duckdb_passive_supports_no_bulk(self):
+        from ivre.db.sql.duckdb import DuckDBPassive
+
+        self.assertIn("passive_no_bulk_ingestion", DuckDBPassive.supports)
+
+    def test_sql_flow_drops_array_topvalues(self):
+        # The SQL flow backends defer the per-protocol
+        # ``meta.<name>`` JSONB merge and the timeslot
+        # ingestion; ``topvalues`` over the array forms is
+        # not available there yet.
+        from ivre.db.sql.duckdb import DuckDBFlow
+        from ivre.db.sql.postgres import PostgresDBFlow
+
+        self.assertNotIn("flow_array_topvalues", PostgresDBFlow.supports)
+        self.assertNotIn("flow_array_topvalues", DuckDBFlow.supports)
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

@@ -3511,6 +3511,15 @@ return result;
 
 
 class ElasticDBView(ElasticDBActive, DBView):
+    # The Elasticsearch view backend is populated from a
+    # MongoDB dump produced by the upstream nmap/passive lanes
+    # (the CI matrix runs the dump as a separate step, then
+    # restores it into a sidecar MongoDB before driving
+    # ``ivre db2view`` from there into Elasticsearch).  The
+    # flag gates the ``test_20_fake_nmap_passive`` setup that
+    # only makes sense on the elastic lane.
+    supports = frozenset({"view_seed_from_mongo_dump"})
+
     def __init__(self, url):
         super().__init__(url)
         self.indexes = [

@@ -692,7 +692,10 @@ class IvreTests(unittest.TestCase):
         purposes to feed Elasticsearch view.
 
         """
-        if DATABASE != "elastic":
+        # Capability-gated: only the view backends that seed
+        # their data from a Mongo dump produced by the upstream
+        # nmap / passive CI lanes (Elasticsearch today) opt in.
+        if "view_seed_from_mongo_dump" not in ivre.db.db.view.supports:
             return
         subprocess.check_call(["mongorestore", "--db", "ivre", "../backup/"])
         for cmd in ["scancli", "ipinfo"]:
@@ -1349,6 +1352,17 @@ class IvreTests(unittest.TestCase):
         for query in queries:
             result = ivre.db.db.nmap.get(query)
             count = ivre.db.db.nmap.count(query)
+            # Intentional DATABASE branch -- the ``explain``
+            # output shape is dialect-specific and matched by
+            # very different assertions (Mongo emits a JSON
+            # blob whose ``nscanned`` / ``executionStats``
+            # field carries the document-scan count; PG emits
+            # the textual ``EXPLAIN`` plan and the only
+            # assertion that survives across query optimisers
+            # is the index-name substring).  Migrating this
+            # block to a capability flag would split each
+            # half behind its own ``if`` and add no
+            # readability, so the branch stays.
             if DATABASE == "mongo":
                 nscanned = json.loads(
                     ivre.db.db.nmap.explain(ivre.db.db.nmap._get(query))
@@ -1796,11 +1810,15 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
     def test_40_passive(self):
-        if DATABASE == "postgres":
-            # FIXME: tests are broken with PostgreSQL & --no-bulk
-            bulk_mode = random.choice(["--bulk", "--local-bulk"])
-        else:
+        # Capability-gated: only the backends whose per-row
+        # ingestion path works end-to-end accept ``--no-bulk``;
+        # PostgreSQL's per-record path is broken under the
+        # real-world p0f fixture pending a deferred
+        # investigation.
+        if "passive_no_bulk_ingestion" in ivre.db.db.passive.supports:
             bulk_mode = random.choice(["--bulk", "--no-bulk", "--local-bulk"])
+        else:
+            bulk_mode = random.choice(["--bulk", "--local-bulk"])
         print("Running passive tests with %s" % bulk_mode)
 
         # Init DB
@@ -2650,7 +2668,12 @@ class IvreTests(unittest.TestCase):
 
         signal.signal(signal.SIGALRM, old_handler)
 
-        if DATABASE == "mongo":
+        # Capability-gated: the MongoDB-API ``get(flt_empty,
+        # fields=["source"])`` shape this sanity check relies
+        # on is set on the passive backend whose document
+        # model exposes ``source`` as a typed top-level field
+        # (MongoDB today).
+        if "passive_source_field_invariant" in ivre.db.db.passive.supports:
             # Check no None value can actually exist in DB
             self.assertFalse(
                 None
@@ -3295,7 +3318,14 @@ class IvreTests(unittest.TestCase):
             collect_fields=["src.addr", "dst.addr"],
         )
 
-        if DATABASE == "mongo":
+        # Capability-gated: ``topvalues`` over array-typed
+        # columns (``sports``, ``times``) and per-protocol
+        # ``meta.<name>`` sub-documents requires the backend
+        # to unwind those forms in its aggregation pipeline
+        # (MongoDB's ``$unwind`` does it; the SQL backends
+        # defer the ``meta`` JSONB merge and the timeslot
+        # ingestion).
+        if "flow_array_topvalues" in ivre.db.db.flow.supports:
             # More top values test
             self.check_flow_top_values("flow_top_sport", ["sport"])
             self.check_flow_top_values("flow_top_sport", ["sports"])
@@ -3484,6 +3514,15 @@ class IvreTests(unittest.TestCase):
         # Reinit data DB since we have downloaded the files
         ivre.db.db.data.reload_files()
 
+        # Intentional DATABASE branch -- the remaining
+        # assertions exercise the MaxMind ``.mmdb`` reader's
+        # behaviour (GeoIP / AS / city lookups against the
+        # downloaded files).  No other backend implements
+        # ``DBData`` -- the matrix puts the ``data`` purpose
+        # exclusively on the MaxMind backend (and the HTTP
+        # proxy that forwards to it).  A capability flag
+        # would just rename the same backend-name check
+        # without adding clarity.
         if DATABASE != "maxmind":
             print(
                 "Database files have been downloaded -- " "other data tests won't run"
@@ -3800,6 +3839,13 @@ class IvreTests(unittest.TestCase):
         """
         if not os.environ.get("IVRE_DUMP_NMAP_PASSIVE"):
             return
+        # Intentional DATABASE branch -- ``mongodump`` is a
+        # MongoDB-shipped binary; the dump is the canonical
+        # input :meth:`test_20_fake_nmap_passive` consumes on
+        # the Elasticsearch CI lane.  No capability flag
+        # captures "the backend can produce a Mongo-shaped
+        # dump", and the producer is fundamentally a
+        # MongoDB-only path.
         if DATABASE != "mongo":
             return
         backup_dir = "../backup"
@@ -4988,8 +5034,11 @@ class IvreTests(unittest.TestCase):
 
     def test_90_cleanup(self):
         # Clean DB
-        if DATABASE != "postgres":
-            # FIXME: for some reason, this does not terminate
+        # Capability-gated: ``scancli --init`` terminates
+        # cleanly on every backend except PostgreSQL, whose
+        # cleanup path hangs here (root cause not yet
+        # investigated; tracked as a deferred follow-up).
+        if "nmap_init_terminates" in ivre.db.db.nmap.supports:
             RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)

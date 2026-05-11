@@ -855,6 +855,12 @@ class _DuckDBActiveSearchMixin:
 class DuckDBNmap(DuckDBMixin, _DuckDBActiveSearchMixin, PostgresDBNmap):
     """DuckDB backend for the ``nmap`` (active-scan) data category."""
 
+    # ``scancli --init`` terminates cleanly here (unlike the
+    # PostgreSQL backend whose cleanup phase hangs); the test
+    # cleanup path branches on this flag instead of the
+    # backend name.
+    supports = frozenset({"nmap_init_terminates"})
+
     base_filter = DuckDBNmapFilter
 
     # The override is an instance method (``self``) where the
@@ -904,6 +910,11 @@ class DuckDBPassive(DuckDBMixin, PostgresDBPassive):
     :exc:`NotImplementedError` on DuckDB until parity work
     lands.  Per-row :meth:`insert_or_update` works today.
     """
+
+    # Per-row ingestion (``ivre passiverecon2db --no-bulk``)
+    # works on DuckDB; the bulk-only restriction PG carries
+    # does not apply here.
+    supports = frozenset({"passive_no_bulk_ingestion"})
 
 
 class DuckDBFlow(DuckDBMixin, PostgresDBFlow):

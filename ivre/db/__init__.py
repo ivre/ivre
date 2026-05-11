@@ -114,6 +114,37 @@ class DB:
     list_fields = []
     text_fields = []
     cursor_timeout_exceptions = ()
+    # Capability registry consumed by the test suite (see
+    # :func:`tests.tests.IvreTests`) and by future callers that
+    # want to branch on backend behaviour without hard-coding
+    # the ``DATABASE`` environment variable.  Concrete backend
+    # subclasses extend this with capability flags they
+    # support; the default empty frozenset means "no opt-in
+    # behaviour".  Membership is tested as
+    # ``"<flag>" in db.<purpose>.supports``.  Existing flags:
+    #
+    # * ``view_seed_from_mongo_dump`` -- the view backend
+    #   seeds from a Mongo dump produced by the nmap/passive
+    #   lanes' CI matrix (Elasticsearch only).
+    # * ``passive_no_bulk_ingestion`` -- the passive backend
+    #   accepts ``ivre passiverecon2db --no-bulk`` end-to-end
+    #   (every backend except PostgreSQL today; PG's
+    #   per-record path is broken under the real-world p0f
+    #   fixture pending a deferred investigation).
+    # * ``passive_source_field_invariant`` -- the passive
+    #   backend's ``source`` column is reachable for the
+    #   "no NULL source field" sanity check (MongoDB API
+    #   shape only).
+    # * ``flow_array_topvalues`` -- the flow backend's
+    #   ``topvalues`` aggregate unwinds array-typed columns
+    #   (``sports``, ``times``, ...) and the ``meta.<name>``
+    #   sub-document (MongoDB only; SQL backends defer the
+    #   ``meta`` JSONB merge and the timeslot ingestion).
+    # * ``nmap_init_terminates`` -- ``ivre scancli --init``
+    #   terminates cleanly in the test cleanup phase (every
+    #   backend except PostgreSQL today; PG hangs -- root
+    #   cause not yet investigated).
+    supports = frozenset()
 
     def __init__(self):
         self.argparser = ArgumentParser(add_help=False)
