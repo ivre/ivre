@@ -24,10 +24,12 @@
 
 import csv
 import datetime
+import hashlib
 import json
 import re
 from collections import namedtuple
 from collections.abc import Iterator
+from secrets import token_urlsafe
 from typing import Any
 
 from sqlalchemy import (
@@ -62,9 +64,14 @@ from ivre import config
 from ivre import flow as ivre_flow
 from ivre import utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
-from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBRir, DBView
+from ivre.db import DB, DBActive, DBAuth, DBFlow, DBNmap, DBPassive, DBRir, DBView
 from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
+    AuthApiKey,
+    AuthMagicLink,
+    AuthRateLimit,
+    AuthSession,
+    AuthUser,
     Flow,
     Host,
     N_Association_Scan_Category,
@@ -6322,3 +6329,555 @@ def _compute_rir_size_sql(start, stop):
     except (ValueError, OSError):
         return None
     return stop_int - start_int + 1
+
+
+# ---------------------------------------------------------------------
+# SQLDBAuth -- shared base for the SQL backends' authentication
+# data category.  Mirrors :class:`MongoDBAuth`
+# (``ivre/db/mongo.py:7333``) byte-for-byte at the dict-output
+# level so the web layer's auth code paths (login / session /
+# API key / magic link / rate limit) work unchanged on either
+# backend.
+#
+# Mongo's TTL indexes on session / magic-link / rate-limit
+# collections expire rows server-side; PostgreSQL and DuckDB
+# have no equivalent, so every read filter that needs the TTL
+# semantics adds an explicit ``WHERE expires_at > now()`` /
+# ``WHERE created_at > cutoff`` predicate.  Expired rows
+# accumulate without harm until an operator-driven cleanup
+# runs (a future ``ivre authcli --vacuum`` will automate it).
+# ---------------------------------------------------------------------
+
+
+def _now_utc():
+    """Return the current UTC timestamp as a timezone-aware
+    :class:`datetime`.
+
+    Centralised so the helper paths emit one shape (matches
+    :meth:`MongoDBAuth`'s ``datetime.now(tz=utc)`` calls).
+    """
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def _sha256_hex(value):
+    """SHA-256 hex digest of ``value``.
+
+    Mirrors :meth:`MongoDBAuth`'s ``hashlib.sha256(token.encode
+    ()).hexdigest()`` shape so the on-disk hash matches
+    byte-for-byte across backends -- an API key created on
+    MongoDB validates against an SQL backend pointing at the
+    same hash table contents.
+    """
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+class SQLDBAuth(SQLDB, DBAuth):
+    """SQL-backend base for the authentication data category.
+
+    Concrete dialects (PostgreSQL, DuckDB, ...) inherit this
+    together with their ``SQLDB`` flavour; no per-dialect
+    override is needed for the current method set because every
+    statement uses portable SQL (no ``ON CONFLICT`` expression
+    inference, no GIN-specific aggregation).
+    """
+
+    table_layout = namedtuple(
+        "auth_layout",
+        ["user", "session", "api_key", "rate_limit", "magic_link"],
+    )
+    tables = table_layout(
+        AuthUser, AuthSession, AuthApiKey, AuthRateLimit, AuthMagicLink
+    )
+
+    # Bound to a free-standing constant so a future schema bump
+    # (new column, new index) can advance the marker without
+    # touching :class:`MongoDBAuth`.  Starts at 1: the SQL
+    # backend has no records pre-dating this PR, so no
+    # historical migration is required at this point.
+    SCHEMA_VERSION = 1
+
+    @staticmethod
+    def _row2user(row):
+        """Project an :class:`AuthUser` row into the dict shape
+        :class:`MongoDBAuth` returns (``email`` / ``display_name``
+        / ``is_admin`` / ``is_active`` / ``groups`` /
+        ``created_at`` / ``last_login`` plus the synthetic
+        ``_id`` Mongo callers expect).
+        """
+        if row is None:
+            return None
+        return {
+            "_id": row.id,
+            "email": row.email,
+            "display_name": row.display_name,
+            "is_admin": bool(row.is_admin) if row.is_admin is not None else False,
+            "is_active": bool(row.is_active) if row.is_active is not None else False,
+            "groups": list(row.groups) if row.groups else [],
+            "created_at": row.created_at,
+            "last_login": row.last_login,
+        }
+
+    @staticmethod
+    def _row2apikey(row):
+        """Project an :class:`AuthApiKey` row into the dict
+        shape :meth:`MongoDBAuth.list_api_keys` returns.
+        """
+        return {
+            "_id": row.id,
+            "key_hash": row.key_hash,
+            "key_prefix": row.key_prefix,
+            "user_email": row.user_email,
+            "name": row.name,
+            "created_at": row.created_at,
+            "expires_at": row.expires_at,
+            "last_used": row.last_used,
+        }
+
+    # -- user CRUD ----------------------------------------------------
+
+    def get_user_by_email(self, email):
+        """Return the user record matching ``email`` (case-
+        sensitive, mirrors :meth:`MongoDBAuth`), or ``None``.
+        """
+        with self.db.connect() as conn:
+            row = conn.execute(
+                select(self.tables.user).where(self.tables.user.email == email)
+            ).first()
+        return self._row2user(row)
+
+    def create_user(
+        self, email, display_name=None, is_admin=False, is_active=False, groups=None
+    ):
+        """Insert a new user row.
+
+        Mirrors :meth:`MongoDBAuth.create_user`'s return shape
+        (the post-insert document dict).  The shared
+        :meth:`DBAuth` callers expect this dict directly back
+        from ``create_user``.
+        """
+        doc = {
+            "email": email,
+            "display_name": display_name or email,
+            "is_admin": is_admin,
+            "is_active": is_active,
+            "groups": list(groups) if groups else [],
+            "created_at": _now_utc(),
+            "last_login": None,
+            "schema_version": self.SCHEMA_VERSION,
+        }
+        with self.db.begin() as conn:
+            conn.execute(insert(self.tables.user).values(doc))
+        # Return the dict shape Mongo produces; the inserted
+        # row would otherwise need a SELECT round-trip just to
+        # pick up the ``id`` -- which the auth callers don't
+        # consult on the create path.
+        return {k: v for k, v in doc.items() if k != "schema_version"}
+
+    def update_user(self, email, **updates):
+        """Apply partial-update fields to the user row.
+
+        Mirrors :meth:`MongoDBAuth.update_user`'s ``$set``
+        semantics: only the keys present in ``updates`` are
+        rewritten; everything else is left untouched.
+        """
+        if not updates:
+            return
+        with self.db.begin() as conn:
+            conn.execute(
+                update(self.tables.user)
+                .where(self.tables.user.email == email)
+                .values(**updates)
+            )
+
+    def delete_user(self, email):
+        """Delete a user row and every dependent record.
+
+        Cascade in application code (mirrors
+        :meth:`MongoDBAuth.delete_user`): sessions and api-keys
+        reference the user by email, and magic-link records
+        carry the email directly.  Drop all of them in one
+        transaction so a partial failure leaves no dangling
+        sessions / api-keys.
+        """
+        with self.db.begin() as conn:
+            conn.execute(
+                delete(self.tables.session).where(
+                    self.tables.session.user_email == email
+                )
+            )
+            conn.execute(
+                delete(self.tables.api_key).where(
+                    self.tables.api_key.user_email == email
+                )
+            )
+            conn.execute(
+                delete(self.tables.magic_link).where(
+                    self.tables.magic_link.email == email
+                )
+            )
+            conn.execute(
+                delete(self.tables.user).where(self.tables.user.email == email)
+            )
+
+    def add_user_group(self, email, group):
+        """Add ``group`` to the user's group list (idempotent).
+
+        Mirrors :meth:`MongoDBAuth.add_user_group`'s
+        ``$addToSet`` semantics: a no-op if the group is
+        already present.  PostgreSQL accepts the array literal
+        as a bind value; DuckDB's ``LIST`` type understands
+        the same syntax.
+        """
+        # The PG-native ``array_append`` adds duplicates;
+        # emulate ``$addToSet`` by reading-then-writing in one
+        # transaction so two concurrent sessions never end up
+        # with the same group twice.  Single-writer DuckDB
+        # makes the race window benign; on PG the serial
+        # transaction isolation handles it.
+        with self.db.begin() as conn:
+            row = conn.execute(
+                select(self.tables.user.groups).where(self.tables.user.email == email)
+            ).first()
+            if row is None:
+                return
+            current = list(row.groups or [])
+            if group in current:
+                return
+            current.append(group)
+            conn.execute(
+                update(self.tables.user)
+                .where(self.tables.user.email == email)
+                .values(groups=current)
+            )
+
+    def remove_user_group(self, email, group):
+        """Drop ``group`` from the user's group list.
+
+        Mirrors :meth:`MongoDBAuth.remove_user_group`'s
+        ``$pull`` semantics: a no-op if the group is not
+        present.
+        """
+        with self.db.begin() as conn:
+            row = conn.execute(
+                select(self.tables.user.groups).where(self.tables.user.email == email)
+            ).first()
+            if row is None:
+                return
+            current = list(row.groups or [])
+            if group not in current:
+                return
+            current.remove(group)
+            conn.execute(
+                update(self.tables.user)
+                .where(self.tables.user.email == email)
+                .values(groups=current)
+            )
+
+    def get_user_groups(self, email):
+        """Return the user's group list (empty if no user).
+
+        Mirrors :meth:`MongoDBAuth.get_user_groups`.
+        """
+        with self.db.connect() as conn:
+            row = conn.execute(
+                select(self.tables.user.groups).where(self.tables.user.email == email)
+            ).first()
+        if row is None or row.groups is None:
+            return []
+        return list(row.groups)
+
+    def list_users(self, **filters):
+        """Yield user records matching the optional filters.
+
+        Mirrors :meth:`MongoDBAuth.list_users`'s recognised
+        filters: ``is_active`` / ``is_admin`` / ``group``
+        (group membership).  Unknown filters are silently
+        ignored (matches Mongo's accept-any-dict shape).
+        """
+        stmt = select(self.tables.user)
+        if "is_active" in filters:
+            stmt = stmt.where(self.tables.user.is_active == filters["is_active"])
+        if "is_admin" in filters:
+            stmt = stmt.where(self.tables.user.is_admin == filters["is_admin"])
+        if "group" in filters:
+            # PG / DuckDB array contains: ``ANY(col)`` style.
+            stmt = stmt.where(self.tables.user.groups.any(filters["group"]))
+        with self.db.connect() as conn:
+            return [self._row2user(row) for row in conn.execute(stmt)]
+
+    def ensure_remote_user(self, username):
+        """Create the user if it doesn't exist, then return it.
+
+        Mirrors :meth:`MongoDBAuth.ensure_remote_user`: used by
+        the OAuth callback path to provision users on first
+        login.
+        """
+        user = self.get_user_by_email(username)
+        if user is None:
+            self.create_user(username, is_active=True)
+        return self.get_user_by_email(username)
+
+    # -- session CRUD -------------------------------------------------
+
+    def create_session(self, user_email, lifetime=None):
+        """Create a session for ``user_email`` and return the
+        opaque token to set in the client cookie.
+
+        Mirrors :meth:`MongoDBAuth.create_session`: the token
+        is a 32-byte URL-safe random string, the database
+        stores only its SHA-256 hex digest, and
+        ``user.last_login`` is bumped to the current UTC
+        timestamp.
+        """
+        if lifetime is None:
+            lifetime = config.WEB_AUTH_SESSION_LIFETIME
+        token = token_urlsafe(32)
+        token_hash = _sha256_hex(token)
+        now = _now_utc()
+        with self.db.begin() as conn:
+            conn.execute(
+                insert(self.tables.session).values(
+                    token_hash=token_hash,
+                    user_email=user_email,
+                    created_at=now,
+                    expires_at=now + datetime.timedelta(seconds=lifetime),
+                    last_used=now,
+                )
+            )
+            conn.execute(
+                update(self.tables.user)
+                .where(self.tables.user.email == user_email)
+                .values(last_login=now)
+            )
+        return token
+
+    def validate_session(self, token):
+        """Return the associated user dict if the session is
+        valid, ``None`` otherwise.
+
+        Mirrors :meth:`MongoDBAuth.validate_session`: looks up
+        the row by ``token_hash``, rejects if
+        ``expires_at <= now()``, bumps ``last_used`` on success.
+        Expired sessions are not deleted here (matches Mongo's
+        TTL-driven behaviour where the index expires them
+        out-of-band); the operator-driven vacuum is a follow-up.
+        """
+        token_hash = _sha256_hex(token)
+        now = _now_utc()
+        with self.db.begin() as conn:
+            row = conn.execute(
+                select(self.tables.session.id, self.tables.session.user_email).where(
+                    and_(
+                        self.tables.session.token_hash == token_hash,
+                        self.tables.session.expires_at > now,
+                    )
+                )
+            ).first()
+            if row is None:
+                return None
+            conn.execute(
+                update(self.tables.session)
+                .where(self.tables.session.id == row.id)
+                .values(last_used=now)
+            )
+            user_email = row.user_email
+        return self.get_user_by_email(user_email)
+
+    def delete_session(self, token):
+        """Drop the session row identified by ``token``.
+
+        Mirrors :meth:`MongoDBAuth.delete_session`.
+        """
+        token_hash = _sha256_hex(token)
+        with self.db.begin() as conn:
+            conn.execute(
+                delete(self.tables.session).where(
+                    self.tables.session.token_hash == token_hash
+                )
+            )
+
+    # -- API-key CRUD -------------------------------------------------
+
+    def create_api_key(self, user_email, name):
+        """Create an API key for ``user_email`` and return the
+        raw key (the only time it's visible).
+
+        Mirrors :meth:`MongoDBAuth.create_api_key`: the key is
+        ``ivre_<22-char-base64-url>``, stored as SHA-256 hex
+        digest + a 12-char clear-text prefix surfaced in
+        admin UIs.
+        """
+        key = f"ivre_{token_urlsafe(32)}"
+        key_hash = _sha256_hex(key)
+        now = _now_utc()
+        with self.db.begin() as conn:
+            conn.execute(
+                insert(self.tables.api_key).values(
+                    key_hash=key_hash,
+                    key_prefix=key[:12],
+                    user_email=user_email,
+                    name=name,
+                    created_at=now,
+                    expires_at=None,
+                    last_used=None,
+                )
+            )
+        return key
+
+    def validate_api_key(self, key):
+        """Return the associated user dict if the key is valid,
+        ``None`` otherwise.
+
+        Mirrors :meth:`MongoDBAuth.validate_api_key`: rejects
+        if the key is unknown or if ``expires_at`` is set and
+        ``<= now()``; bumps ``last_used`` on success.
+        """
+        key_hash = _sha256_hex(key)
+        now = _now_utc()
+        with self.db.begin() as conn:
+            row = conn.execute(
+                select(self.tables.api_key.id, self.tables.api_key.user_email).where(
+                    and_(
+                        self.tables.api_key.key_hash == key_hash,
+                        or_(
+                            self.tables.api_key.expires_at.is_(None),
+                            self.tables.api_key.expires_at > now,
+                        ),
+                    )
+                )
+            ).first()
+            if row is None:
+                return None
+            conn.execute(
+                update(self.tables.api_key)
+                .where(self.tables.api_key.id == row.id)
+                .values(last_used=now)
+            )
+            user_email = row.user_email
+        return self.get_user_by_email(user_email)
+
+    def list_api_keys(self, user_email=None):
+        """Return every API key record (admin path) or the
+        subset owned by ``user_email`` (self-service path).
+
+        Mirrors :meth:`MongoDBAuth.list_api_keys`.
+        """
+        stmt = select(self.tables.api_key)
+        if user_email is not None:
+            stmt = stmt.where(self.tables.api_key.user_email == user_email)
+        with self.db.connect() as conn:
+            return [self._row2apikey(row) for row in conn.execute(stmt)]
+
+    def delete_api_key(self, key_hash, user_email=None):
+        """Delete the API-key row identified by ``key_hash``,
+        optionally scoped to ``user_email`` (the self-service
+        path's permission check).
+
+        Returns the number of rows deleted, mirroring Mongo's
+        ``deleted_count`` return value so the caller can
+        distinguish "deleted" from "not found / not owned".
+
+        ``DELETE ... RETURNING`` and a row count rather than
+        :attr:`CursorResult.rowcount` because the
+        ``duckdb-engine`` dialect reports ``-1`` for every
+        DELETE statement -- a regression that would otherwise
+        make every caller's ``if deleted:`` check spurious on
+        the DuckDB lane.  PostgreSQL accepts the same shape
+        without overhead.
+        """
+        stmt = delete(self.tables.api_key).where(
+            self.tables.api_key.key_hash == key_hash
+        )
+        if user_email is not None:
+            stmt = stmt.where(self.tables.api_key.user_email == user_email)
+        stmt = stmt.returning(self.tables.api_key.id)
+        with self.db.begin() as conn:
+            return len(list(conn.execute(stmt)))
+
+    # -- magic-link tokens --------------------------------------------
+
+    def create_magic_link_token(self, email, lifetime):
+        """Create a single-use magic-link token for ``email``
+        and return the raw token.
+
+        Mirrors :meth:`MongoDBAuth.create_magic_link_token`.
+        """
+        token = token_urlsafe(32)
+        token_hash = _sha256_hex(token)
+        now = _now_utc()
+        with self.db.begin() as conn:
+            conn.execute(
+                insert(self.tables.magic_link).values(
+                    token_hash=token_hash,
+                    email=email,
+                    created_at=now,
+                    expires_at=now + datetime.timedelta(seconds=lifetime),
+                )
+            )
+        return token
+
+    def consume_magic_link_token(self, token):
+        """Validate and consume a magic-link token in one shot.
+
+        Mirrors :meth:`MongoDBAuth.consume_magic_link_token`'s
+        ``find_one_and_delete`` semantics: returns the
+        associated email on success (and deletes the row so
+        the token cannot be replayed), ``None`` if invalid /
+        expired.  PostgreSQL and DuckDB both support
+        ``DELETE ... RETURNING`` so the atomic exchange
+        survives without an explicit transaction.
+        """
+        token_hash = _sha256_hex(token)
+        now = _now_utc()
+        stmt = (
+            delete(self.tables.magic_link)
+            .where(
+                and_(
+                    self.tables.magic_link.token_hash == token_hash,
+                    self.tables.magic_link.expires_at > now,
+                )
+            )
+            .returning(self.tables.magic_link.email)
+        )
+        with self.db.begin() as conn:
+            row = conn.execute(stmt).first()
+        if row is None:
+            return None
+        return row.email
+
+    # -- rate limiting ------------------------------------------------
+
+    def is_rate_limited(self, key, max_attempts, window):
+        """Return ``True`` if ``key`` has reached
+        ``max_attempts`` attempts in the trailing ``window``
+        seconds.
+
+        Mirrors :meth:`MongoDBAuth.is_rate_limited`: counts
+        rate-limit rows whose ``created_at`` falls inside the
+        window and compares to the threshold.
+        """
+        now = _now_utc()
+        cutoff = now - datetime.timedelta(seconds=window)
+        stmt = (
+            select(func.count())
+            .select_from(self.tables.rate_limit)
+            .where(
+                and_(
+                    self.tables.rate_limit.key == key,
+                    self.tables.rate_limit.created_at > cutoff,
+                )
+            )
+        )
+        with self.db.connect() as conn:
+            count = conn.execute(stmt).scalar() or 0
+        return count >= max_attempts
+
+    def record_rate_limit(self, key):
+        """Append one attempt against the rate-limit ``key``.
+
+        Mirrors :meth:`MongoDBAuth.record_rate_limit`.
+        """
+        with self.db.begin() as conn:
+            conn.execute(
+                insert(self.tables.rate_limit).values(key=key, created_at=_now_utc())
+            )

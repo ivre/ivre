@@ -21,6 +21,7 @@
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -913,4 +914,202 @@ class Rir(Base):
             "rir",
             ("netname", "descr", "remarks", "notify", "org", "as_name"),
         ),
+    )
+
+
+# Auth (user / session / API key / rate-limit / magic-link tables)
+#
+# Schema mirrors :class:`MongoDBAuth` (``ivre/db/mongo.py:7333``).
+# Mongo stores everything in five collections (``auth_user`` /
+# ``auth_session`` / ``auth_api_key`` / ``auth_rate_limit`` /
+# ``auth_magic_link``); the SQL backend keeps the same column
+# shape so :class:`SQLDBAuth` can reproduce
+# :class:`MongoDBAuth`'s helpers byte-for-byte at the dict-output
+# level.
+#
+# Mongo's TTL indexes (``expireAfterSeconds`` on the session /
+# magic-link / rate-limit collections) have no PostgreSQL or
+# DuckDB equivalent: every read filter that needs the TTL
+# semantics adds an explicit ``WHERE expires_at > now()`` /
+# ``WHERE created_at > cutoff`` predicate.  Periodic cleanup of
+# expired rows is the operator's responsibility (a
+# follow-up ``ivre authcli --vacuum`` may automate it).
+#
+# Foreign keys link sessions / api_keys / magic_links back to
+# the user by *email* (the natural key); IVRE's existing pattern
+# is to drop FK constraints on DuckDB (see ``duckdb.py``'s
+# top-of-module comment), so the SQL helpers cascade deletes in
+# application code rather than relying on ``ON DELETE``.
+
+# Email column is RFC-5321 capped at 254 octets; ``String(254)``
+# fits every practical address.
+_AUTH_EMAIL_LEN = 254
+# Token hashes are SHA-256 hex digests (64 ASCII chars).
+_AUTH_HASH_LEN = 64
+
+_seq_auth_user_id = Sequence("seq_auth_user_id")
+_seq_auth_session_id = Sequence("seq_auth_session_id")
+_seq_auth_api_key_id = Sequence("seq_auth_api_key_id")
+_seq_auth_rate_limit_id = Sequence("seq_auth_rate_limit_id")
+_seq_auth_magic_link_id = Sequence("seq_auth_magic_link_id")
+
+
+class AuthUser(Base):
+    """One IVRE web-auth user record.
+
+    Mirrors :class:`MongoDBAuth`'s ``auth_user`` collection
+    (``mongo.py:7382-7411``).  ``email`` is the natural key
+    every other auth table references (the SQL backend keeps
+    the email as a textual back-pointer rather than a numeric
+    FK to keep the cross-table contract identical to Mongo's
+    document-store form).
+    """
+
+    __tablename__ = "auth_user"
+    id = Column(
+        Integer,
+        _seq_auth_user_id,
+        server_default=_seq_auth_user_id.next_value(),
+        primary_key=True,
+    )
+    email = Column(String(_AUTH_EMAIL_LEN), nullable=False)
+    display_name = Column(Text)
+    is_admin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False)
+    # Group membership.  ``ARRAY(String)`` on PG, ``LIST<VARCHAR>``
+    # on DuckDB (the ``duckdb-engine`` dialect compiles the
+    # postgresql ARRAY shape natively).  Operators target the
+    # column via ``func.array_append`` /
+    # ``func.array_remove`` -- DuckDB exposes those under the
+    # same names.
+    groups = Column(SQLARRAY(String(_AUTH_EMAIL_LEN)))
+    created_at = Column(DateTime)
+    last_login = Column(DateTime)
+    schema_version = Column(Integer)
+    __table_args__ = (
+        UniqueConstraint("email", name="auth_user_idx_email"),
+        Index("auth_user_idx_is_active", "is_active"),
+        Index("auth_user_idx_is_admin", "is_admin"),
+        Index("auth_user_idx_schema_version", "schema_version"),
+    )
+
+
+class AuthSession(Base):
+    """One web-auth session record.
+
+    Mirrors :class:`MongoDBAuth`'s ``auth_session`` collection
+    (``mongo.py:7418-7454``).  The ``token_hash`` (SHA-256 hex
+    digest of the opaque session token) is the natural key
+    consulted on every authenticated request.
+    """
+
+    __tablename__ = "auth_session"
+    id = Column(
+        Integer,
+        _seq_auth_session_id,
+        server_default=_seq_auth_session_id.next_value(),
+        primary_key=True,
+    )
+    # ``String(_AUTH_HASH_LEN)`` keeps the column narrow on PG
+    # but cannot grow if the hash algorithm changes; bumping it
+    # would be a one-line ``_migrate_schema_NN_MM`` change.
+    token_hash = Column(String(_AUTH_HASH_LEN), nullable=False)
+    user_email = Column(String(_AUTH_EMAIL_LEN), nullable=False)
+    created_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    last_used = Column(DateTime)
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="auth_session_idx_token_hash"),
+        Index("auth_session_idx_user_email", "user_email"),
+        Index("auth_session_idx_expires_at", "expires_at"),
+    )
+
+
+class AuthApiKey(Base):
+    """One API-key record.
+
+    Mirrors :class:`MongoDBAuth`'s ``auth_api_key`` collection
+    (``mongo.py:7456-7499``).  ``key_prefix`` is the first 12
+    chars of the raw key (clear text); it surfaces in admin
+    UIs so operators can identify a key without seeing its
+    full value.  ``key_hash`` is the SHA-256 hex digest of
+    the full key.
+    """
+
+    __tablename__ = "auth_api_key"
+    id = Column(
+        Integer,
+        _seq_auth_api_key_id,
+        server_default=_seq_auth_api_key_id.next_value(),
+        primary_key=True,
+    )
+    key_hash = Column(String(_AUTH_HASH_LEN), nullable=False)
+    # ``ivre_<22-char-base64-url>``; 32 is safe upper bound.
+    key_prefix = Column(String(32))
+    user_email = Column(String(_AUTH_EMAIL_LEN), nullable=False)
+    name = Column(Text)
+    created_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    last_used = Column(DateTime)
+    __table_args__ = (
+        UniqueConstraint("key_hash", name="auth_api_key_idx_key_hash"),
+        Index("auth_api_key_idx_user_email", "user_email"),
+        Index("auth_api_key_idx_expires_at", "expires_at"),
+    )
+
+
+class AuthRateLimit(Base):
+    """Rolling rate-limit ledger.
+
+    Mirrors :class:`MongoDBAuth`'s ``auth_rate_limit``
+    collection (``mongo.py:7549-7559``).  Each row records one
+    attempt against a rate-limit ``key`` (``"magic:<email>"`` /
+    ``"magic:<ip>"`` etc.); the window check counts rows whose
+    ``created_at`` falls inside the configured time slice.  Old
+    rows accumulate without harm until an operator-driven
+    vacuum runs (Mongo's TTL index buys this for free; we
+    leave the cleanup as a follow-up).
+    """
+
+    __tablename__ = "auth_rate_limit"
+    id = Column(
+        Integer,
+        _seq_auth_rate_limit_id,
+        server_default=_seq_auth_rate_limit_id.next_value(),
+        primary_key=True,
+    )
+    # Free-form key (``"magic:<email>"`` / ``"magic:<ip>"`` /
+    # ...); the helper paths shape the values, the table
+    # itself stays generic.
+    key = Column(String(_AUTH_EMAIL_LEN), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    __table_args__ = (
+        Index("auth_rate_limit_idx_key_created", "key", "created_at"),
+        Index("auth_rate_limit_idx_created_at", "created_at"),
+    )
+
+
+class AuthMagicLink(Base):
+    """One single-use magic-link token.
+
+    Mirrors :class:`MongoDBAuth`'s ``auth_magic_link`` collection
+    (``mongo.py:7523-7547``).  ``consume_magic_link_token``
+    is the single-shot SELECT-and-DELETE that exchanges the
+    token for the associated email address.
+    """
+
+    __tablename__ = "auth_magic_link"
+    id = Column(
+        Integer,
+        _seq_auth_magic_link_id,
+        server_default=_seq_auth_magic_link_id.next_value(),
+        primary_key=True,
+    )
+    token_hash = Column(String(_AUTH_HASH_LEN), nullable=False)
+    email = Column(String(_AUTH_EMAIL_LEN), nullable=False)
+    created_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="auth_magic_link_idx_token_hash"),
+        Index("auth_magic_link_idx_expires_at", "expires_at"),
     )

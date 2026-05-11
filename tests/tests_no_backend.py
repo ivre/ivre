@@ -9181,6 +9181,352 @@ class DocumentDBRirTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBAuthTests -- pin :class:`ivre.db.sql.SQLDBAuth`'s schema +
+# helper SQL shapes + dict-output round-trip semantics.
+#
+# The class is the shared base for the upcoming PostgresDBAuth /
+# DuckDBDBAuth concretes (M4.8.2 / M4.8.3); without backend
+# registration there's no live engine to drive end-to-end here.
+# We verify:
+#   * the five auth tables declare every column the Mongo path
+#     references (column inventory),
+#   * the natural-key UNIQUE constraints + secondary indexes
+#     are declared,
+#   * the helper methods compile against the in-memory DuckDB
+#     engine end-to-end (so the next sub-PR's concrete class
+#     can ride on top with confidence).
+# ---------------------------------------------------------------------
+
+
+try:
+    from ivre.db.sql import SQLDBAuth as _SQLDBAuth_for_tests  # noqa: E402
+    from ivre.db.sql.tables import AuthApiKey as _AuthApiKey_for_tests  # noqa: E402
+    from ivre.db.sql.tables import (  # noqa: E402
+        AuthMagicLink as _AuthMagicLink_for_tests,
+    )
+    from ivre.db.sql.tables import (  # noqa: E402
+        AuthRateLimit as _AuthRateLimit_for_tests,
+    )
+    from ivre.db.sql.tables import AuthSession as _AuthSession_for_tests  # noqa: E402
+    from ivre.db.sql.tables import AuthUser as _AuthUser_for_tests  # noqa: E402
+
+    _HAVE_SQLDB_AUTH = True
+except ImportError:
+    _HAVE_SQLDB_AUTH = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUTH,
+    "SQLAlchemy is required for SQLDBAuthTests",
+)
+class SQLDBAuthSchemaTests(unittest.TestCase):
+    """Pin the auth table inventory.
+
+    The :class:`MongoDBAuth` schema is split across five
+    collections (``auth_user`` / ``auth_session`` /
+    ``auth_api_key`` / ``auth_rate_limit`` /
+    ``auth_magic_link``); the SQL backend keeps the same
+    breakdown.  Each test below verifies the columns / indexes
+    one of these tables must carry so the helper paths land
+    correctly.
+    """
+
+    def test_auth_user_columns(self):
+        cols = {c.name for c in _AuthUser_for_tests.__table__.columns}
+        for expected in (
+            "id",
+            "email",
+            "display_name",
+            "is_admin",
+            "is_active",
+            "groups",
+            "created_at",
+            "last_login",
+            "schema_version",
+        ):
+            self.assertIn(expected, cols)
+
+    def test_auth_user_unique_email(self):
+        constraints = {
+            c.name
+            for c in _AuthUser_for_tests.__table__.constraints
+            if hasattr(c, "name") and c.name is not None
+        }
+        self.assertIn("auth_user_idx_email", constraints)
+
+    def test_auth_session_columns(self):
+        cols = {c.name for c in _AuthSession_for_tests.__table__.columns}
+        for expected in (
+            "id",
+            "token_hash",
+            "user_email",
+            "created_at",
+            "expires_at",
+            "last_used",
+        ):
+            self.assertIn(expected, cols)
+
+    def test_auth_session_unique_token_hash(self):
+        constraints = {
+            c.name
+            for c in _AuthSession_for_tests.__table__.constraints
+            if hasattr(c, "name") and c.name is not None
+        }
+        self.assertIn("auth_session_idx_token_hash", constraints)
+
+    def test_auth_api_key_columns(self):
+        cols = {c.name for c in _AuthApiKey_for_tests.__table__.columns}
+        for expected in (
+            "id",
+            "key_hash",
+            "key_prefix",
+            "user_email",
+            "name",
+            "created_at",
+            "expires_at",
+            "last_used",
+        ):
+            self.assertIn(expected, cols)
+
+    def test_auth_rate_limit_columns(self):
+        cols = {c.name for c in _AuthRateLimit_for_tests.__table__.columns}
+        for expected in ("id", "key", "created_at"):
+            self.assertIn(expected, cols)
+        # The composite index used by :meth:`is_rate_limited`'s
+        # window scan must exist so the helper doesn't degrade
+        # to a sequential scan once the ledger fills up.
+        names = {ix.name for ix in _AuthRateLimit_for_tests.__table__.indexes}
+        self.assertIn("auth_rate_limit_idx_key_created", names)
+
+    def test_auth_magic_link_columns(self):
+        cols = {c.name for c in _AuthMagicLink_for_tests.__table__.columns}
+        for expected in (
+            "id",
+            "token_hash",
+            "email",
+            "created_at",
+            "expires_at",
+        ):
+            self.assertIn(expected, cols)
+
+
+# Live-engine integration test for SQLDBAuth -- gated on
+# ``duckdb-engine`` installed.  Exercises every helper against
+# an in-memory DuckDB so the round-trip semantics
+# (session / API key / magic link / rate limit / group
+# membership) are verified end-to-end.  PostgreSQL-specific
+# concerns (the upcoming M4.8.2 concrete class) live in the
+# next sub-PR's tests.
+try:
+    import duckdb_engine as _duckdb_engine_for_auth_tests  # type: ignore[import-untyped]  # noqa: F401, E402
+
+    _HAVE_DUCKDB_ENGINE_FOR_AUTH = True
+except ImportError:
+    _HAVE_DUCKDB_ENGINE_FOR_AUTH = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUTH and _HAVE_DUCKDB_ENGINE_FOR_AUTH,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
+class SQLDBAuthLiveIntegrationTests(unittest.TestCase):
+    """End-to-end auth helpers against an in-memory DuckDB.
+
+    Mirrors :class:`MongoDBAuth`'s contract across the full
+    helper surface so the upcoming :class:`PostgresDBAuth` /
+    :class:`DuckDBDBAuth` concretes inherit a known-good
+    implementation.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        import tempfile
+
+        import sqlalchemy as sa  # type: ignore[import-untyped]
+
+        from ivre.db.sql.duckdb import DuckDBMixin, _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import Base
+
+        cls._auth_tables = [
+            _AuthUser_for_tests.__table__,
+            _AuthSession_for_tests.__table__,
+            _AuthApiKey_for_tests.__table__,
+            _AuthRateLimit_for_tests.__table__,
+            _AuthMagicLink_for_tests.__table__,
+        ]
+        cls._saved_idx = []
+        for tbl in cls._auth_tables:
+            for ix in list(tbl.indexes):
+                if _is_unsupported_on_duckdb(ix):
+                    cls._saved_idx.append((tbl, ix))
+                    tbl.indexes.discard(ix)
+        fd, cls._path = tempfile.mkstemp(suffix=".duckdb")
+        os.close(fd)
+        os.unlink(cls._path)
+        cls._engine = sa.create_engine(f"duckdb:///{cls._path}")
+        Base.metadata.create_all(cls._engine, tables=cls._auth_tables)
+
+        # Build an ad-hoc subclass that pulls in DuckDBMixin
+        # so :meth:`internal2ip` etc. point at the DuckDB
+        # variants.  The class is throwaway -- the next
+        # sub-PR ships the real :class:`DuckDBDBAuth`.
+        class _DuckDBAuthForTests(DuckDBMixin, _SQLDBAuth_for_tests):
+            pass
+
+        cls._db_cls = _DuckDBAuthForTests
+
+    @classmethod
+    def tearDownClass(cls):
+        import os
+
+        cls._engine.dispose()
+        if os.path.exists(cls._path):
+            os.unlink(cls._path)
+        for tbl, ix in cls._saved_idx:
+            tbl.indexes.add(ix)
+
+    def setUp(self):
+        # Drop every row from every auth table so each test
+        # starts from an empty schema.  DuckDB's ``DELETE FROM``
+        # without WHERE clears the table.
+        from sqlalchemy import delete
+
+        with self._engine.begin() as conn:
+            for tbl in self._auth_tables:
+                conn.execute(delete(tbl))
+        self.db = self._db_cls.__new__(self._db_cls)
+        self.db._db = self._engine
+
+    def test_create_and_get_user(self):
+        # ``create_user`` returns the document dict :class:
+        # `MongoDBAuth` produces; ``get_user_by_email``
+        # round-trips every field including the ``groups``
+        # array.
+        created = self.db.create_user(
+            "alice@example.com",
+            display_name="Alice",
+            is_active=True,
+            groups=["admin"],
+        )
+        self.assertEqual(created["email"], "alice@example.com")
+        self.assertEqual(created["groups"], ["admin"])
+        fetched = self.db.get_user_by_email("alice@example.com")
+        self.assertEqual(fetched["email"], "alice@example.com")
+        self.assertEqual(fetched["display_name"], "Alice")
+        self.assertTrue(fetched["is_active"])
+        self.assertFalse(fetched["is_admin"])
+        self.assertEqual(fetched["groups"], ["admin"])
+
+    def test_get_user_returns_none_for_missing(self):
+        self.assertIsNone(self.db.get_user_by_email("nope@example.com"))
+
+    def test_session_round_trip(self):
+        self.db.create_user("alice@example.com", is_active=True)
+        token = self.db.create_session("alice@example.com", lifetime=60)
+        user = self.db.validate_session(token)
+        self.assertIsNotNone(user)
+        self.assertEqual(user["email"], "alice@example.com")
+        # The user's ``last_login`` is bumped on session
+        # creation.
+        self.assertIsNotNone(user["last_login"])
+        # Drop the session -> subsequent validation returns
+        # None.
+        self.db.delete_session(token)
+        self.assertIsNone(self.db.validate_session(token))
+
+    def test_api_key_round_trip(self):
+        self.db.create_user("alice@example.com", is_active=True)
+        key = self.db.create_api_key("alice@example.com", "test key")
+        # Raw key surfaces once; the database stores only the
+        # SHA-256 hex digest.
+        self.assertTrue(key.startswith("ivre_"))
+        user = self.db.validate_api_key(key)
+        self.assertEqual(user["email"], "alice@example.com")
+        keys = self.db.list_api_keys("alice@example.com")
+        self.assertEqual(len(keys), 1)
+        self.assertEqual(keys[0]["key_prefix"], key[:12])
+        # ``delete_api_key`` returns the deleted row count;
+        # the DuckDB-specific RETURNING-based override
+        # produces the right number even though
+        # ``cursor.rowcount`` reports ``-1`` on the DuckDB
+        # dialect.
+        self.assertEqual(self.db.delete_api_key(keys[0]["key_hash"]), 1)
+        # Subsequent delete on the same hash is a no-op.
+        self.assertEqual(self.db.delete_api_key(keys[0]["key_hash"]), 0)
+
+    def test_magic_link_single_use(self):
+        token = self.db.create_magic_link_token("alice@example.com", lifetime=300)
+        self.assertEqual(self.db.consume_magic_link_token(token), "alice@example.com")
+        # Second consume fails -- the row was deleted
+        # atomically by the first.
+        self.assertIsNone(self.db.consume_magic_link_token(token))
+
+    def test_rate_limit_threshold(self):
+        # Empty ledger -> not limited.
+        self.assertFalse(
+            self.db.is_rate_limited("magic:alice", max_attempts=3, window=60)
+        )
+        for _ in range(3):
+            self.db.record_rate_limit("magic:alice")
+        # Reached the threshold (>= max_attempts).
+        self.assertTrue(
+            self.db.is_rate_limited("magic:alice", max_attempts=3, window=60)
+        )
+        # A different key shares no state.
+        self.assertFalse(
+            self.db.is_rate_limited("magic:bob", max_attempts=3, window=60)
+        )
+
+    def test_group_membership_is_idempotent(self):
+        self.db.create_user("alice@example.com")
+        self.db.add_user_group("alice@example.com", "audit")
+        # Re-adding the same group is a no-op (mirrors
+        # ``$addToSet``).
+        self.db.add_user_group("alice@example.com", "audit")
+        self.assertEqual(self.db.get_user_groups("alice@example.com"), ["audit"])
+        self.db.remove_user_group("alice@example.com", "audit")
+        self.assertEqual(self.db.get_user_groups("alice@example.com"), [])
+        # Removing a missing group is a no-op too.
+        self.db.remove_user_group("alice@example.com", "audit")
+
+    def test_list_users_filters(self):
+        self.db.create_user("alice@example.com", is_active=True, is_admin=True)
+        self.db.create_user("bob@example.com", is_active=True, groups=["audit"])
+        self.db.create_user("carol@example.com")  # is_active=False
+        actives = self.db.list_users(is_active=True)
+        self.assertEqual(
+            {u["email"] for u in actives}, {"alice@example.com", "bob@example.com"}
+        )
+        admins = self.db.list_users(is_admin=True)
+        self.assertEqual({u["email"] for u in admins}, {"alice@example.com"})
+        auditors = self.db.list_users(group="audit")
+        self.assertEqual({u["email"] for u in auditors}, {"bob@example.com"})
+
+    def test_ensure_remote_user_creates_then_fetches(self):
+        # First call creates the user as ``is_active=True``;
+        # second call finds the existing record.
+        self.assertIsNone(self.db.get_user_by_email("carol@example.com"))
+        user = self.db.ensure_remote_user("carol@example.com")
+        self.assertEqual(user["email"], "carol@example.com")
+        self.assertTrue(user["is_active"])
+        # No duplicate user is created on the second call.
+        again = self.db.ensure_remote_user("carol@example.com")
+        self.assertEqual(again["_id"], user["_id"])
+
+    def test_delete_user_cascades(self):
+        self.db.create_user("alice@example.com", is_active=True)
+        self.db.create_session("alice@example.com", lifetime=60)
+        self.db.create_api_key("alice@example.com", "k1")
+        self.db.create_magic_link_token("alice@example.com", lifetime=60)
+        self.db.delete_user("alice@example.com")
+        # User gone.
+        self.assertIsNone(self.db.get_user_by_email("alice@example.com"))
+        # Sessions / api-keys / magic-links cascaded.
+        self.assertEqual(self.db.list_api_keys("alice@example.com"), [])
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a
