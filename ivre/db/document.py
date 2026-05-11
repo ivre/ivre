@@ -103,6 +103,7 @@ operators running IVRE on cloud-native infrastructure.
 
 from ivre.db.mongo import (
     MongoDBActive,
+    MongoDBAuth,
     MongoDBFlow,
     MongoDBNmap,
     MongoDBPassive,
@@ -146,3 +147,40 @@ class DocumentDBRir(MongoDBRir):
     # text-index removal is the only adjustment needed for
     # parity.
     indexes = [MongoDBRir.indexes[0][:-1]]
+
+
+class DocumentDBAuth(MongoDBAuth):
+    """DocumentDB backend for the web-auth data category.
+
+    Pure inheritance from :class:`MongoDBAuth`: every operator
+    the auth helpers emit is supported on AWS DocumentDB at
+    the MongoDB 5.0 compatibility level the
+    ``documentdb.yml`` CI workflow exercises (``$set`` /
+    ``$addToSet`` / ``$pull`` / ``$or`` / ``$gt`` / ``$lt`` /
+    ``$in``, ``insert_one`` / ``find_one`` /
+    ``find_one_and_delete`` / ``update_one`` / ``delete_one``
+    / ``delete_many`` / ``count_documents``).  ``MongoDBAuth``
+    has no text index and no ``$text`` operator (auth records
+    carry no free-text fields the web layer searches), so the
+    index list survives unchanged -- no override needed.
+
+    TTL indexes (``expireAfterSeconds`` on the
+    ``auth_session`` / ``auth_rate_limit`` / ``auth_magic_link``
+    collections) are supported on DocumentDB since the 4.0
+    compatibility level; the existing
+    :class:`MongoDBAuth.indexes` declarations apply
+    unchanged.
+
+    No ``$floor`` aggregation operator
+    (:class:`MongoDBActive.topvalues` /
+    :class:`MongoDBPassive.topvalues` use it -- auth helpers
+    don't), and no long-running cursors that would need the
+    ``no_cursor_timeout`` flip
+    (:class:`MongoDB.migrate_schema` is the only consumer --
+    auth records have no schema migration at this
+    generation).  ``is_documentdb = True`` is set anyway so
+    a future helper that grows one of those usage patterns
+    picks up the existing workarounds automatically.
+    """
+
+    is_documentdb = True

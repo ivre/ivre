@@ -5796,6 +5796,7 @@ class DBAuth(DB):
 
     backends = {
         "mongodb": ("mongo", "MongoDBAuth"),
+        "documentdb": ("document", "DocumentDBAuth"),
         "postgresql": ("sql.postgres", "PostgresDBAuth"),
         "duckdb": ("sql.duckdb", "DuckDBAuth"),
     }

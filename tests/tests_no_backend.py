@@ -9711,6 +9711,81 @@ class DuckDBAuthTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# DocumentDBAuthTests -- pin :class:`ivre.db.document.DocumentDBAuth`.
+#
+# Pure inheritance from :class:`MongoDBAuth` with the
+# ``is_documentdb = True`` flag enabling the existing
+# ``MongoDBAuth`` workarounds for the few DocumentDB-incompatible
+# patterns (none currently exercised in the auth helpers -- the
+# flag is set for forward compatibility).
+#
+# Auth records carry no free-text fields the web layer
+# searches, so :class:`MongoDBAuth.indexes` has no ``"text"``
+# index entry that would need stripping (unlike
+# :class:`DocumentDBRir`).  Every operator the helpers emit
+# (``$set`` / ``$addToSet`` / ``$pull`` / ``$or`` / ``$gt`` /
+# ``$lt`` / ``$in``, ``find_one_and_delete``,
+# ``count_documents``) is supported on AWS DocumentDB at the
+# MongoDB 5.0 compatibility level the documentdb.yml CI
+# workflow targets.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_PYMONGO,
+    "pymongo is required for DocumentDBAuthTests",
+)
+class DocumentDBAuthTests(unittest.TestCase):
+    """Behaviour-pin for :class:`ivre.db.document.DocumentDBAuth`."""
+
+    def test_backend_registered(self):
+        from ivre.db import DBAuth
+
+        self.assertEqual(
+            DBAuth.backends.get("documentdb"),
+            ("document", "DocumentDBAuth"),
+        )
+
+    def test_subclasses_mongodb_auth(self):
+        # Pure inheritance from :class:`MongoDBAuth`; the
+        # ``is_documentdb`` flag activates the existing
+        # ``MongoDBAuth`` workarounds (none currently
+        # exercised on this code path -- set for forward
+        # compatibility).
+        from ivre.db.document import DocumentDBAuth
+        from ivre.db.mongo import MongoDBAuth
+
+        self.assertTrue(issubclass(DocumentDBAuth, MongoDBAuth))
+        self.assertTrue(DocumentDBAuth.is_documentdb)
+
+    def test_no_text_index(self):
+        # Auth records carry no free-text fields the web
+        # layer searches, so :class:`MongoDBAuth.indexes`
+        # has no ``"text"`` index entry.  Pin so a future
+        # refactor that adds one (which DocumentDB would
+        # reject) surfaces here.
+        from ivre.db.document import DocumentDBAuth
+
+        for col_indexes in DocumentDBAuth.indexes:
+            for index_keys, _kwargs in col_indexes:
+                for _field, index_type in index_keys:
+                    self.assertNotEqual(
+                        index_type,
+                        "text",
+                        f"DocumentDBAuth.indexes contains a text index: {index_keys}",
+                    )
+
+    def test_indexes_inherit_unchanged(self):
+        # The full :class:`MongoDBAuth.indexes` structure
+        # passes through unchanged (no per-column override
+        # needed, unlike :class:`DocumentDBRir`).
+        from ivre.db.document import DocumentDBAuth
+        from ivre.db.mongo import MongoDBAuth
+
+        self.assertEqual(DocumentDBAuth.indexes, MongoDBAuth.indexes)
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a
