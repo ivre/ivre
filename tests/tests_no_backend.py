@@ -9527,6 +9527,136 @@ class SQLDBAuthLiveIntegrationTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# PostgresDBAuthTests -- pin :class:`ivre.db.sql.postgres.PostgresDBAuth`.
+#
+# Pure inheritance from :class:`SQLDBAuth` -- every method
+# :class:`SQLDBAuth` declares uses portable SQL, so the concrete
+# subclass has no per-method override.  We pin:
+#   * backend dispatch (``DBAuth.backends['postgresql']``),
+#   * MRO (PostgresDB first so its dialect helpers win the
+#     lookup against the shared SQL defaults),
+#   * a handful of compiled-SQL fragments via the PostgreSQL
+#     dialect so a future drift between the shared helpers and
+#     PG's expected output surfaces immediately.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUTH,
+    "SQLAlchemy is required for PostgresDBAuthTests",
+)
+class PostgresDBAuthTests(unittest.TestCase):
+    """Behaviour-pin for :class:`PostgresDBAuth`."""
+
+    @staticmethod
+    def _compile_pg(stmt):
+        from sqlalchemy.dialects import postgresql
+
+        return str(
+            stmt.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    def test_backend_registered(self):
+        from ivre.db import DBAuth
+
+        self.assertEqual(
+            DBAuth.backends.get("postgresql"),
+            ("sql.postgres", "PostgresDBAuth"),
+        )
+
+    def test_mro(self):
+        # ``PostgresDB`` first so its dialect helpers
+        # (``ip2internal`` / ``_searchstring_re`` / etc.) win
+        # the lookup against :class:`SQLDB`'s defaults;
+        # ``SQLDBAuth`` follows so the shared helpers are
+        # reachable.
+        from ivre.db.sql.postgres import PostgresDBAuth
+
+        mro = [c.__name__ for c in PostgresDBAuth.__mro__]
+        self.assertEqual(mro[0], "PostgresDBAuth")
+        self.assertEqual(mro[1], "PostgresDB")
+        self.assertEqual(mro[2], "SQLDBAuth")
+
+    def test_get_user_by_email_renders_clean_sql(self):
+        # The lookup is the hottest auth read path; pin the
+        # rendered shape so a future refactor of
+        # :meth:`SQLDBAuth.get_user_by_email` doesn't
+        # silently introduce a sub-query or a CTE that
+        # bypasses the ``auth_user_idx_email`` unique index.
+        from sqlalchemy import select
+
+        sql = self._compile_pg(
+            select(_AuthUser_for_tests).where(
+                _AuthUser_for_tests.email == "alice@example.com"
+            )
+        )
+        self.assertIn("FROM auth_user", sql)
+        self.assertIn("auth_user.email = 'alice@example.com'", sql)
+
+    def test_consume_magic_link_token_uses_delete_returning(self):
+        # The single-use exchange must be a single
+        # ``DELETE ... RETURNING`` statement so the token
+        # can't be replayed even under concurrent reads.
+        import datetime as _dt
+
+        from sqlalchemy import and_, delete
+
+        stmt = (
+            delete(_AuthMagicLink_for_tests)
+            .where(
+                and_(
+                    _AuthMagicLink_for_tests.token_hash == "h",
+                    _AuthMagicLink_for_tests.expires_at
+                    > _dt.datetime(2024, 1, 1, 0, 0, 0),
+                )
+            )
+            .returning(_AuthMagicLink_for_tests.email)
+        )
+        sql = self._compile_pg(stmt)
+        self.assertIn("DELETE FROM auth_magic_link", sql)
+        self.assertIn("RETURNING auth_magic_link.email", sql)
+
+    def test_list_users_group_filter_uses_array_any(self):
+        # ``$group=foo`` filter compiles to PostgreSQL's
+        # ``foo = ANY(auth_user.groups)`` containment shape
+        # (works unchanged on DuckDB's ``LIST`` type too).
+        from sqlalchemy import select
+
+        sql = self._compile_pg(
+            select(_AuthUser_for_tests).where(_AuthUser_for_tests.groups.any("admin"))
+        )
+        self.assertIn("'admin' = ANY (auth_user.groups)", sql)
+
+    def test_rate_limit_window_uses_count(self):
+        # ``is_rate_limited`` counts rows whose
+        # ``created_at`` falls inside the trailing window;
+        # the composite ``(key, created_at)`` index keeps
+        # the scan tight.
+        import datetime as _dt
+
+        from sqlalchemy import and_, func, select
+
+        cutoff = _dt.datetime(2024, 1, 1, 0, 0, 0)
+        stmt = (
+            select(func.count())
+            .select_from(_AuthRateLimit_for_tests)
+            .where(
+                and_(
+                    _AuthRateLimit_for_tests.key == "magic:alice",
+                    _AuthRateLimit_for_tests.created_at > cutoff,
+                )
+            )
+        )
+        sql = self._compile_pg(stmt)
+        self.assertIn("SELECT count(*) AS count_1", sql)
+        self.assertIn("FROM auth_rate_limit", sql)
+        self.assertIn("auth_rate_limit.key = 'magic:alice'", sql)
+
+
+# ---------------------------------------------------------------------
 # HttpDBFlowTests -- pin :class:`ivre.db.http.HttpDBFlow`'s URL /
 # request-body shapes.  The HTTP backend proxies every flow query
 # to a remote IVRE's ``/flows`` endpoint; without these tests a

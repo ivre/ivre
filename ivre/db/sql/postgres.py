@@ -64,6 +64,7 @@ from ivre.db.sql import (
     PassiveCSVFile,
     ScanCSVFile,
     SQLDBActive,
+    SQLDBAuth,
     SQLDBFlow,
     SQLDBNmap,
     SQLDBPassive,
@@ -2704,4 +2705,28 @@ class PostgresDBRir(PostgresDB, SQLDBRir):
     plainto_tsquery(...)`` for full-text matches against the
     ``rir_idx_fts`` GIN index, ``executemany`` ``INSERT`` for
     the bulk ingestion path).
+    """
+
+
+class PostgresDBAuth(PostgresDB, SQLDBAuth):
+    """PostgreSQL backend for the web-auth data category.
+
+    Pure inheritance: every helper :class:`SQLDBAuth`
+    declares uses portable SQL (no expression-based ON
+    CONFLICT inference, no GIN-specific aggregation, no
+    dialect-only operators), so the ``(PostgresDB,
+    SQLDBAuth)`` MRO works without per-method overrides.
+    PostgreSQL natively supports every primitive the auth
+    helpers need: ``DELETE ... RETURNING`` for the magic-link
+    single-use exchange, ``WHERE expires_at > now()`` for the
+    TTL replacement, ``ARRAY`` columns + ``ANY()``
+    containment for the group-membership filter
+    :meth:`SQLDBAuth.list_users` builds, and ``Boolean``
+    columns for the ``is_admin`` / ``is_active`` flags.
+
+    Fresh schema: :data:`SQLDBAuth.SCHEMA_VERSION` starts at
+    1, so no ``_migrate_schema_NN_MM`` step is required on
+    this initial PR.  Future column / index changes plug in
+    via the established :meth:`SQLDB.migrate_schema`
+    orchestrator the active / passive backends already use.
     """
