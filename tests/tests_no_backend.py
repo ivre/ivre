@@ -9199,7 +9199,6 @@ class DocumentDBRirTests(unittest.TestCase):
 
 
 try:
-    from ivre.db.sql import SQLDBAuth as _SQLDBAuth_for_tests  # noqa: E402
     from ivre.db.sql.tables import AuthApiKey as _AuthApiKey_for_tests  # noqa: E402
     from ivre.db.sql.tables import (  # noqa: E402
         AuthMagicLink as _AuthMagicLink_for_tests,
@@ -9345,7 +9344,7 @@ class SQLDBAuthLiveIntegrationTests(unittest.TestCase):
 
         import sqlalchemy as sa  # type: ignore[import-untyped]
 
-        from ivre.db.sql.duckdb import DuckDBMixin, _is_unsupported_on_duckdb
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
         from ivre.db.sql.tables import Base
 
         cls._auth_tables = [
@@ -9367,14 +9366,15 @@ class SQLDBAuthLiveIntegrationTests(unittest.TestCase):
         cls._engine = sa.create_engine(f"duckdb:///{cls._path}")
         Base.metadata.create_all(cls._engine, tables=cls._auth_tables)
 
-        # Build an ad-hoc subclass that pulls in DuckDBMixin
-        # so :meth:`internal2ip` etc. point at the DuckDB
-        # variants.  The class is throwaway -- the next
-        # sub-PR ships the real :class:`DuckDBDBAuth`.
-        class _DuckDBAuthForTests(DuckDBMixin, _SQLDBAuth_for_tests):
-            pass
+        # Use the real :class:`DuckDBAuth` class -- the shared
+        # :class:`SQLDBAuth` base lives in
+        # ``ivre/db/sql/__init__.py`` and the concrete DuckDB
+        # backend pulls in :class:`DuckDBMixin` (so the
+        # dialect-aware ``internal2ip`` / ``ip2internal`` /
+        # FTS overrides apply).
+        from ivre.db.sql.duckdb import DuckDBAuth
 
-        cls._db_cls = _DuckDBAuthForTests
+        cls._db_cls = DuckDBAuth
 
     @classmethod
     def tearDownClass(cls):
@@ -9654,6 +9654,60 @@ class PostgresDBAuthTests(unittest.TestCase):
         self.assertIn("SELECT count(*) AS count_1", sql)
         self.assertIn("FROM auth_rate_limit", sql)
         self.assertIn("auth_rate_limit.key = 'magic:alice'", sql)
+
+
+# ---------------------------------------------------------------------
+# DuckDBAuthTests -- pin :class:`ivre.db.sql.duckdb.DuckDBAuth`.
+#
+# Pure inheritance from :class:`PostgresDBAuth` with the
+# established :class:`DuckDBMixin` front-of-MRO placement so the
+# dialect-aware ``internal2ip`` / ``ip2internal`` /
+# ``_searchstring_re`` overrides apply.  The end-to-end auth
+# semantics are already covered by
+# :class:`SQLDBAuthLiveIntegrationTests` (which now exercises
+# the real :class:`DuckDBAuth` class against an in-memory DuckDB
+# engine); this class adds the backend-dispatch + MRO pins so a
+# future refactor that drops the registration surfaces here.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUTH,
+    "SQLAlchemy is required for DuckDBAuthTests",
+)
+class DuckDBAuthTests(unittest.TestCase):
+    """Behaviour-pin for :class:`DuckDBAuth`."""
+
+    def test_backend_registered(self):
+        from ivre.db import DBAuth
+
+        self.assertEqual(
+            DBAuth.backends.get("duckdb"),
+            ("sql.duckdb", "DuckDBAuth"),
+        )
+
+    def test_mro(self):
+        # DuckDBMixin first (its dialect overrides win the
+        # lookup against PostgresDB's), then PostgresDBAuth
+        # so the SQL implementation is reachable.
+        from ivre.db.sql.duckdb import DuckDBAuth
+
+        mro = [c.__name__ for c in DuckDBAuth.__mro__]
+        self.assertEqual(mro[0], "DuckDBAuth")
+        self.assertEqual(mro[1], "DuckDBMixin")
+        self.assertEqual(mro[2], "PostgresDBAuth")
+
+    def test_table_layout_inherited(self):
+        # The five auth tables :class:`SQLDBAuth` declares
+        # come through unchanged on DuckDB -- no per-dialect
+        # schema variant is needed because no auth column
+        # uses INET.
+        from ivre.db.sql.duckdb import DuckDBAuth
+
+        self.assertEqual(
+            set(DuckDBAuth.tables._asdict().keys()),
+            {"user", "session", "api_key", "rate_limit", "magic_link"},
+        )
 
 
 # ---------------------------------------------------------------------

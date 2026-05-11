@@ -71,6 +71,7 @@ from sqlalchemy.dialects import postgresql
 from ivre import utils
 from ivre.db.sql import NmapFilter, ViewFilter
 from ivre.db.sql.postgres import (
+    PostgresDBAuth,
     PostgresDBFlow,
     PostgresDBNmap,
     PostgresDBPassive,
@@ -1037,4 +1038,45 @@ class DuckDBRir(DuckDBMixin, PostgresDBRir):
     extension's ``match_bm25`` will land in a follow-up
     sub-PR alongside the equivalent DuckDB
     ``PRAGMA create_fts_index`` glue.
+    """
+
+
+class DuckDBAuth(DuckDBMixin, PostgresDBAuth):
+    """DuckDB backend for the web-auth data category.
+
+    Pure inheritance from :class:`PostgresDBAuth`: every helper
+    :class:`SQLDBAuth` declares already uses portable SQL
+    primitives DuckDB supports natively -- ``DELETE ...
+    RETURNING`` for the magic-link single-use exchange,
+    ``WHERE expires_at > now()`` for the TTL replacement,
+    ``LIST<VARCHAR>`` columns + ``ANY()`` containment for the
+    group-membership filter, ``Boolean`` columns for the
+    ``is_admin`` / ``is_active`` flags, ``executemany``
+    ``INSERT`` for the bulk paths (there is none here -- auth
+    is single-row).
+
+    The :class:`DuckDBMixin` placement at the front of the MRO
+    is the established pattern (matches
+    :class:`~ivre.db.sql.duckdb.DuckDBNmap` /
+    :class:`DuckDBView` / :class:`DuckDBPassive` /
+    :class:`DuckDBFlow` / :class:`DuckDBRir`); its dialect
+    overrides win the lookup against
+    :class:`~ivre.db.sql.postgres.PostgresDB`'s defaults so
+    DuckDB-specific behaviour (the DuckDB-aware
+    ``internal2ip`` / ``ip2internal`` / ``_searchstring_re``
+    overrides) carries over to the auth helpers.
+
+    No schema adapter is required at this point: every auth
+    column type (``Integer``, ``String``, ``Text``,
+    ``Boolean``, ``DateTime``, ``ARRAY(String)``) compiles
+    cleanly on both PostgreSQL and DuckDB without a
+    ``with_variant`` adapter -- DuckDB rejects ``INET`` as
+    an index key (the Rir / Flow schema fix), but no auth
+    column uses ``INET``.
+
+    The ``duckdb-engine`` quirk where ``cursor.rowcount``
+    reports ``-1`` on every DELETE statement is already
+    handled by :class:`SQLDBAuth`'s shared helpers
+    (:meth:`SQLDBAuth.delete_api_key` counts via ``DELETE
+    ... RETURNING`` instead).
     """

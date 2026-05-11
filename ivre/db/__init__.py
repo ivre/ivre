@@ -5797,6 +5797,7 @@ class DBAuth(DB):
     backends = {
         "mongodb": ("mongo", "MongoDBAuth"),
         "postgresql": ("sql.postgres", "PostgresDBAuth"),
+        "duckdb": ("sql.duckdb", "DuckDBAuth"),
     }
 
     def get_user_by_email(self, email):
