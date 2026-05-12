@@ -26,8 +26,8 @@ import re
 from urllib.parse import unquote
 
 from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Q
-from elasticsearch_dsl.query import Query
+from elasticsearch_dsl import Q  # pylint: disable=no-name-in-module
+from elasticsearch_dsl.query import Query  # pylint: disable=no-name-in-module
 
 from ivre import utils
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
@@ -76,7 +76,7 @@ class ElasticDB(DB):
         """Initializes the mappings."""
         for idxnum, mapping in enumerate(self.mappings):
             idxname = self.indexes[idxnum]
-            self.db_client.indices.delete(
+            self.db_client.indices.delete(  # pylint: disable=unexpected-keyword-arg
                 index=idxname,
                 ignore=[400, 404],
             )

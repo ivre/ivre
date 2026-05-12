@@ -1442,27 +1442,44 @@ class ElasticDBSearchTextTests(unittest.TestCase):
     def test_searchtext_emits_or_of_multi_match_groups(self):
         body = self._ED().searchtext("honeypot").to_dict()
         # OR composition: ``bool.should`` of one root
-        # ``multi_match`` plus one ``nested`` per nested path.
+        # ``multi_match`` plus one ``nested`` per nested path
+        # that carries any text field.  The non-root groups
+        # currently come from
+        # :data:`ElasticDBActive.nested_fields` -- ``ports``
+        # (service / screenwords), ``ports.scripts``
+        # (output), ``tags`` (info / value), and
+        # ``traces.hops`` (host).  A top-level
+        # ``multi_match`` against a nested-typed field
+        # silently returns no hits in Elasticsearch, which is
+        # why the split is required; the test pins the
+        # partition so a future drift between
+        # :data:`text_fields` and :data:`nested_fields`
+        # surfaces here.
         self.assertEqual(set(body), {"bool"})
         self.assertEqual(set(body["bool"]), {"should"})
         clauses = body["bool"]["should"]
-        # 1 root + 3 nested (ports, ports.scripts, tags).
-        self.assertEqual(len(clauses), 4)
-        # Root-level ``multi_match`` over ``categories``,
-        # ``cpes.*``, ``hostnames.*``, ``os.*``,
-        # ``traces.hops.host``.
+        # 1 root + 4 nested groups.
+        self.assertEqual(len(clauses), 5)
+        # Root-level ``multi_match`` over the flat fields
+        # (``categories`` / ``cpes.*`` / ``hostnames.*`` /
+        # ``os.*``).
         root = next(c["multi_match"] for c in clauses if "multi_match" in c)
         self.assertEqual(root["query"], "honeypot")
         self.assertIn("categories", root["fields"])
         self.assertIn("hostnames.name", root["fields"])
-        self.assertIn("traces.hops.host", root["fields"])
-        # No nested fields leaked into the root group.
+        # No nested fields leaked into the root group --
+        # ``traces.hops.host`` lands in the ``traces.hops``
+        # nested clause, not at the root.
         self.assertNotIn("ports.service_name", root["fields"])
         self.assertNotIn("tags.value", root["fields"])
+        self.assertNotIn("traces.hops.host", root["fields"])
         # And every nested group wraps a ``multi_match`` over
         # its own path's fields.
         nested_paths = {c["nested"]["path"] for c in clauses if "nested" in c}
-        self.assertEqual(nested_paths, {"ports", "ports.scripts", "tags"})
+        self.assertEqual(
+            nested_paths,
+            {"ports", "ports.scripts", "tags", "traces.hops"},
+        )
         for clause in clauses:
             if "nested" not in clause:
                 continue
@@ -1482,8 +1499,8 @@ class ElasticDBSearchTextTests(unittest.TestCase):
         # under ``bool.must_not`` instead of ``bool.should``.
         self.assertEqual(set(body), {"bool"})
         self.assertEqual(set(body["bool"]), {"must_not"})
-        # Same fan-out (1 root + 3 nested).
-        self.assertEqual(len(body["bool"]["must_not"]), 4)
+        # Same fan-out (1 root + 4 nested).
+        self.assertEqual(len(body["bool"]["must_not"]), 5)
 
     def test_searchtext_text_fields_are_partitioned_correctly(self):
         # Pin that every entry in
