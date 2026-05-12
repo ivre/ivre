@@ -667,20 +667,26 @@ class MongoDB(DB):
     def searchnonexistent():
         return {"_id": 0}
 
-    @staticmethod
-    def searchobjectid(oid, neg=False):
-        """Filters records by their ObjectID.  `oid` can be a single or many
-        (as a list or any iterable) object ID(s), specified as strings
-        or an `ObjectID`s.
+    @classmethod
+    def searchobjectid(cls, oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a
+        single or many (as a list or any iterable) object
+        ID(s), specified as strings or as `ObjectID`s.
 
+        Coerces the input to :class:`bson.objectid.ObjectId`
+        (scalar or list of) and dispatches to
+        :meth:`_search_field`.  Wire shapes are unchanged from
+        the legacy hand-written ladder: scalars (including
+        list-of-one inputs) collapse to ``{"_id": <objid>}``
+        on the positive branch and ``{"_id": {"$ne":
+        <objid>}}`` on the negative one; lists with more
+        than one element become ``$in`` / ``$nin``.
         """
         if isinstance(oid, (str, bytes, bson.objectid.ObjectId)):
-            oid = [bson.objectid.ObjectId(oid)]
+            oid = bson.objectid.ObjectId(oid)
         else:
             oid = [bson.objectid.ObjectId(elt) for elt in oid]
-        if len(oid) == 1:
-            return {"_id": {"$ne": oid[0]} if neg else oid[0]}
-        return {"_id": {"$nin" if neg else "$in": oid}}
+        return cls._search_field("_id", oid, neg=neg)
 
     @staticmethod
     def searchversion(version):
@@ -858,6 +864,34 @@ class MongoDB(DB):
     @staticmethod
     def searchtext(text):
         return {"$text": {"$search": text}}
+
+
+def _normalize_mac(mac):
+    """Normalise a MAC-address ``searchmac`` argument for the
+    shared :meth:`MongoDB._search_field` dispatch.
+
+    MAC addresses are stored lower-cased on the wire; both the
+    active and passive ``searchmac`` helpers preserve that
+    contract by:
+
+    * forcing the ``IGNORECASE`` flag on regex inputs (MAC
+      addresses are case-insensitive),
+    * lower-casing scalar string inputs,
+    * lower-casing each string element of a list input.
+
+    Non-string elements pass through unchanged (the caller is
+    expected to know what it's doing).  Used by
+    :meth:`MongoDBActive.searchmac` and
+    :meth:`MongoDBPassive.searchmac` so the normalisation
+    rule lives in one place.
+    """
+    if isinstance(mac, utils.REGEXP_T):
+        return re.compile(mac.pattern, mac.flags | re.I)
+    if isinstance(mac, list):
+        return [m.lower() if isinstance(m, str) else m for m in mac]
+    if isinstance(mac, str):
+        return mac.lower()
+    return mac
 
 
 class MongoDBActive(MongoDB, DBActive):
@@ -2549,26 +2583,73 @@ class MongoDBActive(MongoDB, DBActive):
             # its existence rather than ``hostnames.name``'s.
             return {"hostnames.domains": {"$exists": not neg}}
         if neg:
-            return cls._search_field("hostnames.name", name, neg=True)
+            # ``hostnames.name`` is not indexed (only
+            # ``hostnames.domains`` is, per
+            # :data:`MongoDBActive.indexes`), so a bare
+            # ``{hostnames.name: {$ne: name}}`` form forces a
+            # collection scan.  Split the negation into an
+            # ``$or`` of two disjoint branches:
+            #
+            # * Branch A -- ``{hostnames.domains: {$ne: name}}``
+            #   matches records where ``name`` is NOT anywhere
+            #   in any hostname's domain chain.  Covers records
+            #   with no hostnames at all (Mongo's array ``$ne``
+            #   matches a missing field) plus records whose
+            #   hostnames are entirely outside ``name``'s
+            #   subtree.
+            # * Branch B -- ``{hostnames.domains: name,
+            #   hostnames.name: {$ne: name}}`` matches records
+            #   that DO have a hostname in ``name``'s subtree
+            #   (subdomain or exact match) but no hostname is
+            #   exactly ``name``.  The ``{domains: name}``
+            #   clause is a real positive index value probe
+            #   against the multikey index.
+            #
+            # Semantically identical to the legacy
+            # ``{hostnames.name: {$ne: name}}`` form: A and B
+            # partition the "no hostname equals name exactly"
+            # result set into disjoint slices (records outside
+            # ``name``'s subtree vs. records with at least one
+            # hostname in ``name``'s subtree).  Branch B is a
+            # genuine index hit; Branch A is the unavoidable
+            # array-``$ne`` scan that absence-of-value
+            # questions on multikey indexes always require.
+            return {
+                "$or": [
+                    cls.searchdomain(name, neg=True),
+                    cls.flt_and(
+                        cls.searchdomain(name, neg=False),
+                        cls._search_field("hostnames.name", name, neg=True),
+                    ),
+                ]
+            }
+        # Positive branch: indexed-domain value probe AND'd
+        # with the non-indexed name match.  Both halves go
+        # through :meth:`_search_field` so list / regex
+        # inputs flow through uniformly (the previous
+        # positive branch hard-coded the raw ``name`` value
+        # on the second clause, which silently broke list
+        # inputs).
         return cls.flt_and(
             # This is indexed
-            cls.searchdomain(name, neg=neg),
+            cls.searchdomain(name, neg=False),
             # This is not
-            {"hostnames.name": name},
+            cls._search_field("hostnames.name", name, neg=False),
         )
 
     @classmethod
     def searchmac(cls, mac=None, neg=False):
-        if mac is not None:
-            if isinstance(mac, utils.REGEXP_T):
-                mac = re.compile(mac.pattern, mac.flags | re.I)
-                if neg:
-                    return {"addresses.mac": {"$not": mac}}
-                return {"addresses.mac": mac}
-            if neg:
-                return {"addresses.mac": {"$ne": mac.lower()}}
-            return {"addresses.mac": mac.lower()}
-        return {"addresses.mac": {"$exists": not neg}}
+        if mac is None:
+            return {"addresses.mac": {"$exists": not neg}}
+        # Pre-normalise the value so :meth:`_search_field`'s
+        # scalar / list / regex ladder sees one shape:
+        # * regex picks up the ``IGNORECASE`` flag -- MAC
+        #   addresses are case-insensitive on the wire,
+        # * strings (and string elements of a list) lower-case
+        #   to match the canonical form the ingestion path
+        #   stores.
+        mac = _normalize_mac(mac)
+        return cls._search_field("addresses.mac", mac, neg=neg)
 
     @classmethod
     def searchcategory(cls, cat, neg=False):
@@ -3070,14 +3151,44 @@ class MongoDBActive(MongoDB, DBActive):
     def searchhopdomain(cls, hop, neg=False):
         return cls._search_field("traces.hops.domains", hop, neg=neg)
 
-    def searchhopname(self, hop, neg=False):
+    @classmethod
+    def searchhopname(cls, hop, neg=False):
         if neg:
-            return self._search_field("traces.hops.host", hop, neg=True)
-        return self.flt_and(
+            # Same disjoint ``$or`` shape as
+            # :meth:`searchhostname`'s negation -- the
+            # ``traces.hops.host`` field is not indexed (only
+            # ``traces.hops.domains`` is, per
+            # :data:`MongoDBActive.indexes`).  Branch A
+            # (``{traces.hops.domains: {$ne: hop}}``) covers
+            # records with no traces / hops in ``hop``'s
+            # subtree (incl. records with no hops at all via
+            # Mongo's array-``$ne``-on-missing-field
+            # semantics).  Branch B (positive index probe on
+            # ``traces.hops.domains`` + ``$ne`` on
+            # ``traces.hops.host``) covers records that DO
+            # have a hop in ``hop``'s subtree but no hop is
+            # exactly ``hop``.
+            return {
+                "$or": [
+                    cls.searchhopdomain(hop, neg=True),
+                    cls.flt_and(
+                        cls.searchhopdomain(hop, neg=False),
+                        cls._search_field("traces.hops.host", hop, neg=True),
+                    ),
+                ]
+            }
+        # Positive branch: indexed-hop-domain value probe
+        # AND'd with the non-indexed hop-host match.  Both
+        # halves go through :meth:`_search_field` so list /
+        # regex inputs flow through uniformly (the previous
+        # positive branch hard-coded the raw ``hop`` value on
+        # the second clause, which silently broke list
+        # inputs).
+        return cls.flt_and(
             # This is indexed
-            self.searchhopdomain(hop, neg=neg),
+            cls.searchhopdomain(hop, neg=False),
             # This is not
-            {"traces.hops.host": hop},
+            cls._search_field("traces.hops.host", hop, neg=False),
         )
 
     @staticmethod
@@ -5559,21 +5670,20 @@ class MongoDBPassive(MongoDB, DBPassive):
 
     @classmethod
     def searchmac(cls, mac=None, neg=False):
-        res = {"recontype": "MAC_ADDRESS"}
-        if mac is not None:
-            if isinstance(mac, utils.REGEXP_T):
-                mac = re.compile(mac.pattern, mac.flags | re.I)
-                if neg:
-                    res["value"] = {"$not": mac}
-                else:
-                    res["value"] = mac
-            elif neg:
-                res["value"] = {"$ne": mac.lower()}
-            else:
-                res["value"] = mac.lower()
-        elif neg:
-            return {"recontype": {"$not": "MAC_ADDRESS"}}
-        return res
+        if mac is None:
+            # No specific MAC: the recontype gate alone scopes
+            # the result.  Negation flips the gate so
+            # ``searchmac(neg=True)`` excludes the MAC-address
+            # passive records entirely.
+            if neg:
+                return {"recontype": {"$not": "MAC_ADDRESS"}}
+            return {"recontype": "MAC_ADDRESS"}
+        # See :meth:`MongoDBActive.searchmac` for the
+        # normalisation rationale; the recontype gate stays a
+        # positive constraint so the result remains scoped to
+        # MAC-address records regardless of ``neg``.
+        mac = _normalize_mac(mac)
+        return {"recontype": "MAC_ADDRESS", **cls._search_field("value", mac, neg=neg)}
 
     @staticmethod
     def searchuseragent(useragent=None, neg=False):

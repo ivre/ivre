@@ -11024,12 +11024,29 @@ class MongoDBSearchFieldTests(unittest.TestCase):
         )
 
     def test_searchhostname_active_negation_shapes(self):
-        # ``MongoDBActive.searchhostname``'s ``neg=True`` branch is
-        # the canonical scalar/regex/None ladder over
-        # ``hostnames.name`` (None means "no hostnames at all" via
-        # ``hostnames.domains.$exists``). Pinned here so the
-        # round-2 helper migration of that branch stays
-        # wire-shape-identical.
+        # ``MongoDBActive.searchhostname``'s ``neg=True`` branch
+        # over a value uses an ``$or`` of two disjoint
+        # branches so the planner can lean on the multikey
+        # index on ``hostnames.domains`` for the positive
+        # value probe in Branch B:
+        #
+        # * Branch A -- ``{hostnames.domains: {$ne: name}}``
+        #   matches records where ``name`` is NOT anywhere in
+        #   any hostname's domain chain (incl. records with
+        #   no hostnames at all via Mongo's array
+        #   ``$ne``-on-missing-field semantics).
+        # * Branch B -- ``{hostnames.domains: name,
+        #   hostnames.name: {$ne: name}}`` matches records
+        #   that DO have a hostname in ``name``'s subtree
+        #   (subdomain or exact) but no hostname is exactly
+        #   ``name``.
+        #
+        # Semantically identical to the legacy
+        # ``{hostnames.name: {$ne: name}}`` form (the union
+        # of Branches A and B partitions
+        # ``C2 ∪ C3 ∪ C4`` cleanly).  ``None`` keeps the
+        # simple existence check (no value to negate
+        # against).
         MA = self._MA()
         self.assertEqual(
             MA.searchhostname(neg=True),
@@ -11037,12 +11054,85 @@ class MongoDBSearchFieldTests(unittest.TestCase):
         )
         self.assertEqual(
             MA.searchhostname("host.example.com", neg=True),
-            {"hostnames.name": {"$ne": "host.example.com"}},
+            {
+                "$or": [
+                    {"hostnames.domains": {"$ne": "host.example.com"}},
+                    {
+                        "hostnames.domains": "host.example.com",
+                        "hostnames.name": {"$ne": "host.example.com"},
+                    },
+                ]
+            },
         )
         pat = re.compile(r"\.example\.com$")
         self.assertEqual(
             MA.searchhostname(pat, neg=True),
-            {"hostnames.name": {"$not": pat}},
+            {
+                "$or": [
+                    {"hostnames.domains": {"$not": pat}},
+                    {
+                        "hostnames.domains": pat,
+                        "hostnames.name": {"$not": pat},
+                    },
+                ]
+            },
+        )
+
+    def test_searchhostname_active_negation_list_shapes(self):
+        # Negation list inputs flow through ``_search_field``
+        # on both halves of each ``$or`` branch: Branch A
+        # uses ``$nin`` on the indexed ``domains`` half;
+        # Branch B uses ``$in`` (positive value probe on the
+        # index) AND ``$nin`` on the non-indexed ``name``
+        # half.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhostname(["a.example", "b.example"], neg=True),
+            {
+                "$or": [
+                    {"hostnames.domains": {"$nin": ["a.example", "b.example"]}},
+                    {
+                        "hostnames.domains": {"$in": ["a.example", "b.example"]},
+                        "hostnames.name": {"$nin": ["a.example", "b.example"]},
+                    },
+                ]
+            },
+        )
+
+    def test_searchhostname_active_negation_mixed_hostnames_corner_case(self):
+        # ``searchhostname("www.example.com", neg=True)``
+        # must select a record carrying hostnames
+        # ``["www.example.org", "mail.example.com",
+        # "preprod.www.example.com"]`` -- none equals
+        # "www.example.com" exactly.  The
+        # ``preprod.www.example.com`` hostname carries
+        # "www.example.com" in its domain ancestor chain, so
+        # the record's multikey ``hostnames.domains`` array
+        # contains "www.example.com" -- Branch A's
+        # ``{domains: {$ne: ...}}`` fails, and the record
+        # falls through to Branch B which succeeds (``domains``
+        # contains "www.example.com" ✓; no hostname is named
+        # exactly "www.example.com" ✓).  A record with
+        # hostnames entirely outside the subtree would
+        # instead match via Branch A; the two branches
+        # cooperate to cover the full legacy ``$ne`` semantic.
+        #
+        # This test pins the wire shape (same as
+        # ``test_searchhostname_active_negation_shapes``'s
+        # scalar case) and anchors the reasoning above to a
+        # concrete example for future readers.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhostname("www.example.com", neg=True),
+            {
+                "$or": [
+                    {"hostnames.domains": {"$ne": "www.example.com"}},
+                    {
+                        "hostnames.domains": "www.example.com",
+                        "hostnames.name": {"$ne": "www.example.com"},
+                    },
+                ]
+            },
         )
 
     def test_searchasnum_view_coercion_shapes(self):
@@ -11209,6 +11299,256 @@ class MongoDBSearchFieldTests(unittest.TestCase):
         self.assertEqual(
             self._MP().searchsource("cert", neg=True),
             {"source": {"$ne": "cert"}},
+        )
+
+    # -- Round 2 sweep ------------------------------------------------
+
+    def test_searchhostname_active_positive_scalar(self):
+        # Positive scalar: the indexed-domain lookup ANDs with
+        # the non-indexed name match; ``flt_and`` merges the
+        # two single-key dicts into one flat dict (no ``$and``
+        # array because the keys differ).
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhostname("host.example.com"),
+            {
+                "hostnames.domains": "host.example.com",
+                "hostnames.name": "host.example.com",
+            },
+        )
+
+    def test_searchhostname_active_positive_regex(self):
+        # Regex flows through ``_search_field`` on both halves
+        # so the pattern lands on both fields unchanged.
+        MA = self._MA()
+        pat = re.compile(r"\.example\.com$")
+        self.assertEqual(
+            MA.searchhostname(pat),
+            {"hostnames.domains": pat, "hostnames.name": pat},
+        )
+
+    def test_searchhostname_active_positive_list(self):
+        # List widening: the old positive branch hard-coded the
+        # raw ``name`` value on the ``hostnames.name`` half,
+        # which silently broke list inputs (Mongo would match
+        # ``hostnames.name`` as an exact array value, never
+        # finding anything).  Round-2 routes both halves
+        # through ``_search_field`` so list inputs use ``$in``
+        # on both fields.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhostname(["a.example", "b.example"]),
+            {
+                "hostnames.domains": {"$in": ["a.example", "b.example"]},
+                "hostnames.name": {"$in": ["a.example", "b.example"]},
+            },
+        )
+
+    def test_searchmac_active_existence_branches(self):
+        # ``searchmac()`` / ``searchmac(neg=True)`` gate the
+        # filter on the presence / absence of any MAC address
+        # on the host.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchmac(),
+            {"addresses.mac": {"$exists": True}},
+        )
+        self.assertEqual(
+            MA.searchmac(neg=True),
+            {"addresses.mac": {"$exists": False}},
+        )
+
+    def test_searchmac_active_scalar_lowercases(self):
+        # Scalar string MACs lower-case before the dispatch so
+        # the wire value matches the canonical lowercase form
+        # the ingestion path stores.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchmac("AA:BB:CC:11:22:33"),
+            {"addresses.mac": "aa:bb:cc:11:22:33"},
+        )
+        self.assertEqual(
+            MA.searchmac("AA:BB:CC:11:22:33", neg=True),
+            {"addresses.mac": {"$ne": "aa:bb:cc:11:22:33"}},
+        )
+
+    def test_searchmac_active_list_lowercases_each_element(self):
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchmac(["AA:BB:CC:11:22:33", "DD:EE:FF:44:55:66"]),
+            {
+                "addresses.mac": {
+                    "$in": ["aa:bb:cc:11:22:33", "dd:ee:ff:44:55:66"],
+                },
+            },
+        )
+
+    def test_searchmac_active_regex_forces_ignorecase(self):
+        # Regex inputs get the ``IGNORECASE`` flag forced on
+        # (MAC addresses are case-insensitive); compare via
+        # ``pattern`` + ``flags`` rather than equality
+        # because ``re.Pattern`` objects compare by identity.
+        MA = self._MA()
+        pat = re.compile(r"^AA:")
+        flt = MA.searchmac(pat)
+        compiled = flt["addresses.mac"]
+        self.assertEqual(compiled.pattern, r"^AA:")
+        self.assertTrue(compiled.flags & re.IGNORECASE)
+
+    def test_searchmac_passive_existence_branches(self):
+        # The ``recontype`` constraint stays positive on the
+        # positive branch and flips to ``$not`` on the
+        # negation existence branch.
+        MP = self._MP()
+        self.assertEqual(MP.searchmac(), {"recontype": "MAC_ADDRESS"})
+        self.assertEqual(
+            MP.searchmac(neg=True),
+            {"recontype": {"$not": "MAC_ADDRESS"}},
+        )
+
+    def test_searchmac_passive_scalar_lowercases(self):
+        # The recontype gate is composed with the value
+        # clause; the ``value`` field receives the
+        # lower-cased MAC.
+        MP = self._MP()
+        self.assertEqual(
+            MP.searchmac("AA:BB:CC:11:22:33"),
+            {"recontype": "MAC_ADDRESS", "value": "aa:bb:cc:11:22:33"},
+        )
+        self.assertEqual(
+            MP.searchmac("AA:BB:CC:11:22:33", neg=True),
+            {
+                "recontype": "MAC_ADDRESS",
+                "value": {"$ne": "aa:bb:cc:11:22:33"},
+            },
+        )
+
+    def test_searchmac_passive_list_lowercases_each_element(self):
+        MP = self._MP()
+        self.assertEqual(
+            MP.searchmac(["AA:BB:CC:11:22:33", "DD:EE:FF:44:55:66"]),
+            {
+                "recontype": "MAC_ADDRESS",
+                "value": {
+                    "$in": ["aa:bb:cc:11:22:33", "dd:ee:ff:44:55:66"],
+                },
+            },
+        )
+
+    def test_searchhopname_active_positive_scalar(self):
+        # Positive branch composes the indexed-domain lookup
+        # with the non-indexed host match; mirrors
+        # :meth:`searchhostname`.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhopname("hop.example.com"),
+            {
+                "traces.hops.domains": "hop.example.com",
+                "traces.hops.host": "hop.example.com",
+            },
+        )
+
+    def test_searchhopname_active_positive_list(self):
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhopname(["a.example", "b.example"]),
+            {
+                "traces.hops.domains": {"$in": ["a.example", "b.example"]},
+                "traces.hops.host": {"$in": ["a.example", "b.example"]},
+            },
+        )
+
+    def test_searchhopname_active_negation_scalar(self):
+        # Negation mirrors :meth:`searchhostname`'s
+        # two-branch ``$or`` shape: Branch A covers records
+        # without any hop in ``hop``'s subtree (incl. no-hops
+        # records via Mongo's array-``$ne``-on-missing-field
+        # semantics), Branch B covers records with a hop in
+        # ``hop``'s subtree but no hop named exactly ``hop``.
+        # See ``searchhostname``'s negation tests for the
+        # partition rationale.
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhopname("hop.example.com", neg=True),
+            {
+                "$or": [
+                    {"traces.hops.domains": {"$ne": "hop.example.com"}},
+                    {
+                        "traces.hops.domains": "hop.example.com",
+                        "traces.hops.host": {"$ne": "hop.example.com"},
+                    },
+                ]
+            },
+        )
+
+    def test_searchhopname_active_negation_list(self):
+        MA = self._MA()
+        self.assertEqual(
+            MA.searchhopname(["a.example", "b.example"], neg=True),
+            {
+                "$or": [
+                    {"traces.hops.domains": {"$nin": ["a.example", "b.example"]}},
+                    {
+                        "traces.hops.domains": {"$in": ["a.example", "b.example"]},
+                        "traces.hops.host": {"$nin": ["a.example", "b.example"]},
+                    },
+                ]
+            },
+        )
+
+    def test_searchobjectid_scalar_str(self):
+        # ``searchobjectid`` coerces the input to
+        # :class:`bson.objectid.ObjectId` before the dispatch
+        # so the wire shape stays unchanged regardless of
+        # whether the caller passes a hex string, bytes, or a
+        # pre-built ObjectId.
+        import bson  # type: ignore[import-untyped]
+
+        M = self._M()
+        oid_hex = "6a031fbd72e1052fbb940fd7"
+        oid = bson.objectid.ObjectId(oid_hex)
+        self.assertEqual(M.searchobjectid(oid_hex), {"_id": oid})
+        self.assertEqual(
+            M.searchobjectid(oid_hex, neg=True),
+            {"_id": {"$ne": oid}},
+        )
+
+    def test_searchobjectid_scalar_objectid(self):
+        import bson  # type: ignore[import-untyped]
+
+        M = self._M()
+        oid = bson.objectid.ObjectId()
+        self.assertEqual(M.searchobjectid(oid), {"_id": oid})
+
+    def test_searchobjectid_list_of_one_collapses_to_scalar(self):
+        # The legacy ladder carefully collapsed a single-element
+        # list to scalar form (``{"_id": <oid>}`` rather than
+        # ``{"_id": {"$in": [<oid>]}}``).  ``_search_field``
+        # preserves that collapse so the wire shape stays
+        # unchanged.
+        import bson  # type: ignore[import-untyped]
+
+        M = self._M()
+        oid_hex = "6a031fbd72e1052fbb940fd7"
+        oid = bson.objectid.ObjectId(oid_hex)
+        self.assertEqual(M.searchobjectid([oid_hex]), {"_id": oid})
+        self.assertEqual(
+            M.searchobjectid([oid_hex], neg=True),
+            {"_id": {"$ne": oid}},
+        )
+
+    def test_searchobjectid_list_of_many_uses_in_nin(self):
+        import bson  # type: ignore[import-untyped]
+
+        M = self._M()
+        h1 = "6a031fbd72e1052fbb940fd7"
+        h2 = "6a031fbd72e1052fbb940fd8"
+        o1 = bson.objectid.ObjectId(h1)
+        o2 = bson.objectid.ObjectId(h2)
+        self.assertEqual(M.searchobjectid([h1, h2]), {"_id": {"$in": [o1, o2]}})
+        self.assertEqual(
+            M.searchobjectid([h1, h2], neg=True),
+            {"_id": {"$nin": [o1, o2]}},
         )
 
 
