@@ -100,10 +100,9 @@ def main() -> None:
         parents=[CLI_ARGPARSER],
         conflict_handler="resolve",
     )
-    if hasattr(db.rir, "searchtext"):  # FIXME, move to DBRir
-        parser.add_argument(
-            "--search", metavar="FREE TEXT", help="perform a full-text search"
-        )
+    parser.add_argument(
+        "--search", metavar="FREE TEXT", help="perform a full-text search"
+    )
     parser.add_argument(
         "--country", metavar="CODE", help="show only results from this country"
     )
@@ -184,7 +183,7 @@ def main() -> None:
         sys.exit(0)
     flt = dbase.flt_empty
     if args.distinct is not None:
-        if hasattr(dbase, "searchtext") and args.search is not None:
+        if args.search is not None:
             flt = dbase.flt_and(flt, dbase.searchtext(args.search))
         if args.ips:
             flt = dbase.flt_and(
@@ -195,7 +194,7 @@ def main() -> None:
         sys.exit(0)
     if args.country is not None:
         flt = dbase.flt_and(flt, dbase.searchcountry(str2list(args.country)))
-    if hasattr(dbase, "searchtext") and args.search is not None:
+    if args.search is not None:
         flt = dbase.flt_and(flt, dbase.searchtext(args.search))
         if not args.ips:
             if args.count:

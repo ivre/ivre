@@ -4975,6 +4975,147 @@ class SQLDBSearchTextTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# SQLDBRirSearchTextTests -- pin the wire shape of the
+# RIR-purpose ``searchtext()`` helper that closes the M4.2
+# cross-backend full-text-search story.  ``MongoDBRir`` inherits
+# ``searchtext`` from the ``MongoDB`` base (``$text`` operator);
+# ``SQLDBRir`` and its concrete ``PostgresDBRir`` /
+# ``DuckDBRir`` subclasses now ship the equivalent shape:
+# PostgreSQL through ``to_tsvector @@ plainto_tsquery`` over the
+# ``rir_idx_fts`` GIN index, DuckDB through the ``fts``
+# extension's ``fts_main_rir.match_bm25`` predicate.  The four
+# defensive ``hasattr(<dbase>, "searchtext")`` guards in
+# :mod:`ivre.tools.rirlookup` and :mod:`ivre.tools.mcp_server`
+# are dropped in the same PR.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBRirSearchTextTests(unittest.TestCase):
+    """Behaviour-pin for ``SQLDBRir.searchtext`` -- the
+    RIR-purpose full-text-search filter mirroring
+    :meth:`MongoDBRir.searchtext`.
+    """
+
+    @staticmethod
+    def _compile(stmt):
+        # ``literal_binds=True`` is intentionally omitted: the
+        # ``REGCONFIG`` first argument of ``to_tsvector`` /
+        # ``plainto_tsquery`` has no SA literal renderer
+        # registered, so rendering with literal binds raises.
+        # The non-literal form binds the search ``term`` as a
+        # ``?`` placeholder, which is enough for wire-shape
+        # assertions on the surrounding expression.
+        return str(stmt.compile(dialect=_sqlalchemy_postgresql.dialect()))
+
+    def test_searchtext_emits_to_tsvector_at_at_plainto_tsquery(self):
+        # Pin that the compiled PG predicate uses the
+        # planner-friendly ``to_tsvector('english', coalesce(...)
+        # || ' ' || ...) @@ plainto_tsquery('english', :term)``
+        # shape -- the same expression
+        # :data:`tables.RIR_FTS_COLUMNS` builds for the GIN index
+        # so the planner can substitute one for the other.
+        from ivre.db import DBRir
+
+        db = DBRir.from_url("postgresql://x@localhost/x")
+        flt = db.searchtext("ovh")
+        sql = self._compile(flt)
+        self.assertIn("to_tsvector('english'", sql)
+        self.assertIn("@@ plainto_tsquery", sql)
+        # Every text column listed in RIR_FTS_COLUMNS must
+        # appear in the coalesce chain.
+        for col in (
+            "netname",
+            "descr",
+            "remarks",
+            "notify",
+            "org",
+            "as_name",
+        ):
+            self.assertIn(f"coalesce(rir.{col}", sql)
+
+    def test_searchtext_negation_wraps_in_not(self):
+        # ``neg=True`` inverts the predicate; the wire shape
+        # mirrors :meth:`MongoDBRir.searchtext` composed with
+        # an outer ``$not``.
+        from ivre.db import DBRir
+
+        db = DBRir.from_url("postgresql://x@localhost/x")
+        flt = db.searchtext("ovh", neg=True)
+        sql = self._compile(flt)
+        self.assertTrue(
+            sql.startswith("NOT ("),
+            f"expected ``NOT (...)`` wrapper, got:\n  {sql}",
+        )
+        self.assertIn("@@ plainto_tsquery", sql)
+
+    def test_searchtext_index_and_query_expressions_match(self):
+        # Byte-for-byte parity between the GIN index expression
+        # declared in :mod:`ivre.db.sql.tables` and the runtime
+        # ``WHERE`` predicate built by ``searchtext``.  Without
+        # this, PostgreSQL silently falls back to a sequential
+        # scan -- the bug is invisible in correctness tests but
+        # crippling at scale.
+        sa = _sqlalchemy
+        from sqlalchemy.schema import CreateIndex
+
+        from ivre.db import DBRir
+        from ivre.db.sql.tables import Rir
+
+        db = DBRir.from_url("postgresql://x@localhost/x")
+        flt = db.searchtext("ovh")
+        query_sql = str(
+            sa.select(sa.literal_column("1"))
+            .where(flt)
+            .compile(dialect=_sqlalchemy_postgresql.dialect())
+        )
+        idx = next(ix for ix in Rir.__table__.indexes if ix.name == "rir_idx_fts")
+        idx_sql = str(
+            CreateIndex(idx).compile(dialect=_sqlalchemy_postgresql.dialect())
+        )
+        # Extract the ``to_tsvector(...)`` call up to its
+        # outermost ``)`` -- that is the expression PG matches
+        # against the ``WHERE`` clause.
+        paren = idx_sql.index("to_tsvector(")
+        depth = 0
+        end = paren
+        while end < len(idx_sql):
+            if idx_sql[end] == "(":
+                depth += 1
+            elif idx_sql[end] == ")":
+                depth -= 1
+                if depth == 0:
+                    end += 1
+                    break
+            end += 1
+        expr = idx_sql[paren:end]
+        self.assertIn(
+            expr,
+            query_sql,
+            f"rir_idx_fts: index expression\n  {expr}\nnot found verbatim "
+            f"in query SQL:\n  {query_sql}",
+        )
+
+    def test_rir_fts_columns_match_text_fields(self):
+        # ``RIR_FTS_COLUMNS`` is the canonical list shared by
+        # the GIN index and ``SQLDBRir.searchtext``.  It must
+        # cover every text-bearing column in the RIR schema
+        # plus ``as_name`` (an ``aut-num``-only column not in
+        # ``DBRir.text_fields`` because the Mongo backend stores
+        # it on a separate document path).  A drift here means
+        # one half of the search surface stops being indexed.
+        from ivre.db import DBRir
+        from ivre.db.sql.tables import RIR_FTS_COLUMNS
+
+        for col in DBRir.text_fields:
+            self.assertIn(col, RIR_FTS_COLUMNS)
+        self.assertIn("as_name", RIR_FTS_COLUMNS)
+
+
+# ---------------------------------------------------------------------
 # SQLDBSearchCpeOsVulnTests -- pin the wire shape of the
 # Mongo-shape ``searchcpe`` / ``searchos`` / ``searchvuln*``
 # helpers on the SQL backends.  Both PostgreSQL and DuckDB are

@@ -78,12 +78,18 @@ from ivre.db.sql.postgres import (
     PostgresDBRir,
     PostgresDBView,
 )
-from ivre.db.sql.tables import Base
+from ivre.db.sql.tables import RIR_FTS_COLUMNS, Base
 
 # Column lists for the DuckDB FTS index, mirroring
 # :attr:`SQLDBActive._TEXT_SEARCH_*_COLUMNS`.  Indexed by
 # ``self.tables.<attr>`` so the same spec works for both
 # ``n_*`` (DuckDBNmap) and ``v_*`` (DuckDBView) schemas.
+#
+# The ``"rir"`` entry covers the single-table RIR schema and
+# mirrors :data:`ivre.db.sql.tables.RIR_FTS_COLUMNS` (the same
+# tuple the PostgreSQL ``rir_idx_fts`` GIN index is built over);
+# kept in lockstep so a column added on one side automatically
+# extends the search surface on the other.
 _FTS_TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
     "hostname": ("name",),
     "tag": ("value", "info"),
@@ -99,6 +105,7 @@ _FTS_TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
     "script": ("output",),
     "hop": ("host",),
     "category": ("name",),
+    "rir": RIR_FTS_COLUMNS,
 }
 
 
@@ -1018,12 +1025,10 @@ class DuckDBFlow(DuckDBMixin, PostgresDBFlow):
 class DuckDBRir(DuckDBMixin, PostgresDBRir):
     """DuckDB backend for the RIR (whois) data category.
 
-    Pure inheritance from :class:`PostgresDBRir`: the read /
-    search / aggregate / ingestion path lives in
-    :class:`SQLDBRir` and works on both backends unchanged.
-    The schema also inherits unchanged thanks to two
-    dialect-aware adapters declared in
-    :mod:`ivre.db.sql.tables`:
+    Inherits the read / aggregate / ingestion path from
+    :class:`SQLDBRir` (via :class:`PostgresDBRir`); the schema
+    also inherits unchanged thanks to two dialect-aware
+    adapters declared in :mod:`ivre.db.sql.tables`:
 
     * :attr:`Rir.size` is ``Numeric(40, 0)`` on PostgreSQL
       and ``Numeric(38, 0)`` on DuckDB (DuckDB caps DECIMAL
@@ -1043,13 +1048,39 @@ class DuckDBRir(DuckDBMixin, PostgresDBRir):
     (:data:`rir_idx_range` over ``INET`` columns,
     :data:`rir_idx_aut_num` partial WHERE clause,
     :data:`rir_idx_fts` GIN) are stripped at create-time by
-    :func:`_is_unsupported_on_duckdb` -- the read paths
-    fall back to sequential scans on DuckDB.  The
-    ``rir_idx_fts``-equivalent FTS path via the ``fts``
-    extension's ``match_bm25`` will land in a follow-up
-    sub-PR alongside the equivalent DuckDB
-    ``PRAGMA create_fts_index`` glue.
+    :func:`_is_unsupported_on_duckdb` -- the structural read
+    paths fall back to sequential scans on DuckDB.  The
+    ``rir_idx_fts``-equivalent full-text path is wired
+    through the ``fts`` extension's
+    ``fts_main_rir.match_bm25(rir.rowid, :term)`` function,
+    backed by :data:`_FTS_TABLE_COLUMNS` ``["rir"]`` and the
+    :meth:`searchtext` override below; :meth:`init` rebuilds
+    the index via :meth:`_create_fts_indexes` like every
+    other text-bearing tier.
     """
+
+    # See :meth:`DuckDBNmap.searchtext` for the
+    # classmethod-to-instance-method override rationale (the
+    # FTS index is static and must be rebuilt before each
+    # search, which needs ``self.db``).  The single-table RIR
+    # schema lets the predicate skip the per-child ``EXISTS``
+    # wrapper :class:`_DuckDBActiveFilterMixin` builds and
+    # return the BM25 expression directly, matching the
+    # contract of :meth:`SQLDBRir.searchtext` (a SA expression,
+    # not a Filter object).
+    @override
+    def searchtext(  # pylint: disable=arguments-renamed
+        self, text: str, neg: bool = False
+    ) -> Any:  # type: ignore[no-untyped-def, override]
+        # See :meth:`DuckDBNmap.searchtext` for the
+        # rebuild-on-every-search rationale.
+        self._create_fts_indexes()
+        pred = sa_text(
+            "fts_main_rir.match_bm25(rir.rowid, :fts_term) IS NOT NULL"
+        ).bindparams(fts_term=text)
+        if neg:
+            return not_(pred)
+        return pred
 
 
 class DuckDBAuth(DuckDBMixin, PostgresDBAuth):

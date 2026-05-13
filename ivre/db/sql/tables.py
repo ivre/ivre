@@ -796,6 +796,17 @@ class Passive(Base):
 # other RIR fields land in the ``extra`` :data:`SQLJSONB` bag for
 # forward compatibility (RIR formats grow keys over time; we
 # don't want a schema migration on every new attribute).
+#
+# The list below is the canonical column order used by both the
+# ``rir_idx_fts`` GIN index and :meth:`SQLDBRir.searchtext`'s
+# query predicate.  PostgreSQL's planner only substitutes the
+# index for the ``WHERE`` clause when the two ``to_tsvector(...)``
+# expressions are byte-for-byte identical (see :func:`_fts_concat`);
+# centralising the tuple here makes drift impossible.  The same
+# tuple is also registered in
+# :data:`ivre.db.sql.duckdb._FTS_TABLE_COLUMNS` so DuckDB's
+# ``fts_main_rir`` BM25 index covers the same surface.
+RIR_FTS_COLUMNS = ("netname", "descr", "remarks", "notify", "org", "as_name")
 _seq_rir_id = Sequence("seq_rir_id")
 
 
@@ -907,12 +918,14 @@ class Rir(Base):
         # :func:`_fts_index` for the byte-for-byte match
         # rationale).  Stripped on DuckDB by
         # :func:`ivre.db.sql.duckdb._is_unsupported_on_duckdb`
-        # (no GIN support); the FTS extension's
-        # ``match_bm25`` path is wired in a follow-up sub-PR.
+        # (no GIN support); on DuckDB the FTS extension's
+        # ``fts_main_rir.match_bm25(rir.rowid, :term)`` path
+        # backed by :data:`ivre.db.sql.duckdb._FTS_TABLE_COLUMNS`
+        # ``["rir"]`` provides the equivalent surface.
         _fts_index(
             "rir_idx_fts",
             "rir",
-            ("netname", "descr", "remarks", "notify", "org", "as_name"),
+            RIR_FTS_COLUMNS,
         ),
     )
 

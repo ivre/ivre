@@ -597,7 +597,7 @@ def _register_tools() -> None:
 
     def _rir_filter(query: str | None, country: str | None) -> Any:
         flt = db.rir.flt_empty
-        if query is not None and hasattr(db.rir, "searchtext"):
+        if query is not None:
             flt = db.rir.flt_and(flt, db.rir.searchtext(query))
         if country is not None:
             flt = db.rir.flt_and(flt, db.rir.searchcountry(country))

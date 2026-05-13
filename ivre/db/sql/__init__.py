@@ -67,6 +67,7 @@ from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBAuth, DBFlow, DBNmap, DBPassive, DBRir, DBView
 from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
+    RIR_FTS_COLUMNS,
     AuthApiKey,
     AuthMagicLink,
     AuthRateLimit,
@@ -6004,6 +6005,36 @@ class SQLDBRir(SQLDB, DBRir):
         RIR database file.
         """
         return cls._search_field(cls.tables.rir.source_hash, fileid, neg=neg)
+
+    @classmethod
+    def searchtext(cls, text, neg=False):
+        """Filter RIR records whose concatenated text columns
+        (``netname``, ``descr``, ``remarks``, ``notify``,
+        ``org``, ``as_name``) match ``text``.
+
+        Mirrors the contract of :meth:`MongoDBRir.searchtext`,
+        which composes a ``$text`` query against the text index
+        over :attr:`DBRir.text_fields`.  On PostgreSQL the
+        dispatch goes through the ``rir_idx_fts`` GIN index
+        declared in :mod:`ivre.db.sql.tables` (using the same
+        ``to_tsvector('english', coalesce(...))`` expression
+        :func:`tables._fts_concat` builds for both sides) so the
+        planner can substitute the index for the ``WHERE ... @@
+        plainto_tsquery(...)`` clause.
+
+        DuckDB has no ``to_tsvector`` operator and overrides
+        this helper in :class:`~ivre.db.sql.duckdb.DuckDBRir` to
+        dispatch through the FTS extension's
+        ``fts_main_rir.match_bm25`` function instead.
+
+        With ``neg=True`` the predicate is inverted: records
+        whose entire text surface is unrelated to ``text``.
+        """
+        expr = tables_module._fts_concat("rir", RIR_FTS_COLUMNS)
+        flt = expr.op("@@")(func.plainto_tsquery("english", text))
+        if neg:
+            return not_(flt)
+        return flt
 
     @staticmethod
     def flt_and(*args):
