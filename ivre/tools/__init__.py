@@ -40,6 +40,7 @@ __all__ = [
     "ipdata",
     "ipinfo",
     "iphost",
+    "iprange",
     "localscan",
     "macdata",
     "macinfo",

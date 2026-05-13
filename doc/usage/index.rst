@@ -9,6 +9,7 @@ Usage
   active-recon
   passive
   flow
+  iprange
   web-ui
   web-auth
   kibana

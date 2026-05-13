@@ -3663,6 +3663,58 @@ class IvreTests(unittest.TestCase):
                 json.loads(udesc.read().decode()),
             )
 
+        # ``ivre iprange`` exercises the inverse direction of
+        # ``ipdata`` (selector -> IPRanges via geoiputils): only
+        # meaningful with the GeoIP CSVs the ``ipdata --download``
+        # step above produced.  The pure-arithmetic selectors are
+        # covered backend-free in ``tests/tests_no_backend.py``.
+
+        # Country FR: a few-hundred-million addresses.
+        res, out, err = RUN(["ivre", "iprange", "--country", "FR", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertGreater(int(out.strip()), 10_000_000)
+
+        # UK alias -> GB (mirrors ``utils.country_unalias``).
+        res, uk_out, _ = RUN(["ivre", "iprange", "--country", "UK", "--count"])
+        self.assertEqual(res, 0)
+        res, gb_out, _ = RUN(["ivre", "iprange", "--country", "GB", "--count"])
+        self.assertEqual(res, 0)
+        self.assertEqual(uk_out.strip(), gb_out.strip())
+
+        # AS-by-number: at least one CIDR comes back.
+        res, out, _ = RUN(
+            ["ivre", "iprange", "--asnum", "AS3215", "--cidrs", "--limit", "5"]
+        )
+        self.assertEqual(res, 0)
+        cidrs = out.decode().splitlines()
+        self.assertTrue(cidrs)
+        self.assertTrue(
+            all("/" in line for line in cidrs),
+            f"expected CIDRs, got {cidrs!r}",
+        )
+
+        # Bare integer also resolves (``--asnum 3215``).
+        res, out_bare, _ = RUN(["ivre", "iprange", "--asnum", "3215", "--count"])
+        self.assertEqual(res, 0)
+        res, out_as, _ = RUN(["ivre", "iprange", "--asnum", "AS3215", "--count"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out_bare.strip(), out_as.strip())
+
+        # AS-union: ``AS3215,AS12876`` >= each one taken alone.
+        res, out, _ = RUN(["ivre", "iprange", "--asnum", "AS3215,AS12876", "--count"])
+        self.assertEqual(res, 0)
+        union_count = int(out.strip())
+        res, out, _ = RUN(["ivre", "iprange", "--asnum", "AS3215", "--count"])
+        self.assertEqual(res, 0)
+        self.assertGreaterEqual(union_count, int(out.strip()))
+
+        # Routable: ~3.7 G addresses (loose lower bound to absorb
+        # the slow drift of the APNIC BGP dump over time).
+        res, out, _ = RUN(["ivre", "iprange", "--routable", "--count"])
+        self.assertEqual(res, 0)
+        self.assertGreater(int(out.strip()), 1_000_000_000)
+
         # BEGIN Using the HTTP server as a database
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             newenv = os.environ.copy()

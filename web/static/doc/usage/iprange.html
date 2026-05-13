@@ -1,0 +1,210 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IP range enumeration &mdash; IVRE  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Web User Interface" href="web-ui.html" />
+    <link rel="prev" title="Flow" href="flow.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IVRE
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">IP range enumeration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cli">CLI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#web-api">Web API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mcp-tool">MCP tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="web-auth.html">Web Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kibana.html">IVRE with Kibana</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mcp-server.html">MCP server</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Usage</a></li>
+      <li class="breadcrumb-item active">IP range enumeration</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/usage/iprange.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ip-range-enumeration">
+<h1>IP range enumeration<a class="headerlink" href="#ip-range-enumeration" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">iprange</span></code> enumerates the IPv4 addresses matching a selector
+(country, autonomous system, region, city, CIDR, explicit range,
+local file or all routable IPs) and renders them in one of four
+output shapes: count, ranges, CIDRs, or every individual address.</p>
+<p>The country / AS / region / city selectors and the
+<code class="docutils literal notranslate"><span class="pre">--routable</span></code> selector rely on the MaxMind GeoIP CSV dumps and
+the APNIC BGP table populated by <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipdata</span> <span class="pre">--download</span></code>;
+<code class="docutils literal notranslate"><span class="pre">--network</span></code>, <code class="docutils literal notranslate"><span class="pre">--range</span></code> and <code class="docutils literal notranslate"><span class="pre">--file</span></code> are pure arithmetic and
+work without any GeoIP data.</p>
+<section id="cli">
+<h2>CLI<a class="headerlink" href="#cli" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre iprange --network 192.0.2.0/24 --count
+256
+
+$ ivre iprange --network 192.0.2.0/30
+192.0.2.0/30
+
+$ ivre iprange --range 192.0.2.0 192.0.2.5 --cidrs
+192.0.2.0/30
+192.0.2.4/31
+
+$ ivre iprange --country FR --count
+83920880
+
+$ ivre iprange --asnum AS3215 --cidrs --limit 3
+2.3.0.0/16
+2.4.0.0/14
+2.8.0.0/13
+
+$ ivre iprange --routable --count
+3101530112
+</pre></div>
+</div>
+<p>Country codes accept the same aliases as the rest of IVRE (<code class="docutils literal notranslate"><span class="pre">UK</span></code>
+resolves to <code class="docutils literal notranslate"><span class="pre">GB</span></code>; <code class="docutils literal notranslate"><span class="pre">EU</span></code> expands to every European Union
+member state). The <code class="docutils literal notranslate"><span class="pre">--asnum</span></code> flag accepts both <code class="docutils literal notranslate"><span class="pre">ASnnnn</span></code> and
+bare-integer forms; comma-separated lists are unioned
+(<code class="docutils literal notranslate"><span class="pre">--country</span> <span class="pre">FR,DE</span></code>, <code class="docutils literal notranslate"><span class="pre">--asnum</span> <span class="pre">AS3215,AS12876</span></code>).</p>
+<p>The default output is <code class="docutils literal notranslate"><span class="pre">--cidrs</span></code>. <code class="docutils literal notranslate"><span class="pre">--addrs</span></code> enumerates every
+individual address and is capped at one million entries to guard
+against accidental multi-gigabyte stdout floods; <code class="docutils literal notranslate"><span class="pre">--force</span></code>
+removes the cap.</p>
+<p>See the output of <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">iprange</span></code> for the full flag list.</p>
+</section>
+<section id="web-api">
+<h2>Web API<a class="headerlink" href="#web-api" title="Link to this heading"></a></h2>
+<p>The same selectors are exposed at <code class="docutils literal notranslate"><span class="pre">/cgi/iprange</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ curl &#39;http://localhost/cgi/iprange?network=192.0.2.0/30&amp;output=count&#39;
+{&quot;count&quot;: 4}
+
+$ curl &#39;http://localhost/cgi/iprange?asnum=AS3215&amp;output=cidrs&amp;limit=3&#39;
+{&quot;count&quot;: 20035071, &quot;cidrs&quot;: [&quot;2.3.0.0/16&quot;, &quot;2.4.0.0/14&quot;, &quot;2.8.0.0/13&quot;]}
+</pre></div>
+</div>
+<p>The web route exposes <code class="docutils literal notranslate"><span class="pre">output=count</span></code> / <code class="docutils literal notranslate"><span class="pre">ranges</span></code> / <code class="docutils literal notranslate"><span class="pre">cidrs</span></code>
+(default) / <code class="docutils literal notranslate"><span class="pre">addrs</span></code>; the <code class="docutils literal notranslate"><span class="pre">json</span></code> CLI shortcut is rejected over
+HTTP, where the response shape is already structured.
+<code class="docutils literal notranslate"><span class="pre">output=addrs</span></code> is bounded by the <code class="docutils literal notranslate"><span class="pre">WEB_IPRANGE_ADDR_CAP</span></code>
+configuration knob (default 100 000) so a <code class="docutils literal notranslate"><span class="pre">/0</span></code> selector cannot
+serialise billions of strings into a single response.</p>
+</section>
+<section id="mcp-tool">
+<h2>MCP tool<a class="headerlink" href="#mcp-tool" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">ip_range</span></code> MCP tool exposes the same surface to LLM agents,
+with a tighter 10 000-address cap on <code class="docutils literal notranslate"><span class="pre">output=addrs</span></code> (to keep
+responses small enough to fit a model context window). Use
+<code class="docutils literal notranslate"><span class="pre">output=cidrs</span></code> (the default) or <code class="docutils literal notranslate"><span class="pre">output=ranges</span></code> for larger
+selections.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="flow.html" class="btn btn-neutral float-left" title="Flow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="web-ui.html" class="btn btn-neutral float-right" title="Web User Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2011 - 2026, Pierre LALET.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

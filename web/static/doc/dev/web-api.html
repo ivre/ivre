@@ -469,6 +469,50 @@ non-2xx as an error.</p>
 </dd></dl>
 
 <dl class="http get">
+<dt class="sig sig-object http" id="get--iprange">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/iprange</span></span><a class="headerlink" href="#get--iprange" title="Link to this definition"></a></dt>
+<dd><p>Enumerate IP addresses matching a selector (country, AS,
+network, range, or all routable IPs).</p>
+<p>Exactly one selector must be set.  The response always
+carries <code class="docutils literal notranslate"><span class="pre">count</span></code>; the additional fields depend on
+<code class="docutils literal notranslate"><span class="pre">output</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>country</strong> – comma-separated ISO 3166-1 alpha-2 codes</p></li>
+<li><p><strong>registered_country</strong> – comma-separated ISO 3166-1 codes
+matched against the “registered” GeoIP attribute</p></li>
+<li><p><strong>region</strong> – <code class="docutils literal notranslate"><span class="pre">CC,REGION</span></code> (country code, region code)</p></li>
+<li><p><strong>city</strong> – <code class="docutils literal notranslate"><span class="pre">CC,CITY</span></code> (country code, city name)</p></li>
+<li><p><strong>asnum</strong> – comma-separated AS numbers (<code class="docutils literal notranslate"><span class="pre">AS3215</span></code> or <code class="docutils literal notranslate"><span class="pre">3215</span></code>)</p></li>
+<li><p><strong>range_start</strong> – start of an explicit address range</p></li>
+<li><p><strong>range_stop</strong> – stop of an explicit address range</p></li>
+<li><p><strong>network</strong> – CIDR network</p></li>
+<li><p><strong>routable</strong> – any truthy value selects the full routable
+APNIC BGP set</p></li>
+<li><p><strong>output</strong> – one of <code class="docutils literal notranslate"><span class="pre">count</span></code> / <code class="docutils literal notranslate"><span class="pre">ranges</span></code> / <code class="docutils literal notranslate"><span class="pre">cidrs</span></code>
+(default) / <code class="docutils literal notranslate"><span class="pre">addrs</span></code></p></li>
+<li><p><strong>limit</strong> – cap the number of returned entries</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – no error</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid selector, output or input combination</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Object<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>count</strong> (<em>int</em>) – total number of IP addresses matched</p></li>
+<li><p><strong>cidrs</strong> (<em>array</em>) – list of CIDRs (<code class="docutils literal notranslate"><span class="pre">output=cidrs</span></code>)</p></li>
+<li><p><strong>ranges</strong> (<em>array</em>) – list of <code class="docutils literal notranslate"><span class="pre">[start,</span> <span class="pre">stop]</span></code> pairs (<code class="docutils literal notranslate"><span class="pre">output=ranges</span></code>)</p></li>
+<li><p><strong>addrs</strong> (<em>array</em>) – list of IP strings (<code class="docutils literal notranslate"><span class="pre">output=addrs</span></code>, capped)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
 <dt class="sig sig-object http" id="get--passivedns-(query-path)">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/passivedns/</span></span><span class="sig-paren">(</span><span class="property"><span class="pre">query:</span> </span><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--passivedns-(query-path)" title="Link to this definition"></a></dt>
 <dd><p>Query passive DNS data. This API is compatible with the <a class="reference external" href="https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/">Common

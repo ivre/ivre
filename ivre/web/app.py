@@ -37,6 +37,7 @@ from ivre import VERSION, config, utils
 from ivre.db import db
 from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
+from ivre.tools import iprange as iprange_tool
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
 from ivre.web.base import application, check_referer, check_upload_ok
@@ -956,6 +957,127 @@ def get_ipdata(addr):
     """
     response.set_header("Content-Type", "application/json")
     return f"{json.dumps(db.data.infos_byip(addr))}\n"
+
+
+#
+# /iprange/ -- enumerate IPs from a selector
+#
+
+
+def _iprange_param(name: str) -> str | None:
+    """Return the trimmed value of query parameter ``name`` or
+    ``None`` when missing / empty.  Bottle keeps query strings as
+    plain text; trimming here lets the helpers below treat a
+    blank parameter the same as an unset one.
+    """
+    value = request.query.get(name)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+@application.get("/iprange")
+@check_referer
+def get_iprange():
+    """Enumerate IP addresses matching a selector (country, AS,
+    network, range, or all routable IPs).
+
+    Exactly one selector must be set.  The response always
+    carries ``count``; the additional fields depend on
+    ``output``.
+
+    :query country: comma-separated ISO 3166-1 alpha-2 codes
+    :query registered_country: comma-separated ISO 3166-1 codes
+        matched against the "registered" GeoIP attribute
+    :query region: ``CC,REGION`` (country code, region code)
+    :query city: ``CC,CITY`` (country code, city name)
+    :query asnum: comma-separated AS numbers (``AS3215`` or ``3215``)
+    :query range_start: start of an explicit address range
+    :query range_stop: stop of an explicit address range
+    :query network: CIDR network
+    :query routable: any truthy value selects the full routable
+        APNIC BGP set
+    :query output: one of ``count`` / ``ranges`` / ``cidrs``
+        (default) / ``addrs``
+    :query limit: cap the number of returned entries
+    :status 200: no error
+    :status 400: invalid selector, output or input combination
+    :>json int count: total number of IP addresses matched
+    :>json array cidrs: list of CIDRs (``output=cidrs``)
+    :>json array ranges: list of ``[start, stop]`` pairs (``output=ranges``)
+    :>json array addrs: list of IP strings (``output=addrs``, capped)
+
+    """
+    response.set_header("Content-Type", "application/json")
+    output = _iprange_param("output") or iprange_tool.OUTPUT_CIDRS
+    if output not in iprange_tool.OUTPUT_FORMATS or output == iprange_tool.OUTPUT_JSON:
+        # ``output=json`` is the CLI shortcut for "count + ranges
+        # + cidrs in one payload"; over HTTP that is the natural
+        # shape of every response, so the alias is rejected to
+        # keep the response contract single-valued.
+        abort(400, f"ERROR: invalid output mode {output!r}\n")
+
+    region_raw = _iprange_param("region")
+    city_raw = _iprange_param("city")
+    range_start = _iprange_param("range_start")
+    range_stop = _iprange_param("range_stop")
+    routable_raw = _iprange_param("routable")
+
+    def _parse_pair(name: str, raw: str) -> tuple[str, str]:
+        parts = [p.strip() for p in raw.split(",", 1)]
+        if len(parts) != 2 or not all(parts):
+            abort(400, f"ERROR: {name}= expects two comma-separated values\n")
+        return parts[0], parts[1]
+
+    region = _parse_pair("region", region_raw) if region_raw else None
+    city = _parse_pair("city", city_raw) if city_raw else None
+    if (range_start is None) != (range_stop is None):
+        abort(400, "ERROR: range_start and range_stop must both be set\n")
+    address_range = (range_start, range_stop) if range_start else None
+    routable = routable_raw is not None and routable_raw.lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+
+    limit_raw = _iprange_param("limit")
+    try:
+        limit = int(limit_raw) if limit_raw is not None else None
+    except ValueError:
+        abort(400, f"ERROR: limit must be an integer (got {limit_raw!r})\n")
+    if limit is not None and limit < 0:
+        abort(400, "ERROR: limit must be non-negative\n")
+
+    try:
+        ranges = iprange_tool.select_ipranges(
+            country=_iprange_param("country"),
+            registered_country=_iprange_param("registered_country"),
+            region=region,
+            city=city,
+            asnum=_iprange_param("asnum"),
+            address_range=address_range,
+            network=_iprange_param("network"),
+            routable=routable,
+            file=None,  # file-based input is CLI-only
+        )
+        result = iprange_tool.format_ipranges(
+            ranges,
+            output,
+            limit=limit,
+            addrs_cap=config.WEB_IPRANGE_ADDR_CAP,
+        )
+    except iprange_tool.IPRangeError as exc:
+        abort(400, f"ERROR: {exc}\n")
+    # ``format_ipranges`` returns ``{"count": N, "value": ...}``;
+    # the web contract surfaces ``count`` alongside an output-named
+    # field, matching what the CLI's ``--json`` shape emits for
+    # the count + cidrs + ranges combo.
+    payload: dict[str, object] = {"count": result["count"]}
+    if output == iprange_tool.OUTPUT_COUNT:
+        return f"{json.dumps(payload)}\n"
+    payload[output] = result["value"]
+    return f"{json.dumps(payload)}\n"
 
 
 #

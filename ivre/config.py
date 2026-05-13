@@ -267,6 +267,14 @@ WEB_INIT_QUERIES: dict[str, str] = {}
 WEB_DEFAULT_INIT_QUERY = None
 # upload disabled by default
 WEB_UPLOAD_OK = False
+# Hard ceiling on ``/iprange?output=addrs`` responses. Bounds the
+# size of an enumerated address list the server is willing to
+# serialise into a single JSON response (a /0 selector with
+# ``output=addrs`` would otherwise stream billions of strings).
+# The ``count`` / ``cidrs`` / ``ranges`` outputs are naturally
+# bounded by the underlying ``IPRanges`` shape and are not
+# capped. Set to ``None`` to disable the cap.
+WEB_IPRANGE_ADDR_CAP: int | None = 100_000
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_AUTH_ENABLED == True
 WEB_SECRET = None

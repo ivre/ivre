@@ -13241,6 +13241,308 @@ class UtilsTests(unittest.TestCase):
         os.unlink(fdesc.name)
 
 
+# ---------------------------------------------------------------------
+# IPRangeTests -- pin the ``ivre iprange`` CLI and its shared
+# ``select_ipranges`` / ``format_ipranges`` helpers (also used by
+# the ``/cgi/iprange`` web route and the ``ip_range`` MCP tool).
+# Pure-arithmetic selectors (``--network`` / ``--range`` /
+# ``--file``) are exercised here; the GeoIP-backed paths
+# (``--country`` / ``--asnum`` / ``--routable``) live in the
+# backend lane (``tests/tests.py``) where the MaxMind dump is
+# downloaded.
+# ---------------------------------------------------------------------
+
+
+class IPRangeTests(unittest.TestCase):
+    """Behaviour-pin for the ``ivre iprange`` CLI surface.
+
+    Covers the argparser, the shared :func:`select_ipranges`
+    dispatcher, the :func:`format_ipranges` output renderer, and
+    the end-to-end CLI through subprocess.
+    """
+
+    def test_select_network(self) -> None:
+        from ivre.tools.iprange import select_ipranges
+
+        ranges = select_ipranges(network="192.0.2.0/30")
+        self.assertEqual(len(ranges), 4)
+        self.assertEqual(
+            list(ranges.iter_ranges()),
+            [("192.0.2.0", "192.0.2.3")],
+        )
+        self.assertEqual(list(ranges.iter_nets()), ["192.0.2.0/30"])
+
+    def test_select_range(self) -> None:
+        from ivre.tools.iprange import select_ipranges
+
+        ranges = select_ipranges(address_range=("192.0.2.0", "192.0.2.5"))
+        self.assertEqual(len(ranges), 6)
+        self.assertEqual(
+            list(ranges.iter_nets()),
+            ["192.0.2.0/30", "192.0.2.4/31"],
+        )
+
+    def test_select_range_inverted_is_rejected(self) -> None:
+        from ivre.tools.iprange import IPRangeError, select_ipranges
+
+        with self.assertRaises(IPRangeError):
+            select_ipranges(address_range=("192.0.2.5", "192.0.2.0"))
+
+    def test_select_file_mixed_lines(self) -> None:
+        from ivre.tools.iprange import select_ipranges
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as fdesc:
+            fdesc.write(
+                "# header comment\n"
+                "\n"
+                "192.0.2.0/30  # inline comment\n"
+                "10.0.0.1-10.0.0.3\n"
+                "8.8.8.8\n"
+            )
+            path = fdesc.name
+        try:
+            ranges = select_ipranges(file=path)
+        finally:
+            os.unlink(path)
+        # 4 + 3 + 1 = 8 addresses across three contiguous blocks.
+        self.assertEqual(len(ranges), 8)
+
+    def test_select_file_malformed_line_raises(self) -> None:
+        from ivre.tools.iprange import IPRangeError, select_ipranges
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as fdesc:
+            fdesc.write("not-an-ip\n")
+            path = fdesc.name
+        try:
+            with self.assertRaises(IPRangeError):
+                select_ipranges(file=path)
+        finally:
+            os.unlink(path)
+
+    def test_no_selector_raises(self) -> None:
+        from ivre.tools.iprange import IPRangeError, select_ipranges
+
+        with self.assertRaises(IPRangeError):
+            select_ipranges()
+
+    def test_multiple_selectors_raise(self) -> None:
+        from ivre.tools.iprange import IPRangeError, select_ipranges
+
+        with self.assertRaises(IPRangeError):
+            select_ipranges(network="192.0.2.0/30", routable=True)
+
+    def test_geoip_missing_raises_clean_error(self) -> None:
+        # ``--country`` / ``--asnum`` / ``--region`` / ``--city`` /
+        # ``--routable`` need ``config.GEOIP_PATH`` to be set; an
+        # AssertionError from ``geoiputils._get_by_data`` would be
+        # a poor UX so the helper pre-checks and surfaces
+        # ``IPRangeError`` instead.
+        from ivre.tools.iprange import IPRangeError, select_ipranges
+
+        with mock.patch.object(ivre.config, "GEOIP_PATH", None):
+            with self.assertRaises(IPRangeError) as ctx:
+                select_ipranges(country="FR")
+            self.assertIn("GEOIP_PATH", str(ctx.exception))
+
+    def test_format_count(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        result = format_ipranges(select_ipranges(network="192.0.2.0/30"), "count")
+        self.assertEqual(result, {"count": 4, "value": 4})
+
+    def test_format_cidrs(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        result = format_ipranges(
+            select_ipranges(address_range=("192.0.2.0", "192.0.2.5")),
+            "cidrs",
+        )
+        self.assertEqual(result["value"], ["192.0.2.0/30", "192.0.2.4/31"])
+        self.assertEqual(result["count"], 6)
+
+    def test_format_ranges(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        result = format_ipranges(select_ipranges(network="192.0.2.0/30"), "ranges")
+        self.assertEqual(result["value"], [["192.0.2.0", "192.0.2.3"]])
+
+    def test_format_addrs(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        result = format_ipranges(select_ipranges(network="192.0.2.0/30"), "addrs")
+        self.assertEqual(
+            result["value"],
+            ["192.0.2.0", "192.0.2.1", "192.0.2.2", "192.0.2.3"],
+        )
+
+    def test_format_addrs_respects_cap(self) -> None:
+        # The default 1_000_000-address cap protects against
+        # accidental multi-gigabyte stdout floods; trigger it on
+        # a small synthetic IPRanges to keep the test fast.
+        from ivre.tools.iprange import (
+            IPRangeError,
+            format_ipranges,
+            select_ipranges,
+        )
+
+        ranges = select_ipranges(network="192.0.2.0/30")
+        with self.assertRaises(IPRangeError) as ctx:
+            format_ipranges(ranges, "addrs", addrs_cap=2)
+        self.assertIn("cap", str(ctx.exception))
+        # Same input + same cap + an explicit limit at or below
+        # the cap must succeed (truncation, not refusal).
+        result = format_ipranges(ranges, "addrs", limit=2, addrs_cap=2)
+        self.assertEqual(result["value"], ["192.0.2.0", "192.0.2.1"])
+
+    def test_format_json(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        result = format_ipranges(select_ipranges(network="192.0.2.0/30"), "json")
+        self.assertEqual(
+            result["value"],
+            {
+                "count": 4,
+                "ranges": [["192.0.2.0", "192.0.2.3"]],
+                "cidrs": ["192.0.2.0/30"],
+            },
+        )
+
+    def test_format_limit_truncates(self) -> None:
+        from ivre.tools.iprange import format_ipranges, select_ipranges
+
+        # /28 = 16 IPs -> 16 individual /32 CIDRs without
+        # aggregation; --limit 3 keeps the first three.
+        ranges = select_ipranges(address_range=("192.0.2.1", "192.0.2.6"))
+        result = format_ipranges(ranges, "cidrs", limit=3)
+        self.assertEqual(len(result["value"]), 3)
+
+    def test_invalid_output_raises(self) -> None:
+        from ivre.tools.iprange import (
+            IPRangeError,
+            format_ipranges,
+            select_ipranges,
+        )
+
+        with self.assertRaises(IPRangeError):
+            format_ipranges(select_ipranges(network="192.0.2.0/30"), "xml")
+
+    # End-to-end CLI -------------------------------------------------
+
+    def test_cli_count(self) -> None:
+        res, out, err = RUN(["ivre", "iprange", "--network", "192.0.2.0/30", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out.strip(), b"4")
+
+    def test_cli_default_output_is_cidrs(self) -> None:
+        res, out, err = RUN(["ivre", "iprange", "--network", "192.0.2.0/30"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out.strip(), b"192.0.2.0/30")
+
+    def test_cli_ranges(self) -> None:
+        res, out, _ = RUN(["ivre", "iprange", "--network", "192.0.2.0/30", "--ranges"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out.strip(), b"192.0.2.0-192.0.2.3")
+
+    def test_cli_json(self) -> None:
+        res, out, _ = RUN(["ivre", "iprange", "--network", "192.0.2.0/30", "--json"])
+        self.assertEqual(res, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload["count"], 4)
+        self.assertEqual(payload["cidrs"], ["192.0.2.0/30"])
+        self.assertEqual(payload["ranges"], [["192.0.2.0", "192.0.2.3"]])
+
+    def test_cli_mutex_rejected(self) -> None:
+        res, _, err = RUN(
+            [
+                "ivre",
+                "iprange",
+                "--network",
+                "192.0.2.0/30",
+                "--range",
+                "1.1.1.1",
+                "1.1.1.2",
+            ]
+        )
+        self.assertNotEqual(res, 0)
+        self.assertIn(b"not allowed", err)
+
+    # Web route ------------------------------------------------------
+
+    def _wsgi_call(self, query: str) -> tuple[str, bytes]:
+        # Make sure routes are registered on the bottle application.
+        import ivre.web.app  # noqa: F401 -- side-effecting import
+        from ivre.web.base import application
+
+        env = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "localhost",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "localhost",
+            "HTTP_REFERER": "http://localhost/",
+            "wsgi.url_scheme": "http",
+            "PATH_INFO": "/iprange",
+            "QUERY_STRING": query,
+        }
+        status: dict[str, str] = {}
+
+        def start_response(s: str, _headers, _exc=None):
+            status["s"] = s
+
+        body = b"".join(application(env, start_response))
+        return status["s"], body
+
+    def test_web_count(self) -> None:
+        status, body = self._wsgi_call("network=192.0.2.0/30&output=count")
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(json.loads(body), {"count": 4})
+
+    def test_web_default_is_cidrs(self) -> None:
+        status, body = self._wsgi_call("network=192.0.2.0/30")
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(json.loads(body), {"count": 4, "cidrs": ["192.0.2.0/30"]})
+
+    def test_web_addrs_respects_cap(self) -> None:
+        # Override the cap to 2 so the small /30 trips it. The
+        # web route maps :class:`IPRangeError` to HTTP 400.
+        with mock.patch.object(ivre.config, "WEB_IPRANGE_ADDR_CAP", 2):
+            status, _ = self._wsgi_call("network=192.0.2.0/30&output=addrs")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_invalid_output(self) -> None:
+        status, _ = self._wsgi_call("network=192.0.2.0/30&output=xml")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_json_alias_rejected(self) -> None:
+        # ``output=json`` is a CLI shortcut for "everything";
+        # the web response shape is single-valued.
+        status, _ = self._wsgi_call("network=192.0.2.0/30&output=json")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_partial_range_rejected(self) -> None:
+        status, _ = self._wsgi_call("range_start=1.1.1.1")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_mutex_rejected(self) -> None:
+        status, _ = self._wsgi_call(
+            "network=192.0.2.0/30&range_start=1.1.1.1&range_stop=1.1.1.5"
+        )
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_invalid_limit_rejected(self) -> None:
+        status, _ = self._wsgi_call("network=192.0.2.0/30&limit=abc")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_web_malformed_region_rejected(self) -> None:
+        status, _ = self._wsgi_call("region=FR")
+        self.assertTrue(status.startswith("400"), status)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""

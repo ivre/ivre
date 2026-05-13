@@ -39,6 +39,7 @@ from ivre import config
 from ivre.db import db
 from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
 from ivre.plugins import load_plugins
+from ivre.tools import iprange as iprange_tool
 from ivre.utils import _NMAP_PROBES, REGEXP_T, get_nmap_svc_fp, str2regexp
 from ivre.web.utils import get_init_flt_for, parse_filter
 
@@ -674,6 +675,104 @@ def _register_tools() -> None:
             return int(db.rir.count(_rir_filter(query, country)))
         except Exception as exc:
             raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    # --- IP range enumeration (MaxMind / APNIC selectors) ---
+
+    @mcp.tool()
+    def ip_range(
+        country: str | None = None,
+        asnum: str | None = None,
+        network: str | None = None,
+        range_start: str | None = None,
+        range_stop: str | None = None,
+        routable: bool = False,
+        output: Literal["count", "ranges", "cidrs", "addrs"] = "cidrs",
+        limit: int = 1000,
+    ) -> str:
+        """Enumerate IPv4 addresses matching a selector.
+
+        Exactly one selector must be set. Selectors:
+
+        * ``country`` -- comma-separated ISO 3166-1 alpha-2 codes
+          (``"FR"`` / ``"FR,DE"``). MaxMind GeoIP-backed.
+        * ``asnum`` -- one or more AS numbers (``"AS3215"`` /
+          ``"3215,12876"``). MaxMind GeoIP-backed.
+        * ``network`` -- a CIDR block (``"192.0.2.0/24"``).
+        * ``range_start`` + ``range_stop`` -- an explicit IPv4 range
+          (both must be set together).
+        * ``routable=True`` -- every globally-routable IPv4
+          block, taken from the APNIC BGP dump.
+
+        ``output`` selects the response shape:
+
+        * ``"count"`` -- ``{"count": N}`` only.
+        * ``"cidrs"`` *(default)* -- ``{"count": N, "cidrs": [...]}``.
+        * ``"ranges"`` -- ``{"count": N, "ranges": [["s", "e"], ...]}``.
+        * ``"addrs"`` -- ``{"count": N, "addrs": ["x.x.x.x", ...]}``;
+          capped at 10000 entries to keep responses bounded.
+
+        ``limit`` caps how many ranges / CIDRs / addresses are
+        emitted (default 1000). Use ``output="count"`` for the
+        full IP total without enumeration.
+
+        Equivalent to ``ivre iprange --<selector> ... --<output>``.
+        """
+        if output not in (
+            iprange_tool.OUTPUT_COUNT,
+            iprange_tool.OUTPUT_RANGES,
+            iprange_tool.OUTPUT_CIDRS,
+            iprange_tool.OUTPUT_ADDRS,
+        ):
+            raise McpError(
+                ErrorData(
+                    code=INVALID_PARAMS,
+                    message=(
+                        f"invalid output mode {output!r}; expected one of "
+                        "count / ranges / cidrs / addrs"
+                    ),
+                )
+            )
+        if (range_start is None) != (range_stop is None):
+            raise McpError(
+                ErrorData(
+                    code=INVALID_PARAMS,
+                    message="range_start and range_stop must both be set",
+                )
+            )
+        if limit < 0:
+            raise McpError(
+                ErrorData(code=INVALID_PARAMS, message="limit must be non-negative"),
+            )
+        address_range = (range_start, range_stop) if range_start else None
+        try:
+            ranges = iprange_tool.select_ipranges(
+                country=country,
+                asnum=asnum,
+                network=network,
+                address_range=address_range,
+                routable=routable,
+            )
+            result = iprange_tool.format_ipranges(
+                ranges,
+                output,
+                limit=limit,
+                # Tighter cap than the web tier: MCP responses
+                # round-trip through an LLM context window, where
+                # 100k addresses would already be unusable.
+                addrs_cap=10_000,
+            )
+        except iprange_tool.IPRangeError as exc:
+            raise McpError(
+                ErrorData(code=INVALID_PARAMS, message=str(exc)),
+            ) from exc
+        except Exception as exc:
+            raise McpError(
+                ErrorData(code=INTERNAL_ERROR, message=str(exc)),
+            ) from exc
+        payload: dict[str, Any] = {"count": result["count"]}
+        if output != iprange_tool.OUTPUT_COUNT:
+            payload[output] = result["value"]
+        return json.dumps(payload)
 
     # --- Resources ---
 
