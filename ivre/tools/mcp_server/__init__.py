@@ -511,13 +511,18 @@ def _register_tools() -> None:
         purpose: AllPurpose,
         field: str,
         flt: FilterType | None = None,
-        limit: int = 100,
+        limit: int | None = None,
     ) -> str:
         """Return distinct values of a field. Returns JSON array.
 
         Tip: use distinct("ports.scripts.id") to list all Nmap scripts that have
         produced results in a given scope. This is useful to understand what data
         is available before drilling down with searchscript.
+
+        The limit parameter caps the number of *documents examined* before
+        grouping, not the number of distinct values returned. Leave it unset
+        (default: no limit) to get complete results. Passing a low limit will
+        silently omit values that appear only in documents beyond that threshold.
         """
         try:
             parsed_flt = _parse(purpose, flt)
