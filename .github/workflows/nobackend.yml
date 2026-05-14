@@ -17,12 +17,6 @@
 # Runs tests/tests_no_backend.py: regression tests that do not require
 # a configured database backend (XML parser hardening, screenshot path
 # containment, and the formerly-`test_utils` catch-all suite).
-#
-# The ``[elasticsearch]`` extras are installed so the
-# ``ElasticDB*`` pin tests in ``tests_no_backend.py`` (which are
-# gated on ``_HAVE_ELASTICSEARCH_DSL``) run end-to-end -- they
-# only need the ``elasticsearch_dsl`` Python module to compile
-# queries in-process, no live ES cluster.
 
 name: No-backend tests
 
@@ -53,7 +47,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - run: pip install '.[elasticsearch]'
+    - run: pip install '.[elasticsearch,mcp]'
 
     - name: Install IVRE
       uses: ./.github/actions/install

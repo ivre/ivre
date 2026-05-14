@@ -1295,8 +1295,6 @@ class IvreTests(unittest.TestCase):
         ip_addr, fingerprint = _find_fingerprint()
         self.assertIsNotNone(fingerprint)
 
-        # Check .searchsshkey() with a fingerprint
-
         def _has_fingerprint(host):
             for port in host.get("ports", []):
                 for script in port.get("scripts", []):
@@ -1306,9 +1304,23 @@ class IvreTests(unittest.TestCase):
                                 return True
             return False
 
+        # Check .searchsshkey() with a fingerprint
         found_init_host = False
         for host in ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchsshkey(fingerprint=fingerprint)
+        ):
+            self.assertTrue(_has_fingerprint(host))
+            if host["addr"] == ip_addr:
+                found_init_host = True
+        self.assertTrue(found_init_host)
+
+        # Check .searchscript() with values= produces the same result as
+        # .searchsshkey() for fingerprint matching.
+        found_init_host = False
+        for host in ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchscript(
+                name="ssh-hostkey", values={"fingerprint": fingerprint}
+            )
         ):
             self.assertTrue(_has_fingerprint(host))
             if host["addr"] == ip_addr:
@@ -2880,7 +2892,13 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         self.assertEqual(_parse_cli_top_out(out1), _parse_cli_top_out(out2))
 
-        addr = next(iter(ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)))["addr"]
+        addr = None
+        for rec in ivre.db.db.passive.get(ivre.db.db.passive.flt_empty):
+            try:
+                addr = rec["addr"]
+            except KeyError:
+                continue
+        self.assertIsNotNone(addr)
         res, out1, err = RUN(["ivre", "ipinfo", addr], env=newenv)
         self.assertEqual(res, 0)
         self.assertFalse(err)

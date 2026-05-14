@@ -39,7 +39,7 @@ from ivre import config
 from ivre.db import db
 from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
 from ivre.plugins import load_plugins
-from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp, str2regexp
+from ivre.utils import _NMAP_PROBES, REGEXP_T, get_nmap_svc_fp, str2regexp
 from ivre.web.utils import get_init_flt_for, parse_filter
 
 from .schemas import SCHEMAS
@@ -311,6 +311,7 @@ def _register_tools() -> None:
         purpose: ActivePurpose,
         name: str | None = None,
         output: str | None = None,
+        values: dict[str, Any] | None = None,
     ) -> FilterType:
         """Filter records having a specific Nmap script result.
 
@@ -322,12 +323,38 @@ def _register_tools() -> None:
         with "/^expr/" when possible. When filtering by output, also
         specify the script name to avoid scanning all script outputs.
 
+        The values parameter filters on structured (parsed) script output
+        fields — the nested object stored alongside the plain-text output.
+        It requires name to also be set, and name must be an exact string
+        (not a "/regex/" shorthand) because the backend uses it as a
+        sub-document key. Example: to find hosts whose ssh-hostkey script
+        recorded a specific fingerprint:
+            searchscript(name="ssh-hostkey",
+                         values={"fingerprint": "a75eea26ce8911d306786bf0b3895796"})
+        Field names come from describe_schema() or inspecting get() output.
+
         """
         kwargs: dict[str, Any] = {}
         if name is not None:
             kwargs["name"] = str2regexp(name)
         if output is not None:
             kwargs["output"] = str2regexp(output)
+        if values is not None:
+            if name is None:
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_PARAMS,
+                        message="'name' must be set when 'values' is used",
+                    )
+                )
+            if isinstance(kwargs["name"], REGEXP_T):
+                raise McpError(
+                    ErrorData(
+                        code=INVALID_PARAMS,
+                        message="'name' cannot be a regular expression when 'values' is used",
+                    )
+                )
+            kwargs["values"] = values
         return seal(HTTP_DB[purpose].searchscript(**kwargs))
 
     @mcp.tool()

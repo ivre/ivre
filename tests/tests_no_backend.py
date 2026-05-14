@@ -1049,6 +1049,70 @@ class RirMcpToolsTests(unittest.TestCase):
             self.assertIn(key, props)
 
 
+class SearchscriptMcpToolsTests(unittest.TestCase):
+    """Regression tests for the ``searchscript`` MCP tool values parameter.
+
+    Exercises the structured sub-document filtering (``values=…``) added
+    alongside the existing ``name``/``output`` filters, including the two
+    validation constraints:
+
+    * ``values`` without ``name`` → INVALID_PARAMS
+    * regex ``name`` (``/…/`` shorthand) with ``values`` → INVALID_PARAMS
+
+    Skipped when the optional ``mcp`` dependency is not installed.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from ivre.tools import mcp_server  # noqa: PLC0415
+
+        if mcp_server.FastMCP is None:
+            raise unittest.SkipTest("mcp dependency not installed")
+        cls.srv = mcp_server._build_server()
+        # Wrap in staticmethod so accessing via self. does not bind self as
+        # the first positional argument (which would collide with `purpose`).
+        cls.searchscript = staticmethod(
+            cls.srv._tool_manager.get_tool("searchscript").fn
+        )
+
+    def test_values_in_schema(self) -> None:
+        """``values`` is present in the tool's JSON-Schema input spec."""
+        import asyncio  # noqa: PLC0415
+
+        tools = asyncio.run(self.srv.list_tools())
+        spec = next(t for t in tools if t.name == "searchscript")
+        props = spec.inputSchema.get("properties", {})
+        self.assertIn("values", props)
+
+    def test_values_requires_name(self) -> None:
+        """``values`` without ``name`` raises INVALID_PARAMS."""
+        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+
+        with self.assertRaises(McpError) as ctx:
+            self.searchscript(purpose="nmap", values={"fingerprint": "abc"})
+        self.assertIn("name", ctx.exception.error.message)
+
+    def test_values_rejects_regex_name(self) -> None:
+        """Regex ``name`` combined with ``values`` raises INVALID_PARAMS."""
+        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+
+        with self.assertRaises(McpError) as ctx:
+            self.searchscript(
+                purpose="nmap", name="/ssh-.*/", values={"fingerprint": "abc"}
+            )
+        self.assertIn("regular expression", ctx.exception.error.message)
+
+    def test_values_happy_path(self) -> None:
+        """Exact ``name`` + ``values`` returns a non-empty sealed filter token."""
+        result = self.searchscript(
+            purpose="nmap",
+            name="ssh-hostkey",
+            values={"fingerprint": "a75eea26ce8911d306786bf0b3895796"},
+        )
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 0)
+
+
 # ---------------------------------------------------------------------
 # RegexComplexityTests -- defence-in-depth budget for user-supplied
 # regex literals reaching MongoDB ``$regex``.
