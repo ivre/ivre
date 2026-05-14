@@ -50,6 +50,7 @@ The module currently contains:
 
 from __future__ import annotations
 
+import asyncio
 import errno
 import inspect
 import io
@@ -63,7 +64,7 @@ import sys
 import tempfile
 import unittest
 from ast import literal_eval
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import reduce
 from unittest import mock
 from xml.sax.handler import (  # nosec B406  # used only as a no-op SAX event sink against the defusedxml-hardened parser
@@ -1111,6 +1112,1309 @@ class SearchscriptMcpToolsTests(unittest.TestCase):
         )
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
+
+
+# ---------------------------------------------------------------------
+# McpOAuthProviderTests -- pin the OAuth 2.1 Authorization Server
+# implementation that turns the MCP HTTP transport into a consent-
+# driven server.  Exercises every method of the SDK's
+# ``OAuthAuthorizationServerProvider`` Protocol plus the
+# ``issue_authorization_code`` / ``peek_authorization_request``
+# helpers consumed by the Bottle consent routes.  The tests run
+# against an in-memory ``_StubDBAuth`` so they need no live Mongo
+# backend; the wire shapes pinned here are the same ones
+# ``MongoDBAuth`` round-trips through.
+# ---------------------------------------------------------------------
+
+
+def _have_mcp() -> bool:
+    """Importability check for the optional ``mcp`` extra."""
+    try:
+        import mcp  # noqa: F401  -- presence check only
+    except ImportError:
+        return False
+    return True
+
+
+class _StubDBAuth:
+    """In-memory ``DBAuth`` substitute backing the OAuth provider
+    tests.
+
+    Mirrors the dict-shape MongoDBAuth round-trips through (see
+    ``MongoDBAuth.create_oauth_client`` etc.); just enough surface
+    to drive every Protocol method.  ``users`` is keyed by email,
+    ``api_keys`` by hash (matching MongoDBAuth's storage), and the
+    four OAuth stores are keyed by their natural identifier.
+    """
+
+    def __init__(self) -> None:
+        self.users: dict[str, dict] = {}
+        self.api_keys: dict[str, dict] = {}  # key_hash -> record
+        self.clients: dict[str, dict] = {}
+        self.requests: dict[str, dict] = {}
+        self.codes: dict[str, dict] = {}
+        self.tokens: dict[str, dict] = {}  # token_hash -> record
+
+    # --- user / api-key helpers ---
+
+    def add_user(self, email: str, groups: list[str] | None = None) -> None:
+        self.users[email] = {
+            "email": email,
+            "display_name": email,
+            "is_admin": False,
+            "is_active": True,
+            "groups": list(groups or []),
+        }
+
+    def add_api_key(self, raw_token: str, user_email: str) -> None:
+        import hashlib as _hashlib
+
+        token_hash = _hashlib.sha256(raw_token.encode()).hexdigest()
+        self.api_keys[token_hash] = {
+            "key_hash": token_hash,
+            "user_email": user_email,
+            "name": "test",
+        }
+
+    def get_user_by_email(self, email):
+        return self.users.get(email)
+
+    def create_user(self, email, display_name=None, is_active=False, **_):
+        self.users[email] = {
+            "email": email,
+            "display_name": display_name or email,
+            "is_admin": False,
+            "is_active": is_active,
+            "groups": [],
+        }
+
+    def update_user(self, email, **updates):
+        if email in self.users:
+            self.users[email].update(updates)
+
+    def create_session(self, user_email):
+        # Opaque token; the round-trip test only cares that the
+        # cookie is set, not what the value is.
+        return f"session-for-{user_email}"
+
+    def validate_api_key(self, key):
+        import hashlib as _hashlib
+
+        token_hash = _hashlib.sha256(key.encode()).hexdigest()
+        record = self.api_keys.get(token_hash)
+        if record is None:
+            return None
+        return self.users.get(record["user_email"])
+
+    # --- OAuth surface ---
+
+    def create_oauth_client(self, client):
+        self.clients[client["client_id"]] = dict(client)
+
+    def get_oauth_client(self, client_id):
+        record = self.clients.get(client_id)
+        return None if record is None else dict(record)
+
+    def list_oauth_clients(self):
+        return [dict(c) for c in self.clients.values()]
+
+    def delete_oauth_client(self, client_id):
+        removed = self.clients.pop(client_id, None) is not None
+        if removed:
+            self.revoke_oauth_tokens_for_client(client_id)
+        return removed
+
+    def create_authorization_request(self, request_id, payload):
+        self.requests[request_id] = dict(payload, request_id=request_id)
+
+    def get_authorization_request(self, request_id):
+        now = datetime.now(tz=timezone.utc)
+        record = self.requests.get(request_id)
+        if record is None or record["expires_at"] <= now:
+            return None
+        return dict(record)
+
+    def consume_authorization_request(self, request_id):
+        now = datetime.now(tz=timezone.utc)
+        record = self.requests.pop(request_id, None)
+        if record is None or record["expires_at"] <= now:
+            return None
+        return dict(record)
+
+    def create_authorization_code(self, code, payload):
+        self.codes[code] = dict(payload, code=code)
+
+    def get_authorization_code(self, code):
+        now = datetime.now(tz=timezone.utc)
+        record = self.codes.get(code)
+        if record is None or record["expires_at"] <= now:
+            return None
+        return dict(record)
+
+    def consume_authorization_code(self, code):
+        now = datetime.now(tz=timezone.utc)
+        record = self.codes.pop(code, None)
+        if record is None or record["expires_at"] <= now:
+            return None
+        return dict(record)
+
+    def create_oauth_token(self, token_hash, payload):
+        self.tokens[token_hash] = dict(payload, token_hash=token_hash)
+
+    def validate_oauth_token(self, token):
+        import hashlib as _hashlib
+
+        token_hash = _hashlib.sha256(token.encode()).hexdigest()
+        record = self.tokens.get(token_hash)
+        if record is None or record.get("revoked_at"):
+            return None
+        expires_at = record.get("expires_at")
+        if expires_at is not None:
+            now = datetime.now(tz=timezone.utc)
+            if expires_at <= now:
+                return None
+        return dict(record)
+
+    def revoke_oauth_token(self, token_hash):
+        record = self.tokens.get(token_hash)
+        if record is None:
+            return
+        record["revoked_at"] = datetime.now(tz=timezone.utc)
+
+    def revoke_oauth_tokens_by_refresh(self, refresh_token_hash):
+        now = datetime.now(tz=timezone.utc)
+        n = 0
+        for record in self.tokens.values():
+            if record.get(
+                "refresh_token_hash"
+            ) == refresh_token_hash and not record.get("revoked_at"):
+                record["revoked_at"] = now
+                n += 1
+        return n
+
+    def revoke_oauth_tokens_for_client(self, client_id):
+        now = datetime.now(tz=timezone.utc)
+        n = 0
+        for record in self.tokens.values():
+            if record.get("client_id") == client_id and not record.get("revoked_at"):
+                record["revoked_at"] = now
+                n += 1
+        return n
+
+
+@unittest.skipUnless(_have_mcp(), "mcp dependency not installed")
+class McpOAuthProviderTests(unittest.TestCase):
+    """Behaviour-pin for :class:`IvreOAuthProvider` and the helper
+    functions the consent routes call.
+    """
+
+    def setUp(self):
+        from ivre.tools.mcp_server import auth as mcp_auth
+
+        self.mcp_auth = mcp_auth
+        self.stub = _StubDBAuth()
+        self.stub.add_user("alice@example.org", groups=["analysts"])
+        self.stub.add_api_key("ivre_legacy_key", "alice@example.org")
+        # Patch the module-level ``db.auth`` reference the provider
+        # consults.  ``ivre.tools.mcp_server.auth`` imports ``db``
+        # at module top, so the patch target is its local binding.
+        self._patcher = mock.patch.object(mcp_auth.db, "_auth", self.stub, create=True)
+        self._patcher.start()
+        self.provider = mcp_auth.IvreOAuthProvider("http://ivre.example.org")
+
+    def tearDown(self):
+        self._patcher.stop()
+
+    @staticmethod
+    def _make_client(client_id: str = "client-A") -> object:
+        from mcp.shared.auth import OAuthClientInformationFull
+
+        return OAuthClientInformationFull(
+            client_id=client_id,
+            client_name="Test MCP Client",
+            redirect_uris=["http://callback.example.org/cb"],
+        )
+
+    @staticmethod
+    def _make_authorize_params(
+        scopes: list[str] | None = None,
+        state: str | None = "client-state-1",
+        redirect_uri: str = "http://callback.example.org/cb",
+    ) -> object:
+        from mcp.server.auth.provider import AuthorizationParams
+        from pydantic import AnyUrl
+
+        return AuthorizationParams(
+            state=state,
+            scopes=list(scopes) if scopes is not None else [],
+            code_challenge="x" * 43,
+            redirect_uri=AnyUrl(redirect_uri),
+            redirect_uri_provided_explicitly=True,
+        )
+
+    def test_register_and_get_client(self):
+        from mcp.shared.auth import OAuthClientInformationFull
+
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        self.assertIn("client-A", self.stub.clients)
+        loaded = asyncio.run(self.provider.get_client("client-A"))
+        self.assertIsInstance(loaded, OAuthClientInformationFull)
+        self.assertEqual(loaded.client_id, "client-A")
+
+    def test_register_client_disabled(self):
+        with mock.patch.object(ivre.config, "MCP_OAUTH_DCR_ENABLED", False):
+            with self.assertRaises(NotImplementedError):
+                asyncio.run(self.provider.register_client(self._make_client("X")))
+
+    def test_get_client_unknown_returns_none(self):
+        self.assertIsNone(asyncio.run(self.provider.get_client("ghost")))
+
+    def test_authorize_returns_consent_url(self):
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        url = asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        self.assertTrue(
+            url.startswith("http://ivre.example.org/cgi/auth/oauth/consent?"),
+            f"unexpected consent URL: {url}",
+        )
+        # The authorize call persisted exactly one pending request.
+        self.assertEqual(len(self.stub.requests), 1)
+        request_id, payload = next(iter(self.stub.requests.items()))
+        self.assertIn(f"request_id={request_id}", url)
+        self.assertEqual(payload["client_id"], "client-A")
+        self.assertEqual(payload["state"], "client-state-1")
+        self.assertEqual(payload["code_challenge"], "x" * 43)
+
+    def _issue_code(
+        self, request_id: str, user_email: str = "alice@example.org"
+    ) -> str:
+        """Wrap :func:`ivre.tools.mcp_server.auth.issue_authorization_code`
+        for tests that only need the raw code string.
+
+        The function returns ``(code, payload)`` so the consent
+        route can build the post-allow redirect without a second
+        peek; tests that exercise downstream provider methods
+        (``load_authorization_code`` / ``exchange_authorization_code``
+        / refresh-token rotation / etc.) only care about ``code``
+        and use this helper.  The
+        ``test_issue_authorization_code_consumes_request`` test
+        below pins the full ``(code, payload)`` return shape.
+        """
+        result = self.mcp_auth.issue_authorization_code(request_id, user_email)
+        self.assertIsNotNone(result)
+        assert result is not None  # narrow for type checkers
+        code, _payload = result
+        return code
+
+    def test_issue_authorization_code_consumes_request(self):
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        result = self.mcp_auth.issue_authorization_code(request_id, "alice@example.org")
+        self.assertIsNotNone(result)
+        assert result is not None  # narrow for type checkers
+        code, payload = result
+        # The helper returns the consumed payload too so the
+        # consent route can build the redirect without a second
+        # peek round-trip (closes the peek+consume race window).
+        self.assertEqual(payload["client_id"], "client-A")
+        self.assertEqual(payload["scopes"], ["analysts"])
+        # The pending request was consumed atomically.
+        self.assertNotIn(request_id, self.stub.requests)
+        # The code is now persisted with the consenting user's email.
+        self.assertIn(code, self.stub.codes)
+        self.assertEqual(self.stub.codes[code]["user_email"], "alice@example.org")
+
+    def test_peek_authorization_request_is_idempotent(self):
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        # Two consecutive peeks return the same payload without
+        # consuming the pending request.
+        first = self.mcp_auth.peek_authorization_request(request_id)
+        second = self.mcp_auth.peek_authorization_request(request_id)
+        self.assertIsNotNone(first)
+        self.assertIsNotNone(second)
+        self.assertEqual(first["client_id"], "client-A")
+        self.assertIn(request_id, self.stub.requests)
+
+    def test_exchange_authorization_code_mints_token_pair(self):
+        from mcp.shared.auth import OAuthToken
+
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        # Load + exchange in the order the SDK uses.
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        self.assertIsNotNone(auth_code)
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        self.assertIsInstance(token, OAuthToken)
+        self.assertTrue(token.access_token.startswith("ivre_oat_"))
+        self.assertTrue(token.refresh_token.startswith("ivre_ort_"))
+        # The code is one-shot.
+        self.assertNotIn(code, self.stub.codes)
+
+    def test_exchange_authorization_code_rejects_wrong_client(self):
+        from mcp.server.auth.provider import TokenError
+
+        client_a = self._make_client("client-A")
+        client_b = self._make_client("client-B")
+        asyncio.run(self.provider.register_client(client_a))
+        asyncio.run(self.provider.register_client(client_b))
+        asyncio.run(self.provider.authorize(client_a, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        # The SDK rejects mismatched client at ``load_*`` time; we
+        # also rebuild the record so a follow-up exchange against
+        # the right client could still work.
+        auth_code = asyncio.run(self.provider.load_authorization_code(client_b, code))
+        self.assertIsNone(auth_code)
+        # Forcing an exchange via a fake ``AuthorizationCode`` for the
+        # wrong client surfaces ``invalid_grant``.
+        from mcp.server.auth.provider import AuthorizationCode
+        from pydantic import AnyUrl
+
+        fake_code = AuthorizationCode(
+            code=code,
+            scopes=[],
+            expires_at=0,
+            client_id="client-A",
+            code_challenge="x" * 43,
+            redirect_uri=AnyUrl("http://callback.example.org/cb"),
+            redirect_uri_provided_explicitly=True,
+        )
+        with self.assertRaises(TokenError):
+            asyncio.run(self.provider.exchange_authorization_code(client_b, fake_code))
+
+    def test_load_access_token_accepts_issued_token(self):
+        # End-to-end: authorize -> consent -> token -> use the
+        # access token as a bearer on a subsequent request.
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        verified = asyncio.run(self.provider.load_access_token(token.access_token))
+        self.assertIsNotNone(verified)
+        self.assertEqual(verified.client_id, "alice@example.org")
+        self.assertEqual(verified.scopes, ["analysts"])
+
+    def test_load_access_token_accepts_legacy_api_key(self):
+        # The provider doubles as the verifier for pre-existing
+        # IVRE API keys so the two auth shapes coexist.
+        verified = asyncio.run(self.provider.load_access_token("ivre_legacy_key"))
+        self.assertIsNotNone(verified)
+        self.assertEqual(verified.client_id, "alice@example.org")
+        self.assertEqual(verified.scopes, ["analysts"])
+
+    def test_load_access_token_rejects_unknown_token(self):
+        self.assertIsNone(asyncio.run(self.provider.load_access_token("ivre_oat_nope")))
+
+    def test_load_access_token_rejects_revoked_token(self):
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(self.provider.authorize(client, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        # Revoke + retry.
+        verified = asyncio.run(self.provider.load_access_token(token.access_token))
+        assert verified is not None
+        asyncio.run(self.provider.revoke_token(verified))
+        self.assertIsNone(
+            asyncio.run(self.provider.load_access_token(token.access_token))
+        )
+
+    def test_exchange_refresh_token_rotates(self):
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        # Refresh.
+        refresh_obj = asyncio.run(
+            self.provider.load_refresh_token(client, token.refresh_token)
+        )
+        self.assertIsNotNone(refresh_obj)
+        rotated = asyncio.run(
+            self.provider.exchange_refresh_token(client, refresh_obj, [])
+        )
+        # The old refresh token is now revoked.
+        self.assertIsNone(
+            asyncio.run(self.provider.load_refresh_token(client, token.refresh_token))
+        )
+        # The old access token is *also* revoked alongside the
+        # consumed refresh token (RFC 6749 §10.4 + OAuth 2.1
+        # draft).  Without this cascade, a leaked access+refresh
+        # pair would let the attacker keep the access half valid
+        # for up to ``MCP_OAUTH_ACCESS_TOKEN_TTL`` after the
+        # legitimate user rotates the refresh side.
+        self.assertIsNone(
+            asyncio.run(self.provider.load_access_token(token.access_token))
+        )
+        # The new access token works.
+        verified = asyncio.run(self.provider.load_access_token(rotated.access_token))
+        self.assertIsNotNone(verified)
+
+    def test_exchange_refresh_token_revokes_sibling_access_token(self):
+        # Focused regression test for the cascade-revoke
+        # behaviour: verify the bookkeeping at the storage layer
+        # (the ``revoked_at`` field on the access record) rather
+        # than only the observable ``load_access_token`` -> None
+        # symptom.  Catches a future regression that bypasses the
+        # ``refresh_token_hash`` link.
+        import hashlib as _hashlib
+
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(self.provider.authorize(client, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        access_hash = _hashlib.sha256(token.access_token.encode()).hexdigest()
+        refresh_hash = _hashlib.sha256(token.refresh_token.encode()).hexdigest()
+        # The access record carries the back-reference to its
+        # sibling refresh token.
+        self.assertEqual(
+            self.stub.tokens[access_hash]["refresh_token_hash"], refresh_hash
+        )
+        self.assertIsNone(self.stub.tokens[access_hash]["revoked_at"])
+        # Drive the rotation.
+        refresh_obj = asyncio.run(
+            self.provider.load_refresh_token(client, token.refresh_token)
+        )
+        asyncio.run(self.provider.exchange_refresh_token(client, refresh_obj, []))
+        # Both halves of the original pair are now revoked.
+        self.assertIsNotNone(self.stub.tokens[access_hash]["revoked_at"])
+        self.assertIsNotNone(self.stub.tokens[refresh_hash]["revoked_at"])
+
+    def test_exchange_refresh_token_rejects_scope_widening(self):
+        from mcp.server.auth.provider import TokenError
+
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(
+            self.provider.authorize(
+                client, self._make_authorize_params(scopes=["analysts"])
+            )
+        )
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        refresh_obj = asyncio.run(
+            self.provider.load_refresh_token(client, token.refresh_token)
+        )
+        with self.assertRaises(TokenError):
+            asyncio.run(
+                self.provider.exchange_refresh_token(client, refresh_obj, ["admin"])
+            )
+
+    def test_delete_oauth_client_revokes_tokens(self):
+        # Issue a token then delete the client; the token must
+        # stop validating.
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(self.provider.authorize(client, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        auth_code = asyncio.run(self.provider.load_authorization_code(client, code))
+        token = asyncio.run(
+            self.provider.exchange_authorization_code(client, auth_code)
+        )
+        self.assertIsNotNone(
+            asyncio.run(self.provider.load_access_token(token.access_token))
+        )
+        self.stub.delete_oauth_client("client-A")
+        self.assertIsNone(
+            asyncio.run(self.provider.load_access_token(token.access_token))
+        )
+
+    def test_load_authorization_code_is_non_mutating(self):
+        # RFC 6749 §4.1.2 makes the authorization code single-use;
+        # the SDK enforces this at the *exchange* step (one atomic
+        # consume).  The ``load`` step is a non-mutating peek so
+        # parallel loads cannot widen the information-disclosure
+        # window if the code leaks.  Pin both invariants: two
+        # consecutive ``load_authorization_code`` calls return the
+        # same payload, and the underlying record is still present
+        # in the store after each.
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(self.provider.authorize(client, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        code = self._issue_code(request_id)
+        self.assertIn(code, self.stub.codes)
+        first = asyncio.run(self.provider.load_authorization_code(client, code))
+        self.assertIsNotNone(first)
+        self.assertIn(code, self.stub.codes)
+        second = asyncio.run(self.provider.load_authorization_code(client, code))
+        self.assertIsNotNone(second)
+        self.assertEqual(second.code_challenge, first.code_challenge)
+        self.assertEqual(second.scopes, first.scopes)
+        self.assertIn(code, self.stub.codes)
+        # The single-shot contract is preserved at the exchange
+        # boundary: the first exchange mints tokens, the second
+        # raises ``invalid_grant``.
+        from mcp.server.auth.provider import TokenError
+
+        asyncio.run(self.provider.exchange_authorization_code(client, first))
+        self.assertNotIn(code, self.stub.codes)
+        with self.assertRaises(TokenError):
+            asyncio.run(self.provider.exchange_authorization_code(client, second))
+
+    def test_peek_authorization_request_is_non_mutating(self):
+        # Symmetric guarantee on the consent flow: two
+        # consecutive ``peek_authorization_request`` calls return
+        # the same payload and the record stays in the store, so
+        # a parallel ``GET`` / ``POST`` on the consent page never
+        # observes a half-consumed request.
+        client = self._make_client("client-A")
+        asyncio.run(self.provider.register_client(client))
+        asyncio.run(self.provider.authorize(client, self._make_authorize_params()))
+        request_id = next(iter(self.stub.requests))
+        first = self.mcp_auth.peek_authorization_request(request_id)
+        self.assertIsNotNone(first)
+        self.assertIn(request_id, self.stub.requests)
+        second = self.mcp_auth.peek_authorization_request(request_id)
+        self.assertEqual(second, first)
+        self.assertIn(request_id, self.stub.requests)
+        # The consent ``POST`` is the atomic claim; after it the
+        # request is gone.
+        self.assertIsNotNone(
+            self.mcp_auth.issue_authorization_code(request_id, "alice@example.org")
+        )
+        self.assertNotIn(request_id, self.stub.requests)
+        self.assertIsNone(self.mcp_auth.peek_authorization_request(request_id))
+
+
+@unittest.skipUnless(_have_mcp(), "mcp dependency not installed")
+class McpConsentRouteTests(unittest.TestCase):
+    """End-to-end tests for the Bottle consent routes
+    (``GET`` / ``POST /auth/oauth/consent``).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # ``ivre.web.auth`` raises at module-import time when
+        # ``WEB_SECRET`` is unset; populate a dummy secret + flip
+        # ``WEB_AUTH_ENABLED`` before the first import so the
+        # consent routes register on the bottle application.
+        # Module imports are cached so this only takes effect
+        # once; restoring the original values in ``tearDownClass``
+        # is enough to keep the rest of the suite undisturbed.
+        cls._saved_secret = ivre.config.WEB_SECRET
+        cls._saved_enabled = ivre.config.WEB_AUTH_ENABLED
+        ivre.config.WEB_SECRET = "test-secret-" + "x" * 50
+        ivre.config.WEB_AUTH_ENABLED = True
+        # Force-import the web modules so the consent routes land
+        # on the application before any test runs.  The ``from ...
+        # import ...`` form is used instead of bare ``import
+        # ivre.web.app`` so Python does not bind ``ivre`` as a
+        # local of this method (which would shadow the
+        # module-level ``ivre.config`` reads above).
+        from ivre.web import app as _app  # noqa: F401
+        from ivre.web import auth as _auth  # noqa: F401
+
+    @classmethod
+    def tearDownClass(cls):
+        ivre.config.WEB_SECRET = cls._saved_secret
+        ivre.config.WEB_AUTH_ENABLED = cls._saved_enabled
+
+    def setUp(self):
+        from ivre.tools.mcp_server import auth as mcp_auth
+
+        # Same stub as the provider tests; the consent routes go
+        # through the same ``db.auth`` reference.
+        self.stub = _StubDBAuth()
+        self.stub.add_user("alice@example.org", groups=["analysts"])
+        self._patcher_provider = mock.patch.object(
+            mcp_auth.db, "_auth", self.stub, create=True
+        )
+        self._patcher_provider.start()
+        # ``ivre.web.auth`` also reads ``db.auth`` -- patch the
+        # binding in *that* module too.
+        import ivre.web.auth as web_auth
+
+        self._patcher_web = mock.patch.object(
+            web_auth.db, "_auth", self.stub, create=True
+        )
+        self._patcher_web.start()
+        self._patcher_enabled = mock.patch.object(
+            ivre.config, "MCP_OAUTH_AS_ENABLED", True
+        )
+        self._patcher_enabled.start()
+        # Seed one pending authorization request via the provider.
+        self.provider = mcp_auth.IvreOAuthProvider("http://ivre.example.org")
+        self.client = mcp_auth.IvreOAuthProvider  # alias for type-checkers
+        from mcp.shared.auth import OAuthClientInformationFull
+
+        client = OAuthClientInformationFull(
+            client_id="client-A",
+            client_name="Test MCP Client",
+            redirect_uris=["http://callback.example.org/cb"],
+        )
+        asyncio.run(self.provider.register_client(client))
+        from mcp.server.auth.provider import AuthorizationParams
+        from pydantic import AnyUrl
+
+        asyncio.run(
+            self.provider.authorize(
+                client,
+                AuthorizationParams(
+                    state="client-state-7",
+                    scopes=["analysts"],
+                    code_challenge="x" * 43,
+                    redirect_uri=AnyUrl("http://callback.example.org/cb"),
+                    redirect_uri_provided_explicitly=True,
+                ),
+            )
+        )
+        self.request_id = next(iter(self.stub.requests))
+
+    def tearDown(self):
+        self._patcher_enabled.stop()
+        self._patcher_web.stop()
+        self._patcher_provider.stop()
+
+    def _wsgi_call(
+        self,
+        method: str,
+        path: str,
+        query: str = "",
+        body: bytes = b"",
+        content_type: str = "",
+        user: str | None = "alice@example.org",
+        cookies: dict[str, str] | None = None,
+    ) -> tuple[str, dict[str, str], bytes]:
+        import io as _io
+
+        import ivre.web.app  # noqa: F401 -- side-effecting route registration
+        from ivre.web.base import application
+
+        wsgi_errors = _io.StringIO()
+        env = {
+            "REQUEST_METHOD": method,
+            "SERVER_NAME": "ivre.example.org",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "ivre.example.org",
+            "HTTP_REFERER": "http://ivre.example.org/",
+            "wsgi.url_scheme": "http",
+            "PATH_INFO": path,
+            "QUERY_STRING": query,
+            "wsgi.input": _io.BytesIO(body),
+            "CONTENT_LENGTH": str(len(body)) if body else "0",
+            # Bottle's WSGI machinery writes to ``wsgi.errors`` on
+            # uncaught exceptions; provide a sink so a 500 surfaces
+            # cleanly through the test instead of a KeyError.
+            "wsgi.errors": wsgi_errors,
+        }
+        if content_type:
+            env["CONTENT_TYPE"] = content_type
+        if cookies:
+            env["HTTP_COOKIE"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+        # Patch ``webutils.get_user`` for the duration of the call
+        # so we can simulate "logged-in" vs. "anonymous" without
+        # wiring the full session-cookie chain.
+        import ivre.web.utils as webutils
+
+        captured: dict[str, object] = {}
+        # ``Set-Cookie`` headers ship one-per-cookie; the
+        # case-folded ``captured["headers"]`` dict can only hold
+        # the last one, so collect them separately for tests that
+        # need the full list.
+        set_cookies: list[str] = []
+
+        def start_response(status, headers, exc_info=None):
+            captured["status"] = status
+            captured["headers"] = {k.lower(): v for k, v in headers}
+            for k, v in headers:
+                if k.lower() == "set-cookie":
+                    set_cookies.append(v)
+
+        with mock.patch.object(webutils, "get_user", return_value=user):
+            body_iter = application(env, start_response)
+            body_out = b"".join(body_iter)
+        # Stash on the test case so callers wanting the full
+        # ``Set-Cookie`` list (e.g. the OAuth round-trip test) can
+        # pick it up without changing the return shape every
+        # existing test depends on.
+        self._set_cookies = set_cookies
+        self._wsgi_errors = wsgi_errors.getvalue()
+        return (
+            captured["status"],  # type: ignore[return-value]
+            captured["headers"],  # type: ignore[return-value]
+            body_out,
+        )
+
+    def test_get_consent_renders_html(self):
+        status, headers, body = self._wsgi_call(
+            "GET", "/auth/oauth/consent", query=f"request_id={self.request_id}"
+        )
+        self.assertTrue(status.startswith("200"), status)
+        self.assertIn("text/html", headers.get("content-type", ""))
+        text = body.decode()
+        self.assertIn("Test MCP Client", text)
+        self.assertIn("alice@example.org", text)
+        # Allow/Deny form points back at the consent endpoint.
+        self.assertIn('action="/cgi/auth/oauth/consent"', text)
+        self.assertIn(f'value="{self.request_id}"', text)
+
+    def test_get_consent_missing_request_id_is_400(self):
+        status, _, _ = self._wsgi_call("GET", "/auth/oauth/consent")
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_get_consent_unknown_request_is_400(self):
+        status, _, _ = self._wsgi_call(
+            "GET", "/auth/oauth/consent", query="request_id=ghost"
+        )
+        self.assertTrue(status.startswith("400"), status)
+
+    def test_get_consent_anonymous_redirects_to_login(self):
+        status, headers, _ = self._wsgi_call(
+            "GET",
+            "/auth/oauth/consent",
+            query=f"request_id={self.request_id}",
+            user=None,
+        )
+        self.assertTrue(status.startswith("302"), status)
+        location = headers.get("location", "")
+        self.assertIn("/login", location)
+        self.assertIn(f"request_id%3D{self.request_id}", location)
+
+    def test_post_consent_allow_mints_code(self):
+        body = f"request_id={self.request_id}&action=allow".encode()
+        status, headers, _ = self._wsgi_call(
+            "POST",
+            "/auth/oauth/consent",
+            body=body,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertTrue(status.startswith("302"), status)
+        location = headers.get("location", "")
+        self.assertTrue(location.startswith("http://callback.example.org/cb"))
+        self.assertIn("state=client-state-7", location)
+        self.assertIn("code=", location)
+        # The pending request was consumed; a code now exists.
+        self.assertNotIn(self.request_id, self.stub.requests)
+        self.assertEqual(len(self.stub.codes), 1)
+
+    def test_post_consent_deny_returns_access_denied(self):
+        body = f"request_id={self.request_id}&action=deny".encode()
+        status, headers, _ = self._wsgi_call(
+            "POST",
+            "/auth/oauth/consent",
+            body=body,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertTrue(status.startswith("302"), status)
+        location = headers.get("location", "")
+        self.assertIn("error=access_denied", location)
+        self.assertIn("state=client-state-7", location)
+        # The pending request is also cleaned up on deny.
+        self.assertNotIn(self.request_id, self.stub.requests)
+        self.assertEqual(self.stub.codes, {})
+
+    def test_post_consent_anonymous_is_401(self):
+        body = f"request_id={self.request_id}&action=allow".encode()
+        status, _, _ = self._wsgi_call(
+            "POST",
+            "/auth/oauth/consent",
+            body=body,
+            content_type="application/x-www-form-urlencoded",
+            user=None,
+        )
+        self.assertTrue(status.startswith("401"), status)
+
+    def test_consent_disabled_returns_404(self):
+        with mock.patch.object(ivre.config, "MCP_OAUTH_AS_ENABLED", False):
+            status, _, _ = self._wsgi_call(
+                "GET",
+                "/auth/oauth/consent",
+                query=f"request_id={self.request_id}",
+            )
+        self.assertTrue(status.startswith("404"), status)
+
+    def test_oauth_consent_round_trip(self):
+        # End-to-end: anonymous user hits the consent page,
+        # follows the /login redirect, picks a provider, the
+        # mocked IdP "approves", the callback lands the user
+        # back on the consent page with the original request_id
+        # preserved.  This pins the full ``next=`` plumbing from
+        # the consent route through to the callback.
+        #
+        # ``get_enabled_providers`` / ``get_authorize_url`` etc.
+        # are imported by name into :mod:`ivre.web.auth` at
+        # module-load time, so the patch target is the consumer
+        # namespace, not the upstream :mod:`ivre.web.oauth`.
+        from ivre.web import auth as web_auth
+
+        # 1. Anonymous GET on the consent page -> /login?next=…
+        status, headers, _ = self._wsgi_call(
+            "GET",
+            "/auth/oauth/consent",
+            query=f"request_id={self.request_id}",
+            user=None,
+        )
+        self.assertTrue(status.startswith("302"), status)
+        login_target = headers.get("location", "")
+        from urllib.parse import parse_qs, urlsplit
+
+        login_parts = urlsplit(login_target)
+        next_value = parse_qs(login_parts.query).get("next", [""])[0]
+        self.assertIn("/cgi/auth/oauth/consent", next_value)
+        self.assertIn(self.request_id, next_value)
+
+        # 2. The legacy login page forwards ``next=`` to the
+        # provider link.  Simulate that by hitting
+        # /auth/login/google?next=<same>.  The mocked
+        # ``get_authorize_url`` echoes the *original* state token
+        # back into the redirect Location header, which is the
+        # value the upstream IdP would later round-trip as a
+        # query parameter on the callback.
+        from urllib.parse import quote_plus
+
+        with (
+            mock.patch.object(
+                web_auth, "get_enabled_providers", return_value=["google"]
+            ),
+            mock.patch.object(
+                web_auth,
+                "get_authorize_url",
+                side_effect=lambda p, s, r: f"https://idp.example/auth?state={s}",
+            ),
+        ):
+            status, headers, _ = self._wsgi_call(
+                "GET",
+                "/auth/login/google",
+                query=f"next={quote_plus(next_value)}",
+            )
+        self.assertTrue(status.startswith("302"), status)
+        # Two cookies should have been set: ``_ivre_oauth_state``
+        # and ``_ivre_login_next``.
+        set_cookies = self._set_cookies
+        cookie_names = {c.split("=", 1)[0] for c in set_cookies}
+        self.assertIn("_ivre_oauth_state", cookie_names)
+        self.assertIn("_ivre_login_next", cookie_names)
+        # The *signed* cookie blobs (base64-encoded HMAC envelope)
+        # are what the browser would send back on the next request.
+        state_cookie_blob = (
+            next(c for c in set_cookies if c.startswith("_ivre_oauth_state="))
+            .split("=", 1)[1]
+            .split(";", 1)[0]
+        )
+        next_cookie_blob = (
+            next(c for c in set_cookies if c.startswith("_ivre_login_next="))
+            .split("=", 1)[1]
+            .split(";", 1)[0]
+        )
+        # The *original* state token (pre-cookie-signing) was
+        # echoed into the redirect Location header by the mocked
+        # ``get_authorize_url``.  The upstream IdP would send it
+        # back as a query parameter, which is what the callback
+        # validates against the cookie payload.
+        idp_target = headers.get("location", "")
+        original_state = parse_qs(urlsplit(idp_target).query)["state"][0]
+
+        # 3. Provider callback with the captured cookies + the
+        # original state token in the query.  Mock
+        # ``exchange_code`` + ``get_user_email`` to return our
+        # test user.
+        with (
+            mock.patch.object(
+                web_auth, "get_enabled_providers", return_value=["google"]
+            ),
+            mock.patch.object(
+                web_auth,
+                "exchange_code",
+                return_value={"access_token": "fake"},
+            ),
+            mock.patch.object(
+                web_auth,
+                "get_user_email",
+                return_value=("alice@example.org", "Alice"),
+            ),
+        ):
+            status, headers, body = self._wsgi_call(
+                "GET",
+                "/auth/callback/google",
+                query=f"state={quote_plus(original_state)}&code=fake-code",
+                cookies={
+                    "_ivre_oauth_state": state_cookie_blob,
+                    "_ivre_login_next": next_cookie_blob,
+                },
+                user=None,
+            )
+        self.assertTrue(
+            status.startswith("302"),
+            f"status={status}\nerrors={self._wsgi_errors[-1500:]}",
+        )
+        final_target = headers.get("location", "")
+        # The callback should redirect back to the consent URL,
+        # not to ``/``.
+        self.assertIn("/cgi/auth/oauth/consent", final_target)
+        self.assertIn(self.request_id, final_target)
+
+        # 4. Sanity: a tampered ``_ivre_login_next`` cookie must
+        # fall back to ``/`` (the signed-cookie reader rejects
+        # the forgery before the validator sees it).
+        with (
+            mock.patch.object(
+                web_auth, "get_enabled_providers", return_value=["google"]
+            ),
+            mock.patch.object(
+                web_auth,
+                "exchange_code",
+                return_value={"access_token": "fake"},
+            ),
+            mock.patch.object(
+                web_auth,
+                "get_user_email",
+                return_value=("alice@example.org", "Alice"),
+            ),
+        ):
+            status, headers, _ = self._wsgi_call(
+                "GET",
+                "/auth/callback/google",
+                query=f"state={quote_plus(original_state)}&code=fake-code",
+                cookies={
+                    "_ivre_oauth_state": state_cookie_blob,
+                    "_ivre_login_next": "garbage",
+                },
+                user=None,
+            )
+        self.assertTrue(status.startswith("302"), status)
+        # Bottle's ``redirect()`` resolves the trailing-slash
+        # path against the request origin; either form is fine,
+        # what matters is that the consent URL is NOT the
+        # destination.
+        location = headers.get("location", "")
+        self.assertNotIn("/cgi/auth/oauth/consent", location)
+        self.assertTrue(
+            location.endswith("/") and not location.endswith("/cb"),
+            f"expected a fallback redirect to /, got {location!r}",
+        )
+
+
+# ---------------------------------------------------------------------
+# LoginNextRedirectTests -- pin the ``next=`` plumbing the OAuth
+# consent route depends on: the validator at the front, the signed
+# cookie carrier across ``/auth/login`` -> ``/auth/callback``, and
+# the magic-link variant that embeds ``next=`` in the verify URL.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(_have_mcp(), "mcp dependency not installed")
+class LoginNextRedirectTests(unittest.TestCase):
+    """Unit + integration tests for :func:`_validate_next_url` and
+    the ``next=`` carrier cookie / magic-link round-trip.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._saved_secret = ivre.config.WEB_SECRET
+        cls._saved_enabled = ivre.config.WEB_AUTH_ENABLED
+        cls._saved_magic = ivre.config.WEB_AUTH_MAGIC_LINK_ENABLED
+        ivre.config.WEB_SECRET = "test-secret-" + "x" * 50
+        ivre.config.WEB_AUTH_ENABLED = True
+        # Magic-link tests below need the flag on.
+        ivre.config.WEB_AUTH_MAGIC_LINK_ENABLED = True
+        from ivre.web import app as _app  # noqa: F401
+        from ivre.web import auth as _auth  # noqa: F401
+
+    @classmethod
+    def tearDownClass(cls):
+        ivre.config.WEB_SECRET = cls._saved_secret
+        ivre.config.WEB_AUTH_ENABLED = cls._saved_enabled
+        ivre.config.WEB_AUTH_MAGIC_LINK_ENABLED = cls._saved_magic
+
+    # --- _validate_next_url ----------------------------------------
+
+    def test_validate_next_url_accepts_safe_paths(self):
+        from ivre.web.auth import _validate_next_url
+
+        cases = [
+            "/",
+            "/foo",
+            "/foo/bar",
+            "/foo?a=1&b=2",
+            "/cgi/auth/oauth/consent?request_id=abc",
+            "/foo#frag",
+            "/" + "a" * 1000,
+        ]
+        for value in cases:
+            with self.subTest(value=value):
+                self.assertEqual(_validate_next_url(value), value)
+
+    def test_validate_next_url_rejects_open_redirect_shapes(self):
+        from ivre.web.auth import _validate_next_url
+
+        rejected = [
+            None,
+            "",
+            "foo",  # no leading slash
+            "//evil.com",  # protocol-relative
+            "/\\evil.com",  # backslash variant
+            "http://x",  # absolute URL
+            "https://x",
+            "javascript:alert(1)",  # scheme injection
+            "//",  # empty protocol-relative
+            "/foo\r\nLocation: http://evil",  # CRLF injection
+            "/foo\nfoo",
+            "/foo\x00",  # NUL injection
+            "/" + "a" * 3000,  # length cap
+        ]
+        for value in rejected:
+            with self.subTest(value=value):
+                self.assertIsNone(_validate_next_url(value))
+
+    # --- login_provider / callback_provider -------------------------
+
+    def _wsgi_call(
+        self,
+        method: str,
+        path: str,
+        query: str = "",
+        body: bytes = b"",
+        content_type: str = "",
+        cookies: dict[str, str] | None = None,
+    ) -> tuple[str, dict[str, str], list[str], bytes]:
+        import io as _io
+
+        from ivre.web.base import application
+
+        env = {
+            "REQUEST_METHOD": method,
+            "SERVER_NAME": "ivre.example.org",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "ivre.example.org",
+            "HTTP_REFERER": "http://ivre.example.org/",
+            "wsgi.url_scheme": "http",
+            "PATH_INFO": path,
+            "QUERY_STRING": query,
+            "wsgi.input": _io.BytesIO(body),
+            "CONTENT_LENGTH": str(len(body)) if body else "0",
+        }
+        if content_type:
+            env["CONTENT_TYPE"] = content_type
+        if cookies:
+            env["HTTP_COOKIE"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+        captured: dict[str, object] = {}
+        set_cookies: list[str] = []
+
+        def start_response(status, headers, exc_info=None):
+            captured["status"] = status
+            captured["headers"] = {k.lower(): v for k, v in headers}
+            for k, v in headers:
+                if k.lower() == "set-cookie":
+                    set_cookies.append(v)
+
+        body_out = b"".join(application(env, start_response))
+        return (
+            captured["status"],  # type: ignore[return-value]
+            captured["headers"],  # type: ignore[return-value]
+            set_cookies,
+            body_out,
+        )
+
+    def test_login_provider_stashes_validated_next(self):
+        # ``get_enabled_providers`` / ``get_authorize_url`` are
+        # imported into ``ivre.web.auth`` by name at module-load
+        # time, so the patch target is the consumer's namespace,
+        # not the upstream module.
+        from ivre.web import auth as web_auth
+
+        with (
+            mock.patch.object(
+                web_auth, "get_enabled_providers", return_value=["google"]
+            ),
+            mock.patch.object(
+                web_auth,
+                "get_authorize_url",
+                side_effect=lambda p, s, r: f"https://idp.example/auth?state={s}",
+            ),
+        ):
+            status, _, set_cookies, _ = self._wsgi_call(
+                "GET",
+                "/auth/login/google",
+                query="next=" + "/cgi/auth/oauth/consent",
+            )
+        self.assertTrue(status.startswith("302"), status)
+        names = {c.split("=", 1)[0] for c in set_cookies}
+        self.assertIn("_ivre_oauth_state", names)
+        self.assertIn("_ivre_login_next", names)
+
+    def test_login_provider_drops_unsafe_next(self):
+        # Open-redirect attempts must NOT result in a stash;
+        # the user-facing flow still works, but the post-login
+        # redirect falls back to ``/``.
+        from ivre.web import auth as web_auth
+
+        with (
+            mock.patch.object(
+                web_auth, "get_enabled_providers", return_value=["google"]
+            ),
+            mock.patch.object(
+                web_auth,
+                "get_authorize_url",
+                side_effect=lambda p, s, r: f"https://idp.example/auth?state={s}",
+            ),
+        ):
+            status, _, set_cookies, _ = self._wsgi_call(
+                "GET",
+                "/auth/login/google",
+                query="next=//evil.com/path",
+            )
+        self.assertTrue(status.startswith("302"), status)
+        names = {c.split("=", 1)[0] for c in set_cookies}
+        self.assertIn("_ivre_oauth_state", names)
+        self.assertNotIn("_ivre_login_next", names)
+
+    # --- magic-link -------------------------------------------------
+
+    def test_magic_link_send_embeds_next_in_link(self):
+        # Capture the email body by patching ``smtplib.SMTP``;
+        # the test asserts the rendered link contains ``&next=…``.
+        from ivre.web import auth as web_auth
+
+        sent = {}
+
+        class _StubSMTP:
+            def __init__(self, host, port):
+                pass
+
+            def starttls(self):
+                pass
+
+            def login(self, user, password):
+                pass
+
+            def sendmail(self, src, to, msg):
+                sent["src"] = src
+                sent["to"] = to
+                sent["msg"] = msg
+
+            def quit(self):
+                pass
+
+        # Patch the magic-link token creation so we don't need a
+        # real backend; capture the rendered URL via the SMTP stub.
+        with (
+            mock.patch.object(web_auth, "smtplib") as smtplib_mod,
+            mock.patch.object(web_auth, "db") as db_mod,
+        ):
+            smtplib_mod.SMTP = _StubSMTP  # type: ignore[assignment]
+            db_mod.auth.create_magic_link_token.return_value = "TOKEN"
+            db_mod.auth.is_rate_limited.return_value = False
+            db_mod.auth.record_rate_limit.return_value = None
+            body = json.dumps(
+                {"email": "alice@example.org", "next": "/cgi/auth/oauth/consent"}
+            ).encode()
+            status, _, _, _ = self._wsgi_call(
+                "POST",
+                "/auth/magic-link",
+                body=body,
+                content_type="application/json",
+            )
+        self.assertTrue(status.startswith("200"), status)
+        # ``msg.as_string()`` returns a ``str``; the SMTP stub
+        # stored it verbatim.
+        rendered = sent.get("msg", "")
+        if isinstance(rendered, bytes):
+            rendered = rendered.decode("utf-8", "replace")
+        self.assertIn("token=TOKEN", rendered)
+        self.assertIn("next=", rendered)
+
+    def test_magic_link_send_drops_unsafe_next(self):
+        # Unsafe ``next`` must be silently dropped, not echoed
+        # into the email link.
+        from ivre.web import auth as web_auth
+
+        sent: dict[str, str] = {}
+
+        class _StubSMTP:
+            def __init__(self, host, port):
+                pass
+
+            def starttls(self):
+                pass
+
+            def login(self, user, password):
+                pass
+
+            def sendmail(self, src, to, msg):
+                sent["msg"] = (
+                    msg.decode("utf-8", "replace") if isinstance(msg, bytes) else msg
+                )
+
+            def quit(self):
+                pass
+
+        with (
+            mock.patch.object(web_auth, "smtplib") as smtplib_mod,
+            mock.patch.object(web_auth, "db") as db_mod,
+        ):
+            smtplib_mod.SMTP = _StubSMTP  # type: ignore[assignment]
+            db_mod.auth.create_magic_link_token.return_value = "TOKEN"
+            db_mod.auth.is_rate_limited.return_value = False
+            db_mod.auth.record_rate_limit.return_value = None
+            body = json.dumps(
+                {"email": "alice@example.org", "next": "//evil.com/x"}
+            ).encode()
+            self._wsgi_call(
+                "POST",
+                "/auth/magic-link",
+                body=body,
+                content_type="application/json",
+            )
+        self.assertNotIn("next=", sent.get("msg", ""))
 
 
 # ---------------------------------------------------------------------

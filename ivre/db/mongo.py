@@ -7470,6 +7470,10 @@ class MongoDBAuth(MongoDB, DBAuth):
     column_api_keys = 2
     column_rate_limit = 3
     column_magic_links = 4
+    column_oauth_clients = 5
+    column_oauth_auth_requests = 6
+    column_oauth_codes = 7
+    column_oauth_tokens = 8
     indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         # auth_user
         [
@@ -7496,6 +7500,38 @@ class MongoDBAuth(MongoDB, DBAuth):
             ([("token_hash", pymongo.ASCENDING)], {"unique": True}),
             ([("expires_at", pymongo.ASCENDING)], {"expireAfterSeconds": 0}),
         ],
+        # auth_oauth_client
+        [
+            ([("client_id", pymongo.ASCENDING)], {"unique": True}),
+        ],
+        # auth_oauth_auth_request: pending OAuth ``authorize`` requests
+        # awaiting user consent.  TTL index on ``expires_at`` so
+        # abandoned consent flows clean themselves up.
+        [
+            ([("request_id", pymongo.ASCENDING)], {"unique": True}),
+            ([("expires_at", pymongo.ASCENDING)], {"expireAfterSeconds": 0}),
+        ],
+        # auth_oauth_code: issued one-shot authorization codes awaiting
+        # exchange at the ``/token`` endpoint.  TTL index keeps the
+        # short-lived codes self-cleaning.
+        [
+            ([("code", pymongo.ASCENDING)], {"unique": True}),
+            ([("expires_at", pymongo.ASCENDING)], {"expireAfterSeconds": 0}),
+        ],
+        # auth_oauth_token: issued access + refresh tokens (kind
+        # discriminates).  ``expires_at`` is nullable for never-expiring
+        # refresh tokens (operator picks via
+        # :data:`config.MCP_OAUTH_REFRESH_TOKEN_TTL`); the TTL index
+        # is sparse so the null entries are skipped.
+        [
+            ([("token_hash", pymongo.ASCENDING)], {"unique": True}),
+            ([("user_email", pymongo.ASCENDING)], {}),
+            ([("client_id", pymongo.ASCENDING)], {}),
+            (
+                [("expires_at", pymongo.ASCENDING)],
+                {"expireAfterSeconds": 0, "sparse": True},
+            ),
+        ],
     ]
 
     def __init__(self, url):
@@ -7506,6 +7542,12 @@ class MongoDBAuth(MongoDB, DBAuth):
             self.params.pop("colname_auth_api_keys", "auth_api_key"),
             self.params.pop("colname_auth_rate_limit", "auth_rate_limit"),
             self.params.pop("colname_auth_magic_links", "auth_magic_link"),
+            self.params.pop("colname_auth_oauth_clients", "auth_oauth_client"),
+            self.params.pop(
+                "colname_auth_oauth_auth_requests", "auth_oauth_auth_request"
+            ),
+            self.params.pop("colname_auth_oauth_codes", "auth_oauth_code"),
+            self.params.pop("colname_auth_oauth_tokens", "auth_oauth_token"),
         ]
 
     def get_user_by_email(self, email):
@@ -7689,6 +7731,154 @@ class MongoDBAuth(MongoDB, DBAuth):
         col = self.db[self.columns[self.column_rate_limit]]
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         col.insert_one({"key": key, "created_at": now})
+
+    # OAuth 2.1 Authorization Server primitives ---------------------
+
+    def create_oauth_client(self, client):
+        # The caller passes the full OAuth client registration
+        # payload; we copy to avoid mutating the caller's dict and
+        # stamp ``created_at`` for audit / admin display.
+        doc = dict(client)
+        doc.setdefault("created_at", datetime.datetime.now(tz=datetime.timezone.utc))
+        self.db[self.columns[self.column_oauth_clients]].insert_one(doc)
+
+    def get_oauth_client(self, client_id):
+        return self.db[self.columns[self.column_oauth_clients]].find_one(
+            {"client_id": client_id}
+        )
+
+    def list_oauth_clients(self):
+        return list(self.db[self.columns[self.column_oauth_clients]].find())
+
+    def delete_oauth_client(self, client_id):
+        result = self.db[self.columns[self.column_oauth_clients]].delete_one(
+            {"client_id": client_id}
+        )
+        if result.deleted_count:
+            # Cascade-revoke every token the client still holds so
+            # access / refresh tokens cannot be replayed after the
+            # client is gone.
+            self.revoke_oauth_tokens_for_client(client_id)
+            return True
+        return False
+
+    def create_authorization_request(self, request_id, payload):
+        doc = dict(payload)
+        doc["request_id"] = request_id
+        doc.setdefault("created_at", datetime.datetime.now(tz=datetime.timezone.utc))
+        self.db[self.columns[self.column_oauth_auth_requests]].insert_one(doc)
+
+    def get_authorization_request(self, request_id):
+        # Non-consuming peek used by the consent ``GET`` route.
+        # ``find_one`` is non-mutating; the ``expires_at`` filter
+        # mirrors the consume path so a TTL-pruned record reads
+        # as "not found" even before the index has swept it.
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        doc = self.db[self.columns[self.column_oauth_auth_requests]].find_one(
+            {"request_id": request_id, "expires_at": {"$gt": now}}
+        )
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def consume_authorization_request(self, request_id):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        # ``find_one_and_delete`` is atomic; the ``expires_at``
+        # filter rejects records the TTL index has not yet pruned.
+        doc = self.db[
+            self.columns[self.column_oauth_auth_requests]
+        ].find_one_and_delete({"request_id": request_id, "expires_at": {"$gt": now}})
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def create_authorization_code(self, code, payload):
+        doc = dict(payload)
+        doc["code"] = code
+        doc.setdefault("created_at", datetime.datetime.now(tz=datetime.timezone.utc))
+        self.db[self.columns[self.column_oauth_codes]].insert_one(doc)
+
+    def get_authorization_code(self, code):
+        # Non-consuming peek used by the SDK's
+        # ``load_authorization_code`` Protocol method.  The
+        # corresponding ``consume_authorization_code`` (called at
+        # exchange time) is the atomic single-use claim; keeping
+        # the peek non-mutating is what guarantees RFC 6749 §4.1.2.
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        doc = self.db[self.columns[self.column_oauth_codes]].find_one(
+            {"code": code, "expires_at": {"$gt": now}}
+        )
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def consume_authorization_code(self, code):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        doc = self.db[self.columns[self.column_oauth_codes]].find_one_and_delete(
+            {"code": code, "expires_at": {"$gt": now}}
+        )
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def create_oauth_token(self, token_hash, payload):
+        doc = dict(payload)
+        doc["token_hash"] = token_hash
+        doc.setdefault("created_at", datetime.datetime.now(tz=datetime.timezone.utc))
+        self.db[self.columns[self.column_oauth_tokens]].insert_one(doc)
+
+    def validate_oauth_token(self, token):
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        # The token must not be revoked and either never expire
+        # (``expires_at == None``, for refresh tokens with no TTL)
+        # or have an ``expires_at`` strictly in the future.  The
+        # TTL index prunes expired entries opportunistically; the
+        # explicit ``$or`` makes the check correct between sweeps.
+        doc = self.db[self.columns[self.column_oauth_tokens]].find_one(
+            {
+                "token_hash": token_hash,
+                "revoked_at": None,
+                "$or": [
+                    {"expires_at": None},
+                    {"expires_at": {"$gt": now}},
+                ],
+            }
+        )
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def revoke_oauth_token(self, token_hash):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.db[self.columns[self.column_oauth_tokens]].update_one(
+            {"token_hash": token_hash},
+            {"$set": {"revoked_at": now}},
+        )
+
+    def revoke_oauth_tokens_by_refresh(self, refresh_token_hash):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        result = self.db[self.columns[self.column_oauth_tokens]].update_many(
+            {
+                "refresh_token_hash": refresh_token_hash,
+                "revoked_at": None,
+            },
+            {"$set": {"revoked_at": now}},
+        )
+        return result.modified_count
+
+    def revoke_oauth_tokens_for_client(self, client_id):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        result = self.db[self.columns[self.column_oauth_tokens]].update_many(
+            {"client_id": client_id, "revoked_at": None},
+            {"$set": {"revoked_at": now}},
+        )
+        return result.modified_count
 
 
 load_plugins("ivre.plugins.db.mongo", globals())

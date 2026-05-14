@@ -350,19 +350,136 @@ backend is not configured.</p></td>
 </section>
 <section id="authentication">
 <h3>Authentication<a class="headerlink" href="#authentication" title="Link to this heading"></a></h3>
-<p>The HTTP transport reuses the <a class="reference internal" href="web-auth.html"><span class="doc">Web Authentication</span></a> API-key infrastructure.
-MCP clients authenticate with <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;api-key&gt;</span></code>;
+<p>The HTTP transport supports two authentication shapes against the
+same underlying <a class="reference internal" href="web-auth.html"><span class="doc">Web Authentication</span></a> user store. Both are bearer-token
+based; clients pick whichever fits the MCP integration they ship.</p>
+<section id="api-key-bearer-always-enabled">
+<h4>API-key bearer (always enabled)<a class="headerlink" href="#api-key-bearer-always-enabled" title="Link to this heading"></a></h4>
+<p>MCP clients authenticate with <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;api-key&gt;</span></code>;
 the server verifies the token against <code class="docutils literal notranslate"><span class="pre">db.auth.validate_api_key</span></code>
 (the same code path used by the Web UI) and refuses unauthenticated
 requests when <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span></code> is set.</p>
-<p>Per-user access controls (<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>, <code class="docutils literal notranslate"><span class="pre">WEB_DEFAULT_INIT_QUERY</span></code>,
-group-based rules) are honoured for every MCP tool call: the
-authenticated user is resolved from the bearer token and the resulting
-init filter is AND-ed with any filter built by the client.</p>
 <p>To create an API key, log in to the Web UI as the user, open
 <em>Admin &gt; API Keys</em> and click <strong>Create</strong>. Keep the key secret –
 revoking it from the Web UI immediately invalidates MCP clients
 carrying it.</p>
+</section>
+<section id="oauth-2-1-consent-flow-opt-in">
+<h4>OAuth 2.1 consent flow (opt-in)<a class="headerlink" href="#oauth-2-1-consent-flow-opt-in" title="Link to this heading"></a></h4>
+<p>Recent MCP clients (Claude Desktop, Cursor, Claude Code, …)
+drive an <code class="docutils literal notranslate"><span class="pre">/authorize</span></code> -&gt; consent -&gt; <code class="docutils literal notranslate"><span class="pre">/token</span></code> flow against
+IVRE and receive a short-lived access token + refresh token.
+Set <code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_AS_ENABLED</span> <span class="pre">=</span> <span class="pre">True</span></code> in <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> to enable
+the AS side; this requires <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_ENABLED</span> <span class="pre">=</span> <span class="pre">True</span></code> because
+the consent screen reuses the existing login flow.</p>
+<p>When enabled, the MCP HTTP server mounts the following OAuth
+2.1 endpoints (per RFC 8414 / RFC 7591 / RFC 7009 / RFC 9728):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span>&#160; <span class="pre">/.well-known/oauth-protected-resource</span></code> – RFC 9728
+protected-resource metadata; advertises the authorization
+server(s) for this MCP endpoint. Mounted unconditionally
+whenever bearer auth is enabled (i.e. also under
+API-key-only mode).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span>&#160; <span class="pre">/.well-known/oauth-authorization-server</span></code> – RFC 8414
+AS metadata (<code class="docutils literal notranslate"><span class="pre">authorize</span></code> / <code class="docutils literal notranslate"><span class="pre">token</span></code> / <code class="docutils literal notranslate"><span class="pre">register</span></code> /
+<code class="docutils literal notranslate"><span class="pre">revoke</span></code> endpoint URLs, supported grant types, PKCE
+methods).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span>&#160; <span class="pre">/authorize</span></code> – the entry point that, after parsing
+the client’s PKCE authorization request, redirects the
+user-agent to <code class="docutils literal notranslate"><span class="pre">/cgi/auth/oauth/consent</span></code> on the Bottle Web
+app.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/token</span></code> – code-for-token exchange and refresh.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/register</span></code> – RFC 7591 dynamic client registration
+(gated on <code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_DCR_ENABLED</span></code>; default on).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/revoke</span></code> – RFC 7009 token revocation.</p></li>
+</ul>
+<p>The consent screen (rendered at <code class="docutils literal notranslate"><span class="pre">/cgi/auth/oauth/consent</span></code>) shows
+the requesting client’s <code class="docutils literal notranslate"><span class="pre">client_name</span></code> plus the requested
+scopes, then either redirects back to the client’s
+<code class="docutils literal notranslate"><span class="pre">redirect_uri</span></code> with a one-shot authorization code, or with
+<code class="docutils literal notranslate"><span class="pre">error=access_denied</span></code> on a “Deny” click.</p>
+<p>Unauthenticated users are bounced through the regular IVRE
+login page first, with the consent URL passed as a <code class="docutils literal notranslate"><span class="pre">next=</span></code>
+query parameter so the user lands back on the consent screen
+after signing in. The same <code class="docutils literal notranslate"><span class="pre">next=</span></code> plumbing is wired through
+the OAuth login (<code class="docutils literal notranslate"><span class="pre">/cgi/auth/login/&lt;provider&gt;</span></code>), the
+provider callback (<code class="docutils literal notranslate"><span class="pre">/cgi/auth/callback/&lt;provider&gt;</span></code>), the
+magic-link request (<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cgi/auth/magic-link</span></code>) and the
+magic-link verification (<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/cgi/auth/magic-link/verify</span></code>).
+The server validates every incoming <code class="docutils literal notranslate"><span class="pre">next=</span></code> value as a
+same-origin relative path (rejecting absolute URLs,
+protocol-relative URLs, <code class="docutils literal notranslate"><span class="pre">\</span></code>-prefixed variants, CR/LF
+injection, and inputs longer than 2048 characters); anything
+that does not parse cleanly is silently dropped and the
+post-login redirect falls back to <code class="docutils literal notranslate"><span class="pre">/</span></code>. The OAuth-flow <code class="docutils literal notranslate"><span class="pre">next=</span></code> payload survives
+the round-trip via the <code class="docutils literal notranslate"><span class="pre">_ivre_login_next</span></code> signed cookie
+(HMAC’d with <code class="docutils literal notranslate"><span class="pre">WEB_SECRET</span></code>, <code class="docutils literal notranslate"><span class="pre">HttpOnly</span></code>, <code class="docutils literal notranslate"><span class="pre">SameSite=Lax</span></code>,
+5 min TTL); the magic-link flow embeds the validated path in
+the verification URL.</p>
+<p>Issued access tokens (<code class="docutils literal notranslate"><span class="pre">ivre_oat_*</span></code>) and refresh tokens
+(<code class="docutils literal notranslate"><span class="pre">ivre_ort_*</span></code>) are opaque random strings; only their SHA-256
+hashes are persisted, mirroring the API-key storage posture.
+Refresh tokens rotate on every exchange: the consumed refresh
+token is revoked before the new pair is minted.</p>
+<p>The OAuth knobs live alongside the HTTP transport knobs in
+<code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Knob</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_AS_ENABLED</span></code></p></td>
+<td><p>Enable the OAuth AS endpoints. Default
+<code class="docutils literal notranslate"><span class="pre">False</span></code> (API-key bearer only).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_DCR_ENABLED</span></code></p></td>
+<td><p>Allow RFC 7591 dynamic client registration
+at <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/register</span></code>. Default <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_PUBLIC_URL</span></code></p></td>
+<td><p>Public base URL used in the consent
+redirect and AS metadata document. Falls
+back to <code class="docutils literal notranslate"><span class="pre">WEB_AUTH_BASE_URL</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_REQUEST_TTL</span></code></p></td>
+<td><p>Lifetime of an in-flight <code class="docutils literal notranslate"><span class="pre">/authorize</span></code>
+request before the user consents, in
+seconds. Default <code class="docutils literal notranslate"><span class="pre">600</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_CODE_TTL</span></code></p></td>
+<td><p>Lifetime of an issued authorization code
+awaiting exchange, in seconds. Default
+<code class="docutils literal notranslate"><span class="pre">600</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_ACCESS_TOKEN_TTL</span></code></p></td>
+<td><p>Lifetime of an issued access token, in
+seconds. Default <code class="docutils literal notranslate"><span class="pre">3600</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MCP_OAUTH_REFRESH_TOKEN_TTL</span></code></p></td>
+<td><p>Lifetime of an issued refresh token, in
+seconds. <code class="docutils literal notranslate"><span class="pre">None</span></code> disables expiry
+(refresh until revoked). Default
+<code class="docutils literal notranslate"><span class="pre">2592000</span></code> (30 days).</p></td>
+</tr>
+</tbody>
+</table>
+<p>The two authentication shapes coexist: when the AS is enabled,
+the MCP HTTP transport validates <em>both</em> OAuth-issued access
+tokens <em>and</em> pre-existing IVRE API keys on every tool call, so
+existing API-key users keep working while new clients drive the
+consent flow.</p>
+</section>
+<section id="per-user-access-controls">
+<h4>Per-user access controls<a class="headerlink" href="#per-user-access-controls" title="Link to this heading"></a></h4>
+<p>Per-user access controls (<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>,
+<code class="docutils literal notranslate"><span class="pre">WEB_DEFAULT_INIT_QUERY</span></code>, group-based rules) are honoured for
+every MCP tool call, regardless of which authentication shape
+the client used: the authenticated user is resolved from the
+bearer token and the resulting init filter is AND-ed with any
+filter built by the client.</p>
+</section>
 </section>
 <section id="safety-defaults">
 <h3>Safety defaults<a class="headerlink" href="#safety-defaults" title="Link to this heading"></a></h3>

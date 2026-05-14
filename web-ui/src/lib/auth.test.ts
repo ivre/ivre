@@ -24,6 +24,23 @@ describe("loginUrl", () => {
     // alphabetic identifiers, but the helper stays safe regardless.
     expect(loginUrl("a/b c")).toBe("/cgi/auth/login/a%2Fb%20c");
   });
+
+  it("forwards a ``next`` parameter when provided", () => {
+    // The post-login redirect target is URL-encoded so the
+    // browser preserves the slashes / query string on the way
+    // through ``/cgi/auth/login/<provider>``.  The server-side
+    // ``_validate_next_url`` is the authoritative
+    // open-redirect guard; the SPA is just a transport.
+    expect(loginUrl("google", "/cgi/auth/oauth/consent?request_id=abc")).toBe(
+      "/cgi/auth/login/google?next=%2Fcgi%2Fauth%2Foauth%2Fconsent%3Frequest_id%3Dabc",
+    );
+  });
+
+  it("omits ``next`` when null / undefined / empty", () => {
+    expect(loginUrl("google", null)).toBe("/cgi/auth/login/google");
+    expect(loginUrl("google", undefined)).toBe("/cgi/auth/login/google");
+    expect(loginUrl("google", "")).toBe("/cgi/auth/login/google");
+  });
 });
 
 describe("fetchAuthMe", () => {
@@ -200,5 +217,55 @@ describe("sendMagicLink", () => {
       vi.fn(async () => new Response("nope", { status: 400 })),
     );
     await expect(sendMagicLink("bad")).rejects.toThrow(/Magic link/);
+  });
+
+  it("forwards a ``next`` parameter in the JSON body when provided", async () => {
+    const spy = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    mockFetch(spy);
+    await sendMagicLink("alice@example.com", "/cgi/auth/oauth/consent?id=z");
+    expect(spy).toHaveBeenCalledWith(
+      "/cgi/auth/magic-link",
+      expect.objectContaining({
+        body: JSON.stringify({
+          email: "alice@example.com",
+          next: "/cgi/auth/oauth/consent?id=z",
+        }),
+      }),
+    );
+  });
+
+  it("omits ``next`` from the JSON body when null / undefined / empty", async () => {
+    const spy = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    mockFetch(spy);
+    await sendMagicLink("alice@example.com");
+    await sendMagicLink("alice@example.com", null);
+    await sendMagicLink("alice@example.com", "");
+    // ``vi.fn(async () => Response)`` infers an empty-tuple
+    // parameter signature, so ``spy.mock.calls[i][1]`` would
+    // not typecheck.  Use the ``toHaveBeenNthCalledWith``
+    // matcher instead -- it checks the call arguments
+    // structurally without leaking the inferred signature into
+    // the test code.
+    expect(spy).toHaveBeenCalledTimes(3);
+    const expectedBody = JSON.stringify({ email: "alice@example.com" });
+    for (let i = 1; i <= 3; i += 1) {
+      expect(spy).toHaveBeenNthCalledWith(
+        i,
+        "/cgi/auth/magic-link",
+        expect.objectContaining({ body: expectedBody }),
+      );
+    }
   });
 });

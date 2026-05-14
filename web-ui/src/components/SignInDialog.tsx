@@ -19,6 +19,15 @@ export interface SignInDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   authConfig: AuthConfig;
+  /**
+   * Optional post-login redirect path.  Forwarded to the OAuth
+   * provider link and to the magic-link request body so the
+   * server-side flow lands the user back on this path after
+   * sign-in.  The server re-validates the value (same-origin
+   * relative paths only); the SPA does not perform open-redirect
+   * checks itself.
+   */
+  next?: string | null;
 }
 
 const PROVIDER_DEFAULT_LABELS: Record<string, string> = {
@@ -37,12 +46,14 @@ const PROVIDER_DEFAULT_LABELS: Record<string, string> = {
  * ``/cgi/auth/login/<provider>``; the IVRE backend stamps a
  * signed state cookie and redirects to the upstream IdP. The
  * eventual callback (``/cgi/auth/callback/<provider>``) sets the
- * ``_ivre_session`` cookie and redirects back to ``/``.
+ * ``_ivre_session`` cookie and redirects back to the optional
+ * ``next`` path (or ``/`` when no ``next`` was supplied).
  */
 export function SignInDialog({
   open,
   onOpenChange,
   authConfig,
+  next,
 }: SignInDialogProps) {
   const [email, setEmail] = useState("");
   const magicLink = useMagicLink();
@@ -53,8 +64,11 @@ export function SignInDialog({
 
   const handleProvider = (provider: string) => {
     // Full-page navigation: the OAuth flow completes by
-    // server-side redirect, not a SPA route change.
-    window.location.assign(loginUrl(provider));
+    // server-side redirect, not a SPA route change.  ``next`` is
+    // forwarded so the eventual callback lands the user back on
+    // the path they started from (e.g. the MCP OAuth consent
+    // screen at ``/cgi/auth/oauth/consent``).
+    window.location.assign(loginUrl(provider, next ?? undefined));
   };
 
   const handleMagicLink = (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,16 +78,21 @@ export function SignInDialog({
       toast.error("Enter a valid email address.");
       return;
     }
-    magicLink.mutate(trimmed, {
-      onSuccess: (data) => {
-        toast.success(data.message ?? "Check your email for a sign-in link.");
-        setEmail("");
-        onOpenChange(false);
+    magicLink.mutate(
+      { email: trimmed, next: next ?? undefined },
+      {
+        onSuccess: (data) => {
+          toast.success(
+            data.message ?? "Check your email for a sign-in link.",
+          );
+          setEmail("");
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          toast.error(err.message);
+        },
       },
-      onError: (err) => {
-        toast.error(err.message);
-      },
-    });
+    );
   };
 
   const hasProviders = providers.length > 0;

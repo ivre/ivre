@@ -113,12 +113,17 @@ export async function logout(): Promise<void> {
  *  can show the operator-defined message. */
 export async function sendMagicLink(
   email: string,
+  next?: string | null,
 ): Promise<{ status?: string; message?: string }> {
+  const body: Record<string, string> = { email };
+  if (next) {
+    body.next = next;
+  }
   const r = await fetch(`${CGI_ROOT}/auth/magic-link`, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) {
     throw new Error(
@@ -130,9 +135,16 @@ export async function sendMagicLink(
 
 /** URL the browser should navigate to in order to start an
  *  OAuth/OIDC login flow. The browser performs a full navigation;
- *  we never call this from ``fetch()``. */
-export function loginUrl(provider: string): string {
-  return `${CGI_ROOT}/auth/login/${encodeURIComponent(provider)}`;
+ *  we never call this from ``fetch()``.
+ *
+ *  ``next`` is an optional post-login redirect path that survives
+ *  the OAuth round-trip via a signed server-side cookie.  The
+ *  server re-validates the value (same-origin paths only); the
+ *  client-side caller is responsible for not handing absolute /
+ *  protocol-relative URLs in. */
+export function loginUrl(provider: string, next?: string | null): string {
+  const base = `${CGI_ROOT}/auth/login/${encodeURIComponent(provider)}`;
+  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
 }
 
 /* ------------------------------------------------------------------ */
@@ -188,12 +200,26 @@ export function useLogout(): UseMutationResult<void, Error, void, unknown> {
   });
 }
 
+/** Input shape for :func:`useMagicLink`.  ``email`` is required;
+ *  ``next`` is an optional post-login redirect path forwarded to
+ *  the server so the magic-link verification endpoint can land
+ *  the user back on the page they started from. */
+export interface MagicLinkRequest {
+  email: string;
+  next?: string | null;
+}
+
 export function useMagicLink(): UseMutationResult<
   { status?: string; message?: string },
   Error,
-  string
+  MagicLinkRequest
 > {
-  return useMutation<{ status?: string; message?: string }, Error, string>({
-    mutationFn: (email: string) => sendMagicLink(email),
+  return useMutation<
+    { status?: string; message?: string },
+    Error,
+    MagicLinkRequest
+  >({
+    mutationFn: ({ email, next }: MagicLinkRequest) =>
+      sendMagicLink(email, next),
   });
 }

@@ -63,6 +63,17 @@
       oidc: "log-in"
     };
 
+    // Capture an optional ``?next=<safe-path>`` so deep links
+    // (notably the MCP OAuth consent screen) survive the login
+    // round-trip.  The server validates the value on the way in
+    // and stashes it in a signed cookie; the client side only
+    // forwards it to the provider / magic-link endpoints.  Any
+    // open-redirect risk is bounded by ``_validate_next_url`` on
+    // the server (which rejects absolute / protocol-relative /
+    // backslash-prefixed paths).
+    var pageParams = new URLSearchParams(window.location.search);
+    var nextParam = pageParams.get("next") || "";
+
     fetch("cgi/auth/config").then(function(r) { return r.json(); }).then(function(authConfig) {
       if (!authConfig.enabled) {
         document.getElementById("error-msg").style.display = "block";
@@ -77,7 +88,11 @@
       var container = document.getElementById("providers");
       authConfig.providers.forEach(function(provider) {
         var btn = document.createElement("a");
-        btn.href = "cgi/auth/login/" + provider;
+        var href = "cgi/auth/login/" + provider;
+        if (nextParam) {
+          href += "?next=" + encodeURIComponent(nextParam);
+        }
+        btn.href = href;
         btn.className = "btn " + (providerClasses[provider] || "btn-default") + " btn-provider";
         btn.innerHTML = '<i class="glyphicon glyphicon-' + (providerIcons[provider] || "log-in") + '"></i> ' + (providerLabels[provider] || provider);
         container.appendChild(btn);
@@ -91,10 +106,14 @@
       e.preventDefault();
       var email = document.getElementById("email").value;
       var status = document.getElementById("magic-link-status");
+      var body = {email: email};
+      if (nextParam) {
+        body.next = nextParam;
+      }
       fetch("cgi/auth/magic-link", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({email: email})
+        body: JSON.stringify(body)
       }).then(function(r) { return r.json(); }).then(function(data) {
         status.style.display = "block";
         status.className = "status-msg text-success";
@@ -107,11 +126,10 @@
     });
 
     // Check URL params for error messages
-    var params = new URLSearchParams(window.location.search);
-    if (params.get("error")) {
+    if (pageParams.get("error")) {
       var msg = document.getElementById("error-msg");
       msg.style.display = "block";
-      msg.textContent = params.get("error");
+      msg.textContent = pageParams.get("error");
     }
   </script>
 </body>

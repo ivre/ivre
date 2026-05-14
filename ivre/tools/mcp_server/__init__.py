@@ -57,7 +57,11 @@ class _McpErrorFallback(Exception):
 
 
 try:
-    from mcp.server.auth.settings import AuthSettings
+    from mcp.server.auth.settings import (
+        AuthSettings,
+        ClientRegistrationOptions,
+        RevocationOptions,
+    )
     from mcp.server.fastmcp import FastMCP
     from mcp.shared.exceptions import McpError
     from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ErrorData
@@ -65,6 +69,8 @@ except ImportError as exc:  # pragma: no cover - optional dependency
     _MCP_IMPORT_ERROR: ImportError | None = exc
     FastMCP = None
     AuthSettings = None
+    ClientRegistrationOptions = None
+    RevocationOptions = None
     McpError = _McpErrorFallback
     ErrorData = None
     INVALID_PARAMS = 0
@@ -1035,7 +1041,10 @@ def _run_http(args: argparse.Namespace) -> None:
     }
 
     if use_auth:
-        from .auth import IvreTokenVerifier  # pylint: disable=import-outside-toplevel
+        from .auth import (  # pylint: disable=import-outside-toplevel
+            IvreOAuthProvider,
+            IvreTokenVerifier,
+        )
 
         # AuthSettings.issuer_url / resource_server_url are advertised
         # to clients in the WWW-Authenticate header (on 401) and the
@@ -1049,15 +1058,49 @@ def _run_http(args: argparse.Namespace) -> None:
         # request-derived public origin on the way out, the same trust
         # surface as ivre.web.base.check_referer.
         sentinel_origin = "http://placeholder.invalid"
-        fastmcp_kwargs["token_verifier"] = IvreTokenVerifier()
-        fastmcp_kwargs["auth"] = AuthSettings(
-            issuer_url=sentinel_origin,
-            resource_server_url=f"{sentinel_origin}{args.path}",
-        )
+        if config.MCP_OAUTH_AS_ENABLED:
+            # Full Authorization-Server flow: clients drive
+            # ``/authorize`` -> consent -> ``/token`` -> bearer
+            # against the IVRE-issued OAuth tokens.  The provider's
+            # ``load_access_token`` accepts pre-existing IVRE API
+            # keys as well, so the legacy bearer path keeps working.
+            #
+            # ``IvreOAuthProvider.authorize()`` redirects to the
+            # consent page on the Bottle web app, so the provider
+            # needs the externally-reachable base URL.  Operator
+            # picks ``MCP_OAUTH_PUBLIC_URL`` explicitly, falls back
+            # to ``WEB_AUTH_BASE_URL`` (set when running behind a
+            # reverse proxy) or the sentinel (rewritten on the way
+            # out by :class:`PublicUrlRewriteMiddleware`).
+            public_base = (
+                config.MCP_OAUTH_PUBLIC_URL
+                or config.WEB_AUTH_BASE_URL
+                or sentinel_origin
+            )
+            fastmcp_kwargs["auth_server_provider"] = IvreOAuthProvider(public_base)
+            fastmcp_kwargs["auth"] = AuthSettings(
+                issuer_url=sentinel_origin,
+                resource_server_url=f"{sentinel_origin}{args.path}",
+                client_registration_options=ClientRegistrationOptions(
+                    enabled=bool(config.MCP_OAUTH_DCR_ENABLED),
+                ),
+                revocation_options=RevocationOptions(enabled=True),
+            )
+            logger.info(
+                "MCP HTTP: OAuth 2.1 Authorization Server enabled "
+                "(consent at %s/cgi/auth/oauth/consent)",
+                public_base,
+            )
+        else:
+            fastmcp_kwargs["token_verifier"] = IvreTokenVerifier()
+            fastmcp_kwargs["auth"] = AuthSettings(
+                issuer_url=sentinel_origin,
+                resource_server_url=f"{sentinel_origin}{args.path}",
+            )
+            logger.info(
+                "MCP HTTP: bearer-token auth enabled (API keys from db.auth)",
+            )
         _HTTP_AUTH_REQUIRED = True
-        logger.info(
-            "MCP HTTP: bearer-token auth enabled (API keys from db.auth)",
-        )
     else:
         _HTTP_AUTH_REQUIRED = False
         logger.warning(

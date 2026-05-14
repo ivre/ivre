@@ -5920,6 +5920,153 @@ class DBAuth(DB):
         """Record an attempt against a rate limit key."""
         raise NotImplementedError
 
+    # ----------------------------------------------------------------
+    # OAuth 2.1 Authorization Server primitives (used by the MCP
+    # server's ``IvreOAuthProvider``).  These are intentionally
+    # backend-shape-agnostic: the OAuth payloads land as Python
+    # ``dict`` values in the underlying store, mirroring the
+    # ``MongoDBAuth`` collection layout, so backends that need a
+    # typed schema (SQL) can project the same dict shape to
+    # columns.  The Mongo backend is the only one implementing
+    # this surface today; other backends raise NotImplementedError
+    # via the inherited base methods.
+    # ----------------------------------------------------------------
+
+    def create_oauth_client(self, client: dict) -> None:
+        """Register a new OAuth client.
+
+        ``client`` is the full :class:`mcp.shared.auth.OAuthClientInformationFull`
+        payload serialised to a JSON-compatible ``dict`` (the
+        ``client_id`` field is the lookup key).  Used by the
+        dynamic-client-registration handler.
+        """
+        raise NotImplementedError
+
+    def get_oauth_client(self, client_id: str) -> dict | None:
+        """Return the OAuth client record for ``client_id``, or
+        ``None`` when not registered.
+        """
+        raise NotImplementedError
+
+    def list_oauth_clients(self) -> list[dict]:
+        """Return every registered OAuth client (admin audit path)."""
+        raise NotImplementedError
+
+    def delete_oauth_client(self, client_id: str) -> bool:
+        """Delete an OAuth client; return True when a record was
+        removed.  Cascade-revokes every token issued to that
+        client (the cleanup happens via
+        :meth:`revoke_oauth_tokens_for_client`).
+        """
+        raise NotImplementedError
+
+    def create_authorization_request(self, request_id: str, payload: dict) -> None:
+        """Persist a pending OAuth authorization request (the user
+        has not consented yet).  ``payload`` carries the parsed
+        :class:`AuthorizationParams` (client_id, redirect_uri,
+        scopes, code_challenge, code_challenge_method, state,
+        response_type) plus an ``expires_at`` datetime.  The
+        ``request_id`` is the opaque handle embedded in the
+        consent URL.
+        """
+        raise NotImplementedError
+
+    def get_authorization_request(self, request_id: str) -> dict | None:
+        """Read a pending authorization request *without* consuming
+        it.  Returns the stored payload or ``None`` when the
+        request does not exist or has expired.  Used by the
+        consent ``GET`` route to render the page before the user
+        has clicked Allow / Deny; the matching
+        :meth:`consume_authorization_request` atomically removes
+        the record once the user has acted.
+        """
+        raise NotImplementedError
+
+    def consume_authorization_request(self, request_id: str) -> dict | None:
+        """Atomically load and delete an authorization request.
+        Returns the stored payload or ``None`` when the request
+        does not exist or has expired.
+        """
+        raise NotImplementedError
+
+    def create_authorization_code(self, code: str, payload: dict) -> None:
+        """Persist an issued authorization code awaiting exchange.
+        ``payload`` carries the consented request data plus the
+        ``user_email`` of the consenting user and an
+        ``expires_at`` datetime.
+        """
+        raise NotImplementedError
+
+    def get_authorization_code(self, code: str) -> dict | None:
+        """Read an authorization code *without* consuming it.
+        Returns the stored payload or ``None`` when the code does
+        not exist or has expired.
+
+        Used by the SDK's ``load_authorization_code`` Protocol
+        method, which needs the PKCE ``code_challenge`` and the
+        original ``redirect_uri`` to validate the upcoming
+        ``/token`` exchange.  The matching
+        :meth:`consume_authorization_code` atomically removes the
+        record at exchange time -- the load step is a non-mutating
+        peek so two simultaneous loads never produce two valid
+        code records (RFC 6749 §4.1.2 single-use guarantee).
+        """
+        raise NotImplementedError
+
+    def consume_authorization_code(self, code: str) -> dict | None:
+        """Atomically load and delete an authorization code.
+        Returns the stored payload or ``None`` when the code does
+        not exist or has expired.  One-shot consumption is
+        mandatory per RFC 6749 §4.1.2.
+        """
+        raise NotImplementedError
+
+    def create_oauth_token(self, token_hash: str, payload: dict) -> None:
+        """Persist an issued OAuth token (access or refresh).
+        ``payload`` carries ``kind`` (``"access"`` / ``"refresh"``),
+        ``client_id``, ``user_email``, ``scopes`` and
+        ``expires_at`` (a datetime or ``None`` for non-expiring
+        refresh tokens).  ``token_hash`` is the SHA-256 hex digest
+        of the raw token string.
+        """
+        raise NotImplementedError
+
+    def validate_oauth_token(self, token: str) -> dict | None:
+        """Validate an OAuth access or refresh token.
+
+        Returns the stored payload (with ``token_hash`` /
+        ``kind`` / ``client_id`` / ``user_email`` / ``scopes`` /
+        ``expires_at``) when the token is valid; ``None`` when
+        the token is unknown, revoked, or expired.
+        """
+        raise NotImplementedError
+
+    def revoke_oauth_token(self, token_hash: str) -> None:
+        """Revoke a single OAuth token by its sha256 hash."""
+        raise NotImplementedError
+
+    def revoke_oauth_tokens_by_refresh(self, refresh_token_hash: str) -> int:
+        """Revoke every OAuth token whose ``refresh_token_hash``
+        field matches the given refresh-token digest; returns the
+        number of tokens revoked.
+
+        Called by the refresh-token rotation path to invalidate
+        the sibling access token alongside the consumed refresh
+        token (RFC 6749 §10.4 + the OAuth 2.1 draft both
+        recommend revoking the previously issued access token
+        when its paired refresh token is rotated, to bound
+        replay if the pair has been leaked).
+        """
+        raise NotImplementedError
+
+    def revoke_oauth_tokens_for_client(self, client_id: str) -> int:
+        """Revoke every OAuth token issued to ``client_id``;
+        returns the number of tokens revoked.  Called when a
+        client is deleted so dangling access / refresh tokens
+        cannot be replayed.
+        """
+        raise NotImplementedError
+
 
 class MetaDB:
     db_types = {

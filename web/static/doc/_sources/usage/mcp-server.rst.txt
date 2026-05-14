@@ -146,21 +146,127 @@ Defaults can also be set from ``ivre.conf`` via ``MCP_HTTP_BIND``,
 Authentication
 --------------
 
-The HTTP transport reuses the :doc:`web-auth` API-key infrastructure.
+The HTTP transport supports two authentication shapes against the
+same underlying :doc:`web-auth` user store. Both are bearer-token
+based; clients pick whichever fits the MCP integration they ship.
+
+API-key bearer (always enabled)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 MCP clients authenticate with ``Authorization: Bearer <api-key>``;
 the server verifies the token against ``db.auth.validate_api_key``
 (the same code path used by the Web UI) and refuses unauthenticated
 requests when ``WEB_AUTH_ENABLED`` is set.
 
-Per-user access controls (``WEB_INIT_QUERIES``, ``WEB_DEFAULT_INIT_QUERY``,
-group-based rules) are honoured for every MCP tool call: the
-authenticated user is resolved from the bearer token and the resulting
-init filter is AND-ed with any filter built by the client.
-
 To create an API key, log in to the Web UI as the user, open
 *Admin > API Keys* and click **Create**. Keep the key secret --
 revoking it from the Web UI immediately invalidates MCP clients
 carrying it.
+
+OAuth 2.1 consent flow (opt-in)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Recent MCP clients (Claude Desktop, Cursor, Claude Code, …)
+drive an ``/authorize`` -> consent -> ``/token`` flow against
+IVRE and receive a short-lived access token + refresh token.
+Set ``MCP_OAUTH_AS_ENABLED = True`` in ``ivre.conf`` to enable
+the AS side; this requires ``WEB_AUTH_ENABLED = True`` because
+the consent screen reuses the existing login flow.
+
+When enabled, the MCP HTTP server mounts the following OAuth
+2.1 endpoints (per RFC 8414 / RFC 7591 / RFC 7009 / RFC 9728):
+
+* ``GET  /.well-known/oauth-protected-resource`` -- RFC 9728
+  protected-resource metadata; advertises the authorization
+  server(s) for this MCP endpoint. Mounted unconditionally
+  whenever bearer auth is enabled (i.e. also under
+  API-key-only mode).
+* ``GET  /.well-known/oauth-authorization-server`` -- RFC 8414
+  AS metadata (``authorize`` / ``token`` / ``register`` /
+  ``revoke`` endpoint URLs, supported grant types, PKCE
+  methods).
+* ``GET  /authorize`` -- the entry point that, after parsing
+  the client's PKCE authorization request, redirects the
+  user-agent to ``/cgi/auth/oauth/consent`` on the Bottle Web
+  app.
+* ``POST /token`` -- code-for-token exchange and refresh.
+* ``POST /register`` -- RFC 7591 dynamic client registration
+  (gated on ``MCP_OAUTH_DCR_ENABLED``; default on).
+* ``POST /revoke`` -- RFC 7009 token revocation.
+
+The consent screen (rendered at ``/cgi/auth/oauth/consent``) shows
+the requesting client's ``client_name`` plus the requested
+scopes, then either redirects back to the client's
+``redirect_uri`` with a one-shot authorization code, or with
+``error=access_denied`` on a "Deny" click.
+
+Unauthenticated users are bounced through the regular IVRE
+login page first, with the consent URL passed as a ``next=``
+query parameter so the user lands back on the consent screen
+after signing in. The same ``next=`` plumbing is wired through
+the OAuth login (``/cgi/auth/login/<provider>``), the
+provider callback (``/cgi/auth/callback/<provider>``), the
+magic-link request (``POST /cgi/auth/magic-link``) and the
+magic-link verification (``GET /cgi/auth/magic-link/verify``).
+The server validates every incoming ``next=`` value as a
+same-origin relative path (rejecting absolute URLs,
+protocol-relative URLs, ``\``-prefixed variants, CR/LF
+injection, and inputs longer than 2048 characters); anything
+that does not parse cleanly is silently dropped and the
+post-login redirect falls back to ``/``. The OAuth-flow ``next=`` payload survives
+the round-trip via the ``_ivre_login_next`` signed cookie
+(HMAC'd with ``WEB_SECRET``, ``HttpOnly``, ``SameSite=Lax``,
+5 min TTL); the magic-link flow embeds the validated path in
+the verification URL.
+
+Issued access tokens (``ivre_oat_*``) and refresh tokens
+(``ivre_ort_*``) are opaque random strings; only their SHA-256
+hashes are persisted, mirroring the API-key storage posture.
+Refresh tokens rotate on every exchange: the consumed refresh
+token is revoked before the new pair is minted.
+
+The OAuth knobs live alongside the HTTP transport knobs in
+``ivre.conf``:
+
+================================ ===========================================
+Knob                             Description
+================================ ===========================================
+``MCP_OAUTH_AS_ENABLED``         Enable the OAuth AS endpoints. Default
+                                 ``False`` (API-key bearer only).
+``MCP_OAUTH_DCR_ENABLED``        Allow RFC 7591 dynamic client registration
+                                 at ``POST /register``. Default ``True``.
+``MCP_OAUTH_PUBLIC_URL``         Public base URL used in the consent
+                                 redirect and AS metadata document. Falls
+                                 back to ``WEB_AUTH_BASE_URL``.
+``MCP_OAUTH_REQUEST_TTL``        Lifetime of an in-flight ``/authorize``
+                                 request before the user consents, in
+                                 seconds. Default ``600``.
+``MCP_OAUTH_CODE_TTL``           Lifetime of an issued authorization code
+                                 awaiting exchange, in seconds. Default
+                                 ``600``.
+``MCP_OAUTH_ACCESS_TOKEN_TTL``   Lifetime of an issued access token, in
+                                 seconds. Default ``3600``.
+``MCP_OAUTH_REFRESH_TOKEN_TTL``  Lifetime of an issued refresh token, in
+                                 seconds. ``None`` disables expiry
+                                 (refresh until revoked). Default
+                                 ``2592000`` (30 days).
+================================ ===========================================
+
+The two authentication shapes coexist: when the AS is enabled,
+the MCP HTTP transport validates *both* OAuth-issued access
+tokens *and* pre-existing IVRE API keys on every tool call, so
+existing API-key users keep working while new clients drive the
+consent flow.
+
+Per-user access controls
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Per-user access controls (``WEB_INIT_QUERIES``,
+``WEB_DEFAULT_INIT_QUERY``, group-based rules) are honoured for
+every MCP tool call, regardless of which authentication shape
+the client used: the authenticated user is resolved from the
+bearer token and the resulting init filter is AND-ed with any
+filter built by the client.
 
 Safety defaults
 ---------------

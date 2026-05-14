@@ -19,11 +19,13 @@
 from __future__ import annotations
 
 import hmac
+import html
 import ipaddress
 import json
 import secrets
 import smtplib
 from email.mime.text import MIMEText
+from urllib.parse import urlencode, urlparse, urlsplit, urlunparse
 
 from bottle import abort, redirect, request, response
 
@@ -37,6 +39,26 @@ from ivre.web.oauth import (
     get_enabled_providers,
     get_user_email,
 )
+
+# Optional dependency: the OAuth consent routes below import the
+# MCP-side helpers (``issue_authorization_code`` /
+# ``peek_authorization_request``).  Those helpers transitively
+# import the ``mcp`` package, which is an optional extra
+# (``ivre[mcp]``).  Mirror the try-import pattern already used in
+# :mod:`ivre.tools.mcp_server`: leave the names as ``None`` when
+# the dep is missing; the route handlers abort cleanly in that
+# case.  Re-import at request time would also work but keeps the
+# import graph noisier.
+try:
+    from ivre.tools.mcp_server.auth import (
+        issue_authorization_code as _mcp_issue_authorization_code,
+    )
+    from ivre.tools.mcp_server.auth import (
+        peek_authorization_request as _mcp_peek_authorization_request,
+    )
+except ImportError:  # pragma: no cover - exercised via the mcp-less smoke test
+    _mcp_issue_authorization_code = None  # type: ignore[assignment]
+    _mcp_peek_authorization_request = None  # type: ignore[assignment]
 
 if not config.WEB_SECRET or not isinstance(config.WEB_SECRET, str):
     raise ValueError(
@@ -77,6 +99,59 @@ def _verify_state(state: str) -> bool:
     return hmac.compare_digest(sig, expected)
 
 
+# Hard upper bound on a ``next=`` value carried through the login
+# chain.  Browsers tolerate URLs into the multi-kilobyte range and
+# our signed-cookie carrier has its own ~4 KB envelope budget, so
+# the cap mostly defends against runaway / pathological input
+# rather than a hard browser limit.
+_NEXT_URL_MAX_LENGTH = 2048
+
+
+def _validate_next_url(value: str | None) -> str | None:
+    """Return ``value`` if it is a safe same-origin relative path,
+    else ``None``.
+
+    Rejects everything that could be turned into an open-redirect
+    after a successful sign-in:
+
+    * absolute URLs (``http://…``, ``https://…``, ``javascript:…``)
+      -- ``urlsplit(value).scheme`` non-empty.
+    * protocol-relative URLs (``//host/path``) -- starts with two
+      forward slashes.
+    * backslash variants browsers may normalise back to ``//``
+      (``/\\evil``).  Other backslash-prefixed inputs (e.g.
+      ``\\evil``, no leading slash) are caught by the prior
+      "must start with ``/``" check below.
+    * CR / LF / NUL injection that could break header parsing on
+      the way out (``redirect()`` builds a ``Location:`` header).
+    * inputs longer than :data:`_NEXT_URL_MAX_LENGTH` characters.
+    * anything that does not start with a single forward slash
+      (the caller decided ``next=`` is a path; bare strings, ``?
+      foo``, ``#frag``-only inputs are rejected so the
+      same-origin guarantee is unambiguous).
+
+    Callers default to ``"/"`` when the helper returns ``None``.
+    """
+    if not value or not isinstance(value, str):
+        return None
+    if len(value) > _NEXT_URL_MAX_LENGTH:
+        return None
+    if any(ch in value for ch in ("\r", "\n", "\x00")):
+        return None
+    if not value.startswith("/"):
+        return None
+    # Reject protocol-relative + backslash variants browsers may
+    # normalise back to ``//``.  ``\\`` early-rejection covers
+    # ``/\\evil.com``; the ``//`` prefix check covers the plain
+    # protocol-relative form.
+    if value.startswith("//") or value.startswith("/\\"):
+        return None
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc:
+        return None
+    return value
+
+
 def _check_registration(email: str) -> bool:
     """Check if a new user with this email is allowed to register."""
     policy = config.WEB_AUTH_REGISTRATION
@@ -106,11 +181,22 @@ def _set_session_cookie(token: str) -> None:
     )
 
 
-def _handle_authenticated_user(email: str, display_name: str | None = None) -> str:
+def _handle_authenticated_user(
+    email: str,
+    display_name: str | None = None,
+    next_url: str | None = None,
+) -> str:
     """Handle a successfully authenticated user: create/check user record,
-    create session, redirect to app.
+    create session, return the post-login redirect URL.
 
-    Returns the redirect URL, or aborts on error.
+    ``next_url`` is the operator-supplied return path threaded
+    through the login chain.  We re-validate it at the boundary
+    (defence-in-depth: callers may pass either pre-validated or
+    raw values), then fall back to ``"/"`` when it is missing or
+    rejected.
+
+    Aborts on user-state errors (pending approval, missing
+    backend).
     """
     if db.auth is None:
         abort(500, "Authentication backend not configured")
@@ -132,7 +218,7 @@ def _handle_authenticated_user(email: str, display_name: str | None = None) -> s
         db.auth.update_user(email, display_name=display_name)
     token = db.auth.create_session(email)
     _set_session_cookie(token)
-    return "/"
+    return _validate_next_url(next_url) or "/"
 
 
 # --- OAuth routes ---
@@ -154,6 +240,24 @@ def login_provider(provider: str) -> None:
         samesite="lax",
         secure=request.url.startswith("https"),
     )
+    # Stash a validated ``next=`` path in a separate signed cookie
+    # so the callback can land the user back on the page they
+    # started from (e.g. the OAuth consent screen mounted at
+    # ``/cgi/auth/oauth/consent``).  The cookie has the same
+    # 5 min TTL as the OAuth state cookie -- a user who takes
+    # longer than that on the upstream IdP loses both equally.
+    next_url = _validate_next_url(request.params.get("next"))
+    if next_url is not None:
+        response.set_cookie(
+            "_ivre_login_next",
+            next_url,
+            secret=config.WEB_SECRET,
+            httponly=True,
+            path="/",
+            max_age=300,
+            samesite="lax",
+            secure=request.url.startswith("https"),
+        )
     base_url = _get_base_url()
     redirect_uri = f"{base_url}/auth/callback/{provider}"
     redirect(get_authorize_url(provider, state, redirect_uri))
@@ -170,6 +274,16 @@ def callback_provider(provider: str) -> None:
         abort(400, "Invalid OAuth state")
     # Clear the state cookie
     response.delete_cookie("_ivre_oauth_state", path="/")
+    # Recover and clear the stashed ``next=``.  Bottle's signed-cookie
+    # helper returns ``None`` on a tampered / missing cookie; the
+    # validator below catches anything that slipped through (the
+    # validation step here is intentional defence-in-depth -- the
+    # cookie is signed with ``WEB_SECRET`` so a forgery is already
+    # rejected, but re-validating keeps the open-redirect surface
+    # uniformly bounded).
+    raw_next = request.get_cookie("_ivre_login_next", secret=config.WEB_SECRET)
+    next_url = _validate_next_url(raw_next if isinstance(raw_next, str) else None)
+    response.delete_cookie("_ivre_login_next", path="/")
     # Check for errors from provider
     error = request.params.get("error")
     if error:
@@ -191,7 +305,7 @@ def callback_provider(provider: str) -> None:
     email, display_name = get_user_email(provider, tokens)
     if not email:
         abort(400, "Could not retrieve email from provider")
-    redir = _handle_authenticated_user(email, display_name)
+    redir = _handle_authenticated_user(email, display_name, next_url=next_url)
     redirect(redir)
 
 
@@ -220,11 +334,22 @@ def _normalize_ip_for_rate_limit(addr: str) -> str:
 def send_magic_link() -> str:
     if not config.WEB_AUTH_MAGIC_LINK_ENABLED:
         abort(404, "Magic link authentication is not enabled")
+    next_url: str | None = None
     try:
         data = json.loads(request.body.read())
         email = data.get("email", "").strip().lower()
+        # The frontend may carry a ``next=<safe-path>`` so the
+        # verify endpoint can land the user back on the page that
+        # triggered the magic-link request.  The validator drops
+        # anything that is not a same-origin relative path.
+        raw_next = data.get("next")
+        if isinstance(raw_next, str):
+            next_url = _validate_next_url(raw_next)
     except (json.JSONDecodeError, AttributeError):
         email = request.forms.get("email", "").strip().lower()
+        raw_next = request.forms.get("next")
+        if isinstance(raw_next, str):
+            next_url = _validate_next_url(raw_next)
     if not email or "@" not in email:
         abort(400, "Invalid email address")
     # Always return success to prevent email enumeration
@@ -254,7 +379,7 @@ def send_magic_link() -> str:
             if db.auth is not None:
                 db.auth.record_rate_limit(email_key)
                 db.auth.record_rate_limit(ip_key)
-            _send_magic_link_email(email)
+            _send_magic_link_email(email, next_url=next_url)
     except Exception:
         utils.LOGGER.error("Failed to send magic link email", exc_info=True)
     return json.dumps({"status": "ok", "message": "Check your email"})
@@ -270,15 +395,27 @@ def verify_magic_link() -> None:
     email = db.auth.consume_magic_link_token(token)
     if email is None:
         abort(400, "Invalid or expired magic link")
-    redir = _handle_authenticated_user(email)
+    # Re-validate the ``next=`` carried in the link.  The magic
+    # link itself travels via email so we must assume it can be
+    # tampered with in transit; the validator drops any payload
+    # that is not a same-origin relative path.
+    next_url = _validate_next_url(request.params.get("next"))
+    redir = _handle_authenticated_user(email, next_url=next_url)
     redirect(redir)
 
 
-def _send_magic_link_email(email: str) -> None:
-    """Send a magic link email."""
+def _send_magic_link_email(email: str, next_url: str | None = None) -> None:
+    """Send a magic link email.
+
+    ``next_url`` is the optional post-login redirect path.  It is
+    expected to already be validated by :func:`_validate_next_url`;
+    callers passing raw user input should validate first.
+    """
     base_url = _get_base_url()
     token = db.auth.create_magic_link_token(email, config.WEB_AUTH_MAGIC_LINK_LIFETIME)
     link = f"{base_url}/auth/magic-link/verify?token={token}"
+    if next_url:
+        link = f"{link}&{urlencode({'next': next_url})}"
     msg = MIMEText(
         f"Click this link to log in to IVRE:\n\n{link}\n\n"
         f"This link expires in {config.WEB_AUTH_MAGIC_LINK_LIFETIME // 60} minutes.\n"
@@ -513,3 +650,202 @@ def auth_config() -> str:
     if provider_labels:
         result["provider_labels"] = provider_labels
     return json.dumps(result)
+
+
+# --- OAuth consent routes (MCP Authorization Server) ---
+#
+# The MCP server's ``IvreOAuthProvider.authorize()`` redirects the
+# user-agent here with an opaque ``request_id`` after parsing the
+# OAuth ``/authorize`` request.  This module owns the consent UX:
+#
+# * ``GET  /auth/oauth/consent?request_id=...`` -- render an HTML
+#   consent page showing the requesting client name + scope list;
+#   redirects to the login flow when the user is not authenticated
+#   (after login the user lands back on the same URL).
+#
+# * ``POST /auth/oauth/consent`` -- handle the ``allow`` / ``deny``
+#   button click; on allow, mint an authorization code via
+#   :func:`ivre.tools.mcp_server.auth.issue_authorization_code` and
+#   redirect to the OAuth client's ``redirect_uri`` with ``code`` /
+#   ``state``; on deny, redirect with
+#   ``error=access_denied`` per RFC 6749 §4.1.2.1.
+
+
+def _html_escape(value: object) -> str:
+    """Minimal HTML escape for embedding untrusted strings in the
+    consent page; the page is hand-written (no server-side
+    templating) so the escaping is explicit at every
+    interpolation site.
+    """
+    return html.escape(str(value), quote=True)
+
+
+def _oauth_client_redirect(
+    redirect_uri: str,
+    state: str | None,
+    **extra: str,
+) -> None:
+    """Bounce the user-agent back to the OAuth client's
+    ``redirect_uri`` with the standard ``code`` / ``state`` /
+    ``error`` query parameters (per RFC 6749 §4.1.2 and
+    §4.1.2.1).  ``state`` is passed through verbatim so the
+    client can correlate its request.
+    """
+    params: list[tuple[str, str]] = []
+    if state is not None:
+        params.append(("state", state))
+    params.extend((k, v) for k, v in extra.items() if v is not None)
+    parsed = urlparse(redirect_uri)
+    existing = parsed.query
+    query = urlencode(params)
+    if existing:
+        query = f"{existing}&{query}"
+    redirect(urlunparse(parsed._replace(query=query)))
+
+
+def _render_consent_page(
+    request_id: str,
+    client_name: str,
+    scopes: list[str],
+    user_email: str,
+) -> str:
+    """Render the consent HTML.
+
+    Hand-written (no Jinja / no templating) so the surface stays
+    minimal and the CSP-friendly profile (no inline JS, only inline
+    CSS hashes) is easy to lock down.  Every interpolation site
+    runs through :func:`_html_escape`.
+    """
+    response.content_type = "text/html; charset=utf-8"
+    scope_items = (
+        "".join(f"<li>{_html_escape(s)}</li>" for s in scopes)
+        if scopes
+        else "<li><em>(no scopes requested)</em></li>"
+    )
+    return (
+        '<!doctype html><html lang="en"><head>'
+        '<meta charset="utf-8">'
+        "<title>IVRE -- Authorise application</title>"
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "<style>"
+        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;"
+        "max-width:30rem;margin:3rem auto;padding:0 1rem;color:#222}"
+        "h1{font-size:1.4rem;margin-bottom:1rem}"
+        ".client{font-weight:600}"
+        "ul{padding-left:1.5rem}"
+        ".user{color:#666;font-size:.9rem;margin:1rem 0}"
+        ".actions{margin-top:1.5rem;display:flex;gap:.5rem}"
+        "button{padding:.6rem 1.2rem;font-size:1rem;border-radius:.4rem;"
+        "border:1px solid #888;background:#fff;cursor:pointer}"
+        "button.allow{background:#2d6cdf;color:#fff;border-color:#2d6cdf}"
+        "</style>"
+        "</head><body>"
+        f'<h1><span class="client">{_html_escape(client_name)}</span> '
+        "would like to access your IVRE data</h1>"
+        "<p>This application is asking permission to act on your "
+        "behalf with the following scopes:</p>"
+        f"<ul>{scope_items}</ul>"
+        f'<p class="user">Signed in as <strong>'
+        f"{_html_escape(user_email)}</strong>.</p>"
+        '<form method="post" action="/cgi/auth/oauth/consent">'
+        f'<input type="hidden" name="request_id" '
+        f'value="{_html_escape(request_id)}">'
+        '<div class="actions">'
+        '<button type="submit" name="action" value="deny">Deny</button>'
+        '<button type="submit" name="action" value="allow" '
+        'class="allow">Allow</button>'
+        "</div>"
+        "</form>"
+        "</body></html>"
+    )
+
+
+@application.get("/auth/oauth/consent")
+@check_referer
+def oauth_consent_page() -> str:
+    """Render the OAuth consent screen for an in-flight
+    authorization request driven by the MCP server's
+    :class:`IvreOAuthProvider`.
+
+    Reuses the existing session cookie / login flow: if the user
+    is not logged in we redirect to ``/login?next=...`` so the
+    return path lands back here after authentication.
+    """
+    if not config.MCP_OAUTH_AS_ENABLED or _mcp_peek_authorization_request is None:
+        abort(404, "OAuth Authorization Server is disabled")
+    if db.auth is None:
+        abort(500, "Authentication backend not configured")
+    request_id = request.query.get("request_id", "").strip()
+    if not request_id:
+        abort(400, "missing request_id")
+    user_email = webutils.get_user()
+    if user_email is None:
+        # Bounce through the login page; the frontend interprets
+        # ``?next=`` to redirect back after a successful login.
+        target = f"/cgi/auth/oauth/consent?{urlencode({'request_id': request_id})}"
+        redirect(f"/login?{urlencode({'next': target})}")
+    payload = _mcp_peek_authorization_request(request_id)
+    if payload is None:
+        abort(400, "authorization request not found or expired")
+    client_record = db.auth.get_oauth_client(payload["client_id"])
+    client_name = (client_record or {}).get("client_name") or payload["client_id"]
+    scopes = list(payload.get("scopes") or [])
+    return _render_consent_page(
+        request_id=request_id,
+        client_name=client_name,
+        scopes=scopes,
+        user_email=user_email,
+    )
+
+
+@application.post("/auth/oauth/consent")
+@check_referer
+def oauth_consent_submit() -> None:
+    """Handle the user's ``Allow`` / ``Deny`` decision and bounce
+    the user-agent back to the OAuth client's ``redirect_uri``.
+
+    On ``Allow``: mints a fresh authorization code and redirects
+    with ``code=<value>&state=<request-state>``.  On ``Deny`` (or
+    any non-``allow`` action): redirects with
+    ``error=access_denied`` per RFC 6749 §4.1.2.1.
+    """
+    if not config.MCP_OAUTH_AS_ENABLED or _mcp_issue_authorization_code is None:
+        abort(404, "OAuth Authorization Server is disabled")
+    if db.auth is None:
+        abort(500, "Authentication backend not configured")
+    user_email = webutils.get_user()
+    if user_email is None:
+        abort(401, "Authentication required")
+    request_id = (request.forms.get("request_id") or "").strip()
+    action = (request.forms.get("action") or "").strip().lower()
+    if not request_id:
+        abort(400, "missing request_id")
+    if action == "allow":
+        # ``issue_authorization_code`` atomically consumes the
+        # pending request and returns both the minted code *and*
+        # the consumed payload, so we can build the redirect
+        # without a separate peek round-trip.
+        result = _mcp_issue_authorization_code(request_id, user_email)
+        if result is None:
+            abort(400, "authorization request not found or expired")
+        code, pending = result
+        _oauth_client_redirect(
+            pending["redirect_uri"],
+            pending.get("state"),
+            code=code,
+        )
+        return
+    # ``deny`` (or anything else): consume the pending request so
+    # the user cannot revisit the consent page after declining;
+    # use the consumed payload directly to build the
+    # ``error=access_denied`` redirect (single DB round-trip, no
+    # race window between peek and consume).
+    pending = db.auth.consume_authorization_request(request_id)
+    if pending is None:
+        abort(400, "authorization request not found or expired")
+    _oauth_client_redirect(
+        pending["redirect_uri"],
+        pending.get("state"),
+        error="access_denied",
+        error_description="The user denied the authorization request.",
+    )

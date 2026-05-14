@@ -338,6 +338,43 @@ MCP_HTTP_PATH = "/mcp"
 # bound to a non-loopback address without a valid auth backend.
 MCP_HTTP_ALLOW_ANONYMOUS = False
 
+# --- MCP server: OAuth 2.1 Authorization Server (consent) ---
+# When True, the MCP HTTP transport additionally mounts the OAuth 2.1
+# Authorization Server endpoints (``/.well-known/oauth-authorization-server``,
+# ``/authorize``, ``/token``, ``/register``, ``/revoke``). MCP clients
+# (Claude Desktop, Cursor, Claude Code, …) will then drive an end-user
+# consent flow against IVRE rather than requiring an out-of-band API
+# key. Requires ``WEB_AUTH_ENABLED = True`` (the consent page reuses
+# the existing IVRE session / login flow). API-key bearer auth keeps
+# working alongside OAuth tokens for backwards compatibility.
+MCP_OAUTH_AS_ENABLED = False
+# When True, MCP clients may self-register via RFC 7591 dynamic client
+# registration (``POST /register``). When False, clients must be
+# admin-provisioned (no built-in CLI for that yet -- write directly to
+# ``db.auth.create_oauth_client``).
+MCP_OAUTH_DCR_ENABLED = True
+# Lifetime of a one-shot authorization request awaiting user consent,
+# in seconds. Short on purpose: it bounds how long an in-flight
+# authorize URL stays valid before the user has to retry from the MCP
+# client.
+MCP_OAUTH_REQUEST_TTL = 600
+# Lifetime of an issued authorization code, in seconds. RFC 6749
+# recommends "very short", typically under ten minutes.
+MCP_OAUTH_CODE_TTL = 600
+# Lifetime of an issued access token, in seconds. Short-lived; clients
+# refresh via the refresh-token flow.
+MCP_OAUTH_ACCESS_TOKEN_TTL = 3600
+# Lifetime of an issued refresh token, in seconds. ``None`` disables
+# the expiry (refresh tokens last until revoked).
+MCP_OAUTH_REFRESH_TOKEN_TTL: int | None = 2_592_000
+# Public-facing base URL the AS advertises in its metadata document
+# and embeds in redirect URLs (``/authorize`` redirects to
+# ``<base_url>/cgi/auth/oauth/consent?...``). When ``None``, IVRE
+# infers the URL from each incoming request (works behind a single
+# reverse proxy); set explicitly when running multiple front-ends or
+# when ``WEB_AUTH_BASE_URL`` is not suitable.
+MCP_OAUTH_PUBLIC_URL: str | None = None
+
 
 def get_config_file(paths: list[str] | None = None) -> Generator[str, None, None]:
     """Generates (yields) the available config files, in the correct order."""
