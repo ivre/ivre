@@ -903,7 +903,7 @@ class DB:
     def _ja3keyvalue(value_or_hash):
         """Returns the key and the value to search for according
         to the nature of the given argument for ja3 filtering"""
-        if isinstance(value_or_hash, utils.REGEXP_T):
+        if isinstance(value_or_hash, re.Pattern):
             return ("raw", value_or_hash)
         if utils.HEX.search(value_or_hash):
             key = {32: "md5", 40: "sha1", 64: "sha256"}.get(len(value_or_hash), "raw")
@@ -1825,7 +1825,7 @@ class DBActive(DB):
         """Search SSH host keys"""
         params = {"name": "ssh-hostkey"}
         if fingerprint is not None:
-            if not isinstance(fingerprint, utils.REGEXP_T):
+            if not isinstance(fingerprint, re.Pattern):
                 fingerprint = fingerprint.replace(":", "").lower()
             params.setdefault("values", {})["fingerprint"] = fingerprint
         if key is not None:
@@ -1938,7 +1938,7 @@ class DBActive(DB):
             hashval = locals()[hashtype]
             if hashval is None:
                 continue
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 values[hashtype] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
             values[hashtype] = hashval.lower()
@@ -1953,7 +1953,7 @@ class DBActive(DB):
             if hashval is None:
                 continue
             key = f"pubkey.{hashtype}"
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 values[key] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
             values[key] = hashval.lower()
@@ -2293,7 +2293,7 @@ class DBActive(DB):
         elif subdomains:
             flt = self.searchdomain(addr_or_name)
 
-            if isinstance(addr_or_name, utils.REGEXP_T):
+            if isinstance(addr_or_name, re.Pattern):
                 if dnstype is None:
 
                     def cond(hname):
@@ -2325,7 +2325,7 @@ class DBActive(DB):
         else:
             flt = self.searchhostname(name=addr_or_name)
 
-            if isinstance(addr_or_name, utils.REGEXP_T):
+            if isinstance(addr_or_name, re.Pattern):
                 if dnstype is None:
 
                     def cond(hname):

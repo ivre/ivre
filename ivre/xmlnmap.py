@@ -2329,7 +2329,7 @@ class NmapHandler(ContentHandler):
                 self._curtable = {}
             elif infokey in ADD_TABLE_ELEMS:
                 infos = ADD_TABLE_ELEMS[infokey]
-                if isinstance(infos, utils.REGEXP_T):
+                if isinstance(infos, re.Pattern):
                     infos = infos.search(self._curscript.get("output", ""))
                     if infos is not None:
                         infosdict = infos.groupdict()

@@ -654,7 +654,7 @@ class MongoDB(DB):
         so the refactor is behaviour-preserving (DocumentDB
         semantics included).
         """
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             return {field: {"$not": value} if neg else value}
         if isinstance(value, list):
             if len(value) == 1:
@@ -834,7 +834,7 @@ class MongoDB(DB):
             if hashval is None:
                 continue
             key = f"{prefix}{hashtype}"
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 res[key] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
             if isinstance(hashval, list):
@@ -852,7 +852,7 @@ class MongoDB(DB):
             if hashval is None:
                 continue
             key = f"{prefix}pubkey.{hashtype}"
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 res[key] = re.compile(hashval.pattern, hashval.flags | re.I)
                 continue
             if isinstance(hashval, list):
@@ -885,7 +885,7 @@ def _normalize_mac(mac):
     :meth:`MongoDBPassive.searchmac` so the normalisation
     rule lives in one place.
     """
-    if isinstance(mac, utils.REGEXP_T):
+    if isinstance(mac, re.Pattern):
         return re.compile(mac.pattern, mac.flags | re.I)
     if isinstance(mac, list):
         return [m.lower() if isinstance(m, str) else m for m in mac]
@@ -2853,7 +2853,7 @@ class MongoDBActive(MongoDB, DBActive):
                 )
             else:
                 key = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, (str, utils.REGEXP_T)):
+            if isinstance(values, (str, re.Pattern)):
                 req[key] = values
             else:
                 if len(values) >= 2 and f"ports.scripts.{key}" in cls.list_fields:
@@ -4689,7 +4689,7 @@ class MongoDBView(MongoDBActive, DBView):
         for key, value in tag.items():
             if isinstance(value, list) and len(value) == 1:
                 value = value[0]
-            if isinstance(value, utils.REGEXP_T):
+            if isinstance(value, re.Pattern):
                 if neg:
                     req[key] = {"$not": value}
                 else:
@@ -5843,7 +5843,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     def searchsshkey(fingerprint=None, key=None, keytype=None, bits=None):
         res = {"recontype": "SSH_SERVER_HOSTKEY", "source": "SSHv2"}
         if fingerprint is not None:
-            if not isinstance(fingerprint, utils.REGEXP_T):
+            if not isinstance(fingerprint, re.Pattern):
                 fingerprint = fingerprint.replace(":", "").lower()
             res["infos.md5"] = fingerprint
         if key is not None:
@@ -5905,7 +5905,7 @@ def _coerce_asnum(asnum):
     ``aut-num`` integer field uses. Accepts int / ``"AS1234"`` /
     ``"1234"``, lists thereof, or a regex (passed through). Used by
     :meth:`MongoDBRir.searchasnum`."""
-    if isinstance(asnum, utils.REGEXP_T):
+    if isinstance(asnum, re.Pattern):
         return asnum
     if isinstance(asnum, list):
         return [_coerce_asnum(v) for v in asnum]

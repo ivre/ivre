@@ -219,7 +219,7 @@ class DuckDBMixin:
         For non-regex values, the parent's scalar / list /
         equality dispatch shape is preserved verbatim.
         """
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             options = "i" if (value.flags & re.IGNORECASE) else ""
             if options:
                 flt = func.regexp_matches(field, value.pattern, options)
@@ -844,7 +844,7 @@ class _DuckDBActiveSearchMixin:
             .table_valued("v")
             .render_derived(name="__mac", with_types=False)
         )
-        if isinstance(mac, utils.REGEXP_T):
+        if isinstance(mac, re.Pattern):
             mac = re.compile(mac.pattern, mac.flags | re.IGNORECASE)
             elt_pred = cls._searchstring_re(mac_alias.c.v, mac)
         else:

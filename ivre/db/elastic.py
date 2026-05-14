@@ -259,7 +259,7 @@ class ElasticDB(DB):
         values, host script outputs) needs case-insensitive
         matching to mirror the Mongo backend.
         """
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             pattern, flags = utils.regexp2pattern(value)
             unsupported = flags & ~(re.UNICODE | re.IGNORECASE)
             if unsupported:
@@ -285,7 +285,7 @@ class ElasticDB(DB):
         single dispatch over the four input shapes the IVRE web
         filter language can produce.
 
-        - ``value`` is a regex (``utils.REGEXP_T``) → ``regexp``
+        - ``value`` is a regex (``re.Pattern``) → ``regexp``
           query (the pattern is rewritten via :meth:`_get_pattern`
           to match Elasticsearch's anchored-by-default semantics).
         - ``value`` is a list of length one → ``match`` query on
@@ -298,7 +298,7 @@ class ElasticDB(DB):
         ``neg=True`` wraps the result in ``~`` (a ``bool``
         ``must_not`` clause).
         """
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             res = Q("regexp", **{field: cls._get_pattern(value)})
         elif isinstance(value, list):
             if len(value) == 1:
@@ -952,7 +952,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         elif field.startswith("category:") or field.startswith("categories:"):
             subfield = utils.str2regexp(field.split(":", 1)[1])
             flt = self.flt_and(flt, self.searchcategory(subfield))
-            if isinstance(subfield, utils.REGEXP_T):
+            if isinstance(subfield, re.Pattern):
                 subfield = self._get_pattern(subfield)
             else:
                 subfield = re.escape(subfield)
@@ -1507,7 +1507,7 @@ return result;
             else:
                 subfield = utils.str2regexp(field[10:])
                 flt = self.flt_and(flt, self.searchuseragent(useragent=subfield))
-                if isinstance(subfield, utils.REGEXP_T):
+                if isinstance(subfield, re.Pattern):
                     subfield = self._get_pattern(subfield)
                 else:
                     subfield = re.escape(subfield)
@@ -1534,7 +1534,7 @@ return result;
             if ":" in field:
                 field, value = field.split(":", 1)
                 subkey, value = self._ja3keyvalue(utils.str2regexp(value))
-                if isinstance(value, utils.REGEXP_T):
+                if isinstance(value, re.Pattern):
                     include_value = self._get_pattern(value)
                     filter_value = {
                         "regexp": {
@@ -1598,7 +1598,7 @@ return result;
                     value1, value2 = values.split(":", 1)
                     if value1:
                         subkey1, value1 = self._ja3keyvalue(utils.str2regexp(value1))
-                        if isinstance(value1, utils.REGEXP_T):
+                        if isinstance(value1, re.Pattern):
                             filter_value1 = {
                                 "regexp": {
                                     f"ports.scripts.ssl-ja3-server.{subkey1}": self._get_pattern(
@@ -1616,7 +1616,7 @@ return result;
                         subkey1, value1 = None, None
                     if value2:
                         subkey2, value2 = self._ja3keyvalue(utils.str2regexp(value2))
-                        if isinstance(value2, utils.REGEXP_T):
+                        if isinstance(value2, re.Pattern):
                             filter_value2 = {
                                 "regexp": {
                                     f"ports.scripts.ssl-ja3-server.client.{subkey2}": self._get_pattern(
@@ -1634,7 +1634,7 @@ return result;
                         subkey2, value2 = None, None
                 else:
                     subkey1, value1 = self._ja3keyvalue(utils.str2regexp(values))
-                    if isinstance(value1, utils.REGEXP_T):
+                    if isinstance(value1, re.Pattern):
                         filter_value1 = {
                             "regexp": {
                                 f"ports.scripts.ssl-ja3-server.{subkey1}": self._get_pattern(
@@ -1710,7 +1710,7 @@ return result;
         ):
             if ":" in field:
                 field, value = field.split(":", 1)
-                if isinstance(value, utils.REGEXP_T):
+                if isinstance(value, re.Pattern):
                     include_value = self._get_pattern(value)
                 else:
                     include_value = re.escape(value)
@@ -2593,7 +2593,7 @@ return result;
         means "no hop matches" rather than "at least one hop
         differs" (the flat-array semantics).
         """
-        if isinstance(hop, utils.REGEXP_T):
+        if isinstance(hop, re.Pattern):
             inner = Q("regexp", **{"traces.hops.domains": cls._get_pattern(hop)})
         elif isinstance(hop, list):
             if len(hop) == 1:
@@ -2785,7 +2785,7 @@ return result;
             if neg:
                 return ~res
             return res
-        if isinstance(words, utils.REGEXP_T):
+        if isinstance(words, re.Pattern):
             pattern = re.compile(words.pattern.lower(), flags=words.flags)
             res = Q("regexp", **{"ports.screenwords": cls._get_pattern(pattern)})
             if neg:
@@ -2833,7 +2833,7 @@ return result;
         )
 
         def _access_match(field):
-            if isinstance(access_pattern, utils.REGEXP_T):
+            if isinstance(access_pattern, re.Pattern):
                 return Q(
                     "regexp",
                     **{field: cls._get_pattern(access_pattern)},
@@ -3022,7 +3022,7 @@ return result;
             file_q = Q("exists", field=ls_path)
         elif isinstance(fname, list):
             file_q = Q("terms", **{ls_path: fname})
-        elif isinstance(fname, utils.REGEXP_T):
+        elif isinstance(fname, re.Pattern):
             file_q = Q("regexp", **{ls_path: cls._get_pattern(fname)})
         else:
             file_q = Q("match", **{ls_path: fname})
@@ -3062,7 +3062,7 @@ return result;
         if state is None and vulnid is None:
             inner = Q("exists", field="ports.scripts.vulns.id")
         elif state is None:
-            if isinstance(vulnid, utils.REGEXP_T):
+            if isinstance(vulnid, re.Pattern):
                 inner = Q(
                     "regexp",
                     **{"ports.scripts.vulns.id": cls._get_pattern(vulnid)},
@@ -3136,7 +3136,7 @@ return result;
             return Q("exists", field="cpes")
         clauses = []
         for name, value in flt:
-            if isinstance(value, utils.REGEXP_T):
+            if isinstance(value, re.Pattern):
                 clauses.append(Q("regexp", **{f"cpes.{name}": cls._get_pattern(value)}))
             else:
                 clauses.append(Q("match", **{f"cpes.{name}": value}))
@@ -3150,7 +3150,7 @@ return result;
         ORs.
         """
         keys = ("vendor", "osfamily", "osgen", "type")
-        if isinstance(txt, utils.REGEXP_T):
+        if isinstance(txt, re.Pattern):
             pattern = cls._get_pattern(txt)
             return cls.flt_or(
                 *(Q("regexp", **{f"os.osclass.{key}": pattern}) for key in keys)
@@ -3171,12 +3171,12 @@ return result;
         req = []
         if isinstance(name, list):
             req.append(Q("terms", **{"ports.scripts.id": name}))
-        elif isinstance(name, utils.REGEXP_T):
+        elif isinstance(name, re.Pattern):
             req.append(cls._regexp_clause("ports.scripts.id", name))
         elif name is not None:
             req.append(Q("match", **{"ports.scripts.id": name}))
         if output is not None:
-            if isinstance(output, utils.REGEXP_T):
+            if isinstance(output, re.Pattern):
                 req.append(cls._regexp_clause("ports.scripts.output", output))
             else:
                 req.append(Q("match", **{"ports.scripts.output": output}))
@@ -3198,11 +3198,11 @@ return result;
                 req.append(values)
             elif isinstance(values, str):
                 req.append(Q("match", **{f"ports.scripts.{key}": values}))
-            elif isinstance(values, utils.REGEXP_T):
+            elif isinstance(values, re.Pattern):
                 req.append(cls._regexp_clause(f"ports.scripts.{key}", values))
             else:
                 for field, value in values.items():
-                    if isinstance(value, utils.REGEXP_T):
+                    if isinstance(value, re.Pattern):
                         req.append(
                             cls._regexp_clause(f"ports.scripts.{key}.{field}", value)
                         )
@@ -3310,7 +3310,7 @@ return result;
             if hashval is None:
                 continue
             key = f"ports.scripts.ssl-cert.{hashtype}"
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 req.append(Q("regexp", **{key: cls._get_pattern(hashval).lower()}))
                 continue
             if isinstance(hashval, list):
@@ -3318,7 +3318,7 @@ return result;
                 continue
             req.append(Q("match", **{key: hashval.lower()}))
         if subject is not None:
-            if isinstance(subject, utils.REGEXP_T):
+            if isinstance(subject, re.Pattern):
                 req.append(
                     Q(
                         "regexp",
@@ -3334,7 +3334,7 @@ return result;
                     Q("match", **{"ports.scripts.ssl-cert.subject_text": subject})
                 )
         if issuer is not None:
-            if isinstance(issuer, utils.REGEXP_T):
+            if isinstance(issuer, re.Pattern):
                 req.append(
                     Q(
                         "regexp",
@@ -3356,7 +3356,7 @@ return result;
             if hashval is None:
                 continue
             key = f"ports.scripts.ssl-cert.pubkey.{hashtype}"
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 req.append(Q("regexp", **{key: cls._get_pattern(hashval).lower()}))
                 continue
             if isinstance(hashval, list):
@@ -3485,7 +3485,7 @@ return result;
         else:
             # this is not JA3, but we have the exact same logic & needs
             key, value = cls._ja3keyvalue(value_or_hash)
-            if isinstance(value, utils.REGEXP_T):
+            if isinstance(value, re.Pattern):
                 valflt = Q(
                     "regexp",
                     **{
@@ -3552,7 +3552,7 @@ class ElasticDBView(ElasticDBActive, DBView):
                 value = value[0]
             if isinstance(value, list):
                 res = Q("terms", **{f"tags.{key}": value})
-            elif isinstance(value, utils.REGEXP_T):
+            elif isinstance(value, re.Pattern):
                 res = Q("regexp", **{f"tags.{key}": cls._get_pattern(value)})
             else:
                 res = Q("match", **{f"tags.{key}": value})

@@ -40,7 +40,7 @@ from ivre.db import db
 from ivre.db.http import HttpDBNmap, HttpDBPassive, HttpDBView, serialize
 from ivre.plugins import load_plugins
 from ivre.tools import iprange as iprange_tool
-from ivre.utils import _NMAP_PROBES, REGEXP_T, get_nmap_svc_fp, str2regexp
+from ivre.utils import _NMAP_PROBES, get_nmap_svc_fp, str2regexp
 from ivre.web.utils import get_init_flt_for, parse_filter
 
 from .schemas import SCHEMAS
@@ -348,7 +348,7 @@ def _register_tools() -> None:
                         message="'name' must be set when 'values' is used",
                     )
                 )
-            if isinstance(kwargs["name"], REGEXP_T):
+            if isinstance(kwargs["name"], re.Pattern):
                 raise McpError(
                     ErrorData(
                         code=INVALID_PARAMS,

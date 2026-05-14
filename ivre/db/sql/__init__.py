@@ -601,7 +601,7 @@ class SQLDB(DB):
 
     @staticmethod
     def _searchstring_re_inarray(idfield, field, value, neg=False):
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             operator = "~*" if (value.flags & re.IGNORECASE) else "~"
             value = value.pattern
             base1 = select(idfield.label("id"), func.unnest(field).label("field")).cte(
@@ -626,7 +626,7 @@ class SQLDB(DB):
 
     @staticmethod
     def _searchstring_re(field, value, neg=False):
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             flt = field.op("~*" if (value.flags & re.IGNORECASE) else "~")(
                 value.pattern
             )
@@ -665,7 +665,7 @@ class SQLDB(DB):
         regex-operator dispatch by overriding
         ``_searchstring_re`` without touching every caller.
         """
-        if isinstance(value, utils.REGEXP_T):
+        if isinstance(value, re.Pattern):
             if map_ is not None:
                 raise TypeError(
                     "_search_field: map_ is incompatible with a regex value"
@@ -707,7 +707,7 @@ class SQLDB(DB):
             if hashval is None:
                 continue
             key = base.op("->>")(hashtype)
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 req &= key.op("~*")(hashval.pattern)
                 continue
             if isinstance(hashval, list):
@@ -725,7 +725,7 @@ class SQLDB(DB):
             if hashval is None:
                 continue
             key = base.op("->")("pubkey").op("->>")(hashtype)
-            if isinstance(hashval, utils.REGEXP_T):
+            if isinstance(hashval, re.Pattern):
                 req &= key.op("~*")(hashval.pattern)
                 continue
             if isinstance(hashval, list):
@@ -3518,7 +3518,7 @@ class SQLDBActive(SQLDB, DBActive):
                 )
             else:
                 basekey = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, (str, utils.REGEXP_T)):
+            if isinstance(values, (str, re.Pattern)):
                 needunwind = sorted(set(cls.needunwind_script(basekey)))
             else:
                 needunwind = sorted(
@@ -3557,7 +3557,7 @@ class SQLDBActive(SQLDB, DBActive):
                     result = {key.pop(): result}
                 return result
 
-            if isinstance(values, (str, utils.REGEXP_T)):
+            if isinstance(values, (str, re.Pattern)):
                 kv_generator = [(None, values)]
             else:
                 kv_generator = values.items()
@@ -3565,7 +3565,7 @@ class SQLDBActive(SQLDB, DBActive):
             for key, value in kv_generator:
                 subkey = _find_subkey(key)
                 if subkey is None:
-                    if isinstance(value, utils.REGEXP_T):
+                    if isinstance(value, re.Pattern):
                         base = cls.tables.script.data.op("->")(basekey)
                         key = key.split(".")
                         lastkey = key.pop()
@@ -3710,7 +3710,7 @@ class SQLDBActive(SQLDB, DBActive):
                 '{"ls": {"volumes": [{"files": []}]}}'
             )
         else:
-            if isinstance(fname, (utils.REGEXP_T, list)):
+            if isinstance(fname, (re.Pattern, list)):
                 base1 = (
                     select(
                         cls.tables.script.port,
@@ -4083,7 +4083,7 @@ class SQLDBActive(SQLDB, DBActive):
                 )
             else:
                 conds.append(port_t.screenwords.contains(lowered))
-        elif isinstance(words, utils.REGEXP_T):
+        elif isinstance(words, re.Pattern):
             # Match any array element against the regex.  Use
             # the table-valued-function ``AS __sw(v)`` form
             # (PostgreSQL and DuckDB both accept it) so the
@@ -4393,7 +4393,7 @@ class SQLDBActive(SQLDB, DBActive):
             .table_valued("v")
             .render_derived(name="__mac", with_types=False)
         )
-        if isinstance(mac, utils.REGEXP_T):
+        if isinstance(mac, re.Pattern):
             mac = re.compile(mac.pattern, mac.flags | re.IGNORECASE)
             elt_pred = cls._searchstring_re(mac_alias.c.v, mac)
         else:
@@ -5210,7 +5210,7 @@ class SQLDBPassive(SQLDB, DBPassive):
     def searchval(cls, key, val):
         if isinstance(key, str):
             key = cls.fields[key]
-        if isinstance(val, utils.REGEXP_T):
+        if isinstance(val, re.Pattern):
             return PassiveFilter(
                 main=key.op("~*" if (val.flags & re.IGNORECASE) else "~")(val.pattern)
             )
@@ -5381,7 +5381,7 @@ class SQLDBPassive(SQLDB, DBPassive):
                 return PassiveFilter(main=cls.tables.passive.recontype != "MAC_ADDRESS")
             return PassiveFilter(main=cls.tables.passive.recontype == "MAC_ADDRESS")
         value = cls.tables.passive.value
-        if isinstance(mac, utils.REGEXP_T):
+        if isinstance(mac, re.Pattern):
             cnd = value.op("~*")(mac.pattern)
             if neg:
                 cnd = not_(cnd)
@@ -5675,7 +5675,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             cls.tables.passive.source == "SSHv2"
         )
         if fingerprint is not None:
-            if not isinstance(fingerprint, utils.REGEXP_T):
+            if not isinstance(fingerprint, re.Pattern):
                 fingerprint = fingerprint.replace(":", "").lower()
             cnd &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->>")("md5"), fingerprint

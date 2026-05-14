@@ -660,7 +660,7 @@ class IvreTests(unittest.TestCase):
                             if value_or_hash is None
                             else (
                                 "_regexp"
-                                if isinstance(value_or_hash, ivre.utils.REGEXP_T)
+                                if isinstance(value_or_hash, re.Pattern)
                                 else (
                                     "_fullstring"
                                     if value_or_hash.startswith("diffie-hellman-")
@@ -678,7 +678,7 @@ class IvreTests(unittest.TestCase):
                     "--hassh%s"
                     % ("-server" if server else "" if server is None else "-client"),
                 ]
-                if isinstance(value_or_hash, ivre.utils.REGEXP_T):
+                if isinstance(value_or_hash, re.Pattern):
                     cmdline.append("/%s/" % value_or_hash.pattern)
                 elif value_or_hash is not None:
                     cmdline.append(value_or_hash)

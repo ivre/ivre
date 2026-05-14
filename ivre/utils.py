@@ -95,7 +95,6 @@ LOGGER = logging.getLogger("ivre")
 LOGGER.setLevel(logging.DEBUG if config.DEBUG or config.DEBUG_DB else logging.INFO)
 
 
-REGEXP_T = type(re.compile(""))
 HEX = re.compile("^[a-f0-9]+$", re.IGNORECASE)
 
 
@@ -461,7 +460,7 @@ def regexp2pattern(string: str | bytes | re.Pattern) -> tuple[str | bytes, int]:
     value are regexp.
 
     """
-    if isinstance(string, REGEXP_T):
+    if isinstance(string, re.Pattern):
         flags = string.flags
         data = string.pattern
         patterns = ("^", "$", ".*") if isinstance(data, str) else (b"^", b"$", b".*")
@@ -610,7 +609,7 @@ def isfinal(elt: Any) -> bool:
     that does not contain other elements)
 
     """
-    return isinstance(elt, (str, int, float, datetime.datetime, REGEXP_T))
+    return isinstance(elt, (str, int, float, datetime.datetime, re.Pattern))
 
 
 def diff(doc1: dict[str, Any], doc2: dict[str, Any]) -> dict[str, Any]:
@@ -862,7 +861,7 @@ def recursive_filelisting(
 
 def serialize(obj: Any) -> Any:
     """Return a JSON-compatible representation for `obj`"""
-    regexp_types = (REGEXP_T, BsonRegex) if USE_BSON else REGEXP_T
+    regexp_types = (re.Pattern, BsonRegex) if USE_BSON else re.Pattern
     if isinstance(obj, regexp_types):
         return f"/{obj.pattern}/{''.join((x.lower() for x in 'ILMSXU' if getattr(re, x) & obj.flags))}"
     if isinstance(obj, datetime.datetime):

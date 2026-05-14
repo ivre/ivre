@@ -82,7 +82,7 @@ FLOW_DATETIME_KEYS: frozenset[str] = frozenset({"start_time", "end_time", "ts"})
 
 def serialize(obj):
     """Return a JSON-compatible representation for `obj`"""
-    if isinstance(obj, utils.REGEXP_T):
+    if isinstance(obj, re.Pattern):
         return {
             "f": "regexp",
             "a": [
