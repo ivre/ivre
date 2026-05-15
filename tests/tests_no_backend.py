@@ -14847,6 +14847,232 @@ class IPRangeTests(unittest.TestCase):
         self.assertTrue(status.startswith("400"), status)
 
 
+# ---------------------------------------------------------------------
+# MongoDBNotesIndexTests -- pin the structural definitions
+# (collections, indexes, abstract surface, canonicalisation
+# registry, body-size validator) the per-entity notes purpose
+# ships with.  The actual create / read / update / list-revisions
+# / delete round-trip is exercised in ``tests/tests.py`` on the
+# ``mongodb.yml`` CI lane where a real MongoDB instance is
+# available; these no-backend tests bound the wire shape so
+# regressions surface immediately.
+# ---------------------------------------------------------------------
+
+
+class MongoDBNotesIndexTests(unittest.TestCase):
+    """Backend-free pin tests for the per-entity notes storage
+    layer (``notes`` + ``note_revisions`` collections + the
+    ``DBNotes`` abstract surface + entity-key canonicalisation
+    registry).
+    """
+
+    def test_notes_columns_registered(self) -> None:
+        from ivre.db.mongo import MongoDBNotes
+
+        # Two columns at indexes 0 and 1 -- ``notes`` + audit log.
+        self.assertEqual(MongoDBNotes.column_notes, 0)
+        self.assertEqual(MongoDBNotes.column_note_revisions, 1)
+        # ``indexes`` mirrors ``columns`` in length so every
+        # collection has its index block.
+        self.assertEqual(len(MongoDBNotes.indexes), 2)
+
+    def test_notes_compound_unique_index(self) -> None:
+        # Pin ``(entity_type, entity_key_0, entity_key_1)`` as
+        # the unique compound.  Storing the canonical key as
+        # two scalar fields keeps the index a plain single-key
+        # compound -- a BSON-array ``entity_key`` would turn it
+        # into a *multikey* index where Mongo enforces
+        # uniqueness element-wise, in which case two IPv4 notes
+        # (whose ``addr_0`` is the same bias constant) collide
+        # at the second insert.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_notes]
+        unique_index = next(
+            (keys, opts)
+            for keys, opts in block
+            if keys
+            == [
+                ("entity_type", 1),
+                ("entity_key_0", 1),
+                ("entity_key_1", 1),
+            ]
+        )
+        self.assertTrue(
+            unique_index[1].get("unique"),
+            f"expected unique=True, got {unique_index[1]!r}",
+        )
+
+    def test_notes_body_text_index(self) -> None:
+        # Free-text search over note bodies relies on a text
+        # index; Mongo allows at most one per collection.
+        # ``MongoDB.searchtext`` (inherited by
+        # :class:`MongoDBNotes`) produces ``$text`` queries
+        # that target this index.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_notes]
+        text_index = next(
+            (keys, opts) for keys, opts in block if keys == [("body", "text")]
+        )
+        self.assertEqual(text_index[1].get("name"), "notes_body_text")
+
+    def test_note_revisions_compound_index(self) -> None:
+        # Pin ``(entity_type ASC, entity_key_0 ASC,
+        # entity_key_1 ASC, revision DESC)`` -- the compound
+        # used by ``list_note_revisions`` for newest-first
+        # ordering with the storage shape matching the unique
+        # compound on the parent collection.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_note_revisions]
+        self.assertTrue(
+            any(
+                keys
+                == [
+                    ("entity_type", 1),
+                    ("entity_key_0", 1),
+                    ("entity_key_1", 1),
+                    ("revision", -1),
+                ]
+                for keys, _opts in block
+            ),
+            block,
+        )
+
+    def test_dbnotes_abstract_surface(self) -> None:
+        # Each method is declared on :class:`DBNotes` and is
+        # overridden by :class:`MongoDBNotes`.  The generic
+        # ``get`` / ``count`` primitives + the convenience
+        # methods make up the full purpose surface.
+        from ivre.db import DBNotes
+        from ivre.db.mongo import MongoDBNotes
+
+        method_names = (
+            "get",
+            "count",
+            "get_note",
+            "set_note",
+            "delete_note",
+            "list_note_revisions",
+            "list_entities",
+            "count_notes",
+        )
+        for name in method_names:
+            with self.subTest(method=name):
+                self.assertIn(
+                    name,
+                    DBNotes.__dict__,
+                    f"DBNotes is missing {name}",
+                )
+                self.assertIn(
+                    name,
+                    MongoDBNotes.__dict__,
+                    f"MongoDBNotes is missing {name}",
+                )
+
+    def test_dbnotes_methods_raise_on_base(self) -> None:
+        # Driving the base-class methods directly (bypassing the
+        # concrete override) surfaces ``NotImplementedError``,
+        # so a backend that forgets to implement one fails
+        # loudly instead of silently no-op'ing.
+        from ivre.db import DBNotes
+
+        notes = DBNotes()
+        with self.assertRaises(NotImplementedError):
+            notes.get_note("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.set_note("host", "192.0.2.1", "body", "alice@example.org")
+        with self.assertRaises(NotImplementedError):
+            notes.delete_note("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.list_note_revisions("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.list_entities()
+        with self.assertRaises(NotImplementedError):
+            notes.count_notes()
+        with self.assertRaises(NotImplementedError):
+            notes.get({})
+        with self.assertRaises(NotImplementedError):
+            notes.count({})
+
+    def test_canonicalize_host_key_matches_ip2internal(self) -> None:
+        # Notes for the ``host`` entity type are keyed by the
+        # same int128 split MongoDBView uses for its ``addr_0``
+        # / ``addr_1`` fields, so the two collections align
+        # byte-for-byte (enables future ``$lookup`` joins +
+        # correct IP-range queries).
+        from ivre.db import canonicalize_entity_key
+        from ivre.db.mongo import MongoDB
+
+        for addr in ["192.0.2.1", "10.0.0.1", "2001:db8::1", "::1"]:
+            with self.subTest(addr=addr):
+                self.assertEqual(
+                    canonicalize_entity_key("host", addr),
+                    MongoDB.ip2internal(addr),
+                )
+
+    def test_canonicalize_entity_key_unknown_type_raises(self) -> None:
+        from ivre.db import canonicalize_entity_key
+
+        with self.assertRaises(ValueError) as ctx:
+            canonicalize_entity_key("garbage", "anything")
+        # The error names the unknown type and lists what is
+        # registered, so operators adding a new type via a plugin
+        # see exactly which side to fix.
+        self.assertIn("garbage", str(ctx.exception))
+        self.assertIn("host", str(ctx.exception))
+
+    def test_validate_note_body_size_accepts_within_cap(self) -> None:
+        from ivre.db import DBNotes
+
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None  # default config has it set
+        # ASCII body so byte-length equals str-length.
+        DBNotes._validate_note_body_size("x" * cap)
+
+    def test_validate_note_body_size_rejects_over_cap(self) -> None:
+        from ivre.db import DBNotes
+
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None
+        with self.assertRaises(ValueError) as ctx:
+            DBNotes._validate_note_body_size("x" * (cap + 1))
+        self.assertIn("exceeds cap", str(ctx.exception))
+
+    def test_validate_note_body_size_disabled_when_cap_is_none(self) -> None:
+        from ivre.db import DBNotes
+
+        # An operator may disable the cap explicitly; arbitrarily
+        # large bodies are then accepted by the storage
+        # validator (Mongo's 16 MiB BSON limit still applies at
+        # insert time).
+        with mock.patch.object(ivre.config, "WEB_HOST_NOTES_MAX_BYTES", None):
+            DBNotes._validate_note_body_size("x" * 5_000_000)
+
+    def test_metadb_has_notes_property(self) -> None:
+        # ``db.notes`` resolves to a ``DBNotes`` instance when
+        # ``DB_NOTES`` / ``DB`` is configured to a backend that
+        # implements the purpose.  We patch ``DB_NOTES`` to a
+        # synthetic mongodb URL so the property doesn't try to
+        # talk to a real backend.
+        from ivre.db import DBNotes, MetaDB
+
+        # Build a fresh MetaDB so we don't poison the module-level
+        # ``db`` singleton's cached ``_notes`` attribute.
+        m = MetaDB(
+            url="mongodb:///x",
+            urls={"notes": "mongodb:///x"},
+        )
+        notes = m.notes
+        # The class lookup succeeded -- ``MongoDBNotes`` is the
+        # registered backend for ``"mongodb"``.  We can't talk to
+        # the real server in this test, but the class wiring is
+        # what we care about here.
+        self.assertIsNotNone(notes)
+        self.assertIsInstance(notes, DBNotes)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""
