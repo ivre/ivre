@@ -9,11 +9,9 @@
  * functions with caching and refetch behaviour.
  */
 
-import {
-  useQuery,
-  type UseQueryOptions,
-  type UseQueryResult,
-} from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+
+import { gatedEnabled, type HookOptions } from "./api-internals";
 
 /** Root of the IVRE Web API. Vite proxies ``/cgi`` to a backend in
  *  development; in production the bundle is served from the same
@@ -566,7 +564,12 @@ export async function fetchFlowDetails(
 /* React Query hooks                                                  */
 /* ------------------------------------------------------------------ */
 
-type HookOptions<T> = Omit<UseQueryOptions<T>, "queryKey" | "queryFn">;
+// ``HookOptions<T>`` and the ``gatedEnabled`` helper used by every
+// precondition'd hook below live in ``./api-internals``: they are
+// implementation details, not part of the public hook surface, and
+// the separate file is the structural signal that says so. See
+// that file's doc block for the helper's contract and the
+// rationale behind it.
 
 export function useHosts(
   listEndpoint: string | undefined,
@@ -576,8 +579,8 @@ export function useHosts(
   return useQuery<HostRecord[]>({
     queryKey: ["hosts", listEndpoint, params],
     queryFn: () => fetchHosts(listEndpoint as string, params),
-    enabled: Boolean(listEndpoint),
     ...options,
+    enabled: gatedEnabled(Boolean(listEndpoint), options),
   });
 }
 
@@ -589,8 +592,8 @@ export function usePassiveRecords(
   return useQuery<PassiveRecord[]>({
     queryKey: ["passive", listEndpoint, params],
     queryFn: () => fetchPassiveRecords(listEndpoint as string, params),
-    enabled: Boolean(listEndpoint),
     ...options,
+    enabled: gatedEnabled(Boolean(listEndpoint), options),
   });
 }
 
@@ -602,8 +605,8 @@ export function useCount(
   return useQuery<number>({
     queryKey: ["count", countEndpoint, params],
     queryFn: () => fetchCount(countEndpoint as string, params),
-    enabled: Boolean(countEndpoint),
     ...options,
+    enabled: gatedEnabled(Boolean(countEndpoint), options),
   });
 }
 
@@ -616,8 +619,8 @@ export function useTop(
   return useQuery<TopValue[]>({
     queryKey: ["top", topEndpoint, field, params],
     queryFn: () => fetchTop(topEndpoint as string, field, params),
-    enabled: Boolean(topEndpoint && field),
     ...options,
+    enabled: gatedEnabled(Boolean(topEndpoint && field), options),
   });
 }
 
@@ -629,8 +632,8 @@ export function useCoordinates(
   return useQuery<CoordinatesResponse>({
     queryKey: ["coordinates", mapEndpoint, params],
     queryFn: () => fetchCoordinates(mapEndpoint as string, params),
-    enabled: Boolean(mapEndpoint),
     ...options,
+    enabled: gatedEnabled(Boolean(mapEndpoint), options),
   });
 }
 
@@ -686,7 +689,7 @@ export function useFlowDetails(
   return useQuery<FlowHostDetails | FlowEdgeDetails>({
     queryKey: ["flow", "details", type, id],
     queryFn: () => fetchFlowDetails(type as "node" | "edge", id as string),
-    enabled: Boolean(type && id),
     ...options,
+    enabled: gatedEnabled(Boolean(type && id), options),
   });
 }

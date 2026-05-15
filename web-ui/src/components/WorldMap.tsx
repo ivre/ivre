@@ -1,11 +1,16 @@
 import { useEffect, useId, useState } from "react";
 
-import { useCoordinates } from "@/lib/api";
+import type { CoordinatesResponse } from "@/lib/api";
 import { lonLatToSvg, SVG_HEIGHT, SVG_WIDTH } from "@/lib/projection";
 
 export interface WorldMapProps {
-  mapEndpoint: string | undefined;
-  query: string;
+  /** GeoJSON GeometryCollection from ``useCoordinates``. The
+   *  query itself lives in the route (single owner) so this
+   *  component is purely presentational: while the data is
+   *  ``undefined`` (request held back by sequential loading, or
+   *  still in flight) the base SVG renders with no overlay
+   *  circles. */
+  data: CoordinatesResponse | undefined;
 }
 
 /**
@@ -15,8 +20,14 @@ export interface WorldMapProps {
  *
  * Air-gapped: no tile server, no third-party fetch. The base SVG
  * is shipped under ``public/world-map.svg``.
+ *
+ * Presentational only: the coordinates query is owned by the
+ * route (see ``host-list.tsx``) and the data is passed in via
+ * the ``data`` prop. That keeps a single ``QueryObserver`` on
+ * the cache entry, which is also what the sequential-loading
+ * controller needs to gate facets behind the map.
  */
-export function WorldMap({ mapEndpoint, query }: WorldMapProps) {
+export function WorldMap({ data }: WorldMapProps) {
   const titleId = useId();
   const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
 
@@ -34,8 +45,6 @@ export function WorldMap({ mapEndpoint, query }: WorldMapProps) {
       cancelled = true;
     };
   }, []);
-
-  const { data } = useCoordinates(mapEndpoint, { q: query });
 
   const points = data?.geometries ?? [];
   const max = points.reduce(

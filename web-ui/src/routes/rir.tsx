@@ -5,7 +5,7 @@ import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { RirRecordCard } from "@/components/RirRecordCard";
 import { useRirRecords } from "@/lib/api";
-import { getConfig } from "@/lib/config";
+import { getConfig, isSequentialLoading } from "@/lib/config";
 import {
   buildHighlightMap,
   buildQueryFromFilters,
@@ -85,11 +85,16 @@ function RirRouteInner() {
     config.dflt_limit ||
     50;
 
-  const {
-    data: records = [],
-    isLoading,
-    error,
-  } = useRirRecords({ q: query, limit, skip: 0 });
+  const sequential = isSequentialLoading();
+  const recordsQuery = useRirRecords({ q: query, limit, skip: 0 });
+  const { data: records = [], isLoading, error } = recordsQuery;
+  // No map / timeline on RIR; gate facets directly on the results.
+  // Scope note: ``isSuccess || isError`` only targets the
+  // first-load / query-change cycle — background refetches are
+  // not re-serialised. See the longer rationale in
+  // ``routes/host-list.tsx``.
+  const resultsDone = recordsQuery.isSuccess || recordsQuery.isError;
+  const facetsEnabled = !sequential || resultsDone;
 
   return (
     <div className="flex w-full gap-6 px-6 py-2">
@@ -101,6 +106,8 @@ function RirRouteInner() {
             query={query}
             highlights={highlights}
             onAddFilter={addFilter}
+            sequential={sequential}
+            enabled={facetsEnabled}
           />
         </div>
       </aside>

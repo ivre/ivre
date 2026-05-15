@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2024 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2026 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -245,6 +245,32 @@ WEB_WARN_DOTS_COUNT = 20000
 WEB_GET_NOTEPAD_PAGES = None
 WEB_LIMIT = 10
 WEB_GRAPH_LIMIT = 1000
+# When ``True`` (the default), the React Web UI staggers the
+# per-page requests so the backend never has to answer the
+# results, the map and every facet at the same time. The order
+# is: results first, then the map (only on the View section —
+# the other sections have no separate map request), then each
+# facet in declared order. The timeline widget is not a stage:
+# it is rendered client-side from the already-fetched results
+# array and so appears as soon as the results query settles,
+# before the first facet fires. Set to ``False`` to restore the
+# legacy "fire everything on mount" behaviour, e.g. on
+# deployments where the extra request latency outweighs the
+# server-load benefit.
+#
+# Scope: the staggering targets the *first load* of each page
+# and any query-change cycle (typing in the filter bar). It does
+# *not* re-serialise background refetches, because none of the
+# orchestrated React Query keys currently have refetch triggers
+# (``refetchOnWindowFocus`` is off, no polling, no manual
+# invalidation on these keys). If you add such triggers and
+# observe backend stress, that is the time to extend the gates
+# client-side — this server-side knob does not need to change.
+#
+# Consumed client-side only; the value is emitted by
+# ``/cgi/config`` and read by the React UI's
+# ``isSequentialLoading`` helper.
+WEB_SEQUENTIAL_LOADING = True
 # Maximum length, in characters, of a user-supplied regex literal
 # (the inner pattern of a ``/.../[flags]`` value reaching
 # ``ivre.web.utils.str2regexp``). Enforced before the pattern is

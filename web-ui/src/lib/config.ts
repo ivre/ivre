@@ -27,6 +27,7 @@ const SCALAR_DEFAULTS: Required<Omit<IvreConfig, "modules">> = {
   version: "",
   curver: "",
   auth_enabled: false,
+  sequential_loading: true,
 };
 
 export type ConfigSnapshot = Required<Omit<IvreConfig, "modules">> & {
@@ -43,6 +44,24 @@ export function getConfig(): ConfigSnapshot {
 
 export function isAuthEnabled(): boolean {
   return getConfig().auth_enabled === true;
+}
+
+/** Whether the per-page requests should be issued sequentially
+ *  rather than all in parallel. The order is: results → map
+ *  (only on sections that declare a ``mapEndpoint``) → facets,
+ *  one facet at a time. The timeline is not a gating stage: it
+ *  is derived client-side from the already-fetched results
+ *  array, so it appears as soon as the results query settles
+ *  and never blocks the facet sequence. Defaults to ``true`` so
+ *  a server that doesn't emit the field still gets the gentler
+ *  request profile.
+ *
+ *  Scope: the staggering targets the first load of a page and
+ *  any query-change cycle. It does not re-serialise background
+ *  refetches; today none of the orchestrated query keys have
+ *  refetch triggers (see ``routes/host-list.tsx``). */
+export function isSequentialLoading(): boolean {
+  return getConfig().sequential_loading !== false;
 }
 
 /** Return ``true`` when ``id`` is in ``window.config.modules``,

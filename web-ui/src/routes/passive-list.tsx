@@ -6,7 +6,7 @@ import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { PassiveRecordList } from "@/components/PassiveRecordList";
 import { Timeline } from "@/components/Timeline";
 import { type PassiveRecord, usePassiveRecords } from "@/lib/api";
-import { getConfig } from "@/lib/config";
+import { getConfig, isSequentialLoading } from "@/lib/config";
 import {
   buildHighlightMap,
   buildQueryFromFilters,
@@ -77,15 +77,22 @@ function PassiveRouteInner() {
     config.dflt_limit ||
     50;
 
-  const {
-    data: records = [],
-    isLoading,
-    error,
-  } = usePassiveRecords(section.listEndpoint, {
+  const sequential = isSequentialLoading();
+  const recordsQuery = usePassiveRecords(section.listEndpoint, {
     q: query,
     limit,
     skip: 0,
   });
+  const { data: records = [], isLoading, error } = recordsQuery;
+  // No map for Passive; the timeline derives from ``records`` on
+  // the client so there's no intermediate request to wait for.
+  // Facets are gated directly on the records query settling.
+  // Scope note: ``isSuccess || isError`` only targets the
+  // first-load / query-change cycle — background refetches are
+  // not re-serialised. See the longer rationale in
+  // ``routes/host-list.tsx``.
+  const resultsDone = recordsQuery.isSuccess || recordsQuery.isError;
+  const facetsEnabled = !sequential || resultsDone;
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -130,6 +137,8 @@ function PassiveRouteInner() {
             query={query}
             highlights={highlights}
             onAddFilter={addFilter}
+            sequential={sequential}
+            enabled={facetsEnabled}
           />
         </div>
       </aside>

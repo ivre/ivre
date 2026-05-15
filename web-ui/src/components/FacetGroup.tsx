@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type TopValue, useTop } from "@/lib/api";
@@ -20,6 +20,15 @@ export interface FacetGroupProps {
   highlights?: HighlightMap;
   /** Click-to-add-filter callback. */
   onAddFilter: (filter: Filter) => void;
+  /** When ``false``, the underlying ``useTop`` query is held back
+   *  and the group renders the standard "Loading…" placeholder.
+   *  Used by :class:`FacetSidebar` to serialize facet requests
+   *  one at a time. Defaults to ``true``. */
+  enabled?: boolean;
+  /** Fired exactly once when the query transitions out of the
+   *  pending state (either success or error), so the sidebar can
+   *  release the next facet. */
+  onLoaded?: () => void;
 }
 
 const COLLAPSED_LIMIT = 5;
@@ -36,14 +45,59 @@ export function FacetGroup({
   query,
   highlights,
   onAddFilter,
+  enabled = true,
+  onLoaded,
 }: FacetGroupProps) {
   const [expanded, setExpanded] = useState(false);
 
   const limit = expanded ? EXPANDED_LIMIT : COLLAPSED_LIMIT;
-  const { data, isLoading, error } = useTop(topEndpoint, field, {
-    q: query,
-    limit,
-  });
+  // ``isPending`` (not ``isLoading``) is the right "no data yet"
+  // signal in React Query v5: a query held back with
+  // ``enabled: false`` has ``isLoading === false`` (the request
+  // is intentionally not in flight) but ``isPending === true``
+  // (status is still ``"pending"``, no data has ever arrived).
+  // Using ``isLoading`` here would make a held-back facet render
+  // the "No values." empty-state instead of the "Loading…"
+  // placeholder, defeating the sequential-loading UX.
+  const { data, isPending, isSuccess, isError, error } = useTop(
+    topEndpoint,
+    field,
+    { q: query, limit },
+    { enabled },
+  );
+
+  // Notify the parent once per cycle so the sequential controller
+  // can release the next facet. ``isSuccess``/``isError`` both
+  // terminate the cycle; a fresh ``(field, topEndpoint, query,
+  // limit)`` tuple starts a new one. ``onLoaded`` is deliberately
+  // *not* in the dep list — parents like :class:`FacetSidebar`
+  // pass an inline ``() => handleLoaded(index)`` that has a fresh
+  // identity on every render, and we don't want each render to
+  // count as a new cycle. We route the call through a ref so the
+  // latest callback is always invoked even though the effect's
+  // closure never mentions it.
+  //
+  // The ref is synced during render rather than in a
+  // companion ``useEffect``: writing a ref during render is
+  // safe for the sync-prop-into-ref pattern (we never *read*
+  // the ref during render — only inside the post-commit
+  // effect below), and it avoids a no-deps effect that would
+  // otherwise re-run after every commit just to copy the
+  // latest ``onLoaded`` over. Under Strict Mode's double-
+  // render the assignment runs twice with the same value;
+  // idempotent.
+  //
+  // The canonical fix for "I want a callback but its identity
+  // shouldn't define the effect cycle" is React's
+  // ``useEffectEvent``, but it's still experimental in 19.2 and
+  // not exported from the stable ``react`` package — we'll
+  // collapse this to ``useEffectEvent(onLoaded)`` once that ships.
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+  useEffect(() => {
+    if (!enabled) return;
+    if (isSuccess || isError) onLoadedRef.current?.();
+  }, [enabled, isSuccess, isError, query, limit, field, topEndpoint]);
 
   const items: readonly TopValue[] = data ?? [];
   const max = items.reduce((m, x) => (x.value > m ? x.value : m), 1);
@@ -54,7 +108,7 @@ export function FacetGroup({
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </h3>
-      {isLoading ? (
+      {isPending ? (
         <p className="text-xs italic text-muted-foreground">Loading…</p>
       ) : error ? (
         <p className="text-xs text-destructive">Error: {error.message}</p>

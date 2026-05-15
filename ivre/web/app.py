@@ -67,12 +67,7 @@ def get_config():
         ("flow_time_precision", config.FLOW_TIME_PRECISION),
         ("version", VERSION),
         ("auth_enabled", config.WEB_AUTH_ENABLED),
-        # ``modules`` is the canonically-ordered list of data
-        # sections this server exposes (intersection of
-        # ``WEB_MODULES`` and the configured ``DB_<purpose>``
-        # backends). Older bundles without the matching
-        # ``isModuleEnabled`` helper ignore the field and keep
-        # rendering every section, which preserves back-compat.
+        ("sequential_loading", config.WEB_SEQUENTIAL_LOADING),
         ("modules", enabled_modules()),
     ]:
         yield f"config.{key} = {json.dumps(value)};\n"

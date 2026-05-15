@@ -3981,6 +3981,7 @@ class IvreTests(unittest.TestCase):
             "flow_time_precision": ivre.config.FLOW_TIME_PRECISION,
             "version": ivre.VERSION,
             "auth_enabled": ivre.config.WEB_AUTH_ENABLED,
+            "sequential_loading": ivre.config.WEB_SEQUENTIAL_LOADING,
             "modules": enabled_modules(),
         }
         for line in udesc:

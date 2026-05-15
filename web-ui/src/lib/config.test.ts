@@ -1,7 +1,12 @@
 /* @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getConfig, isAuthEnabled, isModuleEnabled } from "./config";
+import {
+  getConfig,
+  isAuthEnabled,
+  isModuleEnabled,
+  isSequentialLoading,
+} from "./config";
 
 const ORIGINAL_WINDOW_CONFIG = (window as unknown as { config?: unknown })
   .config;
@@ -25,6 +30,10 @@ describe("getConfig", () => {
     expect(cfg.warn_dots_count).toBe(20000);
     expect(cfg.uploadok).toBe(false);
     expect(cfg.auth_enabled).toBe(false);
+    // Sequential loading defaults to ``true`` so the gentler
+    // request profile is used even on older servers that don't
+    // emit the field.
+    expect(cfg.sequential_loading).toBe(true);
     // ``modules`` is intentionally absent from the defaults so
     // older servers that don't emit the field surface as
     // "everything enabled".
@@ -97,5 +106,30 @@ describe("isModuleEnabled", () => {
   it("returns false for unknown ids when modules is provided", () => {
     setWindowConfig({ modules: ["view"] });
     expect(isModuleEnabled("made-up")).toBe(false);
+  });
+});
+
+describe("isSequentialLoading", () => {
+  it("defaults to true when the field is missing (back-compat)", () => {
+    setWindowConfig({});
+    expect(isSequentialLoading()).toBe(true);
+  });
+
+  it("defaults to true when window.config is absent", () => {
+    setWindowConfig(undefined);
+    expect(isSequentialLoading()).toBe(true);
+  });
+
+  it("returns false only for an explicit ``false``", () => {
+    setWindowConfig({ sequential_loading: false });
+    expect(isSequentialLoading()).toBe(false);
+    setWindowConfig({ sequential_loading: true });
+    expect(isSequentialLoading()).toBe(true);
+    // Non-boolean truthy / falsy values: anything that isn't the
+    // literal ``false`` keeps the safe "sequential" default.
+    setWindowConfig({ sequential_loading: 0 as unknown as boolean });
+    expect(isSequentialLoading()).toBe(true);
+    setWindowConfig({ sequential_loading: undefined });
+    expect(isSequentialLoading()).toBe(true);
   });
 });

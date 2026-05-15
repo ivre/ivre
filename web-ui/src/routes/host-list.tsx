@@ -7,8 +7,8 @@ import { HostCardList } from "@/components/HostCardList";
 import { HostDetailSheet } from "@/components/HostDetailSheet";
 import { Timeline } from "@/components/Timeline";
 import { WorldMap } from "@/components/WorldMap";
-import { useHosts, type HostRecord } from "@/lib/api";
-import { getConfig } from "@/lib/config";
+import { useCoordinates, useHosts, type HostRecord } from "@/lib/api";
+import { getConfig, isSequentialLoading } from "@/lib/config";
 import {
   buildHighlightMap,
   buildQueryFromFilters,
@@ -102,15 +102,52 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     config.dflt_limit ||
     50;
 
-  const {
-    data: hosts = [],
-    isLoading,
-    error,
-  } = useHosts(section.listEndpoint, {
+  const sequential = isSequentialLoading();
+
+  const hostsQuery = useHosts(section.listEndpoint, {
     q: query,
     limit,
     skip: 0,
   });
+  const { data: hosts = [], isLoading, error } = hostsQuery;
+
+  // Sequential-loading orchestration. In ``sequential`` mode the
+  // map waits for the hosts request to settle (success OR error
+  // — we don't want a failed hosts call to permanently block the
+  // map), and the facets wait for whichever widgets exist above
+  // them.
+  //
+  // The route is the *single owner* of the coordinates query;
+  // ``<WorldMap>`` is purely presentational and just receives
+  // ``coordsQuery.data``. That keeps a single ``QueryObserver``
+  // on the cache entry rather than two (one in the route for
+  // ``mapDone``, one in the component for ``data``) — which is
+  // what we want both for fewer re-renders and for a clear
+  // source of truth on "is the map done?".
+  //
+  // Scope: this gate intentionally targets the *first load* of
+  // each ``(query, section)`` cycle. ``isSuccess || isError`` is
+  // the "settled" predicate; once a query has settled, the gate
+  // stays open even if a background refetch later flips
+  // ``isFetching`` back to ``true``. That's correct for our
+  // current usage because none of these queries have refetch
+  // triggers (``refetchOnWindowFocus`` is globally off, no
+  // polling, no explicit ``invalidateQueries`` on these keys —
+  // see ``routes/root.tsx``). If background refetches are added
+  // later and we still want serialisation, add ``&& !isFetching``
+  // to the predicates and revisit the facet ratchet in
+  // ``FacetSidebar`` (which is monotonic and would also need to
+  // un-release on refetch).
+  const resultsDone = hostsQuery.isSuccess || hostsQuery.isError;
+  const mapEnabled = !sequential || resultsDone;
+  const coordsQuery = useCoordinates(
+    section.mapEndpoint,
+    { q: query },
+    { enabled: mapEnabled },
+  );
+  const mapDone =
+    !section.mapEndpoint || coordsQuery.isSuccess || coordsQuery.isError;
+  const facetsEnabled = !sequential || (resultsDone && mapDone);
 
   // Host detail. ``routeAddr`` (from ``/<sectionId>/host/<addr>``)
   // is the single source of truth for "which host is currently
@@ -223,7 +260,7 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
       <aside className="hidden w-[28rem] shrink-0 lg:block">
         <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] space-y-6 overflow-y-auto pr-2 pt-2">
           {section.mapEndpoint ? (
-            <WorldMap mapEndpoint={section.mapEndpoint} query={query} />
+            <WorldMap data={coordsQuery.data} />
           ) : null}
           {showTimeline ? (
             <Timeline
@@ -243,6 +280,8 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
             query={query}
             highlights={highlights}
             onAddFilter={addFilter}
+            sequential={sequential}
+            enabled={facetsEnabled}
           />
         </div>
       </aside>
