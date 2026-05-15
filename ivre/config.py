@@ -37,6 +37,11 @@ DEBUG = False
 DEBUG_DB = False
 DB = "mongodb:///ivre"
 DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
+# DB URL for the ``notes`` purpose (per-entity markdown
+# annotations).  Falls back to ``DB`` when unset.  The ``notes``
+# purpose is independent of every data purpose: ``view --init``,
+# ``nmap --init`` etc. do not touch notes.
+DB_NOTES = None
 # Begin batch sizes
 LOCAL_BATCH_SIZE = 10000  # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
@@ -301,6 +306,14 @@ WEB_UPLOAD_OK = False
 # bounded by the underlying ``IPRanges`` shape and are not
 # capped. Set to ``None`` to disable the cap.
 WEB_IPRANGE_ADDR_CAP: int | None = 100_000
+# Maximum size, in bytes, accepted for a single note body
+# (per-entity markdown annotation stored in the ``notes``
+# purpose).  The storage layer enforces this via
+# :meth:`DBNotes._validate_note_body_size` as defence-in-depth;
+# web routes return HTTP 413 for over-cap requests before they
+# reach the DB.  Set to ``None`` to disable the cap (Mongo's
+# BSON 16 MiB document limit still applies).
+WEB_HOST_NOTES_MAX_BYTES: int | None = 1_000_000
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_AUTH_ENABLED == True
 WEB_SECRET = None
@@ -490,6 +503,13 @@ if RIR_PATH is None:
 
 if DB_DATA is None and GEOIP_PATH is not None:
     DB_DATA = f"maxmind:///{GEOIP_PATH}"
+
+
+# Per-entity notes default to the same store as everything else
+# (operators get a working ``db.notes`` out of the box).  Override
+# DB_NOTES explicitly to move notes to a separate store.
+if DB_NOTES is None:
+    DB_NOTES = DB
 
 
 if DATA_PATH is None:

@@ -38,7 +38,13 @@ from urllib.parse import unquote
 
 import bson
 import pymongo
-from pymongo.errors import BulkWriteError, CursorNotFound
+from pymongo import ReadPreference, ReturnDocument
+from pymongo.errors import (
+    BulkWriteError,
+    CursorNotFound,
+    DuplicateKeyError,
+    PyMongoError,
+)
 
 try:
     import gssapi  # type: ignore
@@ -57,9 +63,14 @@ from ivre.db import (
     DBFlow,
     DBFlowMeta,
     DBNmap,
+    DBNotes,
     DBPassive,
     DBRir,
     DBView,
+    NoteAlreadyExists,
+    NoteConcurrencyError,
+    NoteNotFound,
+    canonicalize_entity_key,
 )
 from ivre.plugins import load_plugins
 from ivre.tags.active import is_synack_honeypot, set_auto_tags
@@ -7879,6 +7890,476 @@ class MongoDBAuth(MongoDB, DBAuth):
             {"$set": {"revoked_at": now}},
         )
         return result.modified_count
+
+
+class MongoDBNotes(MongoDB, DBNotes):
+    """MongoDB backend for the ``notes`` purpose.
+
+    Stores entity-keyed markdown annotations in two collections:
+
+    * ``notes`` -- one record per
+      ``(entity_type, entity_key_0, entity_key_1)`` triple
+      carrying the current body, monotonic ``revision``,
+      authorship and timestamp metadata.  Unique compound
+      index on the triple; secondary indexes on
+      ``(entity_type, updated_at DESC)`` and ``updated_by``;
+      a text index on ``body`` (named ``notes_body_text``)
+      backs free-text search via the inherited
+      :meth:`MongoDB.searchtext`.
+    * ``note_revisions`` -- append-only audit log.  Compound
+      ``(entity_type, entity_key_0, entity_key_1,
+      revision DESC)`` supports newest-first history
+      retrieval at the same key shape as the parent
+      collection.
+
+    The canonical entity_key is *split* across two scalar
+    BSON fields ``entity_key_0`` / ``entity_key_1`` rather
+    than stored as a single ``entity_key`` BSON array.  For
+    the ``host`` type the canonical form is the
+    ``[addr_0, addr_1]`` int128 split
+    :meth:`MongoDB.ip2internal` produces for the ``view``
+    collection's ``addr`` field, so the two collections
+    align byte-for-byte (enables future ``$lookup`` joins
+    and correct IP-range queries).  Storing the canonical
+    list verbatim in a single field would make the unique
+    compound a *multikey* index with element-wise uniqueness
+    semantics -- every IPv4 host's high half is the same
+    bias constant, so the second IPv4 note insert would
+    collide on a per-element basis; see the
+    :attr:`indexes` block for the canonical rationale.
+    Single-scalar entity types (future ``domain`` / ``cve``
+    / ``asn``) store the value in ``entity_key_0`` and
+    ``None`` in ``entity_key_1``.
+
+    Reads reassemble the two storage scalars and strip the
+    canonical form back to the caller-facing shape via
+    :meth:`_present_entity_key` (printable IP string for
+    ``host``; ``entity_key_0`` as-is for single-scalar
+    types).
+    """
+
+    column_notes = 0
+    column_note_revisions = 1
+
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
+        # notes
+        #
+        # The canonical ``entity_key`` for an entity type may be
+        # a 1-or-2-element list of scalars (e.g. ``[addr_0,
+        # addr_1]`` for the ``host`` type, matching
+        # :meth:`MongoDB.ip2internal`'s int128 split).  Storing
+        # each half in its own scalar BSON field
+        # (``entity_key_0`` / ``entity_key_1``) keeps the unique
+        # compound a plain single-key compound -- a BSON-array
+        # ``entity_key`` would make the compound *multikey*, in
+        # which case Mongo enforces uniqueness element-wise: for
+        # any two IPv4 notes ``addr_0`` is the same (the bias
+        # constant ``-0x8000000000000000``), the second insert
+        # then collides with the first on a per-element basis.
+        # Single-scalar types (``domain``, ``cve``, ...) store
+        # the value in ``entity_key_0`` and ``None`` in
+        # ``entity_key_1``.
+        [
+            (
+                [
+                    ("entity_type", pymongo.ASCENDING),
+                    ("entity_key_0", pymongo.ASCENDING),
+                    ("entity_key_1", pymongo.ASCENDING),
+                ],
+                {"unique": True},
+            ),
+            (
+                [
+                    ("entity_type", pymongo.ASCENDING),
+                    ("updated_at", pymongo.DESCENDING),
+                ],
+                {},
+            ),
+            ([("updated_by", pymongo.ASCENDING)], {}),
+            # Free-text search over note bodies.  Inherited
+            # :meth:`MongoDB.searchtext` returns
+            # ``{"$text": {"$search": ...}}`` filters that
+            # compose with :meth:`flt_and` and feed
+            # :meth:`get` / :meth:`count` on the storage
+            # layer.  Mongo allows at most one text index
+            # per collection.
+            ([("body", "text")], {"name": "notes_body_text"}),
+        ],
+        # note_revisions
+        [
+            (
+                [
+                    ("entity_type", pymongo.ASCENDING),
+                    ("entity_key_0", pymongo.ASCENDING),
+                    ("entity_key_1", pymongo.ASCENDING),
+                    ("revision", pymongo.DESCENDING),
+                ],
+                {},
+            ),
+        ],
+    ]
+
+    def __init__(self, url):
+        super().__init__(url)
+        self.columns = [
+            self.params.pop("colname_notes", "notes"),
+            self.params.pop("colname_note_revisions", "note_revisions"),
+        ]
+
+    @staticmethod
+    def _entity_key_to_storage(canonical):
+        """Pack the canonical entity_key into the two storage
+        scalars ``(entity_key_0, entity_key_1)``.
+
+        Accepts either a scalar (1-element canonical form -- the
+        future ``domain`` / ``cve`` / ``asn`` types) or a
+        2-element list (the current ``host`` type's int128
+        split).  1-element lists are accepted too for callers
+        that uniformise the canonicalisation contract.
+        """
+        if isinstance(canonical, list):
+            if len(canonical) == 2:
+                return canonical[0], canonical[1]
+            if len(canonical) == 1:
+                return canonical[0], None
+            raise ValueError(
+                f"canonical entity_key list must have 1 or 2 "
+                f"elements, got {len(canonical)}"
+            )
+        return canonical, None
+
+    @classmethod
+    def _entity_key_filter(cls, entity_type, entity_key):
+        """Build a single-record find filter for the
+        ``(entity_type, entity_key_0, entity_key_1)`` compound
+        from a caller-facing ``entity_key``.
+        """
+        key_0, key_1 = cls._entity_key_to_storage(
+            canonicalize_entity_key(entity_type, entity_key)
+        )
+        return {
+            "entity_type": entity_type,
+            "entity_key_0": key_0,
+            "entity_key_1": key_1,
+        }
+
+    @staticmethod
+    def _present_entity_key(entity_type, entity_key_0, entity_key_1):
+        """Reassemble the caller-facing ``entity_key`` from the
+        two storage scalars.  Inverse of
+        :meth:`_entity_key_to_storage` composed with
+        :func:`canonicalize_entity_key`.
+
+        At v1 only the ``host`` type needs back-conversion
+        (printable IP string from the int128 split); future
+        single-scalar types round-trip the value in
+        ``entity_key_0`` as-is and ignore ``entity_key_1``.
+        """
+        if entity_type == "host":
+            return MongoDB.internal2ip([entity_key_0, entity_key_1])
+        return entity_key_0
+
+    def _present_note(self, doc):
+        """Common projection helper: drop ``_id`` and the two
+        storage scalars, replacing them with a single
+        caller-facing ``entity_key`` field.
+        """
+        doc.pop("_id", None)
+        doc["entity_key"] = self._present_entity_key(
+            doc["entity_type"],
+            doc.pop("entity_key_0"),
+            doc.pop("entity_key_1"),
+        )
+        return doc
+
+    def get(self, spec, **kargs):
+        """Iterate raw note documents matching ``spec``.
+
+        ``spec`` is composed via :meth:`searchtext` (inherited
+        from :class:`MongoDB`) and the standard combinators
+        (:meth:`flt_and` / :meth:`flt_or` / direct dict
+        literals).  Returned documents carry the storage-layer
+        ``entity_key_0`` / ``entity_key_1`` fields verbatim --
+        free-text search routes and listing pages that want
+        the caller-facing ``entity_key`` form post-process
+        with :meth:`_present_note` / :meth:`_present_entity_key`.
+
+        Routes through :meth:`MongoDB._get_cursor` for parity
+        with :meth:`MongoDBView.get` / :meth:`MongoDBPassive.get`
+        / :meth:`MongoDBRir.get`.  That gives notes queries:
+
+        * Query-timeout enforcement via :meth:`set_limits`
+          (``cursor.max_time_ms(self.maxtime)`` based on the
+          ``MONGODB_QUERY_TIMEOUT_MS`` config knob or the
+          per-URL ``?maxtime=`` parameter).  Free-text search
+          over a large notes collection under adversarial
+          input would otherwise be unbounded.
+        * The ``sort=[("text", direction)]`` shortcut: when
+          a caller asks for relevance-ranked text search,
+          :meth:`_get_cursor` auto-adds
+          ``projection["score"] = {"$meta": "textScore"}``
+          and replaces the sort with the matching
+          ``$meta``-driven order, so web routes can ask for
+          "best matches first" in one line instead of
+          hand-rolling the projection.
+        * Legacy ``fields=`` kwarg compat (converted to
+          ``projection=`` before forwarding to
+          :meth:`pymongo.collection.Collection.find`).
+
+        Other :class:`DBNotes` backends translate or ignore
+        these conveniences per their own storage primitives,
+        so backend-portable code sticks to ``spec`` only.
+        """
+        return self._get_cursor(self.columns[self.column_notes], spec, **kargs)
+
+    def count(self, spec):
+        # Empty-filter shortcut mirrors :meth:`MongoDBView.count`:
+        # ``estimated_document_count`` reads collection metadata
+        # in O(1) instead of scanning, which matters for
+        # ``count_notes(entity_type=None)`` on a heavily-used
+        # notes collection.
+        col = self.db[self.columns[self.column_notes]]
+        if not spec:
+            return col.estimated_document_count()
+        return col.count_documents(spec)
+
+    def get_note(self, entity_type, entity_key):
+        doc = self.db[self.columns[self.column_notes]].find_one(
+            self._entity_key_filter(entity_type, entity_key)
+        )
+        if doc is None:
+            return None
+        return self._present_note(doc)
+
+    def set_note(
+        self,
+        entity_type,
+        entity_key,
+        body,
+        user_email,
+        *,
+        expected_revision=None,
+    ):
+        # Storage-layer body-size check; the web routes (PR B)
+        # add an HTTP 413 in front for the friendlier client
+        # error.
+        self._validate_note_body_size(body)
+        key_0, key_1 = self._entity_key_to_storage(
+            canonicalize_entity_key(entity_type, entity_key)
+        )
+        key_filter = {
+            "entity_type": entity_type,
+            "entity_key_0": key_0,
+            "entity_key_1": key_1,
+        }
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        notes_col = self.db[self.columns[self.column_notes]]
+        revisions_col = self.db[self.columns[self.column_note_revisions]]
+        if expected_revision is None:
+            # Race-tolerant upsert: bump revision atomically.
+            doc = notes_col.find_one_and_update(
+                key_filter,
+                {
+                    "$set": {
+                        "body": body,
+                        "updated_at": now,
+                        "updated_by": user_email,
+                    },
+                    "$inc": {"revision": 1},
+                    "$setOnInsert": {
+                        "entity_type": entity_type,
+                        "entity_key_0": key_0,
+                        "entity_key_1": key_1,
+                        "created_at": now,
+                        "created_by": user_email,
+                    },
+                },
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+        elif expected_revision >= 1:
+            # Concurrency-checked update: only proceeds when
+            # the stored revision matches.  ``None`` return
+            # means the filter did not find a matching record;
+            # that conflates two failure modes -- the note
+            # does not exist, or it exists at a different
+            # revision.  A second ``find_one`` on the bare
+            # entity-key filter distinguishes them so the web
+            # layer can map to HTTP 404 vs 409 without sniffing
+            # error strings.  The race window between the two
+            # ops is tiny; a concurrent create / delete in that
+            # window at worst surfaces a slightly misleading
+            # exception class, not corruption.
+            doc = notes_col.find_one_and_update(
+                {**key_filter, "revision": expected_revision},
+                {
+                    "$set": {
+                        "body": body,
+                        "updated_at": now,
+                        "updated_by": user_email,
+                    },
+                    "$inc": {"revision": 1},
+                },
+                return_document=ReturnDocument.AFTER,
+            )
+            if doc is None:
+                # The existence check must see authoritative
+                # state; ``find_one_and_update`` is a write
+                # that always hits primary, but a follow-up
+                # read on a client configured with a
+                # non-PRIMARY ``read_preference`` could be
+                # served from a stale secondary and
+                # misclassify a concurrency drift as
+                # :class:`NoteNotFound` (or report a stale
+                # ``stored revision``).  Pin the read to
+                # PRIMARY explicitly so the error class and
+                # message reflect the primary's view.  Other
+                # read-only methods on this backend still
+                # honour the client-level preference -- only
+                # this read-after-write needs the override.
+                existing = notes_col.with_options(
+                    read_preference=ReadPreference.PRIMARY
+                ).find_one(key_filter, projection={"revision": 1, "_id": 0})
+                if existing is None:
+                    raise NoteNotFound(
+                        f"no note exists for {entity_type}/" f"{entity_key!r}"
+                    )
+                raise NoteConcurrencyError(
+                    f"stored revision {existing['revision']} does "
+                    f"not match expected={expected_revision} for "
+                    f"{entity_type}/{entity_key!r}"
+                )
+        else:
+            # ``expected_revision <= 0``: insert-only path,
+            # creating the note iff no record exists.  Negative
+            # values are coalesced into this branch -- the
+            # caller's intent is "no prior history" either way.
+            #
+            # The persisted document is constructed locally
+            # rather than read back via ``find_one`` after the
+            # insert: we know exactly what we just wrote
+            # (``revision=1``, the caller-supplied body /
+            # authorship / timestamps), so a follow-up read is
+            # both unnecessary (one extra round-trip per
+            # create) and unsafe under a non-PRIMARY
+            # ``read_preference`` -- a stale secondary that
+            # has not yet replicated the insert would return
+            # ``None`` and the audit-log step downstream would
+            # crash on ``doc["revision"]``.  Pymongo also
+            # mutates ``doc`` in-place to add the generated
+            # ``_id`` after a successful ``insert_one``, so
+            # ``_present_note``'s ``doc.pop("_id", None)``
+            # later still produces the correct caller-facing
+            # shape.
+            doc = {
+                "entity_type": entity_type,
+                "entity_key_0": key_0,
+                "entity_key_1": key_1,
+                "body": body,
+                "created_at": now,
+                "created_by": user_email,
+                "updated_at": now,
+                "updated_by": user_email,
+                "revision": 1,
+            }
+            try:
+                notes_col.insert_one(doc)
+            except DuplicateKeyError as exc:
+                raise NoteAlreadyExists(
+                    f"note already exists for {entity_type}/"
+                    f"{entity_key!r}; expected_revision=0 cannot "
+                    f"insert"
+                ) from exc
+        # Append the immutable revision row.  The parent commit
+        # above is authoritative; the audit row is best-effort.
+        # Catching :class:`PyMongoError` here keeps the
+        # user-facing write successful when the audit insert
+        # fails on a transient backend issue (network blip,
+        # secondary unreachable under ``w=majority``,
+        # over-BSON-size metadata, ...).  Letting the exception
+        # propagate would poison the next caller operation:
+        # under ``expected_revision=None`` the LWW retry bumps
+        # the revision counter again (audit gap + same body at
+        # rev N and N+2); under ``expected_revision>=1`` the
+        # retry raises a false "concurrent edit" because the
+        # parent already moved.  Operators see the failure via
+        # :data:`utils.LOGGER` and can audit-replay manually if
+        # needed.
+        try:
+            revisions_col.insert_one(
+                {
+                    "entity_type": entity_type,
+                    "entity_key_0": key_0,
+                    "entity_key_1": key_1,
+                    "revision": doc["revision"],
+                    "body": body,
+                    "created_at": now,
+                    "created_by": user_email,
+                }
+            )
+        except PyMongoError as exc:
+            utils.LOGGER.warning(
+                "audit log insert failed for note %s/%r revision %d: %s",
+                entity_type,
+                entity_key,
+                doc["revision"],
+                exc,
+            )
+        return self._present_note(doc)
+
+    def delete_note(self, entity_type, entity_key):
+        key_filter = self._entity_key_filter(entity_type, entity_key)
+        result = self.db[self.columns[self.column_notes]].delete_one(key_filter)
+        # Always sweep the audit log: orphan revisions without
+        # a parent are meaningless and would inflate
+        # ``count_documents`` queries.
+        self.db[self.columns[self.column_note_revisions]].delete_many(key_filter)
+        return result.deleted_count > 0
+
+    def list_note_revisions(self, entity_type, entity_key):
+        cursor = (
+            self.db[self.columns[self.column_note_revisions]]
+            .find(self._entity_key_filter(entity_type, entity_key))
+            .sort([("revision", pymongo.DESCENDING)])
+        )
+        revisions = []
+        for doc in cursor:
+            doc.pop("_id", None)
+            # Strip the redundant ``entity_*`` keys: callers
+            # passed them in and already know.  Keep ``revision``
+            # / ``body`` / ``created_at`` / ``created_by``.
+            doc.pop("entity_type", None)
+            doc.pop("entity_key_0", None)
+            doc.pop("entity_key_1", None)
+            revisions.append(doc)
+        return revisions
+
+    def list_entities(self, entity_type=None):
+        flt = {} if entity_type is None else {"entity_type": entity_type}
+        cursor = self.db[self.columns[self.column_notes]].find(
+            flt,
+            projection={
+                "_id": 0,
+                "entity_type": 1,
+                "entity_key_0": 1,
+                "entity_key_1": 1,
+                "updated_at": 1,
+                "updated_by": 1,
+                "revision": 1,
+            },
+        )
+        entries = []
+        for doc in cursor:
+            doc["entity_key"] = self._present_entity_key(
+                doc["entity_type"],
+                doc.pop("entity_key_0"),
+                doc.pop("entity_key_1"),
+            )
+            entries.append(doc)
+        return entries
+
+    def count_notes(self, entity_type=None):
+        return self.count({} if entity_type is None else {"entity_type": entity_type})
 
 
 load_plugins("ivre.plugins.db.mongo", globals())

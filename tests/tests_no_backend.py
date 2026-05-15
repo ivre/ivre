@@ -14847,6 +14847,688 @@ class IPRangeTests(unittest.TestCase):
         self.assertTrue(status.startswith("400"), status)
 
 
+# ---------------------------------------------------------------------
+# MongoDBNotesIndexTests -- pin the structural definitions
+# (collections, indexes, abstract surface, canonicalisation
+# registry, body-size validator) the per-entity notes purpose
+# ships with.  The actual create / read / update / list-revisions
+# / delete round-trip is exercised in ``tests/tests.py`` on the
+# ``mongodb.yml`` CI lane where a real MongoDB instance is
+# available; these no-backend tests bound the wire shape so
+# regressions surface immediately.
+# ---------------------------------------------------------------------
+
+
+class MongoDBNotesIndexTests(unittest.TestCase):
+    """Backend-free pin tests for the per-entity notes storage
+    layer (``notes`` + ``note_revisions`` collections + the
+    ``DBNotes`` abstract surface + entity-key canonicalisation
+    registry).
+    """
+
+    def test_notes_columns_registered(self) -> None:
+        from ivre.db.mongo import MongoDBNotes
+
+        # Two columns at indexes 0 and 1 -- ``notes`` + audit log.
+        self.assertEqual(MongoDBNotes.column_notes, 0)
+        self.assertEqual(MongoDBNotes.column_note_revisions, 1)
+        # ``indexes`` mirrors ``columns`` in length so every
+        # collection has its index block.
+        self.assertEqual(len(MongoDBNotes.indexes), 2)
+
+    def test_notes_compound_unique_index(self) -> None:
+        # Pin ``(entity_type, entity_key_0, entity_key_1)`` as
+        # the unique compound.  Storing the canonical key as
+        # two scalar fields keeps the index a plain single-key
+        # compound -- a BSON-array ``entity_key`` would turn it
+        # into a *multikey* index where Mongo enforces
+        # uniqueness element-wise, in which case two IPv4 notes
+        # (whose ``addr_0`` is the same bias constant) collide
+        # at the second insert.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_notes]
+        unique_index = next(
+            (keys, opts)
+            for keys, opts in block
+            if keys
+            == [
+                ("entity_type", 1),
+                ("entity_key_0", 1),
+                ("entity_key_1", 1),
+            ]
+        )
+        self.assertTrue(
+            unique_index[1].get("unique"),
+            f"expected unique=True, got {unique_index[1]!r}",
+        )
+
+    def test_notes_body_text_index(self) -> None:
+        # Free-text search over note bodies relies on a text
+        # index; Mongo allows at most one per collection.
+        # ``MongoDB.searchtext`` (inherited by
+        # :class:`MongoDBNotes`) produces ``$text`` queries
+        # that target this index.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_notes]
+        text_index = next(
+            (keys, opts) for keys, opts in block if keys == [("body", "text")]
+        )
+        self.assertEqual(text_index[1].get("name"), "notes_body_text")
+
+    def test_note_revisions_compound_index(self) -> None:
+        # Pin ``(entity_type ASC, entity_key_0 ASC,
+        # entity_key_1 ASC, revision DESC)`` -- the compound
+        # used by ``list_note_revisions`` for newest-first
+        # ordering with the storage shape matching the unique
+        # compound on the parent collection.
+        from ivre.db.mongo import MongoDBNotes
+
+        block = MongoDBNotes.indexes[MongoDBNotes.column_note_revisions]
+        self.assertTrue(
+            any(
+                keys
+                == [
+                    ("entity_type", 1),
+                    ("entity_key_0", 1),
+                    ("entity_key_1", 1),
+                    ("revision", -1),
+                ]
+                for keys, _opts in block
+            ),
+            block,
+        )
+
+    def test_dbnotes_abstract_surface(self) -> None:
+        # Each method is declared on :class:`DBNotes` and is
+        # overridden by :class:`MongoDBNotes`.  The generic
+        # ``get`` / ``count`` primitives + the convenience
+        # methods make up the full purpose surface.
+        from ivre.db import DBNotes
+        from ivre.db.mongo import MongoDBNotes
+
+        method_names = (
+            "get",
+            "count",
+            "get_note",
+            "set_note",
+            "delete_note",
+            "list_note_revisions",
+            "list_entities",
+            "count_notes",
+        )
+        for name in method_names:
+            with self.subTest(method=name):
+                self.assertIn(
+                    name,
+                    DBNotes.__dict__,
+                    f"DBNotes is missing {name}",
+                )
+                self.assertIn(
+                    name,
+                    MongoDBNotes.__dict__,
+                    f"MongoDBNotes is missing {name}",
+                )
+
+    def test_dbnotes_methods_raise_on_base(self) -> None:
+        # Driving the base-class methods directly (bypassing the
+        # concrete override) surfaces ``NotImplementedError``,
+        # so a backend that forgets to implement one fails
+        # loudly instead of silently no-op'ing.
+        from ivre.db import DBNotes
+
+        notes = DBNotes()
+        with self.assertRaises(NotImplementedError):
+            notes.get_note("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.set_note("host", "192.0.2.1", "body", "alice@example.org")
+        with self.assertRaises(NotImplementedError):
+            notes.delete_note("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.list_note_revisions("host", "192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            notes.list_entities()
+        with self.assertRaises(NotImplementedError):
+            notes.count_notes()
+        with self.assertRaises(NotImplementedError):
+            notes.get({})
+        with self.assertRaises(NotImplementedError):
+            notes.count({})
+
+    def test_canonicalize_host_key_matches_ip2internal(self) -> None:
+        # Notes for the ``host`` entity type are keyed by the
+        # same int128 split MongoDBView uses for its ``addr_0``
+        # / ``addr_1`` fields, so the two collections align
+        # byte-for-byte (enables future ``$lookup`` joins +
+        # correct IP-range queries).
+        from ivre.db import canonicalize_entity_key
+        from ivre.db.mongo import MongoDB
+
+        for addr in ["192.0.2.1", "10.0.0.1", "2001:db8::1", "::1"]:
+            with self.subTest(addr=addr):
+                self.assertEqual(
+                    canonicalize_entity_key("host", addr),
+                    MongoDB.ip2internal(addr),
+                )
+
+    def test_canonicalize_entity_key_unknown_type_raises(self) -> None:
+        from ivre.db import canonicalize_entity_key
+
+        with self.assertRaises(ValueError) as ctx:
+            canonicalize_entity_key("garbage", "anything")
+        # The error names the unknown type and lists what is
+        # registered, so operators adding a new type via a plugin
+        # see exactly which side to fix.
+        self.assertIn("garbage", str(ctx.exception))
+        self.assertIn("host", str(ctx.exception))
+
+    def test_canonicalize_host_key_rejects_wrong_length_list(self) -> None:
+        # A list input for the ``host`` type must have exactly
+        # two elements (``[addr_0, addr_1]``).  Anything else
+        # is rejected up-front to prevent malformed keys from
+        # reaching the storage layer and crashing far away on
+        # the next read inside ``MongoDB.internal2ip``.
+        from ivre.db import canonicalize_entity_key
+
+        for bad in ([], [0], [0, 0, 0]):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    canonicalize_entity_key("host", bad)
+                self.assertIn("exactly 2 elements", str(ctx.exception))
+
+    def test_canonicalize_host_key_rejects_non_int_elements(self) -> None:
+        # Both halves of the int128 split must be ints; a
+        # ``None`` half or a string half would silently corrupt
+        # the document and surface as a ``TypeError`` deep
+        # inside ``internal2ip`` on the read path.  ``bool``
+        # is a subclass of ``int`` in Python but is rejected
+        # explicitly: a caller passing ``[True, False]`` is
+        # clearly confused.
+        from ivre.db import canonicalize_entity_key
+
+        cases = [
+            [None, 0],
+            [0, None],
+            ["addr_0", 0],
+            [0, "addr_1"],
+            [1.5, 0],
+            [True, False],
+        ]
+        for bad in cases:
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    canonicalize_entity_key("host", bad)
+                self.assertIn("must be int", str(ctx.exception))
+
+    def test_canonicalize_host_key_rejects_out_of_range_int(self) -> None:
+        # Values outside the signed int64 range cannot be
+        # reassembled to a valid int128 by
+        # :meth:`MongoDB.internal2ip` (the bias-add would
+        # produce an out-of-range value for ``struct.pack``).
+        # Reject early.
+        from ivre.db import canonicalize_entity_key
+
+        cases = [
+            [1 << 63, 0],
+            [0, 1 << 63],
+            [-(1 << 63) - 1, 0],
+            [0, -(1 << 63) - 1],
+        ]
+        for bad in cases:
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    canonicalize_entity_key("host", bad)
+                self.assertIn("out of signed int64 range", str(ctx.exception))
+
+    def test_canonicalize_host_key_rejects_non_str_non_list_input(self) -> None:
+        # The host canonicaliser accepts only printable IP
+        # strings or 2-element ``[addr_0, addr_1]`` int
+        # lists.  Anything else (raw int, bytes, dict, ...)
+        # is rejected with a clear error that names the
+        # acceptable input forms instead of surfacing a
+        # downstream ``ip2bin`` error from a different
+        # module.
+        from ivre.db import canonicalize_entity_key
+
+        for bad in (12345, b"\xc0\x00\x02\x01", {"addr": "1.2.3.4"}, None):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    canonicalize_entity_key("host", bad)
+                self.assertIn("printable IP string", str(ctx.exception))
+
+    def test_canonicalize_host_key_accepts_valid_canonical_list(self) -> None:
+        # Already-canonical 2-element lists with valid int64
+        # halves round-trip unchanged.  Verifies the
+        # validation guards do not regress the happy-path
+        # idempotence (e.g. when ``set_note`` is fed back a
+        # value previously returned by ``get_note``'s
+        # internal representation).
+        from ivre.db import canonicalize_entity_key
+        from ivre.db.mongo import MongoDB
+
+        for addr in ["192.0.2.1", "10.0.0.1", "2001:db8::1", "::1"]:
+            with self.subTest(addr=addr):
+                canonical = MongoDB.ip2internal(addr)
+                self.assertEqual(canonicalize_entity_key("host", canonical), canonical)
+
+    def test_validate_note_body_size_accepts_within_cap(self) -> None:
+        from ivre.db import DBNotes
+
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None  # default config has it set
+        # ASCII body so byte-length equals str-length.
+        DBNotes._validate_note_body_size("x" * cap)
+
+    def test_validate_note_body_size_rejects_over_cap(self) -> None:
+        from ivre.db import DBNotes
+
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None
+        with self.assertRaises(ValueError) as ctx:
+            DBNotes._validate_note_body_size("x" * (cap + 1))
+        self.assertIn("exceeds cap", str(ctx.exception))
+
+    def test_validate_note_body_size_disabled_when_cap_is_none(self) -> None:
+        from ivre.db import DBNotes
+
+        # An operator may disable the cap explicitly; arbitrarily
+        # large bodies are then accepted by the storage
+        # validator (Mongo's 16 MiB BSON limit still applies at
+        # insert time).
+        with mock.patch.object(ivre.config, "WEB_HOST_NOTES_MAX_BYTES", None):
+            DBNotes._validate_note_body_size("x" * 5_000_000)
+
+    def test_set_note_swallows_audit_insert_failure(self) -> None:
+        # Real bug surfaced by review: an unwrapped audit insert
+        # in ``set_note`` lets a transient failure on the
+        # ``note_revisions`` collection propagate to the caller
+        # after the parent note write already committed.  The
+        # caller's retry then bumps the parent revision a second
+        # time (under ``expected_revision=None`` LWW) or raises
+        # a false "concurrent edit" (under
+        # ``expected_revision>=1``).  Catching
+        # :class:`PyMongoError` on the audit insert keeps the
+        # user-facing write successful; the failure surfaces via
+        # :data:`utils.LOGGER` for operator inspection.
+        from pymongo.errors import PyMongoError
+
+        from ivre.db import canonicalize_entity_key
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+
+        # Parent collection: ``find_one_and_update`` returns a
+        # plausible upserted doc with the same canonical
+        # ``entity_key_0`` / ``entity_key_1`` the real backend
+        # would produce for ``192.0.2.1``.  Audit collection:
+        # ``insert_one`` raises a transient backend error.
+        canonical = canonicalize_entity_key("host", "192.0.2.1")
+        now = datetime.now(tz=timezone.utc)
+        upserted_doc = {
+            "_id": "x",
+            "entity_type": "host",
+            "entity_key_0": canonical[0],
+            "entity_key_1": canonical[1],
+            "body": "hello",
+            "revision": 1,
+            "created_at": now,
+            "created_by": "alice@example.org",
+            "updated_at": now,
+            "updated_by": "alice@example.org",
+        }
+        notes_col = mock.Mock()
+        notes_col.find_one_and_update.return_value = upserted_doc
+        revisions_col = mock.Mock()
+        revisions_col.insert_one.side_effect = PyMongoError("simulated blip")
+
+        # ``MongoDBNotes.db`` is a property delegating to
+        # ``self._db.db``; stub the inner ``_db`` so the
+        # ``self.db[...]`` lookups return our mocked collections.
+        backend._db = mock.Mock()
+        backend._db.db = {
+            "notes": notes_col,
+            "note_revisions": revisions_col,
+        }
+        with mock.patch.object(ivre.utils.LOGGER, "warning") as warning_mock:
+            result = backend.set_note("host", "192.0.2.1", "hello", "alice@example.org")
+        # Parent write was committed; caller sees success.
+        self.assertEqual(result["body"], "hello")
+        self.assertEqual(result["revision"], 1)
+        self.assertEqual(result["entity_key"], "192.0.2.1")
+        # Audit insert was attempted exactly once.
+        revisions_col.insert_one.assert_called_once()
+        # And the failure was logged.
+        warning_mock.assert_called_once()
+        # The log message names the entity so an operator can
+        # audit-replay manually.
+        log_args = warning_mock.call_args
+        self.assertIn("host", log_args.args)
+        self.assertIn("192.0.2.1", log_args.args)
+
+    @staticmethod
+    def _build_set_note_backend(
+        notes_col: "mock.Mock", revisions_col: "mock.Mock"
+    ) -> "object":
+        """Helper: instantiate a :class:`MongoDBNotes` without
+        opening a real backend connection and stub its ``db``
+        property so ``self.db[...]`` returns the mocked
+        collections.  Returned object has both collections
+        wired and ready for :meth:`set_note` exercise.
+        """
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend._db = mock.Mock()
+        backend._db.db = {
+            "notes": notes_col,
+            "note_revisions": revisions_col,
+        }
+        return backend
+
+    def test_set_note_raises_note_not_found_when_missing(self) -> None:
+        # ``expected_revision >= 1`` + the target note does not
+        # exist -> ``NoteNotFound``.  Distinguishes from
+        # ``NoteConcurrencyError`` so web layers can map to
+        # HTTP 404 vs 409 without sniffing error strings.
+        from pymongo import ReadPreference
+
+        from ivre.db import NoteNotFound
+
+        notes_col = mock.Mock()
+        # find_one_and_update returns None (no doc at
+        # expected_revision).  The existence-check must hit
+        # PRIMARY explicitly via ``with_options``: stub the
+        # sub-collection it returns so its ``find_one``
+        # returns None (no doc at all).
+        notes_col.find_one_and_update.return_value = None
+        primary_view = mock.Mock()
+        primary_view.find_one.return_value = None
+        notes_col.with_options.return_value = primary_view
+        revisions_col = mock.Mock()
+        backend = self._build_set_note_backend(notes_col, revisions_col)
+        with self.assertRaises(NoteNotFound) as ctx:
+            backend.set_note(
+                "host",
+                "192.0.2.1",
+                "new body",
+                "alice@example.org",
+                expected_revision=5,
+            )
+        # Error message identifies the entity so operators /
+        # web logs see which target was missing.
+        self.assertIn("host", str(ctx.exception))
+        self.assertIn("192.0.2.1", str(ctx.exception))
+        # Existence check was pinned to PRIMARY -- non-PRIMARY
+        # client read preferences would otherwise let a stale
+        # secondary misclassify a concurrency drift as
+        # not-found (or vice versa).
+        notes_col.with_options.assert_called_once_with(
+            read_preference=ReadPreference.PRIMARY
+        )
+        primary_view.find_one.assert_called_once()
+        # Audit log is *not* touched on the failure path.
+        revisions_col.insert_one.assert_not_called()
+
+    def test_set_note_raises_concurrency_error_on_revision_drift(self) -> None:
+        # ``expected_revision >= 1`` + the target note exists
+        # but at a different revision -> ``NoteConcurrencyError``.
+        from pymongo import ReadPreference
+
+        from ivre.db import NoteConcurrencyError
+
+        notes_col = mock.Mock()
+        notes_col.find_one_and_update.return_value = None
+        # PRIMARY-pinned existence check finds the note at a
+        # different revision than the caller asked for.
+        primary_view = mock.Mock()
+        primary_view.find_one.return_value = {"revision": 7}
+        notes_col.with_options.return_value = primary_view
+        revisions_col = mock.Mock()
+        backend = self._build_set_note_backend(notes_col, revisions_col)
+        with self.assertRaises(NoteConcurrencyError) as ctx:
+            backend.set_note(
+                "host",
+                "192.0.2.1",
+                "new body",
+                "alice@example.org",
+                expected_revision=5,
+            )
+        # Error names the stored vs expected revisions so the
+        # SPA's conflict dialog can surface them.
+        msg = str(ctx.exception)
+        self.assertIn("7", msg)
+        self.assertIn("5", msg)
+        notes_col.with_options.assert_called_once_with(
+            read_preference=ReadPreference.PRIMARY
+        )
+        revisions_col.insert_one.assert_not_called()
+
+    def test_set_note_raises_already_exists_in_create_only_mode(self) -> None:
+        # ``expected_revision = 0`` (create-only) on a note
+        # that already exists -> ``NoteAlreadyExists``.
+        from pymongo.errors import DuplicateKeyError
+
+        from ivre.db import NoteAlreadyExists
+
+        notes_col = mock.Mock()
+        # insert_one raises DuplicateKeyError on the unique
+        # compound index.
+        notes_col.insert_one.side_effect = DuplicateKeyError("duplicate")
+        revisions_col = mock.Mock()
+        backend = self._build_set_note_backend(notes_col, revisions_col)
+        with self.assertRaises(NoteAlreadyExists) as ctx:
+            backend.set_note(
+                "host",
+                "192.0.2.1",
+                "new body",
+                "alice@example.org",
+                expected_revision=0,
+            )
+        self.assertIn("host", str(ctx.exception))
+        self.assertIn("192.0.2.1", str(ctx.exception))
+        revisions_col.insert_one.assert_not_called()
+
+    def test_set_note_create_only_does_not_read_after_insert(self) -> None:
+        # The ``expected_revision <= 0`` (create-only) success
+        # path constructs the persisted-doc dict locally
+        # rather than reading it back: we know exactly what
+        # we just wrote, and a follow-up ``find_one`` would
+        # be served from whatever the client-level
+        # ``read_preference`` selects -- a stale secondary
+        # could return ``None`` and crash the downstream
+        # audit-log step on ``doc["revision"]``.  Pin that
+        # the create path never issues a read (neither a
+        # direct ``find_one`` nor a ``with_options(...)``
+        # routed read).
+        notes_col = mock.Mock()
+        notes_col.insert_one.return_value = mock.Mock()
+        revisions_col = mock.Mock()
+        backend = self._build_set_note_backend(notes_col, revisions_col)
+        result = backend.set_note(
+            "host",
+            "192.0.2.1",
+            "first version",
+            "alice@example.org",
+            expected_revision=0,
+        )
+        # The created note round-trips back through
+        # ``_present_note`` and carries the values we just
+        # inserted -- not a fetched copy.
+        self.assertEqual(result["body"], "first version")
+        self.assertEqual(result["revision"], 1)
+        self.assertEqual(result["entity_key"], "192.0.2.1")
+        # Insert happened exactly once; no reads on the
+        # notes collection at all.
+        notes_col.insert_one.assert_called_once()
+        notes_col.find_one.assert_not_called()
+        notes_col.with_options.assert_not_called()
+        # Audit log still gets its row.
+        revisions_col.insert_one.assert_called_once()
+
+    def test_note_exception_types_are_value_errors(self) -> None:
+        # Subclassing ``ValueError`` keeps backwards
+        # compatibility with callers that catch the coarser
+        # type (legacy ``except ValueError:`` blocks still
+        # catch all three).
+        from ivre.db import (
+            NoteAlreadyExists,
+            NoteConcurrencyError,
+            NoteNotFound,
+        )
+
+        self.assertTrue(issubclass(NoteNotFound, ValueError))
+        self.assertTrue(issubclass(NoteConcurrencyError, ValueError))
+        self.assertTrue(issubclass(NoteAlreadyExists, ValueError))
+
+    @staticmethod
+    def _build_get_backend(
+        notes_col: "mock.Mock", maxtime: "int | None" = None
+    ) -> "object":
+        """Helper: build a :class:`MongoDBNotes` whose ``db``
+        property returns the mocked collection.  ``maxtime``
+        seeds the inherited :meth:`MongoDB.set_limits` so
+        tests can exercise the timeout-application path
+        without spinning up a real client.
+        """
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = maxtime
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        return backend
+
+    def test_mongodb_notes_get_routes_through_get_cursor(self) -> None:
+        # Pin that :meth:`MongoDBNotes.get` goes through
+        # :meth:`MongoDB._get_cursor` -- the shared cursor
+        # factory the rest of the Mongo backends use --
+        # rather than calling ``find`` directly.  Routing
+        # through ``_get_cursor`` gets the notes purpose
+        # parity with ``MongoDBView.get`` /
+        # ``MongoDBPassive.get`` for query timeouts, the
+        # ``("text", ...)`` sort shortcut, and the legacy
+        # ``fields=`` to ``projection=`` conversion.
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        notes_col.find.return_value = cursor
+        backend = self._build_get_backend(notes_col)
+        result = backend.get(
+            {"entity_type": "host"},
+            projection={"body": 0},
+            sort=[("updated_at", -1)],
+            limit=10,
+            skip=5,
+        )
+        # ``_get_cursor`` pops ``sort`` before calling
+        # ``find`` and applies it via ``cursor.sort(...)``
+        # afterwards; everything else is forwarded to
+        # ``find`` unchanged.
+        notes_col.find.assert_called_once_with(
+            {"entity_type": "host"},
+            projection={"body": 0},
+            limit=10,
+            skip=5,
+        )
+        cursor.sort.assert_called_once_with([("updated_at", -1)])
+        # ``set_limits`` returns the cursor unchanged when
+        # ``maxtime`` is unset, which is what ``get`` returns.
+        self.assertIs(result, cursor)
+
+    def test_mongodb_notes_get_applies_query_timeout(self) -> None:
+        # When the client is configured with a query
+        # timeout (``MONGODB_QUERY_TIMEOUT_MS`` config knob
+        # or per-URL ``?maxtime=`` param,
+        # surfaced as ``backend.maxtime``), the cursor
+        # returned by :meth:`MongoDBNotes.get` must carry
+        # the bound -- otherwise a heavy ``$text`` query
+        # over a large notes collection under adversarial
+        # input would run unbounded.
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        notes_col.find.return_value = cursor
+        backend = self._build_get_backend(notes_col, maxtime=5000)
+        backend.get({"entity_type": "host"})
+        cursor.max_time_ms.assert_called_once_with(5000)
+
+    def test_mongodb_notes_get_text_sort_adds_score_projection(self) -> None:
+        # The :meth:`_get_cursor` ``sort=[("text", ...)]``
+        # shortcut auto-adds the ``$meta: textScore``
+        # projection and sort, so web routes can ask for
+        # relevance-ranked free-text search results in one
+        # call rather than hand-rolling the meta projection.
+        # Pin that behaviour for the notes purpose --
+        # ``/cgi/notes/?q=...`` (added in a follow-up PR)
+        # relies on it.
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        notes_col.find.return_value = cursor
+        backend = self._build_get_backend(notes_col)
+        backend.get(
+            {"$text": {"$search": "c2"}},
+            sort=[("text", 0)],
+        )
+        # ``find`` received the auto-added meta projection.
+        find_args = notes_col.find.call_args
+        self.assertEqual(find_args.args, ({"$text": {"$search": "c2"}},))
+        self.assertEqual(
+            find_args.kwargs.get("projection"),
+            {"score": {"$meta": "textScore"}},
+        )
+        # And the cursor was sorted by the same meta key.
+        cursor.sort.assert_called_once_with([("score", {"$meta": "textScore"})])
+
+    def test_mongodb_notes_count_empty_filter_uses_estimated(self) -> None:
+        # Mirrors :meth:`MongoDBView.count`: an empty filter
+        # reads collection metadata in O(1) via
+        # ``estimated_document_count`` instead of scanning
+        # every document.  The ``count_notes(entity_type=None)``
+        # path is the common case that benefits.
+        notes_col = mock.Mock()
+        notes_col.estimated_document_count.return_value = 42
+        backend = self._build_get_backend(notes_col)
+        self.assertEqual(backend.count({}), 42)
+        notes_col.estimated_document_count.assert_called_once_with()
+        notes_col.count_documents.assert_not_called()
+
+    def test_mongodb_notes_count_nonempty_filter_uses_count_documents(
+        self,
+    ) -> None:
+        # A non-empty filter goes through
+        # ``count_documents`` so the filter is honoured.
+        notes_col = mock.Mock()
+        notes_col.count_documents.return_value = 7
+        backend = self._build_get_backend(notes_col)
+        self.assertEqual(backend.count({"entity_type": "host"}), 7)
+        notes_col.count_documents.assert_called_once_with({"entity_type": "host"})
+        notes_col.estimated_document_count.assert_not_called()
+
+    def test_metadb_has_notes_property(self) -> None:
+        # ``db.notes`` resolves to a ``DBNotes`` instance when
+        # ``DB_NOTES`` / ``DB`` is configured to a backend that
+        # implements the purpose.  We patch ``DB_NOTES`` to a
+        # synthetic mongodb URL so the property doesn't try to
+        # talk to a real backend.
+        from ivre.db import DBNotes, MetaDB
+
+        # Build a fresh MetaDB so we don't poison the module-level
+        # ``db`` singleton's cached ``_notes`` attribute.
+        m = MetaDB(
+            url="mongodb:///x",
+            urls={"notes": "mongodb:///x"},
+        )
+        notes = m.notes
+        # The class lookup succeeded -- ``MongoDBNotes`` is the
+        # registered backend for ``"mongodb"``.  We can't talk to
+        # the real server in this test, but the class wiring is
+        # what we care about here.
+        self.assertIsNotNone(notes)
+        self.assertIsInstance(notes, DBNotes)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""

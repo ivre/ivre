@@ -35,6 +35,7 @@ import sys
 import time
 from argparse import ArgumentParser
 from collections import OrderedDict
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from functools import reduce
 from importlib import import_module
@@ -5822,6 +5823,323 @@ class DBFlow(DB):
         raise NotImplementedError
 
 
+# ---------------------------------------------------------------------
+# Per-entity notes (per-host, eventually per-domain / per-ASN / ...).
+# Independent purpose so the storage lifecycle is decoupled from any
+# data purpose: ``view --init``, ``nmap --init``, ``passive --init``
+# never touch notes.  Operators wipe annotations explicitly via the
+# new (to-be-added) ``ivre notes --init`` CLI.
+#
+# Entities are referenced by an opaque ``(entity_type, entity_key)``
+# pair.  ``entity_type`` is a short string drawn from a closed
+# vocabulary (``"host"`` only at v1; ``"domain"`` / ``"asn"`` /
+# ``"cve"`` / ... slot in as additive PRs).  ``entity_key`` is the
+# canonical form for that type -- e.g. for ``"host"`` it is the
+# ``[addr_0, addr_1]`` int128 split that :class:`MongoDB` already
+# uses for the ``view`` collection's ``addr`` field, so the two
+# stores align byte-for-byte and a future ``$lookup`` join works
+# without per-side conversion.
+# ---------------------------------------------------------------------
+
+
+def _canonicalize_host_key(key: Any) -> list[int]:
+    """Canonical entity_key for the ``host`` entity type.
+
+    Accepts a printable IP string (``"192.0.2.1"`` /
+    ``"2001:db8::1"``) or an already-canonical
+    ``[addr_0, addr_1]`` int pair.  Returns the int128 split
+    form :class:`MongoDB` uses for its ``addr_0`` / ``addr_1``
+    fields, so a note keyed by host aligns byte-for-byte with
+    the matching ``view`` record (enables future ``$lookup``
+    joins and correct IP-range queries).
+
+    The split logic is reproduced here (rather than delegating
+    to :meth:`MongoDB.ip2internal`) so the canonicalisation
+    registry does not pull the Mongo backend into the import
+    graph from the base :mod:`ivre.db` module.
+
+    Validates shape and ranges up-front so malformed keys are
+    rejected on the write path with a clear ``ValueError``,
+    rather than crashing later on read inside
+    :meth:`MongoDB.internal2ip` (which would surface as a
+    ``TypeError`` for ``None`` / ``str`` halves or as an
+    ``OverflowError`` for out-of-range halves -- both
+    far-from-the-bug error sites).  The host canonical form is
+    always two int64-range integers; future single-scalar
+    entity types own their own validation in their own
+    canonicalisers.
+    """
+    if isinstance(key, list):
+        if len(key) != 2:
+            raise ValueError(
+                f"host entity_key list must have exactly 2 "
+                f"elements (addr_0, addr_1), got {len(key)}"
+            )
+        for idx, val in enumerate(key):
+            if not isinstance(val, int) or isinstance(val, bool):
+                raise ValueError(
+                    f"host entity_key element {idx} must be int, "
+                    f"got {type(val).__name__}: {val!r}"
+                )
+            if not -(1 << 63) <= val < (1 << 63):
+                raise ValueError(
+                    f"host entity_key element {idx} out of signed "
+                    f"int64 range: {val!r}"
+                )
+        return key
+    if not isinstance(key, str):
+        raise ValueError(
+            f"host entity_key must be a printable IP string or a "
+            f"2-element [addr_0, addr_1] int list, got "
+            f"{type(key).__name__}: {key!r}"
+        )
+    return [val - 0x8000000000000000 for val in struct.unpack("!QQ", utils.ip2bin(key))]
+
+
+# Registry of canonicalisation helpers keyed by entity_type.
+# Adding a new entity type means:
+#   1. registering its helper here,
+#   2. extending the storage layer's BSON-shape handling if the
+#      canonical form is something other than ``str`` / ``list``,
+#   3. wiring the matching MCP tool + web route in PR B.
+_ENTITY_CANONICALIZERS: dict[str, Callable[[Any], Any]] = {
+    "host": _canonicalize_host_key,
+}
+
+
+def canonicalize_entity_key(entity_type: str, key: Any) -> Any:
+    """Return the canonical form for ``key`` under
+    ``entity_type``.  Raises :class:`ValueError` on an unknown
+    ``entity_type`` so a backend, a web route or an MCP tool
+    that received a garbled type surfaces the error cleanly
+    instead of silently storing nonsense.
+    """
+    try:
+        canonicalizer = _ENTITY_CANONICALIZERS[entity_type]
+    except KeyError as exc:
+        raise ValueError(
+            f"unknown entity_type {entity_type!r}; expected one of "
+            f"{sorted(_ENTITY_CANONICALIZERS)}"
+        ) from exc
+    return canonicalizer(key)
+
+
+class NoteNotFound(ValueError):
+    """Raised by :meth:`DBNotes.set_note` (with
+    ``expected_revision >= 1``) when no note exists for the
+    ``(entity_type, entity_key)`` target.  The caller's edit
+    target was deleted between load and save, or was never
+    created.  Web routes should map to HTTP 404.
+
+    Inherits from :class:`ValueError` so callers that catch the
+    coarser type keep working; PR-B web routes catch the
+    specific class to dispatch the right status code.
+    """
+
+
+class NoteConcurrencyError(ValueError):
+    """Raised by :meth:`DBNotes.set_note` (with
+    ``expected_revision >= 1``) when a note exists for the
+    ``(entity_type, entity_key)`` target but its stored
+    revision does not match the caller-provided
+    ``expected_revision``.  Another caller modified the note
+    between load and save.  Web routes should map to HTTP 409
+    (with ``If-Match``-style semantics).
+
+    Inherits from :class:`ValueError` so callers that catch the
+    coarser type keep working.
+    """
+
+
+class NoteAlreadyExists(ValueError):
+    """Raised by :meth:`DBNotes.set_note` (with
+    ``expected_revision=0``, the create-only mode) when a note
+    already exists for the ``(entity_type, entity_key)``
+    target.  Web routes should map to HTTP 409 (or 412
+    Precondition Failed).
+
+    Inherits from :class:`ValueError` so callers that catch the
+    coarser type keep working.
+    """
+
+
+class DBNotes(DB):
+    """Per-entity markdown annotations (notes).
+
+    Replaces the legacy Dokuwiki / MediaWiki integrations whose
+    only IVRE-side knowledge was a filesystem scan for
+    ``<IP>.txt`` files.  Notes are stored in IVRE's own DB,
+    keyed by ``(entity_type, entity_key)``, with an append-only
+    revision history.
+
+    Lifecycle independence is the whole point of carving this
+    out as its own purpose: ``view --init``, ``nmap --init``,
+    ``passive --init`` never touch notes.  Operators wipe
+    annotations explicitly via ``ivre notes --init`` (CLI
+    subcommand wired in a follow-up PR).
+
+    Two ``entity_key`` forms appear in this API.  Methods that
+    take an ``entity_key`` argument and methods that surface an
+    ``entity_key`` value in their return dict always speak the
+    **caller-facing** form -- for ``host`` that is the
+    printable IP string (``"192.0.2.1"`` /
+    ``"2001:db8::1"``).  The **canonical** form (produced by
+    :func:`canonicalize_entity_key` -- e.g.  the
+    ``[addr_0, addr_1]`` int128 split for ``host``) is the
+    on-disk representation that backends store and index
+    against, and only escapes the storage layer through the
+    low-level :meth:`get` / :meth:`count` primitives whose
+    documents carry the backend-specific storage fields
+    verbatim.  Convenience methods (:meth:`get_note` /
+    :meth:`set_note` / :meth:`delete_note` /
+    :meth:`list_note_revisions` / :meth:`list_entities`)
+    convert in both directions so callers never need to deal
+    with the canonical form.
+    """
+
+    backends = {
+        "mongodb": ("mongo", "MongoDBNotes"),
+        # Other backends inherit ``NotImplementedError`` from
+        # this base for v1.  Filled in alongside their
+        # respective M4 follow-ups.
+    }
+
+    @staticmethod
+    def _validate_note_body_size(body: str) -> None:
+        """Raise :class:`ValueError` if ``body`` exceeds
+        :data:`config.WEB_HOST_NOTES_MAX_BYTES` (when the knob
+        is not ``None``).
+
+        Called by every backend's :meth:`set_note`
+        implementation before any DB write -- defence-in-depth
+        alongside the HTTP-413 the ``/cgi/notes/...`` routes
+        return in PR B.
+        """
+        cap = config.WEB_HOST_NOTES_MAX_BYTES
+        if cap is None:
+            return
+        byte_len = len(body.encode("utf-8"))
+        if byte_len > cap:
+            raise ValueError(f"note body is {byte_len} bytes, exceeds cap {cap}")
+
+    def get_note(self, entity_type: str, entity_key: Any) -> dict | None:
+        """Return the current note for ``(entity_type, entity_key)``,
+        or ``None`` when no annotation has been written yet.
+
+        The returned dict carries ``entity_type`` /
+        ``entity_key`` / ``body`` / ``created_at`` /
+        ``created_by`` / ``updated_at`` / ``updated_by`` /
+        ``revision``.  The ``entity_key`` value is in the
+        caller-facing form (e.g. printable IP string for
+        ``host``); backends round-trip from the canonical
+        on-disk form (e.g. ``[addr_0, addr_1]`` int128 split
+        for ``host``) back to the caller-facing form on the way
+        out.  Callers that need the storage-layer fields
+        verbatim go through :meth:`get` instead.
+        """
+        raise NotImplementedError
+
+    def set_note(
+        self,
+        entity_type: str,
+        entity_key: Any,
+        body: str,
+        user_email: str,
+        *,
+        expected_revision: int | None = None,
+    ) -> dict:
+        """Upsert the note for ``(entity_type, entity_key)``.
+
+        Stamps ``updated_by`` / ``updated_at`` and bumps the
+        monotonic ``revision`` counter.  On first creation
+        also stamps ``created_by`` / ``created_at``.  Appends
+        an immutable row to the revisions collection (audit
+        trail).
+
+        Concurrency control via ``expected_revision``:
+
+        * ``None`` (default): last-write-wins; upsert proceeds
+          regardless of the current revision.
+        * ``0``: create-only; raises
+          :class:`NoteAlreadyExists` if a note already exists.
+        * ``>= 1``: update only when the stored revision
+          matches.  Raises :class:`NoteNotFound` when no note
+          exists for the target (deleted between load and
+          save -- web layer maps to HTTP 404); raises
+          :class:`NoteConcurrencyError` when a note exists but
+          its stored revision drifted from
+          ``expected_revision`` (concurrent edit -- web layer
+          maps to HTTP 409).  Both subclass :class:`ValueError`
+          for callers that prefer the coarser exception.
+
+        Body-size cap: :data:`config.WEB_HOST_NOTES_MAX_BYTES`
+        bounds the accepted body length.  Over-cap writes
+        raise :class:`ValueError`.
+
+        Returns the persisted note as a dict with the same
+        shape :meth:`get_note` produces (``entity_key`` in
+        caller-facing form).
+        """
+        raise NotImplementedError
+
+    def delete_note(self, entity_type: str, entity_key: Any) -> bool:
+        """Remove the note for ``(entity_type, entity_key)``
+        and every revision in its audit log.  Returns ``True``
+        when a record existed and was removed.
+        """
+        raise NotImplementedError
+
+    def list_note_revisions(self, entity_type: str, entity_key: Any) -> list[dict]:
+        """Return every revision recorded for the entity,
+        newest-first.  Each entry carries ``revision`` /
+        ``body`` / ``created_at`` / ``created_by``.
+        """
+        raise NotImplementedError
+
+    def list_entities(self, entity_type: str | None = None) -> list[dict]:
+        """Return the entities that currently have a note,
+        optionally narrowed by ``entity_type``.
+
+        Each entry carries ``entity_type`` / ``entity_key``
+        (in the caller-facing form -- e.g. printable IP string
+        for ``host``) / ``updated_at`` / ``updated_by`` /
+        ``revision`` so the search-bar ``notes:`` filter can
+        build a host narrow without an extra round-trip per
+        entity.  ``body`` is omitted from the listing
+        projection to keep the payload small; callers that
+        need bodies fetch them via :meth:`get_note`.
+        """
+        raise NotImplementedError
+
+    def count_notes(self, entity_type: str | None = None) -> int:
+        """Number of entities with a note, optionally narrowed
+        by ``entity_type``.  Admin / statistics surface.
+        """
+        raise NotImplementedError
+
+    def get(self, spec: Any, **kargs: Any) -> Iterable[dict]:
+        """Iterate note documents matching the backend-native
+        filter ``spec``.
+
+        Filters are composed via :meth:`searchtext` (free-text
+        search over note bodies, inherited from the backend's
+        base class -- e.g. :meth:`MongoDB.searchtext`) and the
+        standard backend combinators (:meth:`flt_and` /
+        :meth:`flt_or` / direct filter literals).  Returned
+        documents carry the storage-layer ``entity_key_*``
+        fields verbatim; callers that need the caller-facing
+        ``entity_key`` form go through :meth:`get_note` /
+        :meth:`list_entities` instead.
+        """
+        raise NotImplementedError
+
+    def count(self, spec: Any) -> int:
+        """Number of note documents matching ``spec``.  Same
+        filter shape as :meth:`get`.
+        """
+        raise NotImplementedError
+
+
 class DBAuth(DB):
     """Backend-independent code to handle authentication"""
 
@@ -6077,6 +6395,7 @@ class MetaDB:
         "rir": DBRir,
         "flow": DBFlow,
         "auth": DBAuth,
+        "notes": DBNotes,
     }
 
     def __init__(self, url=None, urls=None):
@@ -6084,7 +6403,7 @@ class MetaDB:
         self.urls = urls or {}
 
     def close(self):
-        for attr in ["nmap", "passive", "data", "flow", "view"]:
+        for attr in ["nmap", "passive", "data", "flow", "view", "notes"]:
             try:
                 getattr(self, f"_{attr}").close()
             except AttributeError:
@@ -6167,6 +6486,16 @@ class MetaDB:
             )
         self._auth = self.get_class("auth")
         return self._auth
+
+    @property
+    def notes(self):
+        try:
+            # pylint: disable=access-member-before-definition
+            return self._notes
+        except AttributeError:
+            pass
+        self._notes = self.get_class("notes")
+        return self._notes
 
     def get_class(self, purpose):
         url = self.urls.get(purpose, self.url)
