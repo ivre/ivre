@@ -38,7 +38,8 @@ from urllib.parse import unquote
 
 import bson
 import pymongo
-from pymongo.errors import BulkWriteError, CursorNotFound
+from pymongo import ReturnDocument
+from pymongo.errors import BulkWriteError, CursorNotFound, DuplicateKeyError
 
 try:
     import gssapi  # type: ignore
@@ -4581,6 +4582,14 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 
 class MongoDBView(MongoDBActive, DBView):
+    # ``column_hosts = 0`` is inherited from
+    # :class:`MongoDBActive`.  The two extra columns below carry
+    # per-host markdown notes plus their append-only revision
+    # history (see :meth:`set_host_note` / the ``view_notes`` and
+    # ``view_note_revisions`` index blocks below).
+    column_view_notes = 1
+    column_view_note_revisions = 2
+
     indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
         (
             idxs
@@ -4607,6 +4616,32 @@ class MongoDBView(MongoDBActive, DBView):
             else idxs
         )
         for i, idxs in enumerate(MongoDBActive.indexes)
+    ] + [
+        # view_notes: one record per host carrying the current
+        # note (body + author + timestamps + monotonic revision).
+        # ``addr`` is the unique natural key; the secondary
+        # ``updated_at`` index supports admin "most recently
+        # edited" listings, and ``updated_by`` supports
+        # per-user filters.
+        [
+            ([("addr", pymongo.ASCENDING)], {"unique": True}),
+            ([("updated_at", pymongo.DESCENDING)], {}),
+            ([("updated_by", pymongo.ASCENDING)], {}),
+        ],
+        # view_note_revisions: append-only audit log.  Compound
+        # ``(addr ASC, revision DESC)`` supports the
+        # newest-first history retrieval in
+        # :meth:`list_host_note_revisions`.  No TTL: the choice
+        # was full audit history.
+        [
+            (
+                [
+                    ("addr", pymongo.ASCENDING),
+                    ("revision", pymongo.DESCENDING),
+                ],
+                {},
+            ),
+        ],
     ]
     schema_migrations_indexes: list[
         dict[int, dict[str, list[tuple[list[IndexKey] | str, dict[str, Any]]]]]
@@ -4637,7 +4672,11 @@ class MongoDBView(MongoDBActive, DBView):
 
     def __init__(self, url):
         super().__init__(url)
-        self.columns = [self.params.pop("colname_hosts", "views")]
+        self.columns = [
+            self.params.pop("colname_hosts", "views"),
+            self.params.pop("colname_view_notes", "view_notes"),
+            self.params.pop("colname_view_note_revisions", "view_note_revisions"),
+        ]
 
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
@@ -4770,6 +4809,156 @@ class MongoDBView(MongoDBActive, DBView):
 
         """
         return cls._search_field("infos.as_name", asname, neg=neg)
+
+    # Per-host notes ------------------------------------------------
+    #
+    # ``view_notes`` carries the current state; ``view_note_revisions``
+    # is the append-only audit log.  See :class:`DBView` for the
+    # abstract surface and concurrency / size-cap semantics.
+
+    @staticmethod
+    def _canonical_note_addr(addr):
+        """Match the canonicalisation the ``view`` collection
+        uses for its ``addr`` field so a note key always lines
+        up with the host record it annotates.  ``view`` stores
+        the printable string form (e.g. ``"192.0.2.1"`` /
+        ``"2001:db8::1"``) so we just normalise the input via
+        ``utils.force_int2ip(utils.force_ip2int(addr))``: the
+        round-trip canonicalises IPv6 forms (collapses
+        ``::1``-style zero groups) and rejects garbage early.
+        """
+        return utils.force_int2ip(utils.force_ip2int(addr))
+
+    def get_host_note(self, addr):
+        canonical = self._canonical_note_addr(addr)
+        doc = self.db[self.columns[self.column_view_notes]].find_one(
+            {"addr": canonical}
+        )
+        if doc is None:
+            return None
+        doc.pop("_id", None)
+        return doc
+
+    def set_host_note(self, addr, body, user_email, *, expected_revision=None):
+        # Storage-layer body-size check; the web route (PR B)
+        # adds an HTTP 413 in front.
+        self._validate_note_body_size(body)
+        canonical = self._canonical_note_addr(addr)
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        notes_col = self.db[self.columns[self.column_view_notes]]
+        revisions_col = self.db[self.columns[self.column_view_note_revisions]]
+        if expected_revision is None:
+            # Race-tolerant upsert: bump revision atomically.
+            doc = notes_col.find_one_and_update(
+                {"addr": canonical},
+                {
+                    "$set": {
+                        "body": body,
+                        "updated_at": now,
+                        "updated_by": user_email,
+                    },
+                    "$inc": {"revision": 1},
+                    "$setOnInsert": {
+                        "addr": canonical,
+                        "created_at": now,
+                        "created_by": user_email,
+                    },
+                },
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+        elif expected_revision >= 1:
+            # Concurrency-checked update: only proceeds when
+            # the stored revision matches.  ``None`` return
+            # means the filter did not find a matching record,
+            # i.e. the revision drifted (or no record exists).
+            doc = notes_col.find_one_and_update(
+                {"addr": canonical, "revision": expected_revision},
+                {
+                    "$set": {
+                        "body": body,
+                        "updated_at": now,
+                        "updated_by": user_email,
+                    },
+                    "$inc": {"revision": 1},
+                },
+                return_document=ReturnDocument.AFTER,
+            )
+            if doc is None:
+                raise ValueError(
+                    f"concurrent edit detected: stored revision "
+                    f"does not match expected={expected_revision}"
+                )
+        else:
+            # ``expected_revision <= 0``: insert-only path,
+            # creating the note iff no record exists.  Negative
+            # values are coalesced into this branch -- the
+            # caller's intent is "no prior history" either way.
+            try:
+                notes_col.insert_one(
+                    {
+                        "addr": canonical,
+                        "body": body,
+                        "created_at": now,
+                        "created_by": user_email,
+                        "updated_at": now,
+                        "updated_by": user_email,
+                        "revision": 1,
+                    }
+                )
+            except DuplicateKeyError as exc:
+                raise ValueError(
+                    "note already exists; expected_revision=0 cannot insert"
+                ) from exc
+            doc = notes_col.find_one({"addr": canonical})
+        # Append the immutable revision row.  Two-op semantics
+        # (parent + audit log): a crash between the two leaves
+        # the parent committed and the matching revision row
+        # missing -- the parent body is the authoritative
+        # source of truth, so reads remain correct.
+        revisions_col.insert_one(
+            {
+                "addr": canonical,
+                "revision": doc["revision"],
+                "body": body,
+                "created_at": now,
+                "created_by": user_email,
+            }
+        )
+        doc.pop("_id", None)
+        return doc
+
+    def delete_host_note(self, addr):
+        canonical = self._canonical_note_addr(addr)
+        result = self.db[self.columns[self.column_view_notes]].delete_one(
+            {"addr": canonical}
+        )
+        # Always sweep the revisions: a stray audit log without
+        # a parent is meaningless and would inflate
+        # ``count_documents`` queries.
+        self.db[self.columns[self.column_view_note_revisions]].delete_many(
+            {"addr": canonical}
+        )
+        return result.deleted_count > 0
+
+    def list_host_note_revisions(self, addr):
+        canonical = self._canonical_note_addr(addr)
+        cursor = (
+            self.db[self.columns[self.column_view_note_revisions]]
+            .find({"addr": canonical})
+            .sort([("revision", pymongo.DESCENDING)])
+        )
+        revisions = []
+        for doc in cursor:
+            doc.pop("_id", None)
+            revisions.append(doc)
+        return revisions
+
+    def list_hosts_with_notes(self):
+        return list(self.db[self.columns[self.column_view_notes]].distinct("addr"))
+
+    def count_host_notes(self):
+        return self.db[self.columns[self.column_view_notes]].count_documents({})
 
 
 class MongoDBPassive(MongoDB, DBPassive):

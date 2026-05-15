@@ -275,6 +275,15 @@ WEB_UPLOAD_OK = False
 # bounded by the underlying ``IPRanges`` shape and are not
 # capped. Set to ``None`` to disable the cap.
 WEB_IPRANGE_ADDR_CAP: int | None = 100_000
+# Maximum size, in bytes, accepted for a per-host markdown note
+# body (the ``view_notes`` collection populated by
+# ``DBView.set_host_note``).  The storage layer enforces this
+# via :meth:`DBView._validate_note_body_size` as
+# defence-in-depth; the web routes (``PUT /cgi/view/<addr>/notes``)
+# return HTTP 413 for over-cap requests before they reach the
+# DB.  Set to ``None`` to disable the cap (Mongo's BSON
+# 16 MiB document limit still applies).
+WEB_HOST_NOTES_MAX_BYTES: int | None = 1_000_000
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_AUTH_ENABLED == True
 WEB_SECRET = None

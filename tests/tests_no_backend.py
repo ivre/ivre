@@ -14847,6 +14847,139 @@ class IPRangeTests(unittest.TestCase):
         self.assertTrue(status.startswith("400"), status)
 
 
+# ---------------------------------------------------------------------
+# MongoDBViewNotesIndexTests -- pin the structural definitions
+# (collections, indexes, abstract surface, body-size validator)
+# the host-notes storage layer ships with.  The actual
+# create/read/update/list-revisions/delete round-trip is
+# exercised in ``tests/tests.py`` on the ``mongodb.yml`` CI lane
+# where a real MongoDB instance is available; these no-backend
+# tests bound the wire shape so regressions surface immediately.
+# ---------------------------------------------------------------------
+
+
+class MongoDBViewNotesIndexTests(unittest.TestCase):
+    """Backend-free pin tests for the host-notes storage layer
+    (``view_notes`` + ``view_note_revisions`` collections + the
+    ``DBView`` abstract surface).
+    """
+
+    def test_view_notes_columns_registered(self) -> None:
+        from ivre.db.mongo import MongoDBView
+
+        # The two new column constants are appended after the
+        # inherited ``column_hosts = 0``.
+        self.assertEqual(MongoDBView.column_view_notes, 1)
+        self.assertEqual(MongoDBView.column_view_note_revisions, 2)
+        # The ``indexes`` list mirrors ``columns`` in length so
+        # every collection has its index block.
+        self.assertEqual(
+            len(MongoDBView.indexes),
+            MongoDBView.column_view_note_revisions + 1,
+        )
+
+    def test_view_notes_addr_unique_index(self) -> None:
+        from ivre.db.mongo import MongoDBView
+
+        block = MongoDBView.indexes[MongoDBView.column_view_notes]
+        addr_index = next((keys, opts) for keys, opts in block if keys == [("addr", 1)])
+        self.assertTrue(addr_index[1].get("unique"), addr_index)
+
+    def test_view_note_revisions_compound_index(self) -> None:
+        # Pin the ``(addr ASC, revision DESC)`` compound used by
+        # ``list_host_note_revisions`` for newest-first ordering.
+        from ivre.db.mongo import MongoDBView
+
+        block = MongoDBView.indexes[MongoDBView.column_view_note_revisions]
+        self.assertTrue(
+            any(keys == [("addr", 1), ("revision", -1)] for keys, _opts in block),
+            block,
+        )
+
+    def test_dbview_notes_abstract_surface(self) -> None:
+        # Each method is declared on :class:`DBView` and raises
+        # NotImplementedError unless the concrete backend
+        # provides it.  ``MongoDBView`` overrides them all.
+        from ivre.db import DBView
+        from ivre.db.mongo import MongoDBView
+
+        method_names = (
+            "get_host_note",
+            "set_host_note",
+            "delete_host_note",
+            "list_host_note_revisions",
+            "list_hosts_with_notes",
+            "count_host_notes",
+        )
+        for name in method_names:
+            with self.subTest(method=name):
+                self.assertTrue(
+                    hasattr(DBView, name),
+                    f"DBView is missing {name}",
+                )
+                self.assertTrue(
+                    hasattr(MongoDBView, name),
+                    f"MongoDBView is missing {name}",
+                )
+                # The Mongo concrete impl shadows the abstract
+                # raise; the inherited method on a fresh
+                # ``DBView`` instance still raises.
+                self.assertIsNot(
+                    DBView.__dict__.get(name),
+                    None,
+                    f"DBView.{name} should be defined directly",
+                )
+
+    def test_dbview_note_methods_raise_on_base(self) -> None:
+        # Driving the base-class method directly (bypassing the
+        # concrete override) surfaces ``NotImplementedError``,
+        # so a backend that forgets to implement one fails
+        # loudly instead of silently no-op'ing.
+        from ivre.db import DBView
+
+        view = DBView()
+        with self.assertRaises(NotImplementedError):
+            view.get_host_note("192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            view.set_host_note("192.0.2.1", "body", "alice@example.org")
+        with self.assertRaises(NotImplementedError):
+            view.delete_host_note("192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            view.list_host_note_revisions("192.0.2.1")
+        with self.assertRaises(NotImplementedError):
+            view.list_hosts_with_notes()
+        with self.assertRaises(NotImplementedError):
+            view.count_host_notes()
+
+    def test_validate_note_body_size_accepts_within_cap(self) -> None:
+        from ivre.db import DBView
+
+        # A body of ``cap`` bytes is accepted (exactly the cap,
+        # not over it).
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None  # default config has it set
+        # ASCII body so byte-length equals str-length.
+        DBView._validate_note_body_size("x" * cap)
+
+    def test_validate_note_body_size_rejects_over_cap(self) -> None:
+        from ivre.db import DBView
+
+        cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
+        assert cap is not None
+        with self.assertRaises(ValueError) as ctx:
+            DBView._validate_note_body_size("x" * (cap + 1))
+        self.assertIn("exceeds cap", str(ctx.exception))
+
+    def test_validate_note_body_size_disabled_when_cap_is_none(self) -> None:
+        from ivre.db import DBView
+
+        # An operator may disable the cap explicitly; arbitrarily
+        # large bodies are then accepted by the storage validator
+        # (Mongo's 16 MiB BSON limit still applies at insert time).
+        with mock.patch.object(ivre.config, "WEB_HOST_NOTES_MAX_BYTES", None):
+            DBView._validate_note_body_size("x" * 5_000_000)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""

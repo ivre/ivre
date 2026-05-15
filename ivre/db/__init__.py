@@ -4556,6 +4556,109 @@ class DBView(DBActive):
             values["ja4_c2_raw"] = ja4_c2_raw
         return cls.searchscript(name="ssl-ja4-client", values=values, neg=neg)
 
+    # ----------------------------------------------------------------
+    # Per-host notes (markdown, free-form annotation).
+    #
+    # Stored in two backend-side collections:
+    #
+    # * ``view_notes``: one record per ``addr`` carrying the
+    #   *current* note (body, timestamps, authorship, monotonic
+    #   ``revision`` integer).
+    # * ``view_note_revisions``: append-only audit log; one row
+    #   per edit, indexed by ``(addr, revision DESC)``.
+    #
+    # Replaces the legacy Dokuwiki / MediaWiki integrations
+    # whose only IVRE-side knowledge was a filesystem scan for
+    # ``<IP>.txt`` files.  The new surface lets the SPA render
+    # / edit notes natively and lets the ``notes:`` search-bar
+    # filter consult an in-database list of hosts with notes.
+    # ----------------------------------------------------------------
+
+    @staticmethod
+    def _validate_note_body_size(body: str) -> None:
+        """Raise :class:`ValueError` if ``body`` exceeds
+        :data:`config.WEB_HOST_NOTES_MAX_BYTES` (when the knob
+        is not ``None``).
+
+        Called by every backend's :meth:`set_host_note`
+        implementation before any DB write -- defence-in-depth
+        alongside the web-layer cap the ``/cgi/view/<addr>/notes``
+        route enforces.
+        """
+        cap = config.WEB_HOST_NOTES_MAX_BYTES
+        if cap is None:
+            return
+        byte_len = len(body.encode("utf-8"))
+        if byte_len > cap:
+            raise ValueError(f"note body is {byte_len} bytes, exceeds cap {cap}")
+
+    def get_host_note(self, addr: str) -> dict | None:
+        """Return the current note record for ``addr``, or
+        ``None`` when no note has been written yet.
+
+        The returned dict carries ``addr`` / ``body`` /
+        ``created_at`` / ``created_by`` / ``updated_at`` /
+        ``updated_by`` / ``revision``.
+        """
+        raise NotImplementedError
+
+    def set_host_note(
+        self,
+        addr: str,
+        body: str,
+        user_email: str,
+        *,
+        expected_revision: int | None = None,
+    ) -> dict:
+        """Upsert the note for ``addr``.
+
+        Stamps ``updated_by`` / ``updated_at`` and bumps the
+        monotonic ``revision`` counter.  On first creation also
+        stamps ``created_by`` / ``created_at``.  Appends an
+        immutable row to the revisions collection (audit trail).
+
+        Concurrency control: when ``expected_revision`` is set,
+        refuses the write if the stored revision does not match
+        (raises :class:`ValueError`).  ``expected_revision=0``
+        means "create only if no note exists yet".  ``None``
+        (the default) means last-write-wins -- the upsert
+        proceeds regardless of the current revision.
+
+        Body size: :data:`config.WEB_HOST_NOTES_MAX_BYTES`
+        bounds the accepted body length.  Over-cap writes
+        raise :class:`ValueError`.
+
+        Returns the post-update note record.
+        """
+        raise NotImplementedError
+
+    def delete_host_note(self, addr: str) -> bool:
+        """Remove the note for ``addr`` and every revision in
+        its audit log.  Returns ``True`` when a record existed
+        and was removed, ``False`` otherwise.
+        """
+        raise NotImplementedError
+
+    def list_host_note_revisions(self, addr: str) -> list[dict]:
+        """Return every revision recorded for ``addr``,
+        newest-first.  Each entry carries ``revision`` /
+        ``body`` / ``created_at`` / ``created_by``.
+        """
+        raise NotImplementedError
+
+    def list_hosts_with_notes(self) -> list[str]:
+        """Return the canonical addresses that currently have a
+        note.  Used by the search-bar ``notes:`` filter to
+        narrow result sets to annotated hosts.
+        """
+        raise NotImplementedError
+
+    def count_host_notes(self) -> int:
+        """Total number of hosts with a note (admin /
+        statistics surface).
+        """
+        raise NotImplementedError
+
 
 class _RecInfo:
     __slots__ = ["count", "firstseen", "infos", "lastseen"]
