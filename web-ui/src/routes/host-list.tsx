@@ -7,7 +7,12 @@ import { HostCardList } from "@/components/HostCardList";
 import { HostDetailSheet } from "@/components/HostDetailSheet";
 import { Timeline } from "@/components/Timeline";
 import { WorldMap } from "@/components/WorldMap";
-import { useCoordinates, useHosts, type HostRecord } from "@/lib/api";
+import {
+  useCoordinates,
+  useCount,
+  useHosts,
+  type HostRecord,
+} from "@/lib/api";
 import { getConfig, isSequentialLoading } from "@/lib/config";
 import {
   buildHighlightMap,
@@ -16,6 +21,7 @@ import {
   quoteValue,
   type Filter,
 } from "@/lib/filter";
+import { formatResultsCount } from "@/lib/format";
 import { getSection, type SectionId } from "@/lib/sections";
 import { formatTimelineRange, type TimelineRecord } from "@/lib/timeline";
 
@@ -110,6 +116,15 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     skip: 0,
   });
   const { data: hosts = [], isLoading, error } = hostsQuery;
+  // Total number of records matching ``q=`` — used to render the
+  // ``loaded / total`` headline alongside the page-of-results
+  // count. Fires in parallel with the hosts query (cheap server
+  // operation; no need to serialise even under sequential mode).
+  // Sections whose backend does not expose a ``/count`` companion
+  // pass ``countEndpoint=undefined``; the hook is gated off and
+  // ``data`` stays ``undefined``, falling back to the bare
+  // ``(N)`` form.
+  const { data: totalCount } = useCount(section.countEndpoint, { q: query });
 
   // Sequential-loading orchestration. In ``sequential`` mode the
   // map waits for the hosts request to settle (success OR error
@@ -299,7 +314,7 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
               Results
               {!isLoading && !error ? (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({hosts.length})
+                  ({formatResultsCount(hosts.length, totalCount)})
                 </span>
               ) : null}
             </h2>

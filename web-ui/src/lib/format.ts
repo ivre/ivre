@@ -166,6 +166,29 @@ export function formatPort(port: Pick<PortRecord, "protocol" | "port">): string 
 }
 
 /**
+ * Render the "loaded / total" count shown in a section's results
+ * header. When the total is unknown (still loading, errored, or
+ * the section's backend does not expose a ``/count`` companion)
+ * fall back to the bare ``loaded`` count. When the page already
+ * holds every matching record (``loaded === total``) also drop
+ * the redundant ``/total`` suffix.
+ *
+ * The current page may exceptionally exceed the server-reported
+ * total when a background mutation expanded the result set
+ * between the two requests; clamp the display in that case so we
+ * never render ``11/10``.
+ */
+export function formatResultsCount(
+  loaded: number,
+  total: number | undefined,
+): string {
+  if (total === undefined || total <= loaded) {
+    return String(loaded);
+  }
+  return `${loaded}/${total}`;
+}
+
+/**
  * Convert an ISO timestamp (or seconds-since-epoch number) to a
  * compact human-readable string (UTC, second resolution). Returns
  * the empty string on invalid input.

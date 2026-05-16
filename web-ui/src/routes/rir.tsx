@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { RirRecordCard } from "@/components/RirRecordCard";
-import { useRirRecords } from "@/lib/api";
+import { useCount, useRirRecords } from "@/lib/api";
 import { getConfig, isSequentialLoading } from "@/lib/config";
 import {
   buildHighlightMap,
@@ -12,6 +12,7 @@ import {
   parseFiltersFromQuery,
   type Filter,
 } from "@/lib/filter";
+import { formatResultsCount } from "@/lib/format";
 import { getSection } from "@/lib/sections";
 
 /**
@@ -88,6 +89,10 @@ function RirRouteInner() {
   const sequential = isSequentialLoading();
   const recordsQuery = useRirRecords({ q: query, limit, skip: 0 });
   const { data: records = [], isLoading, error } = recordsQuery;
+  // Total number of records matching ``q=`` — drives the
+  // ``loaded / total`` headline in the results header. Fires in
+  // parallel with the records query.
+  const { data: totalCount } = useCount(section.countEndpoint, { q: query });
   // No map / timeline on RIR; gate facets directly on the results.
   // Scope note: ``isSuccess || isError`` only targets the
   // first-load / query-change cycle — background refetches are
@@ -118,7 +123,7 @@ function RirRouteInner() {
               RIR records
               {!isLoading && !error ? (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({records.length})
+                  ({formatResultsCount(records.length, totalCount)})
                 </span>
               ) : null}
             </h2>

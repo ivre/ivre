@@ -38,6 +38,10 @@ describe("section configs", () => {
       expect(view.mapEndpoint).toBe("/view/coordinates");
     });
 
+    it("declares a /count companion for the results headline", () => {
+      expect(view.countEndpoint).toBe("/view/count");
+    });
+
     it("declares country and AS facets (GeoIP-enriched data)", () => {
       expect(view.facets).toContain("country");
       expect(view.facets).toContain("as");
@@ -55,6 +59,10 @@ describe("section configs", () => {
     it("hits ``/cgi/scans`` for the host list and top", () => {
       expect(active.listEndpoint).toBe("/scans");
       expect(active.topEndpoint).toBe("/scans/top");
+    });
+
+    it("declares a /count companion for the results headline", () => {
+      expect(active.countEndpoint).toBe("/scans/count");
     });
 
     it("does not declare a map endpoint (no GeoIP enrichment on raw scans)", () => {
@@ -94,6 +102,10 @@ describe("section configs", () => {
       expect(passive.topEndpoint).toBe("/passive/top");
     });
 
+    it("declares a /count companion for the results headline", () => {
+      expect(passive.countEndpoint).toBe("/passive/count");
+    });
+
     it("does not declare a map endpoint (no GeoIP enrichment)", () => {
       expect(passive.mapEndpoint).toBeUndefined();
     });
@@ -122,6 +134,15 @@ describe("section configs", () => {
       expect(dns.listEndpoint).toBe("/dns");
     });
 
+    it("does not declare a /count companion (no /cgi/dns/count on the server)", () => {
+      // The DNS section is a synthetic merge over ``db.nmap`` and
+      // ``db.passive``; the backend exposes neither a
+      // ``top/<field>`` companion nor a ``/count`` route. The
+      // results header therefore falls back to the loaded-only
+      // form.
+      expect(dns.countEndpoint).toBeUndefined();
+    });
+
     it("does not declare a top endpoint or facets (no facet sidebar)", () => {
       // ``/cgi/dns`` does not expose a ``top/<field>``
       // companion; the section's facet sidebar is therefore
@@ -146,6 +167,10 @@ describe("section configs", () => {
     it("hits ``/cgi/rir`` for the record list and ``/cgi/rir/top`` for facets", () => {
       expect(rir.listEndpoint).toBe("/rir");
       expect(rir.topEndpoint).toBe("/rir/top");
+    });
+
+    it("declares a /count companion for the results headline", () => {
+      expect(rir.countEndpoint).toBe("/rir/count");
     });
 
     it("does not declare a map endpoint (RIR data carries no coordinates)", () => {
@@ -176,6 +201,15 @@ describe("section configs", () => {
       // returns a graph (``{nodes, edges}``), counts, or
       // details depending on the JSON-encoded ``q=``.
       expect(flow.listEndpoint).toBe("/flows");
+    });
+
+    it("does not declare a /count companion (counts ride on the main route)", () => {
+      // Flow counts are obtained by setting ``q.count = true``
+      // on the main ``/cgi/flows`` request, not via a separate
+      // ``/count`` companion. The Flow route renders its own
+      // counts block (clients / servers / flows) and does not
+      // share the generic ``loaded / total`` results headline.
+      expect(flow.countEndpoint).toBeUndefined();
     });
 
     it("does not declare a top endpoint or facets", () => {

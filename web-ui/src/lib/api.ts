@@ -205,7 +205,23 @@ export async function fetchCount(
   const response = await fetch(url, { credentials: "same-origin" });
   await ensureOk(response, `GET ${url}`);
   const text = await response.text();
-  return Number.parseInt(text.trim(), 10);
+  // Validate strictly: the body MUST be a bare non-negative
+  // decimal integer (no sign, no decimal point, no trailing
+  // characters). ``Number.parseInt`` would accept partial
+  // numerics like ``"12abc"`` -> ``12`` or ``"1.5"`` -> ``1``
+  // and silently turn a malformed body into a plausible-looking
+  // count. Anything else — empty 204, HTML error page, JSON
+  // envelope, banner-appended response — fails this check and
+  // lands the query in ``error`` state so callers fall back to
+  // the loaded-only headline rather than displaying ``NaN`` or
+  // a truncated number.
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(
+      `GET ${url} returned non-numeric body: ${text.slice(0, 64)}`,
+    );
+  }
+  return Number.parseInt(trimmed, 10);
 }
 
 /** Fetch top-N values for a given field. Returns the array of

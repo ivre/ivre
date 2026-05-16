@@ -21,6 +21,12 @@ export interface SectionConfig {
    *  (e.g. ``/view``, ``/scans``). The ``/cgi`` prefix is added by
    *  ``src/lib/api.ts``'s ``CGI_ROOT`` constant. */
   listEndpoint?: string;
+  /** Path relative to ``/cgi/`` returning the total number of
+   *  records matching ``q=`` (e.g. ``/view/count``,
+   *  ``/scans/count``). Drives the ``loaded / total`` headline in
+   *  the result list header. ``undefined`` for sections whose
+   *  backend does not expose a ``/count`` companion (DNS, Flow). */
+  countEndpoint?: string;
   /** Path relative to ``/cgi/`` for the ``top/<field>`` faceting
    *  endpoint. */
   topEndpoint?: string;
@@ -43,6 +49,7 @@ export const SECTIONS: readonly SectionConfig[] = [
     id: "view",
     label: "View",
     listEndpoint: "/view",
+    countEndpoint: "/view/count",
     topEndpoint: "/view/top",
     mapEndpoint: "/view/coordinates",
     facets: ["country", "as", "port:open", "product", "tag"],
@@ -52,6 +59,7 @@ export const SECTIONS: readonly SectionConfig[] = [
     id: "active",
     label: "Active",
     listEndpoint: "/scans",
+    countEndpoint: "/scans/count",
     topEndpoint: "/scans/top",
     // Active scan results (``db.nmap``) are typically not enriched
     // with MaxMind GeoIP data — the IP-to-country / IP-to-AS columns
@@ -68,6 +76,7 @@ export const SECTIONS: readonly SectionConfig[] = [
     id: "passive",
     label: "Passive",
     listEndpoint: "/passive",
+    countEndpoint: "/passive/count",
     topEndpoint: "/passive/top",
     // Passive records (``db.passive``) are not GeoIP-enriched and
     // the backend does not expose ``/cgi/passive/coordinates``;
@@ -128,6 +137,7 @@ export const SECTIONS: readonly SectionConfig[] = [
     // ``net:`` / ``range:`` filter naturally surfaces the
     // most-specific allocation at the top.
     listEndpoint: "/rir",
+    countEndpoint: "/rir/count",
     topEndpoint: "/rir/top",
     facets: ["country", "source_file"],
     resultType: "rir",

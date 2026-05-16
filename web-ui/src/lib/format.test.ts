@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatPort,
+  formatResultsCount,
   formatServices,
   formatTimestamp,
   getCountryFlag,
@@ -232,5 +233,34 @@ describe("formatTimestamp", () => {
   it("returns empty string on invalid input", () => {
     expect(formatTimestamp(undefined)).toBe("");
     expect(formatTimestamp("not a date")).toBe("");
+  });
+});
+
+describe("formatResultsCount", () => {
+  it("renders ``loaded/total`` when the page is a partial slice", () => {
+    expect(formatResultsCount(10, 45643)).toBe("10/45643");
+  });
+
+  it("drops the redundant ``/total`` suffix when the page holds every match", () => {
+    expect(formatResultsCount(7, 7)).toBe("7");
+  });
+
+  it("falls back to the bare loaded count while the total is unknown", () => {
+    // ``total`` stays ``undefined`` while the /count query is
+    // pending, errored, or for sections whose backend exposes no
+    // ``/count`` companion (DNS, Flow).
+    expect(formatResultsCount(10, undefined)).toBe("10");
+  });
+
+  it("clamps a stale total that lags the page (never renders ``11/10``)", () => {
+    // Background mutations can transiently leave the cached total
+    // below the freshly-loaded page size; prefer the bare loaded
+    // count over a self-contradictory ``11/10``.
+    expect(formatResultsCount(11, 10)).toBe("11");
+  });
+
+  it("renders the zero-match case as a bare ``0``", () => {
+    expect(formatResultsCount(0, 0)).toBe("0");
+    expect(formatResultsCount(0, undefined)).toBe("0");
   });
 });
