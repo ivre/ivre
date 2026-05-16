@@ -1457,6 +1457,445 @@ def get_rir_count():
     return f"{count}\n"
 
 
+#
+# /notes/  -- per-entity markdown annotations (replaces the legacy
+# Dokuwiki integration).  Keyed by (entity_type, entity_key); see
+# :class:`ivre.db.DBNotes` for the storage-layer contract.
+#
+
+
+def _require_authenticated_user() -> str:
+    """Return the authenticated user email, aborting with
+    HTTP 401 when no user could be resolved.
+
+    Helper for the notes **write paths** (``PUT`` and
+    ``DELETE``) -- they need an identified user so the
+    resolved email can be stamped on the persisted note as
+    ``updated_by`` and the operation can be audited.  Read
+    paths (``GET`` on a single note, ``GET`` on the listing,
+    ``GET`` on the revisions) do not call this helper and
+    remain accessible without authentication; the write-side
+    auth gate is what protects against anonymous tampering.
+
+    User resolution itself is delegated to
+    :func:`ivre.web.utils.get_user`, whose behaviour is
+    asymmetric based on the ``WEB_AUTH_ENABLED`` config knob:
+
+    * When ``WEB_AUTH_ENABLED`` is ``False`` (the default
+      open-deployment mode), the helper short-circuits to the
+      reverse-proxy-supplied ``REMOTE_USER`` only -- session
+      cookies and API keys are not consulted (the deployment
+      has not opted in to IVRE's own auth backend, so trying
+      its session / API-key paths would be incoherent).
+    * When ``WEB_AUTH_ENABLED`` is ``True``, the helper
+      consults (in order) the ``_ivre_session`` cookie, then
+      the ``X-API-Key`` header (or ``Authorization: Bearer
+      <key>``), then the reverse-proxy ``REMOTE_USER``.  Each
+      source is gated on ``db.auth`` being available; the
+      first source that yields an active user wins.
+
+    When no source yields a usable identity, the helper
+    aborts with HTTP 401.
+    """
+    user = webutils.get_user()
+    if user is None:
+        abort(401, "Authentication required for note writes")
+    return user
+
+
+def _require_notes_backend() -> None:
+    """Abort with HTTP 501 when the configured backend does not
+    implement the notes purpose.
+
+    Every notes web route calls this as its first line so a
+    misconfigured deployment surfaces a clean 501 with a
+    message naming the supported backend (and the config knob
+    to set) rather than the cryptic 500 the catch-all WSGI
+    handler would otherwise produce from
+    ``AttributeError: 'NoneType' object has no attribute
+    '<method>'``.
+
+    501 is the correct HTTP semantic for "the route exists but
+    the implementation is missing for this server's backend";
+    404 would mislead operators into thinking they need to
+    create a resource.  Mirrors the
+    ``_require_notes_backend`` guards in
+    :mod:`ivre.tools.mcp_server` and :mod:`ivre.tools.notes`.
+    """
+    if db.notes is None:
+        abort(
+            501,
+            "Notes backend not available. The notes purpose is "
+            "implemented on MongoDB only at v1; set DB_NOTES (or "
+            "DB) to a mongodb:// URL to enable it.",
+        )
+
+
+def _validate_entity_type(entity_type: str) -> None:
+    """Reject unknown entity types with HTTP 400 before reaching
+    the storage layer so the error surfaces at the route edge
+    with a friendlier message than the canonicaliser's
+    registry-mismatch ``ValueError``.
+    """
+    from ivre.db import (  # pylint: disable=import-outside-toplevel
+        _ENTITY_CANONICALIZERS,
+    )
+
+    if entity_type not in _ENTITY_CANONICALIZERS:
+        abort(
+            400,
+            f"unknown entity_type {entity_type!r}; expected one of "
+            f"{sorted(_ENTITY_CANONICALIZERS)}",
+        )
+
+
+def _parse_revision_param(raw: str | None) -> int | None:
+    """Parse the ``If-Match`` header or ``?expected_revision=``
+    query parameter into the integer the storage layer expects.
+    Returns ``None`` when no precondition was requested (LWW).
+
+    Handles three standard ``If-Match`` HTTP forms in addition
+    to the bare integer:
+
+    * **Weak validator** (``W/"7"``) -- the ``W/`` prefix is
+      stripped and the value parsed as 7.  Weak vs strong
+      distinction is meaningless for a monotonic revision
+      counter, so we accept both transparently.
+    * **Comma-list** (``"7", "8"``) -- the first ETag is taken;
+      remaining values are ignored.  Strict "OR over revisions"
+      semantics would require a multi-version :meth:`set_note`
+      mode we do not implement; first-wins matches how most
+      clients use commas in practice (a single value with
+      stray middleware-injected whitespace).
+    * **Wildcard** (``*``) -- rejected with HTTP 400.  Standard
+      HTTP "must exist" semantics would require an
+      update-if-exists-do-not-create :meth:`set_note` mode we
+      do not have.  Surfacing the limitation explicitly is
+      cleaner than silently mapping it to one of the existing
+      modes.
+
+    Quoted forms (``"7"`` / ``W/"7"``) are standard for ETag
+    round-tripping; strip the quotes before integer parsing.
+    """
+    if not raw:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    if raw == "*":
+        abort(
+            400,
+            "If-Match: * is not supported; use a numeric "
+            "revision or omit the header for last-write-wins",
+        )
+    # Comma-list: first wins.  Subsequent values are
+    # dropped silently.
+    first = raw.split(",", 1)[0].strip()
+    # Optional weak-validator prefix.
+    if first.startswith("W/"):
+        first = first[2:]
+    # ETag canonical form is double-quoted; strip the quotes.
+    first = first.strip('"')
+    try:
+        return int(first)
+    except ValueError:
+        abort(
+            400,
+            f"expected_revision must be an integer (with optional "
+            f'W/ prefix and "..." quoting), got {raw!r}',
+        )
+    return None  # unreachable; keeps mypy happy
+
+
+@application.get("/notes/<entity_type>/<entity_key>")
+@check_referer
+def get_note(entity_type: str, entity_key: str):
+    """Read a single note.
+
+    :param str entity_type: entity type registered with
+        ``_ENTITY_CANONICALIZERS`` (``"host"`` only at v1)
+    :param str entity_key: caller-facing entity key (e.g.
+        printable IP string for ``host``)
+    :status 200: note found; JSON body
+    :status 400: invalid entity_type / entity_key
+    :status 404: no note exists for this entity
+    :status 501: notes backend not configured on this server
+
+    """
+    _require_notes_backend()
+    _validate_entity_type(entity_type)
+    try:
+        note = db.notes.get_note(entity_type, entity_key)
+    except ValueError as exc:
+        abort(400, str(exc))
+    if note is None:
+        abort(404, f"no note for {entity_type}/{entity_key}")
+    response.set_header("Content-Type", "application/json")
+    response.set_header("ETag", f'"{note["revision"]}"')
+    return json.dumps(note, default=utils.serialize)
+
+
+@application.put("/notes/<entity_type>/<entity_key>")
+@check_referer
+def put_note(entity_type: str, entity_key: str):
+    """Create or update a note.
+
+    Body must be valid UTF-8 markdown; invalid byte sequences
+    are rejected with HTTP 400 (no silent ``U+FFFD``
+    substitution).  Optimistic concurrency is opt-in via
+    ``If-Match`` (matching the ``ETag`` returned by ``GET``)
+    or ``?expected_revision=<int>``.  ``If-None-Match: *``
+    opts into create-only semantics (HTTP 409 if a note
+    already exists).
+
+    ``If-Match`` accepts the standard HTTP forms: bare integer
+    (``7``), double-quoted (``"7"``), weak validator
+    (``W/"7"``), and the first ETag of a comma-list
+    (``"7", "8"`` is treated as 7).  ``If-Match: *`` (generic
+    "must exist") is **not** supported and returns 400.
+
+    :param str entity_type: entity type
+    :param str entity_key: caller-facing entity key
+    :reqheader If-Match: expected revision for optimistic
+        concurrency
+    :reqheader If-None-Match: ``*`` for create-only mode
+    :status 200: persisted; JSON body of the note
+    :status 400: invalid entity_type / entity_key / params /
+        body not valid UTF-8 / unsupported ``If-Match`` form
+    :status 401: authentication required
+    :status 404: ``If-Match`` set but no note exists
+    :status 409: concurrent edit (revision mismatch) or
+        create-only collision
+    :status 413: body exceeds
+        ``WEB_HOST_NOTES_MAX_BYTES``
+    :status 501: notes backend not configured on this server
+
+    """
+    from ivre.db import (  # pylint: disable=import-outside-toplevel
+        NoteAlreadyExists,
+        NoteBodyTooLarge,
+        NoteConcurrencyError,
+        NoteNotFound,
+    )
+
+    # Backend check first so a misconfigured deployment sees
+    # the right error before being told to authenticate; an
+    # operator's first fix is the backend, not the auth.
+    _require_notes_backend()
+    _validate_entity_type(entity_type)
+    user = _require_authenticated_user()
+    # Edge-enforce :data:`WEB_HOST_NOTES_MAX_BYTES` before the
+    # body is fully buffered.  The storage layer's
+    # :func:`_validate_note_body_size` is belt-and-suspenders;
+    # without this header / read-bounded check a client could
+    # PUT an arbitrarily large payload and force Bottle to
+    # spill the whole thing to a temp file (``MEMFILE_MAX`` caps
+    # in-memory buffering at ~100 KB but the disk path is
+    # unbounded) before we ever look at the size.
+    #
+    # Two-layer defence:
+    #   * ``request.content_length`` is parsed from the
+    #     ``Content-Length`` header at WSGI handoff time --
+    #     checking it costs nothing and lets us close the
+    #     connection without touching ``wsgi.input`` when the
+    #     declared length already overshoots the cap.
+    #   * Reading ``cap + 1`` bytes bounds the post-read
+    #     buffer even when the client omits ``Content-Length``
+    #     (chunked encoding) or lies about it; if more than
+    #     ``cap`` bytes are returned, the actual body
+    #     overshoots and we abort.
+    cap = config.WEB_HOST_NOTES_MAX_BYTES
+    if cap is not None:
+        # Bottle returns ``-1`` when the ``Content-Length``
+        # header is absent (e.g. chunked encoding); the
+        # ``>= 0`` guard skips the early check in that case
+        # and relies on the bounded read below.
+        declared = request.content_length
+        if declared >= 0 and declared > cap:
+            abort(
+                413,
+                f"note body declares {declared} bytes, exceeds cap {cap}",
+            )
+        raw_body = request.body.read(cap + 1)
+        if len(raw_body) > cap:
+            abort(413, f"note body exceeds cap {cap}")
+    else:
+        raw_body = request.body.read()
+    # Strict UTF-8 decode: the route contract documents the body
+    # as "UTF-8 markdown", so invalid bytes are a client error
+    # (400) rather than something to silently substitute with
+    # U+FFFD.  Strict mode also closes the
+    # :class:`NoteBodyTooLarge` corner case at the storage layer
+    # where invalid bytes inflate 1:3 on re-encode -- garbage
+    # input is rejected at decode time and never reaches the
+    # storage cap check.
+    try:
+        body = raw_body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        abort(400, f"note body must be valid UTF-8: {exc}")
+    # Translate HTTP headers / query params into the storage-layer
+    # ``expected_revision`` enum.  ``If-None-Match: *`` takes
+    # precedence over ``If-Match`` because the two are mutually
+    # exclusive in HTTP semantics; mixing them is a client bug.
+    if request.headers.get("If-None-Match") == "*":
+        expected_revision: int | None = 0
+    else:
+        expected_revision = _parse_revision_param(
+            request.headers.get("If-Match") or request.params.get("expected_revision")
+        )
+    try:
+        note = db.notes.set_note(
+            entity_type,
+            entity_key,
+            body,
+            user,
+            expected_revision=expected_revision,
+        )
+    except NoteNotFound as exc:
+        abort(404, str(exc))
+    except (NoteConcurrencyError, NoteAlreadyExists) as exc:
+        abort(409, str(exc))
+    except NoteBodyTooLarge as exc:
+        # Contract preservation: the route docstring declares
+        # ``:status 413: body exceeds WEB_HOST_NOTES_MAX_BYTES``,
+        # and that contract must hold regardless of how the
+        # body got to this point.  Under the *current* edge
+        # checks above (``Content-Length`` reject + ``cap + 1``
+        # bounded read + strict UTF-8 decode) the storage-layer
+        # ``_validate_note_body_size`` -> :class:`NoteBodyTooLarge`
+        # path is unreachable from ``put_note``; the catch is
+        # kept so that a future refactor (e.g. reverting strict
+        # UTF-8 to ``errors="replace"``, loosening the wire
+        # cap) cannot silently demote 413 to 400.  The catch
+        # is by *type*, not by message substring, so any change
+        # to the storage-layer wording is also safe.
+        abort(413, str(exc))
+    except ValueError as exc:
+        # Remaining ``ValueError`` -- canonicaliser rejection
+        # (unknown entity_type, malformed entity_key list, ...)
+        # -- map to 400 Bad Request.
+        abort(400, str(exc))
+    response.set_header("Content-Type", "application/json")
+    response.set_header("ETag", f'"{note["revision"]}"')
+    return json.dumps(note, default=utils.serialize)
+
+
+@application.delete("/notes/<entity_type>/<entity_key>")
+@check_referer
+def delete_note(entity_type: str, entity_key: str):
+    """Delete a note (and its full revision history).
+
+    :param str entity_type: entity type
+    :param str entity_key: caller-facing entity key
+    :status 204: deleted
+    :status 400: invalid entity_type / entity_key
+    :status 401: authentication required
+    :status 404: no note exists for this entity
+    :status 501: notes backend not configured on this server
+
+    """
+    _require_notes_backend()
+    _validate_entity_type(entity_type)
+    _require_authenticated_user()
+    try:
+        existed = db.notes.delete_note(entity_type, entity_key)
+    except ValueError as exc:
+        abort(400, str(exc))
+    if not existed:
+        abort(404, f"no note for {entity_type}/{entity_key}")
+    response.status = 204
+    return ""
+
+
+@application.get("/notes/<entity_type>/<entity_key>/revisions")
+@check_referer
+def get_note_revisions(entity_type: str, entity_key: str):
+    """Read the full revision history of a note, newest first.
+
+    :param str entity_type: entity type
+    :param str entity_key: caller-facing entity key
+    :status 200: JSON array of ``{revision, body, created_at,
+        created_by}`` entries
+    :status 400: invalid entity_type / entity_key
+    :status 501: notes backend not configured on this server
+
+    """
+    _require_notes_backend()
+    _validate_entity_type(entity_type)
+    try:
+        revisions = db.notes.list_note_revisions(entity_type, entity_key)
+    except ValueError as exc:
+        abort(400, str(exc))
+    response.set_header("Content-Type", "application/json")
+    return json.dumps(revisions, default=utils.serialize)
+
+
+@application.get("/notes/")
+@check_referer
+def list_notes():
+    """List or search notes.
+
+    With no parameters, returns every note in the database (full
+    body included).  Add ``entity_type`` to narrow to one type,
+    ``q`` to free-text search across note bodies (results
+    ranked by relevance), or ``fields`` to skip the bodies and
+    paginate cheaply.
+
+    :query str entity_type: narrow to one entity type
+    :query str q: free-text search query (``$text`` over
+        note bodies; requires the
+        ``notes_body_text`` index)
+    :query str fields: comma-separated projection list (e.g.
+        ``"entity_type,entity_key,updated_at,revision"``).
+        The storage halves ``entity_key_0`` / ``entity_key_1``
+        are always added internally so the caller-facing
+        ``entity_key`` can be reassembled.
+    :query int limit: cap on returned entries
+        (default ``WEB_LIMIT``; capped by ``WEB_MAXRESULTS``)
+    :query int skip: pagination offset (default 0)
+    :status 200: JSON array
+    :status 400: invalid parameters
+    :status 501: notes backend not configured on this server
+
+    """
+    _require_notes_backend()
+    entity_type = request.params.get("entity_type") or None
+    if entity_type is not None:
+        _validate_entity_type(entity_type)
+    q = request.params.get("q") or None
+    raw_fields = request.params.get("fields")
+    fields = (
+        [f.strip() for f in raw_fields.split(",") if f.strip()] if raw_fields else None
+    )
+    try:
+        limit_raw = request.params.get("limit")
+        limit = int(limit_raw) if limit_raw else config.WEB_LIMIT
+        skip = int(request.params.get("skip") or 0)
+    except ValueError as exc:
+        abort(400, f"limit / skip must be integers: {exc}")
+    if config.WEB_MAXRESULTS is not None:
+        limit = min(limit, config.WEB_MAXRESULTS)
+    # Clamp negative ``skip`` / non-positive ``limit`` to the
+    # nearest sensible value before reaching the storage layer:
+    # negative ``skip`` raises ``OperationFailure`` deep in
+    # pymongo and the resulting 500 would obscure the
+    # parameter problem.
+    limit = max(1, limit)
+    skip = max(0, skip)
+    try:
+        notes = db.notes.list_notes(
+            entity_type=entity_type,
+            q=q,
+            fields=fields,
+            limit=limit,
+            skip=skip,
+        )
+    except ValueError as exc:
+        abort(400, str(exc))
+    response.set_header("Content-Type", "application/json")
+    return json.dumps(notes, default=utils.serialize)
+
+
 # Auth check route for nginx auth_request — always registered so that
 # Dokuwiki (and other auth_request-protected locations) work even when
 # authentication is disabled.

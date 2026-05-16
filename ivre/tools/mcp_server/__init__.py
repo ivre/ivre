@@ -193,6 +193,37 @@ def _parse_sort(sort_list: list[str] | None) -> list[tuple[str, int]] | None:
     return result
 
 
+def _require_notes_backend() -> None:
+    """Raise :class:`McpError` when the configured backend does
+    not implement the notes purpose.
+
+    Every notes MCP tool (``note_query`` / ``note_set`` /
+    ``note_delete`` / ``note_revisions_list``) calls this as
+    its first line so a misconfigured deployment surfaces a
+    friendly ``INTERNAL_ERROR`` (with a message naming the
+    supported backend and the config knob to set) rather than
+    the cryptic ``AttributeError: 'NoneType' object has no
+    attribute '<method>'`` the catch-all exception handler
+    would otherwise translate to ``INTERNAL_ERROR`` with a
+    useless message.
+
+    Mirrors the ``db.notes is None`` guard at the top of
+    :func:`ivre.tools.notes.main` (CLI side) and the
+    ``db.auth is None`` guard in :mod:`ivre.tools.authcli`.
+    """
+    if db.notes is None:
+        raise McpError(
+            ErrorData(
+                code=INTERNAL_ERROR,
+                message=(
+                    "Notes backend not available. The notes purpose "
+                    "is implemented on MongoDB only at v1; set "
+                    "DB_NOTES (or DB) to a mongodb:// URL to enable it."
+                ),
+            )
+        )
+
+
 def _register_tools() -> None:
     """Register all MCP tools and resources on the module-level ``mcp``.
 
@@ -779,6 +810,207 @@ def _register_tools() -> None:
         if output != iprange_tool.OUTPUT_COUNT:
             payload[output] = result["value"]
         return json.dumps(payload)
+
+    # --- Per-entity notes (markdown annotations) ---
+
+    def _resolve_note_writer() -> str:
+        """Resolve the authenticated user for a note write.
+
+        Mirrors :func:`_parse`'s auth check on the write path
+        where the resolved email is also stamped on the
+        persisted note as ``updated_by``.  Falls back to
+        ``"mcp-client"`` when auth is disabled or the
+        transport is stdio (no HTTP request context).
+
+        Also checks :func:`_require_notes_backend` so write
+        tools see the "backend not available" error before the
+        auth error -- an operator with a misconfigured notes
+        backend should fix that first, not chase a misleading
+        auth-required message.
+        """
+        # pylint: disable=import-outside-toplevel
+        from .auth import current_user_email
+
+        _require_notes_backend()
+        user = current_user_email()
+        if config.WEB_AUTH_ENABLED and _HTTP_AUTH_REQUIRED and user is None:
+            raise McpError(
+                ErrorData(code=INVALID_PARAMS, message="Authentication required")
+            )
+        return user or "mcp-client"
+
+    @mcp.tool()
+    def note_query(
+        entity_type: str | None = None,
+        entity_key: str | None = None,
+        q: str | None = None,
+        fields: list[str] | None = None,
+        limit: int = 100,
+        skip: int = 0,
+    ) -> str:
+        """Query per-entity notes (markdown annotations).
+
+        Modes (driven by parameters):
+
+        * ``entity_type`` + ``entity_key`` -- single-record
+          lookup.  Returns ``[note]`` (1 element) when found,
+          ``[]`` when not.
+        * ``q`` (optionally with ``entity_type``) -- free-text
+          search over note bodies, ranked by Mongo
+          ``$meta: textScore`` relevance.
+        * ``entity_type`` alone -- every note of that type.
+        * all None -- every note in the database.
+
+        ``fields`` is an optional projection list; when unset,
+        the full note (including ``body``) is returned.  Pass
+        e.g. ``["entity_type", "entity_key", "updated_at",
+        "revision"]`` for a metadata-only listing that paginates
+        cheaply (no ``body`` payload).
+
+        ``limit`` is capped at 1000 to keep MCP responses
+        bounded in the LLM context window.
+
+        Returns a JSON array.  Single-record lookups also
+        return an array (length 0 or 1) so the return type is
+        stable across modes.
+        """
+        _require_notes_backend()
+        limit = max(1, min(limit, 1000))
+        # Clamp ``skip`` to non-negative: pymongo raises
+        # ``OperationFailure`` on negative ``skip`` and the
+        # ``McpError`` we would surface ("INTERNAL_ERROR")
+        # would obscure the parameter issue.  Mirrors the
+        # existing ``limit`` clamp pattern on the generic
+        # ``get`` MCP tool.
+        skip = max(0, skip)
+        try:
+            if entity_key is not None:
+                if entity_type is None:
+                    raise McpError(
+                        ErrorData(
+                            code=INVALID_PARAMS,
+                            message="entity_type is required when entity_key is set",
+                        )
+                    )
+                note = db.notes.get_note(entity_type, entity_key)
+                return json.dumps([note] if note is not None else [], default=serialize)
+            notes = db.notes.list_notes(
+                entity_type=entity_type,
+                q=q,
+                fields=fields,
+                limit=limit,
+                skip=skip,
+            )
+            return json.dumps(notes, default=serialize)
+        except McpError:
+            raise
+        except ValueError as exc:
+            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def note_set(
+        entity_type: str,
+        entity_key: str,
+        body: str,
+        expected_revision: int | None = None,
+    ) -> str:
+        """Create or update a note.  Body is UTF-8 markdown.
+
+        Optimistic concurrency via ``expected_revision``:
+
+        * unset / ``None`` -- last-write-wins.
+        * ``0`` -- create-only.  Returns an error if a note
+          already exists for the target
+          (``NoteAlreadyExists``).
+        * ``>= 1`` -- update only when the stored revision
+          matches.  Returns an error when the note does not
+          exist (``NoteNotFound``, target was deleted) or when
+          the stored revision drifted
+          (``NoteConcurrencyError``, concurrent edit).
+
+        Body length is bounded by
+        ``WEB_HOST_NOTES_MAX_BYTES`` (default 1 MiB);
+        oversize bodies raise ``NoteBodyTooLarge``.
+
+        Returns the persisted note as JSON, with
+        ``entity_key`` in caller-facing form (e.g. printable
+        IP string for ``host``).
+        """
+        # pylint: disable=import-outside-toplevel
+        from ivre.db import (
+            NoteAlreadyExists,
+            NoteBodyTooLarge,
+            NoteConcurrencyError,
+            NoteNotFound,
+        )
+
+        user = _resolve_note_writer()
+        try:
+            note = db.notes.set_note(
+                entity_type,
+                entity_key,
+                body,
+                user,
+                expected_revision=expected_revision,
+            )
+        except (
+            NoteNotFound,
+            NoteConcurrencyError,
+            NoteAlreadyExists,
+            NoteBodyTooLarge,
+            ValueError,
+        ) as exc:
+            # ``NoteNotFound`` / ``NoteConcurrencyError`` /
+            # ``NoteAlreadyExists`` / ``NoteBodyTooLarge`` all
+            # subclass ``ValueError``; they surface here with
+            # the typed-class name in the message so the
+            # calling LLM can distinguish them.  HTTP routes
+            # (see ``ivre/web/app.py``) map the same
+            # exceptions to specific status codes.
+            raise McpError(
+                ErrorData(
+                    code=INVALID_PARAMS,
+                    message=f"{type(exc).__name__}: {exc}",
+                )
+            ) from exc
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+        return json.dumps(note, default=serialize)
+
+    @mcp.tool()
+    def note_delete(entity_type: str, entity_key: str) -> bool:
+        """Delete a note (and its full revision history).
+
+        Returns ``True`` when a note was deleted, ``False``
+        when no note existed for the target.
+        """
+        _resolve_note_writer()  # auth gate; user not stamped on delete
+        try:
+            return bool(db.notes.delete_note(entity_type, entity_key))
+        except ValueError as exc:
+            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+
+    @mcp.tool()
+    def note_revisions_list(entity_type: str, entity_key: str) -> str:
+        """Read the revision history of a note, newest first.
+
+        Returns a JSON array of
+        ``{revision, body, created_at, created_by}`` entries.
+        Empty when the entity has no note (or the note has
+        been deleted; deletion sweeps the audit log).
+        """
+        _require_notes_backend()
+        try:
+            revisions = db.notes.list_note_revisions(entity_type, entity_key)
+        except ValueError as exc:
+            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+        except Exception as exc:
+            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+        return json.dumps(revisions, default=serialize)
 
     # --- Resources ---
 

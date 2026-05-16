@@ -736,6 +736,158 @@ ascending then <code class="docutils literal notranslate"><span class="pre">star
 </dd></dl>
 
 <dl class="http get">
+<dt class="sig sig-object http" id="get--notes-(entity_type)-(entity_key)">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_type</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_key</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--notes-(entity_type)-(entity_key)" title="Link to this definition"></a></dt>
+<dd><p>Read a single note.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_type</strong> (<em>str</em>) – entity type registered with
+<code class="docutils literal notranslate"><span class="pre">_ENTITY_CANONICALIZERS</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;host&quot;</span></code> only at v1)</p></li>
+<li><p><strong>entity_key</strong> (<em>str</em>) – caller-facing entity key (e.g.
+printable IP string for <code class="docutils literal notranslate"><span class="pre">host</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – note found; JSON body</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http put">
+<dt class="sig sig-object http" id="put--notes-(entity_type)-(entity_key)">
+<span class="sig-name descname"><span class="pre">PUT</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_type</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_key</span></em><span class="sig-paren">)</span><a class="headerlink" href="#put--notes-(entity_type)-(entity_key)" title="Link to this definition"></a></dt>
+<dd><p>Create or update a note.</p>
+<p>Body must be valid UTF-8 markdown; invalid byte sequences
+are rejected with HTTP 400 (no silent <code class="docutils literal notranslate"><span class="pre">U+FFFD</span></code>
+substitution).  Optimistic concurrency is opt-in via
+<code class="docutils literal notranslate"><span class="pre">If-Match</span></code> (matching the <code class="docutils literal notranslate"><span class="pre">ETag</span></code> returned by <code class="docutils literal notranslate"><span class="pre">GET</span></code>)
+or <code class="docutils literal notranslate"><span class="pre">?expected_revision=&lt;int&gt;</span></code>.  <code class="docutils literal notranslate"><span class="pre">If-None-Match:</span> <span class="pre">*</span></code>
+opts into create-only semantics (HTTP 409 if a note
+already exists).</p>
+<p><code class="docutils literal notranslate"><span class="pre">If-Match</span></code> accepts the standard HTTP forms: bare integer
+(<code class="docutils literal notranslate"><span class="pre">7</span></code>), double-quoted (<code class="docutils literal notranslate"><span class="pre">&quot;7&quot;</span></code>), weak validator
+(<code class="docutils literal notranslate"><span class="pre">W/&quot;7&quot;</span></code>), and the first ETag of a comma-list
+(<code class="docutils literal notranslate"><span class="pre">&quot;7&quot;,</span> <span class="pre">&quot;8&quot;</span></code> is treated as 7).  <code class="docutils literal notranslate"><span class="pre">If-Match:</span> <span class="pre">*</span></code> (generic
+“must exist”) is <strong>not</strong> supported and returns 400.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_type</strong> (<em>str</em>) – entity type</p></li>
+<li><p><strong>entity_key</strong> (<em>str</em>) – caller-facing entity key</p></li>
+</ul>
+</dd>
+<dt class="field-even">Request Headers<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://www.rfc-editor.org/rfc/rfc7232#section-3.1">If-Match</a></span> – expected revision for optimistic
+concurrency</p></li>
+<li><p><span><a class="reference external" href="https://www.rfc-editor.org/rfc/rfc7232#section-3.2">If-None-Match</a></span> – <code class="docutils literal notranslate"><span class="pre">*</span></code> for create-only mode</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – persisted; JSON body of the note</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key / params /
+body not valid UTF-8 / unsupported <code class="docutils literal notranslate"><span class="pre">If-Match</span></code> form</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – <code class="docutils literal notranslate"><span class="pre">If-Match</span></code> set but no note exists</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/409">409 Conflict</a></span> – concurrent edit (revision mismatch) or
+create-only collision</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/413">413 Request Entity Too Large</a></span> – body exceeds
+<code class="docutils literal notranslate"><span class="pre">WEB_HOST_NOTES_MAX_BYTES</span></code></p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http delete">
+<dt class="sig sig-object http" id="delete--notes-(entity_type)-(entity_key)">
+<span class="sig-name descname"><span class="pre">DELETE</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_type</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_key</span></em><span class="sig-paren">)</span><a class="headerlink" href="#delete--notes-(entity_type)-(entity_key)" title="Link to this definition"></a></dt>
+<dd><p>Delete a note (and its full revision history).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_type</strong> (<em>str</em>) – entity type</p></li>
+<li><p><strong>entity_key</strong> (<em>str</em>) – caller-facing entity key</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/204">204 No Content</a></span> – deleted</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--notes-(entity_type)-(entity_key)-revisions">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_type</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_key</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/revisions</span></span><a class="headerlink" href="#get--notes-(entity_type)-(entity_key)-revisions" title="Link to this definition"></a></dt>
+<dd><p>Read the full revision history of a note, newest first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_type</strong> (<em>str</em>) – entity type</p></li>
+<li><p><strong>entity_key</strong> (<em>str</em>) – caller-facing entity key</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array of <code class="docutils literal notranslate"><span class="pre">{revision,</span> <span class="pre">body,</span> <span class="pre">created_at,</span>
+<span class="pre">created_by}</span></code> entries</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--notes-">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><a class="headerlink" href="#get--notes-" title="Link to this definition"></a></dt>
+<dd><p>List or search notes.</p>
+<p>With no parameters, returns every note in the database (full
+body included).  Add <code class="docutils literal notranslate"><span class="pre">entity_type</span></code> to narrow to one type,
+<code class="docutils literal notranslate"><span class="pre">q</span></code> to free-text search across note bodies (results
+ranked by relevance), or <code class="docutils literal notranslate"><span class="pre">fields</span></code> to skip the bodies and
+paginate cheaply.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_type</strong> (<em>str</em>) – narrow to one entity type</p></li>
+<li><p><strong>q</strong> (<em>str</em>) – free-text search query (<code class="docutils literal notranslate"><span class="pre">$text</span></code> over
+note bodies; requires the
+<code class="docutils literal notranslate"><span class="pre">notes_body_text</span></code> index)</p></li>
+<li><p><strong>fields</strong> (<em>str</em>) – comma-separated projection list (e.g.
+<code class="docutils literal notranslate"><span class="pre">&quot;entity_type,entity_key,updated_at,revision&quot;</span></code>).
+The storage halves <code class="docutils literal notranslate"><span class="pre">entity_key_0</span></code> / <code class="docutils literal notranslate"><span class="pre">entity_key_1</span></code>
+are always added internally so the caller-facing
+<code class="docutils literal notranslate"><span class="pre">entity_key</span></code> can be reassembled.</p></li>
+<li><p><strong>limit</strong> (<em>int</em>) – cap on returned entries
+(default <code class="docutils literal notranslate"><span class="pre">WEB_LIMIT</span></code>; capped by <code class="docutils literal notranslate"><span class="pre">WEB_MAXRESULTS</span></code>)</p></li>
+<li><p><strong>skip</strong> (<em>int</em>) – pagination offset (default 0)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid parameters</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
 <dt class="sig sig-object http" id="get--auth-check">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/auth/check</span></span><a class="headerlink" href="#get--auth-check" title="Link to this definition"></a></dt>
 <dd><p>When auth is disabled, allow all requests.</p>

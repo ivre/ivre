@@ -8140,9 +8140,9 @@ class MongoDBNotes(MongoDB, DBNotes):
         *,
         expected_revision=None,
     ):
-        # Storage-layer body-size check; the web routes (PR B)
-        # add an HTTP 413 in front for the friendlier client
-        # error.
+        # Storage-layer body-size check; the web routes add
+        # an edge HTTP-413 in front for the friendlier client
+        # error (see :func:`ivre.web.app.put_note`).
         self._validate_note_body_size(body)
         key_0, key_1 = self._entity_key_to_storage(
             canonicalize_entity_key(entity_type, entity_key)
@@ -8357,6 +8357,64 @@ class MongoDBNotes(MongoDB, DBNotes):
             )
             entries.append(doc)
         return entries
+
+    def list_notes(
+        self,
+        entity_type=None,
+        q=None,
+        fields=None,
+        limit=None,
+        skip=None,
+    ):
+        # Build the filter incrementally so the free-text
+        # ``$text`` clause (when present) composes cleanly
+        # with the optional ``entity_type`` narrow via
+        # :meth:`flt_and` -- the same combinator used by
+        # every other purpose's search routes.
+        flt = self.flt_empty
+        if entity_type is not None:
+            flt = self.flt_and(flt, {"entity_type": entity_type})
+        if q is not None:
+            flt = self.flt_and(flt, self.searchtext(q))
+        kwargs: dict[str, Any] = {}
+        if limit is not None:
+            kwargs["limit"] = limit
+        if skip is not None:
+            kwargs["skip"] = skip
+        if fields is not None:
+            # ``_get_cursor`` accepts a list under ``fields=``
+            # and forwards it as ``projection=`` to ``find()``,
+            # but its ``("text", ...)`` sort branch only
+            # handles a dict projection (the list-conversion
+            # path on line 288 assigns to ``kargs`` rather
+            # than ``kargs["projection"]``, dropping
+            # ``limit`` / ``skip``).  Hand it a dict so the
+            # relevance-ranking case below works whether or
+            # not ``q`` is set.  Always keep the storage
+            # halves in the projection so
+            # :meth:`_present_note` can reassemble the
+            # caller-facing ``entity_key`` even when the
+            # caller did not list the halves explicitly.
+            projection = set(fields) | {"entity_type", "entity_key_0", "entity_key_1"}
+            kwargs["fields"] = dict.fromkeys(projection, 1)
+        if q is not None:
+            # Relevance ranking: ``_get_cursor`` translates
+            # ``("text", ...)`` to a ``$meta: textScore`` sort
+            # and auto-adds the matching projection entry.
+            kwargs["sort"] = [("text", 0)]
+        else:
+            # Deterministic default sort so ``limit`` / ``skip``
+            # pagination is reproducible across calls,
+            # replicas, and document moves.  ``_id`` is unique,
+            # always indexed, and orders deterministically; the
+            # absolute ordering ("oldest first" given Mongo's
+            # ObjectId timestamp prefix) is not meaningful but
+            # *stable*, which is the whole point.  Callers that
+            # want recency or another ordering should bypass
+            # :meth:`list_notes` and call :meth:`get` with an
+            # explicit ``sort=``.
+            kwargs["sort"] = [("_id", 1)]
+        return [self._present_note(doc) for doc in self.get(flt, **kwargs)]
 
     def count_notes(self, entity_type=None):
         return self.count({} if entity_type is None else {"entity_type": entity_type})

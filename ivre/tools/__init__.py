@@ -45,6 +45,7 @@ __all__ = [
     "macdata",
     "macinfo",
     "mcp_server",
+    "notes",
     "p0f2db",
     "passiverecon2db",
     "plotdb",

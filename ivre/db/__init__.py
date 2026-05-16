@@ -5828,7 +5828,7 @@ class DBFlow(DB):
 # Independent purpose so the storage lifecycle is decoupled from any
 # data purpose: ``view --init``, ``nmap --init``, ``passive --init``
 # never touch notes.  Operators wipe annotations explicitly via the
-# new (to-be-added) ``ivre notes --init`` CLI.
+# ``ivre notes --init`` CLI (see :mod:`ivre.tools.notes`).
 #
 # Entities are referenced by an opaque ``(entity_type, entity_key)``
 # pair.  ``entity_type`` is a short string drawn from a closed
@@ -5901,7 +5901,11 @@ def _canonicalize_host_key(key: Any) -> list[int]:
 #   1. registering its helper here,
 #   2. extending the storage layer's BSON-shape handling if the
 #      canonical form is something other than ``str`` / ``list``,
-#   3. wiring the matching MCP tool + web route in PR B.
+#   3. surfacing the new type through the MCP / web tooling as
+#      needed (the polymorphic ``note_query`` tool and the
+#      ``/cgi/notes/<entity_type>/<entity_key>`` web routes are
+#      already entity-type-agnostic; per-type validation lives
+#      in the canonicaliser above).
 _ENTITY_CANONICALIZERS: dict[str, Callable[[Any], Any]] = {
     "host": _canonicalize_host_key,
 }
@@ -5963,6 +5967,28 @@ class NoteAlreadyExists(ValueError):
     """
 
 
+class NoteBodyTooLarge(ValueError):
+    """Raised by :meth:`DBNotes._validate_note_body_size` when
+    the supplied body exceeds
+    :data:`config.WEB_HOST_NOTES_MAX_BYTES`.  Web routes should
+    map to HTTP 413 Payload Too Large.
+
+    A dedicated class lets the web layer distinguish over-cap
+    failures from other :class:`ValueError`-shaped storage-layer
+    errors without substring-matching the message text.  Most
+    HTTP requests are caught by the route's pre-read cap check
+    before reaching the storage layer; this exception still
+    surfaces for adversarial inputs where wire bytes decode to
+    a larger UTF-8 string (e.g. invalid bytes substituted with
+    U+FFFD, which encodes back to 3 bytes per replacement) and
+    for non-HTTP callers (MCP ``note_set``, future CLI, plugin
+    code) that bypass the route-level enforcement.
+
+    Inherits from :class:`ValueError` so callers that catch the
+    coarser type keep working.
+    """
+
+
 class DBNotes(DB):
     """Per-entity markdown annotations (notes).
 
@@ -5975,8 +6001,8 @@ class DBNotes(DB):
     Lifecycle independence is the whole point of carving this
     out as its own purpose: ``view --init``, ``nmap --init``,
     ``passive --init`` never touch notes.  Operators wipe
-    annotations explicitly via ``ivre notes --init`` (CLI
-    subcommand wired in a follow-up PR).
+    annotations explicitly via ``ivre notes --init`` (see
+    :mod:`ivre.tools.notes`).
 
     Two ``entity_key`` forms appear in this API.  Methods that
     take an ``entity_key`` argument and methods that surface an
@@ -6006,21 +6032,25 @@ class DBNotes(DB):
 
     @staticmethod
     def _validate_note_body_size(body: str) -> None:
-        """Raise :class:`ValueError` if ``body`` exceeds
+        """Raise :class:`NoteBodyTooLarge` if ``body`` exceeds
         :data:`config.WEB_HOST_NOTES_MAX_BYTES` (when the knob
         is not ``None``).
 
         Called by every backend's :meth:`set_note`
         implementation before any DB write -- defence-in-depth
         alongside the HTTP-413 the ``/cgi/notes/...`` routes
-        return in PR B.
+        return.  The web layer catches the typed exception
+        explicitly to map to HTTP 413 without substring-matching
+        the message text; ``NoteBodyTooLarge`` subclasses
+        :class:`ValueError` so callers that catch the coarser
+        type keep working.
         """
         cap = config.WEB_HOST_NOTES_MAX_BYTES
         if cap is None:
             return
         byte_len = len(body.encode("utf-8"))
         if byte_len > cap:
-            raise ValueError(f"note body is {byte_len} bytes, exceeds cap {cap}")
+            raise NoteBodyTooLarge(f"note body is {byte_len} bytes, exceeds cap {cap}")
 
     def get_note(self, entity_type: str, entity_key: Any) -> dict | None:
         """Return the current note for ``(entity_type, entity_key)``,
@@ -6111,6 +6141,45 @@ class DBNotes(DB):
         """
         raise NotImplementedError
 
+    def list_notes(
+        self,
+        entity_type: str | None = None,
+        q: str | None = None,
+        fields: list[str] | None = None,
+        limit: int | None = None,
+        skip: int | None = None,
+    ) -> list[dict]:
+        """Filter, search, and list notes in caller-facing form.
+
+        Single convenience covering the three browse / search
+        use cases the web layer and MCP tools expose:
+
+        * ``entity_type=None, q=None`` -- all notes.
+        * ``entity_type=<type>, q=None`` -- all notes of one
+          entity type.
+        * ``q=<text>`` (with or without ``entity_type``) --
+          free-text search over note bodies, ranked by
+          backend-native relevance (Mongo ``$meta:
+          textScore``).
+
+        ``fields`` is an optional projection list.  When unset,
+        the full note document (including ``body``) is
+        returned.  Pass a metadata-only list -- e.g.
+        ``["entity_type", "entity_key", "updated_at",
+        "updated_by", "revision"]`` -- to skip bodies and
+        cheaply paginate a large notes collection (use
+        :meth:`get_note` to fetch individual bodies on demand).
+
+        ``limit`` / ``skip`` paginate the cursor.  Returned
+        entries carry ``entity_key`` in the caller-facing form
+        (the inverse of :func:`canonicalize_entity_key`).
+
+        Single-record lookups go through :meth:`get_note`
+        instead: it is a more direct path and does not need
+        the filter / sort / projection machinery.
+        """
+        raise NotImplementedError
+
     def count_notes(self, entity_type: str | None = None) -> int:
         """Number of entities with a note, optionally narrowed
         by ``entity_type``.  Admin / statistics surface.
@@ -6129,7 +6198,7 @@ class DBNotes(DB):
         documents carry the storage-layer ``entity_key_*``
         fields verbatim; callers that need the caller-facing
         ``entity_key`` form go through :meth:`get_note` /
-        :meth:`list_entities` instead.
+        :meth:`list_entities` / :meth:`list_notes` instead.
         """
         raise NotImplementedError
 

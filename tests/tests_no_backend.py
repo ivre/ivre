@@ -15121,11 +15121,15 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         DBNotes._validate_note_body_size("x" * cap)
 
     def test_validate_note_body_size_rejects_over_cap(self) -> None:
-        from ivre.db import DBNotes
+        # Pin the typed exception class so the web route can
+        # catch it explicitly to map to HTTP 413; a generic
+        # ``ValueError`` here would force the route to
+        # substring-match the message text (fragile).
+        from ivre.db import DBNotes, NoteBodyTooLarge
 
         cap = ivre.config.WEB_HOST_NOTES_MAX_BYTES
         assert cap is not None
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(NoteBodyTooLarge) as ctx:
             DBNotes._validate_note_body_size("x" * (cap + 1))
         self.assertIn("exceeds cap", str(ctx.exception))
 
@@ -15372,9 +15376,10 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # Subclassing ``ValueError`` keeps backwards
         # compatibility with callers that catch the coarser
         # type (legacy ``except ValueError:`` blocks still
-        # catch all three).
+        # catch all four).
         from ivre.db import (
             NoteAlreadyExists,
+            NoteBodyTooLarge,
             NoteConcurrencyError,
             NoteNotFound,
         )
@@ -15382,6 +15387,7 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         self.assertTrue(issubclass(NoteNotFound, ValueError))
         self.assertTrue(issubclass(NoteConcurrencyError, ValueError))
         self.assertTrue(issubclass(NoteAlreadyExists, ValueError))
+        self.assertTrue(issubclass(NoteBodyTooLarge, ValueError))
 
     @staticmethod
     def _build_get_backend(
@@ -15461,8 +15467,7 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # relevance-ranked free-text search results in one
         # call rather than hand-rolling the meta projection.
         # Pin that behaviour for the notes purpose --
-        # ``/cgi/notes/?q=...`` (added in a follow-up PR)
-        # relies on it.
+        # ``/cgi/notes/?q=...`` (web route) relies on it.
         notes_col = mock.Mock()
         cursor = mock.Mock()
         notes_col.find.return_value = cursor
@@ -15505,6 +15510,339 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         self.assertEqual(backend.count({"entity_type": "host"}), 7)
         notes_col.count_documents.assert_called_once_with({"entity_type": "host"})
         notes_col.estimated_document_count.assert_not_called()
+
+    def test_list_notes_in_abstract_surface(self) -> None:
+        # ``list_notes`` is the storage-layer convenience the
+        # web ``GET /cgi/notes/?...`` route and the
+        # ``note_query`` MCP tool both consume; pin its
+        # presence on the abstract :class:`DBNotes` and the
+        # concrete :class:`MongoDBNotes`, plus the
+        # :class:`NotImplementedError` raise on the base.
+        from ivre.db import DBNotes
+        from ivre.db.mongo import MongoDBNotes
+
+        self.assertIn("list_notes", DBNotes.__dict__)
+        self.assertIn("list_notes", MongoDBNotes.__dict__)
+        with self.assertRaises(NotImplementedError):
+            DBNotes().list_notes()
+
+    def test_list_notes_no_filter_calls_get_with_empty_flt(self) -> None:
+        # ``list_notes()`` with no filters goes through
+        # :meth:`get` (which routes through ``_get_cursor``)
+        # with the empty filter and post-processes each doc
+        # via :meth:`_present_note`.
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = None
+        canonical = MongoDBNotes._entity_key_to_storage([-0x8000000000000000, 0])
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        # Simulate one doc returned by the cursor's iteration.
+        cursor.__iter__ = mock.Mock(
+            return_value=iter(
+                [
+                    {
+                        "_id": "id-1",
+                        "entity_type": "host",
+                        "entity_key_0": canonical[0],
+                        "entity_key_1": canonical[1],
+                        "body": "hi",
+                        "revision": 1,
+                    }
+                ]
+            )
+        )
+        notes_col.find.return_value = cursor
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        results = backend.list_notes()
+        self.assertEqual(len(results), 1)
+        # Caller-facing form (``_present_note`` converted the
+        # storage halves to a single ``entity_key``).
+        self.assertNotIn("entity_key_0", results[0])
+        self.assertNotIn("entity_key_1", results[0])
+        self.assertEqual(results[0]["entity_type"], "host")
+        # ``find`` was called with the empty filter -- the
+        # combinator default from :meth:`flt_empty`.
+        notes_col.find.assert_called_once()
+        flt_arg = notes_col.find.call_args.args[0]
+        self.assertEqual(flt_arg, {})
+        # Deterministic default sort applied to the cursor:
+        # ``_id`` ascending so ``limit`` / ``skip`` pagination
+        # is reproducible across calls, replicas, and
+        # document moves.
+        cursor.sort.assert_called_once_with([("_id", 1)])
+
+    def test_list_notes_with_entity_type_narrows_filter(self) -> None:
+        # ``list_notes(entity_type=...)`` narrows the filter
+        # to one entity type.  ``flt_empty`` is the empty
+        # dict and ``flt_and`` collapses it with the
+        # entity-type clause to a single-key filter.  The
+        # deterministic default sort applies to this branch
+        # too (no ``q``).
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = None
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        cursor.__iter__ = mock.Mock(return_value=iter([]))
+        notes_col.find.return_value = cursor
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        backend.list_notes(entity_type="host")
+        flt_arg = notes_col.find.call_args.args[0]
+        self.assertEqual(flt_arg.get("entity_type"), "host")
+        cursor.sort.assert_called_once_with([("_id", 1)])
+
+    def test_list_notes_with_q_adds_searchtext_and_score_sort(self) -> None:
+        # ``list_notes(q=...)`` composes ``searchtext`` into
+        # the filter and asks for relevance-ranked results
+        # via the ``("text", 0)`` sort shortcut that
+        # :meth:`_get_cursor` translates to the
+        # ``$meta: textScore`` projection / sort.
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = None
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        cursor.__iter__ = mock.Mock(return_value=iter([]))
+        notes_col.find.return_value = cursor
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        backend.list_notes(q="c2")
+        # Filter carries the ``$text`` clause -- ``flt_and``
+        # collapses the empty-filter prefix down so the
+        # final filter is just the ``$text`` clause (no
+        # ``$and`` wrapper, since the keys do not overlap).
+        flt_arg = notes_col.find.call_args.args[0]
+        self.assertEqual(flt_arg.get("$text", {}).get("$search"), "c2")
+        # The cursor was sorted by relevance.
+        cursor.sort.assert_called_once_with([("score", {"$meta": "textScore"})])
+        # Auto-added meta projection so ``find`` can return
+        # the textScore field alongside the doc.
+        proj = notes_col.find.call_args.kwargs.get("projection")
+        self.assertEqual(proj, {"score": {"$meta": "textScore"}})
+
+    def test_list_notes_with_fields_keeps_entity_key_halves(self) -> None:
+        # ``list_notes(fields=[...])`` constructs a projection
+        # that always includes the ``entity_key_0`` /
+        # ``entity_key_1`` halves so :meth:`_present_note`
+        # can reassemble the caller-facing ``entity_key``
+        # even when the caller did not list them.  The
+        # projection is also passed as a dict (not a list)
+        # so the ``("text", ...)`` sort branch in
+        # ``_get_cursor`` honours ``limit`` / ``skip``.
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = None
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        cursor.__iter__ = mock.Mock(return_value=iter([]))
+        notes_col.find.return_value = cursor
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        backend.list_notes(fields=["updated_at", "revision"], limit=10, skip=5)
+        proj = notes_col.find.call_args.kwargs.get("projection")
+        self.assertIsInstance(proj, dict)
+        # Caller-requested fields + the storage halves.
+        for required in {
+            "updated_at",
+            "revision",
+            "entity_type",
+            "entity_key_0",
+            "entity_key_1",
+        }:
+            self.assertIn(required, proj)
+        # Pagination forwarded.
+        self.assertEqual(notes_col.find.call_args.kwargs.get("limit"), 10)
+        self.assertEqual(notes_col.find.call_args.kwargs.get("skip"), 5)
+
+    def test_list_notes_q_set_keeps_text_score_sort(self) -> None:
+        # When ``q`` is set the relevance-ranked
+        # ``("text", 0)`` sort takes precedence over the
+        # default ``_id`` sort, so ``cursor.sort`` ends up
+        # with the ``$meta: textScore`` order (no ``_id``
+        # appended).  Pin this to make explicit that the
+        # ``q`` branch and the deterministic-default branch
+        # are mutually exclusive.
+        from ivre.db.mongo import MongoDBNotes
+
+        backend = MongoDBNotes.__new__(MongoDBNotes)
+        backend.columns = ["notes", "note_revisions"]
+        backend.maxtime = None
+        notes_col = mock.Mock()
+        cursor = mock.Mock()
+        cursor.__iter__ = mock.Mock(return_value=iter([]))
+        notes_col.find.return_value = cursor
+        backend._db = mock.Mock()
+        backend._db.db = {"notes": notes_col, "note_revisions": mock.Mock()}
+        backend.list_notes(q="indicator")
+        cursor.sort.assert_called_once_with([("score", {"$meta": "textScore"})])
+
+    def test_parse_revision_param_accepts_bare_integer(self) -> None:
+        # The simplest form: ``?expected_revision=7`` (query
+        # parameter) or ``If-Match: 7`` (unquoted; not strictly
+        # RFC-compliant but accepted by most servers).
+        from ivre.web.app import _parse_revision_param
+
+        self.assertEqual(_parse_revision_param("7"), 7)
+
+    def test_parse_revision_param_accepts_quoted_etag(self) -> None:
+        # Canonical ETag form: ``If-Match: "7"``.
+        from ivre.web.app import _parse_revision_param
+
+        self.assertEqual(_parse_revision_param('"7"'), 7)
+
+    def test_parse_revision_param_strips_weak_etag_prefix(self) -> None:
+        # Weak validator: ``If-Match: W/"7"``.  For a monotonic
+        # revision counter weak vs strong is meaningless, so we
+        # accept the form transparently.
+        from ivre.web.app import _parse_revision_param
+
+        self.assertEqual(_parse_revision_param('W/"7"'), 7)
+        # And unquoted weak: ``W/7``.
+        self.assertEqual(_parse_revision_param("W/7"), 7)
+
+    def test_parse_revision_param_takes_first_from_comma_list(self) -> None:
+        # Multi-validator: ``If-Match: "7", "8"`` -- first wins.
+        # Strict "apply if any matches" would need a multi-version
+        # ``set_note`` mode we do not implement.
+        from ivre.web.app import _parse_revision_param
+
+        self.assertEqual(_parse_revision_param('"7", "8"'), 7)
+        # Mix of weak + strong in the list, still first wins.
+        self.assertEqual(_parse_revision_param('W/"7", "8"'), 7)
+
+    def test_parse_revision_param_rejects_wildcard(self) -> None:
+        # ``If-Match: *`` (generic "must exist") has no clean
+        # mapping to ``set_note``'s modes; reject explicitly
+        # rather than silently misinterpret.
+        from bottle import HTTPError
+
+        from ivre.web.app import _parse_revision_param
+
+        with self.assertRaises(HTTPError) as ctx:
+            _parse_revision_param("*")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("If-Match: *", ctx.exception.body)
+
+    def test_parse_revision_param_rejects_garbage(self) -> None:
+        # Anything non-integer (after stripping ``W/`` / quotes /
+        # comma-list) is rejected with 400.
+        from bottle import HTTPError
+
+        from ivre.web.app import _parse_revision_param
+
+        with self.assertRaises(HTTPError) as ctx:
+            _parse_revision_param("abc")
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_parse_revision_param_none_or_empty(self) -> None:
+        # No precondition requested -> ``None`` -> LWW.
+        from ivre.web.app import _parse_revision_param
+
+        self.assertIsNone(_parse_revision_param(None))
+        self.assertIsNone(_parse_revision_param(""))
+        self.assertIsNone(_parse_revision_param("   "))
+
+    def test_mcp_require_notes_backend_raises_when_unavailable(self) -> None:
+        # The MCP notes tools' first line is
+        # ``_require_notes_backend()``; on a backend that
+        # does not implement the notes purpose (any non-Mongo
+        # at v1) that helper raises a friendly ``McpError``
+        # with ``INTERNAL_ERROR`` so the LLM sees a
+        # configuration message rather than the cryptic
+        # ``AttributeError: 'NoneType' object has no
+        # attribute '<method>'`` the catch-all handler would
+        # otherwise produce.  Pin the helper directly --
+        # exercising the tools through FastMCP would require
+        # the full server harness, while the helper carries
+        # the contract on its own.
+        try:
+            from mcp.shared.exceptions import McpError as _McpError  # noqa: PLC0415
+        except ImportError:
+            self.skipTest("mcp package not installed")
+
+        from ivre.tools.mcp_server import _require_notes_backend
+        from ivre.tools.mcp_server import db as mcp_db
+
+        stub_db = mock.Mock()
+        stub_db.notes = None
+        with mock.patch.object(sys.modules["ivre.tools.mcp_server"], "db", stub_db):
+            with self.assertRaises(_McpError) as ctx:
+                _require_notes_backend()
+        # The message names the supported backend and the
+        # config knob so operators see the fix path.
+        msg = ctx.exception.error.message
+        self.assertIn("Notes backend not available", msg)
+        self.assertIn("mongodb://", msg)
+        # ``mcp_db`` is the real module-level ``db`` -- not
+        # what the helper saw (which was the patched stub).
+        # Reference it so the import is not unused.
+        self.assertIsNotNone(mcp_db)
+
+    def test_web_require_notes_backend_aborts_501_when_unavailable(self) -> None:
+        # All notes web routes call ``_require_notes_backend()``
+        # as their first line so a misconfigured deployment
+        # surfaces a clean HTTP 501 with a friendly message
+        # naming the supported backend, rather than the
+        # cryptic HTTP 500 the catch-all WSGI handler would
+        # otherwise produce from the ``AttributeError`` on
+        # ``db.notes.<method>()``.  501 (Not Implemented) is
+        # the right HTTP semantic for "the route exists but
+        # the implementation is missing for this server's
+        # backend"; 404 would mislead operators into thinking
+        # they need to create a resource.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        stub_db = mock.Mock()
+        stub_db.notes = None
+        with mock.patch.object(web_app, "db", stub_db):
+            with self.assertRaises(HTTPError) as ctx:
+                web_app._require_notes_backend()
+        self.assertEqual(ctx.exception.status_code, 501)
+        self.assertIn("Notes backend not available", ctx.exception.body)
+        self.assertIn("mongodb://", ctx.exception.body)
+
+    def test_notes_cli_exits_when_backend_unavailable(self) -> None:
+        # ``ivre notes --init`` on a backend that does not
+        # implement the notes purpose (any non-MongoDB at v1)
+        # would crash with ``AttributeError`` against the
+        # ``None`` returned by :attr:`MetaDB.notes`.  The CLI
+        # guards against this with an early exit and a
+        # friendly message naming the supported backend; pin
+        # that behaviour so a future refactor cannot silently
+        # regress it.  Mirrors the ``db.auth is None`` check
+        # in :mod:`ivre.tools.authcli`.
+        from ivre.tools import notes as notes_tool
+
+        # ``MetaDB.notes`` is a property without a setter, so
+        # patch the module-level ``db`` reference itself with
+        # a stub whose ``.notes`` is ``None`` -- mirrors what
+        # a real non-MongoDB deployment would see.
+        stub_db = mock.Mock()
+        stub_db.notes = None
+        with mock.patch.object(notes_tool, "db", stub_db):
+            with mock.patch.object(sys, "argv", ["ivre-notes", "--init"]):
+                with self.assertRaises(SystemExit) as ctx:
+                    notes_tool.main()
+        # ``sys.exit("...message...")`` produces a string code
+        # carrying the message and a non-zero process exit.
+        self.assertIsInstance(ctx.exception.code, str)
+        message = ctx.exception.code
+        assert isinstance(message, str)
+        self.assertIn("Notes backend not available", message)
+        self.assertIn("mongodb://", message)
 
     def test_metadb_has_notes_property(self) -> None:
         # ``db.notes`` resolves to a ``DBNotes`` instance when

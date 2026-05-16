@@ -4966,6 +4966,254 @@ class IvreTests(unittest.TestCase):
         count = ivre.db.db.view.count(ivre.db.db.view.searchhost(addr))
         self.assertEqual(count, 0)
 
+    def test_70_notes(self):
+        """Round-trip the per-entity notes purpose against a real
+        :class:`MongoDBNotes` instance.  Covers the storage-layer
+        surface end-to-end: create / read / update (last-write-wins
+        and optimistic-concurrency modes) / list-revisions / list
+        entities / free-text search / delete / typed exceptions.
+        """
+        # The notes purpose is wired only on MongoDB at v1; other
+        # backends have no registered class in
+        # :attr:`DBNotes.backends`, so :meth:`MetaDB.get_class`
+        # returns ``None`` and ``db.notes`` is ``None``.  Gate
+        # on the capability check rather than the backend name
+        # so adding e.g. a PostgreSQL implementation later
+        # automatically opts in to this test without touching it.
+        if ivre.db.db.notes is None:
+            self.skipTest("DBNotes is not implemented on this backend")
+
+        from ivre.db import (
+            NoteAlreadyExists,
+            NoteConcurrencyError,
+            NoteNotFound,
+        )
+
+        notes = ivre.db.db.notes
+        # Start from a clean slate so the test is rerunnable
+        # AND the indexes are present.  ``ivre notes --init``
+        # drops both the ``notes`` and ``note_revisions``
+        # collections and recreates the indexes -- crucially
+        # the unique compound on
+        # ``(entity_type, entity_key_0, entity_key_1)``, which
+        # the create-only path below relies on for its
+        # ``DuplicateKeyError`` -> ``NoteAlreadyExists``
+        # translation.  ``stdin=subprocess.DEVNULL`` makes the
+        # CLI skip its interactive confirmation prompt.
+        self.assertEqual(
+            RUN(["ivre", "notes", "--init"], stdin=subprocess.DEVNULL)[0],
+            0,
+        )
+        host_a = "192.0.2.10"
+        host_b = "192.0.2.11"
+        host_c = "192.0.2.12"
+
+        # --- Create + read ---------------------------------------
+        created = notes.set_note(
+            "host",
+            host_a,
+            "Initial note about the host.",
+            "alice@example.org",
+        )
+        self.assertEqual(created["entity_type"], "host")
+        self.assertEqual(created["entity_key"], host_a)
+        self.assertEqual(created["body"], "Initial note about the host.")
+        self.assertEqual(created["revision"], 1)
+        self.assertEqual(created["created_by"], "alice@example.org")
+        self.assertEqual(created["updated_by"], "alice@example.org")
+
+        # Round-trip read returns identical caller-facing shape.
+        fetched = notes.get_note("host", host_a)
+        self.assertIsNotNone(fetched)
+        self.assertEqual(fetched["entity_key"], host_a)
+        self.assertEqual(fetched["body"], created["body"])
+        self.assertEqual(fetched["revision"], 1)
+
+        # Non-existent entity returns None.
+        self.assertIsNone(notes.get_note("host", host_b))
+
+        # --- Update (last-write-wins) ----------------------------
+        updated = notes.set_note(
+            "host",
+            host_a,
+            "Updated note body.",
+            "bob@example.org",
+        )
+        self.assertEqual(updated["revision"], 2)
+        self.assertEqual(updated["body"], "Updated note body.")
+        self.assertEqual(updated["updated_by"], "bob@example.org")
+        # ``created_by`` / ``created_at`` preserved across updates.
+        self.assertEqual(updated["created_by"], "alice@example.org")
+        self.assertEqual(updated["created_at"], created["created_at"])
+
+        # --- Optimistic concurrency: match ------------------------
+        ok = notes.set_note(
+            "host",
+            host_a,
+            "Third revision.",
+            "carol@example.org",
+            expected_revision=2,
+        )
+        self.assertEqual(ok["revision"], 3)
+        self.assertEqual(ok["body"], "Third revision.")
+
+        # --- Optimistic concurrency: mismatch ---------------------
+        with self.assertRaises(NoteConcurrencyError):
+            notes.set_note(
+                "host",
+                host_a,
+                "Should not apply.",
+                "dave@example.org",
+                expected_revision=2,
+            )
+        # The failed write did not bump revision.
+        self.assertEqual(notes.get_note("host", host_a)["revision"], 3)
+
+        # --- Create-only on existing -> NoteAlreadyExists --------
+        with self.assertRaises(NoteAlreadyExists):
+            notes.set_note(
+                "host",
+                host_a,
+                "Should not apply.",
+                "dave@example.org",
+                expected_revision=0,
+            )
+
+        # --- Create-only on missing entity (succeeds) -------------
+        new = notes.set_note(
+            "host",
+            host_b,
+            "Brand new note.",
+            "eve@example.org",
+            expected_revision=0,
+        )
+        self.assertEqual(new["revision"], 1)
+        self.assertEqual(new["entity_key"], host_b)
+
+        # --- list_note_revisions: newest-first ordering -----------
+        revs = notes.list_note_revisions("host", host_a)
+        self.assertEqual(len(revs), 3)
+        self.assertEqual([r["revision"] for r in revs], [3, 2, 1])
+        # Each revision carries body / created_by / created_at, and
+        # the entity_* keys are stripped (the caller already knows
+        # them).
+        for rev in revs:
+            self.assertIn("body", rev)
+            self.assertIn("created_by", rev)
+            self.assertIn("created_at", rev)
+            self.assertNotIn("entity_type", rev)
+            self.assertNotIn("entity_key", rev)
+            self.assertNotIn("entity_key_0", rev)
+            self.assertNotIn("entity_key_1", rev)
+
+        # --- list_entities: metadata-only listing -----------------
+        entities = notes.list_entities("host")
+        keys = {entry["entity_key"] for entry in entities}
+        self.assertIn(host_a, keys)
+        self.assertIn(host_b, keys)
+        for entry in entities:
+            self.assertIn("entity_type", entry)
+            self.assertIn("entity_key", entry)
+            self.assertIn("updated_at", entry)
+            self.assertIn("updated_by", entry)
+            self.assertIn("revision", entry)
+            self.assertNotIn("body", entry)  # metadata-only projection
+
+        # ``count_notes`` matches ``list_entities`` length for the
+        # same type.
+        self.assertEqual(
+            notes.count_notes("host"),
+            len([e for e in entities if e["entity_type"] == "host"]),
+        )
+
+        # --- list_notes: full docs --------------------------------
+        all_host_notes = notes.list_notes(entity_type="host")
+        self.assertEqual({n["entity_key"] for n in all_host_notes}, {host_a, host_b})
+        for note in all_host_notes:
+            self.assertIn("body", note)  # full doc
+
+        # --- list_notes with projection (fields=[...]) ------------
+        meta = notes.list_notes(
+            entity_type="host",
+            fields=["entity_type", "entity_key", "updated_at", "revision"],
+        )
+        for entry in meta:
+            self.assertNotIn("body", entry)
+            self.assertIn("revision", entry)
+            self.assertIn("entity_key", entry)
+
+        # --- list_notes with q (free-text search) -----------------
+        # Seed one more note with a distinctive token so the text
+        # search can hit it.
+        notes.set_note(
+            "host",
+            host_c,
+            "Suspicious C2-like indicators observed here.",
+            "alice@example.org",
+        )
+        hits = notes.list_notes(q="indicators")
+        hit_keys = {n["entity_key"] for n in hits}
+        # The c-host's body contains "indicators"; host_a / host_b
+        # do not.  Mongo ``$text`` is whole-word so the match is
+        # unambiguous.
+        self.assertIn(host_c, hit_keys)
+        self.assertNotIn(host_a, hit_keys)
+        self.assertNotIn(host_b, hit_keys)
+
+        # ``q`` combined with ``entity_type`` narrows by type
+        # before ranking by relevance.
+        narrowed = notes.list_notes(entity_type="host", q="indicators")
+        self.assertEqual({n["entity_key"] for n in narrowed}, {host_c})
+
+        # --- Pagination ------------------------------------------
+        # The default sort on the ``q``-unset path is
+        # ``[("_id", 1)]`` so pagination is deterministic
+        # across calls regardless of natural-order changes
+        # (document moves, replica state, ...).  Walking all
+        # pages with ``limit=1`` must yield each note exactly
+        # once and the concatenation must equal the
+        # unpaginated single-call result.
+        all_at_once = notes.list_notes(entity_type="host")
+        paginated = []
+        for offset in range(len(all_at_once)):
+            page = notes.list_notes(entity_type="host", limit=1, skip=offset)
+            self.assertEqual(len(page), 1)
+            paginated.append(page[0])
+        self.assertEqual(
+            [n["entity_key"] for n in paginated],
+            [n["entity_key"] for n in all_at_once],
+        )
+        # Negative ``skip`` is not the storage layer's
+        # contract to validate -- callers at the route /
+        # MCP edge clamp to ``>= 0`` before reaching here.
+
+        # --- Delete ----------------------------------------------
+        self.assertTrue(notes.delete_note("host", host_a))
+        self.assertIsNone(notes.get_note("host", host_a))
+        # Audit log swept along with the parent record.
+        self.assertEqual(notes.list_note_revisions("host", host_a), [])
+        # Idempotent: deleting again returns False.
+        self.assertFalse(notes.delete_note("host", host_a))
+
+        # --- NoteNotFound on missing-target optimistic update ----
+        with self.assertRaises(NoteNotFound):
+            notes.set_note(
+                "host",
+                host_a,
+                "Should not apply.",
+                "alice@example.org",
+                expected_revision=5,
+            )
+
+        # --- Cleanup ---------------------------------------------
+        for addr in (host_b, host_c):
+            notes.delete_note("host", addr)
+        # All-clean assertion.
+        self.assertEqual(
+            notes.count_notes("host"),
+            len([e for e in notes.list_entities("host") if e["entity_type"] == "host"]),
+        )
+
     def test_mcp_middleware(self):
         """Exercise PublicUrlRewriteMiddleware against a stub Starlette
         app that mimics what FastMCP emits when ``AuthSettings`` is
@@ -5113,6 +5361,13 @@ class IvreTests(unittest.TestCase):
             RUN(["ivre", "scancli", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "ipinfo", "--init"], stdin=subprocess.DEVNULL)
         RUN(["ivre", "view", "--init"], stdin=subprocess.DEVNULL)
+        # The notes purpose has its own lifecycle (independent
+        # of view / scans / passive), so it needs its own
+        # ``--init`` here.  Skipped on backends that do not
+        # implement the purpose -- ``MetaDB.notes`` returns
+        # ``None`` when no backend class is registered.
+        if ivre.db.db.notes is not None:
+            RUN(["ivre", "notes", "--init"], stdin=subprocess.DEVNULL)
 
 
 TESTS = set(
@@ -5126,6 +5381,7 @@ TESTS = set(
         "54_passive_delete",
         "55_view_delete",
         "60_flow",
+        "70_notes",
         "90_cleanup",
         "conf",
         "mcp_middleware",
@@ -5139,7 +5395,7 @@ TESTS = set(
 DATABASES = {
     # **excluded** tests
     "mongo": [],
-    "postgres": ["15_rir", "60_flow"],
+    "postgres": ["15_rir", "60_flow", "70_notes"],
     "elastic": [
         "15_rir",
         "30_nmap",
@@ -5147,6 +5403,7 @@ DATABASES = {
         "53_nmap_delete",
         "54_passive_delete",
         "60_flow",
+        "70_notes",
         "90_cleanup",
     ],
     "maxmind": [
@@ -5158,6 +5415,7 @@ DATABASES = {
         "54_passive_delete",
         "55_view_delete",
         "60_flow",
+        "70_notes",
         "90_cleanup",
     ],
 }
@@ -5171,6 +5429,14 @@ DATABASES = {
 # those features are skipped when this flavour is set.
 BACKEND_FLAVORS = {
     "documentdb": [
+        # The notes purpose's storage layer ships a ``$text``
+        # index on ``body`` (see ``MongoDBNotes.indexes``);
+        # DocumentDB does not support text indexes, so
+        # ``create_indexes`` would fail at first use and the
+        # ``list_notes(q=...)`` free-text path inside the test
+        # would error.  Skip the whole test until / unless a
+        # DocumentDB-friendly indexing path lands.
+        "70_notes",
         # ``MongoDBView.searchtext`` exercises ``$text`` /
         # text-index features; DocumentDB has neither.
         # The text-search assertions live inside ``test_50_view``,
