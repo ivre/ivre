@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HostNotesPanel } from "@/components/HostNotesPanel";
 import {
   Sheet,
   SheetContent,
@@ -503,6 +504,14 @@ function HostDetailBody({
           </ul>
         </Section>
       ) : null}
+
+      {/* Notes section.  Last in the stack because operator-authored
+       *  commentary follows the auto-extracted scan data; the panel
+       *  renders its own outer ``<section>`` + heading so it can
+       *  ``return null`` when the backend reports notes are not
+       *  configured (HTTP 501) and the section disappears entirely
+       *  rather than showing a permanent "feature missing" notice. */}
+      <HostNotesPanel addr={host.addr} />
     </div>
   );
 }

@@ -186,6 +186,126 @@ test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
   ).toBeVisible();
 });
 
+test("Host detail sheet renders the Notes section with markdown body", async ({
+  page,
+}) => {
+  // Mock the single-host fetch + the per-host note fetch.  The
+  // note exists (200 + JSON) so the section appears with the
+  // markdown-rendered body and the updated-by/revision footer.
+  const sample = {
+    addr: "1.2.3.4",
+    infos: { country_code: "FR", country_name: "France" },
+    ports: [
+      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+    ],
+  };
+  const note = {
+    entity_type: "host",
+    entity_key: "1.2.3.4",
+    body: "## Investigation\n\nFollowing up on the **C2** traffic.",
+    revision: 3,
+    created_at: "2026-05-01T10:00:00Z",
+    created_by: "alice@example.org",
+    updated_at: "2026-05-12T14:32:11Z",
+    updated_by: "bob@example.org",
+  };
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      if (q.includes("host:")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/x-ndjson",
+          body: JSON.stringify(sample) + "\n",
+        });
+      }
+      return route.fulfill({ status: 200, body: "" });
+    }
+    if (url.pathname === "/cgi/notes/host/1.2.3.4") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(note),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view/host/1.2.3.4");
+  // Host card heading appears (proves the detail sheet rendered).
+  await expect(
+    page.getByRole("heading", { name: "1.2.3.4" }),
+  ).toBeVisible();
+  // Notes section heading is the affordance entry point.  Pin to
+  // its case-sensitive form so it doesn't collide with a future
+  // "notes:" filter chip.
+  await expect(
+    page.getByRole("heading", { name: /^Notes$/ }),
+  ).toBeVisible();
+  // Markdown body was rendered.  ``react-markdown`` produces
+  // real DOM elements; assert on the rendered heading + the
+  // bold text.  ``## Investigation`` lands on ``<h5>`` (not
+  // ``<h2>``) after the panel's heading-level remap -- the
+  // section above the body is ``<h3>`` so markdown headings
+  // are shifted to ``<h4>``..``<h6>`` to keep the document's
+  // heading order monotone.
+  await expect(
+    page.getByRole("heading", { name: /investigation/i, level: 5 }),
+  ).toBeVisible();
+  await expect(page.getByText("C2")).toBeVisible();
+  // Footer surfaces updated_by + revision so operators can spot
+  // stale tabs / concurrent edits.
+  await expect(page.getByText(/bob@example\.org/)).toBeVisible();
+  await expect(page.getByText(/rev 3/)).toBeVisible();
+});
+
+test("Host detail sheet hides the Notes section when backend returns 501", async ({
+  page,
+}) => {
+  // A deployment whose backend does not implement the notes
+  // purpose (any non-MongoDB at v1) returns HTTP 501 from
+  // ``/cgi/notes/...``.  The panel must hide the entire section
+  // -- no permanent "feature missing" notice for every viewer on
+  // an intentionally notes-less deployment.
+  const sample = {
+    addr: "5.6.7.8",
+    infos: { country_code: "DE", country_name: "Germany" },
+    ports: [],
+  };
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      if (q.includes("host:")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/x-ndjson",
+          body: JSON.stringify(sample) + "\n",
+        });
+      }
+      return route.fulfill({ status: 200, body: "" });
+    }
+    if (url.pathname === "/cgi/notes/host/5.6.7.8") {
+      return route.fulfill({
+        status: 501,
+        contentType: "text/plain",
+        body: "Notes backend not available",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view/host/5.6.7.8");
+  await expect(
+    page.getByRole("heading", { name: "5.6.7.8" }),
+  ).toBeVisible();
+  // No Notes heading anywhere in the rendered tree.
+  await expect(
+    page.getByRole("heading", { name: /^Notes$/ }),
+  ).toHaveCount(0);
+});
+
 test("UserMenu is hidden when auth is disabled", async ({ page }) => {
   // Default: ``window.config`` is unset (no backend) → auth_enabled
   // defaults to false → the menu renders nothing.
