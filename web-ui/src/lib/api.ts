@@ -709,3 +709,71 @@ export function useFlowDetails(
     enabled: gatedEnabled(Boolean(type && id), options),
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Notes                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Single persisted note as returned by ``GET /cgi/notes/<type>/<key>``.
+ *  ``entity_key`` is in the caller-facing form (printable IP string
+ *  for the ``host`` entity type). */
+export interface Note {
+  entity_type: string;
+  entity_key: string;
+  body: string;
+  revision: number;
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  updated_by: string;
+}
+
+/** Discriminated outcome of a single-note fetch.
+ *
+ * * ``found`` -- the note exists.
+ * * ``absent`` -- the route returned 404; no note has been written
+ *   for this entity yet.
+ * * ``unavailable`` -- the route returned 501; the configured
+ *   backend does not implement the notes purpose (any non-MongoDB
+ *   deployment today).  Consumers typically hide the notes UI in
+ *   this case rather than surface a warning.
+ *
+ * Other HTTP failures (network errors, 5xx, malformed JSON) throw
+ * and reach the caller via React Query's ``isError`` path.
+ */
+export type HostNoteResult =
+  | { kind: "found"; note: Note }
+  | { kind: "absent" }
+  | { kind: "unavailable" };
+
+/** Fetch the note for a host (caller-facing IP string). Returns a
+ *  discriminated union so the four UI states (found / absent /
+ *  unavailable / error) are explicit at the call site. */
+export async function fetchHostNote(addr: string): Promise<HostNoteResult> {
+  const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
+  const response = await fetch(url, { credentials: "same-origin" });
+  if (response.status === 404) {
+    return { kind: "absent" };
+  }
+  if (response.status === 501) {
+    return { kind: "unavailable" };
+  }
+  await ensureOk(response, `GET ${url}`);
+  const note = (await response.json()) as Note;
+  return { kind: "found", note };
+}
+
+/** React Query hook around :func:`fetchHostNote`.  Gated on
+ *  ``Boolean(addr)`` so a missing addr keeps the query idle (no
+ *  background fetch for an empty key). */
+export function useHostNote(
+  addr: string | undefined,
+  options?: HookOptions<HostNoteResult>,
+): UseQueryResult<HostNoteResult> {
+  return useQuery<HostNoteResult>({
+    queryKey: ["notes", "host", addr],
+    queryFn: () => fetchHostNote(addr as string),
+    ...options,
+    enabled: gatedEnabled(Boolean(addr), options),
+  });
+}

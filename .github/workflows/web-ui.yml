@@ -103,6 +103,13 @@ jobs:
         #     - radix-ui.com/...       Radix primitive doc URLs
         #     - reactrouter.com/...    react-router doc URLs
         #     - github.com/ungap/...   url-search-params polyfill comment
+        #     - github.com/remarkjs/...      react-markdown / remark-gfm
+        #                                    changelog + doc references
+        #                                    in their error / source
+        #                                    strings
+        #     - github.com/syntax-tree/...   transitive markdown deps
+        #                                    (hast-util-* / mdast-util-*)
+        #                                    source-link references
         #     - en.wikipedia.org/wiki/MIT_License        \
         #     - opensource.org/licenses/MIT              | license-link
         #     - tldrlegal.com/license/mit-license        | comment lines
@@ -127,6 +134,8 @@ jobs:
               | grep -vE '^https?://radix-ui\.com/' \
               | grep -vE '^https?://reactrouter\.com/' \
               | grep -vE '^https?://github\.com/ungap/' \
+              | grep -vE '^https?://github\.com/remarkjs/' \
+              | grep -vE '^https?://github\.com/syntax-tree/' \
               | grep -vE '^https?://en\.wikipedia\.org/wiki/MIT_License$' \
               | grep -vE '^https?://opensource\.org/licenses/MIT$' \
               | grep -vE '^https?://tldrlegal\.com/license/mit-license$' \

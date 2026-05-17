@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fetchCount } from "./api";
+import { fetchCount, fetchHostNote, type Note } from "./api";
 
 const realFetch = globalThis.fetch;
 
@@ -110,6 +110,86 @@ describe("fetchCount", () => {
     mockFetch(vi.fn(async () => new Response("-1", { status: 200 })));
     await expect(fetchCount("/view/count", {})).rejects.toThrow(
       /non-numeric body/,
+    );
+  });
+});
+
+describe("fetchHostNote", () => {
+  const sampleNote: Note = {
+    entity_type: "host",
+    entity_key: "192.0.2.10",
+    body: "Investigation in progress.",
+    revision: 3,
+    created_at: "2026-05-01T10:00:00Z",
+    created_by: "alice@example.org",
+    updated_at: "2026-05-12T14:32:11Z",
+    updated_by: "bob@example.org",
+  };
+
+  it("returns ``found`` when the route returns 200 + JSON body", async () => {
+    const spy = vi.fn(
+      async () =>
+        new Response(JSON.stringify(sampleNote), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    mockFetch(spy);
+
+    const out = await fetchHostNote("192.0.2.10");
+
+    expect(out).toEqual({ kind: "found", note: sampleNote });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(
+      "/cgi/notes/host/192.0.2.10",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+  });
+
+  it("URL-encodes the address so IPv6 colons round-trip safely", async () => {
+    const spy = vi.fn(
+      async () => new Response("{}", { status: 404 }),
+    );
+    mockFetch(spy);
+
+    await fetchHostNote("2001:db8::1");
+
+    expect(spy).toHaveBeenCalledWith(
+      "/cgi/notes/host/2001%3Adb8%3A%3A1",
+      expect.anything(),
+    );
+  });
+
+  it("returns ``absent`` when the route returns 404", async () => {
+    mockFetch(
+      vi.fn(
+        async () => new Response("no note for host/192.0.2.10", { status: 404 }),
+      ),
+    );
+
+    await expect(fetchHostNote("192.0.2.10")).resolves.toEqual({
+      kind: "absent",
+    });
+  });
+
+  it("returns ``unavailable`` when the route returns 501", async () => {
+    mockFetch(
+      vi.fn(
+        async () =>
+          new Response("Notes backend not available", { status: 501 }),
+      ),
+    );
+
+    await expect(fetchHostNote("192.0.2.10")).resolves.toEqual({
+      kind: "unavailable",
+    });
+  });
+
+  it("throws on other non-2xx responses (5xx / 401 / 400 / ...)", async () => {
+    mockFetch(vi.fn(async () => new Response("oops", { status: 500 })));
+
+    await expect(fetchHostNote("192.0.2.10")).rejects.toThrow(
+      /notes\/host\/192\.0\.2\.10.*500/,
     );
   });
 });
