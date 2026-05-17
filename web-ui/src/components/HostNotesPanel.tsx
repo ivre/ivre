@@ -1,8 +1,35 @@
-import { useDeferredValue } from "react";
+import MDEditor from "@uiw/react-md-editor";
+import { Loader2, PencilLine, Plus, Trash2 } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useDeferredValue, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
-import { useHostNote } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  useDeleteHostNote,
+  useHostNote,
+  useHostNoteRevisions,
+  useSaveHostNote,
+  type Note,
+  type NoteRevision,
+  type SaveHostNoteResult,
+} from "@/lib/api";
+import { useAuthMe } from "@/lib/auth";
 import { formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -13,54 +40,50 @@ export interface HostNotesPanelProps {
 }
 
 /**
- * Read-only display of the markdown note attached to a host.
+ * Editable display of the markdown note attached to a host.
  *
  * Drops into the host detail sheet as a self-contained section --
- * the component renders its own ``<section>`` wrapper + heading so
- * it can ``return null`` entirely when the server reports the
- * notes backend is unavailable (HTTP 501).  Hiding the whole
- * section on unsupported backends (e.g. PostgreSQL deployments)
- * avoids surfacing a permanent "feature missing" notice to every
- * viewer.
+ * the component renders its own ``<section>`` wrapper + heading
+ * so it can ``return null`` entirely when the server reports the
+ * notes backend is unavailable (HTTP 501).
  *
- * Markdown rendering goes through ``react-markdown`` + ``remark-gfm``
- * (tables / strikethrough / autolinks / task lists), with three
- * security / a11y hardenings layered on top of the defaults via
- * ``components`` overrides (see :func:`MarkdownBody`):
+ * Three modes the operator transitions between:
  *
- *   * ``<img>`` rendering is *disabled* -- a note author cannot
- *     embed a third-party tracking pixel that would leak the
- *     viewer's IP / Referer / cookies when the panel paints.
- *     Alt text falls back as italicised plain text so operators
- *     who paste ``![alt](url)`` still see *something*.
- *   * ``<a>`` links get ``rel="noopener noreferrer"`` so a user
- *     click does not leak the IVRE detail-sheet URL (which
- *     usually contains the target IP) as Referer to the third
- *     party.
- *   * Markdown heading levels (``#``..``######``) are shifted so
- *     ``#`` becomes ``<h4>`` rather than ``<h1>`` -- the section
- *     heading above is ``<h3>``, and an operator-authored ``#``
- *     would otherwise create a backwards jump in the document's
- *     heading order that screen-reader heading navigation would
- *     mis-announce.
+ * * **viewing** -- the rendered markdown + footer + edit / delete
+ *   / history affordances (each auth-gated; an anonymous viewer
+ *   sees the rendered note but no write controls).
+ * * **editing** -- a ``@uiw/react-md-editor`` instance with
+ *   live preview, plus Save / Cancel buttons.  Used for both
+ *   create (``If-None-Match: *``) and update
+ *   (``If-Match: <revision>``) paths; the mode is driven by
+ *   whether the loaded note exists.
+ * * **conflict** -- transient overlay shown when the storage
+ *   layer rejects the save with HTTP 409
+ *   (``NoteConcurrencyError`` / ``NoteAlreadyExists``).  Two
+ *   buttons: "Keep editing" dismisses the dialog so the
+ *   operator can refine the draft and retry; "Reload latest
+ *   version" copies the pending draft to the clipboard (so
+ *   it can be pasted back to merge against the latest body),
+ *   then triggers a refetch of the underlying ``useHostNote``
+ *   query.  The editor's ``key`` is driven by
+ *   ``existingNote.revision`` so the refetched note remounts
+ *   the editor with the latest body as the new draft
+ *   baseline.  There is *no* "overwrite anyway / LWW" button;
+ *   that path was considered then dropped -- the optimistic
+ *   concurrency contract is the point of the dialog.
  *
- * The renderer also explicitly *does not* configure ``rehype-raw``
- * so any inline HTML in the body renders as escaped literal
- * text rather than executing.
- *
- * Writing / editing affordances are intentionally absent here;
- * they live in a follow-up component (the editable variant of
- * this panel).
+ * Read-mode security / a11y hardenings (image-fetch suppression,
+ * ``rel="noopener noreferrer"`` on links, markdown heading-level
+ * remap, GFM table overflow containment) are documented on
+ * :func:`MarkdownBody`.
  */
 export function HostNotesPanel({ addr }: HostNotesPanelProps) {
   const query = useHostNote(addr);
 
   // Hide the whole section when the backend has no notes
-  // implementation.  ``unavailable`` is the ``HostNoteResult``
-  // discriminant the API client surfaces for HTTP 501 -- see
-  // :func:`fetchHostNote` for the contract.  Deployments that
-  // intentionally have no notes backend (Postgres, etc.) get a
-  // clean detail sheet with no permanent warning chrome.
+  // implementation (HTTP 501).  Deployments that intentionally
+  // have no notes backend (Postgres, etc.) get a clean detail
+  // sheet with no permanent warning chrome.
   if (query.data?.kind === "unavailable") {
     return null;
   }
@@ -70,26 +93,29 @@ export function HostNotesPanel({ addr }: HostNotesPanelProps) {
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Notes
       </h3>
-      <HostNotesBody query={query} />
+      <HostNotesBody addr={addr} query={query} />
     </section>
   );
 }
 
 function HostNotesBody({
+  addr,
   query,
 }: {
+  addr: string;
   query: ReturnType<typeof useHostNote>;
 }) {
+  // Auth gate.  Write affordances are hidden when the operator is
+  // not authenticated -- the route would 401 the call anyway but
+  // surfacing the buttons would be misleading.  ``useAuthMe``
+  // returns ``authenticated: false`` cleanly when auth is
+  // disabled or the user is anonymous, so the check is uniform.
+  const meQuery = useAuthMe();
+  const canEdit = Boolean(meQuery.data?.authenticated);
+
+  const [isEditing, setIsEditing] = useState(false);
+
   if (query.isLoading) {
-    // Skeleton bars sized roughly like a short note paragraph so
-    // the layout does not jump when the body arrives.  Two bars
-    // is the visual cue "loading" without committing to a
-    // specific final height.
-    //
-    // ``role="status"`` (which implies ``aria-live="polite"``)
-    // makes the SR-only "Loading note..." text announced when
-    // the element first appears; the skeleton bars themselves
-    // are decorative.
     return (
       <div
         className="space-y-2"
@@ -116,57 +142,588 @@ function HostNotesBody({
   }
 
   const result = query.data;
-  if (!result || result.kind === "absent") {
+
+  if (isEditing) {
+    // Editing branch covers both create (no existing note) and
+    // update (existing note).  ``NoteEditor`` decides the save
+    // mode based on whether ``existingNote`` is non-null.
+    //
+    // The ``key`` is driven by the loaded note's revision so a
+    // conflict-triggered refetch (see ``NoteEditor``'s
+    // ``onReloadLatest``) forces a fresh editor instance whose
+    // ``draft`` reinitialises from the new ``existingNote.body``.
+    // Without this, ``draft`` is local state that would survive
+    // the refetch and keep the operator's stale text.
+    const existingNote =
+      result?.kind === "found" ? result.note : null;
     return (
-      <p
-        className="text-sm italic text-muted-foreground"
-        data-testid="host-notes-empty"
-      >
-        No notes for this host yet.
-      </p>
+      <NoteEditor
+        key={existingNote?.revision ?? "new"}
+        addr={addr}
+        existingNote={existingNote}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => setIsEditing(false)}
+        onReloadNote={() => query.refetch()}
+      />
     );
   }
 
-  // ``unavailable`` was handled above and would have hidden the
-  // entire section; we are guaranteed ``found`` at this point but
-  // narrow explicitly for the type-checker.
+  if (!result || result.kind === "absent") {
+    return (
+      <EmptyState
+        canEdit={canEdit}
+        onAddClick={() => setIsEditing(true)}
+      />
+    );
+  }
+
+  // ``unavailable`` was handled above.
   if (result.kind !== "found") {
     return null;
   }
 
-  const { note } = result;
   return (
-    <div data-testid="host-notes-content">
-      <MarkdownBody body={note.body} />
-      <p className="mt-3 text-xs text-muted-foreground">
-        Last updated by{" "}
-        <span className="font-medium">{note.updated_by}</span> on{" "}
-        {formatTimestamp(note.updated_at)} (rev {note.revision})
+    <NoteDisplay
+      note={result.note}
+      addr={addr}
+      canEdit={canEdit}
+      onEditClick={() => setIsEditing(true)}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
+function EmptyState({
+  canEdit,
+  onAddClick,
+}: {
+  canEdit: boolean;
+  onAddClick: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-2"
+      data-testid="host-notes-empty"
+    >
+      <p className="text-sm italic text-muted-foreground">
+        No notes for this host yet.
       </p>
+      {canEdit ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onAddClick}
+          data-testid="host-notes-add-button"
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          Add note
+        </Button>
+      ) : null}
     </div>
   );
 }
 
-/** ``react-markdown`` ``components`` overrides that harden the
- *  default renderer.  Declared at module scope so the object
- *  identity is stable across renders (passing a fresh object
- *  literal on every render would defeat any internal memoisation
- *  ``react-markdown`` performs).  See :func:`HostNotesPanel`'s
- *  docstring for the per-override rationale. */
+/* ------------------------------------------------------------------ */
+/* Read-mode display                                                   */
+/* ------------------------------------------------------------------ */
+
+function NoteDisplay({
+  note,
+  addr,
+  canEdit,
+  onEditClick,
+}: {
+  note: Note;
+  addr: string;
+  canEdit: boolean;
+  onEditClick: () => void;
+}) {
+  const [showHistory, setShowHistory] = useState(false);
+  const deleteMutation = useDeleteHostNote(addr);
+
+  const onDelete = () => {
+    // Confirm deletion via the native ``confirm`` dialog rather
+    // than a custom modal -- this is an operator-rare action and
+    // the simpler UX matches the destructiveness.
+    if (
+      !window.confirm(
+        `Delete the note for ${addr}? The full revision history will be removed too.`,
+      )
+    ) {
+      return;
+    }
+    deleteMutation.mutate(undefined, {
+      onSuccess: (existed) => {
+        if (existed) {
+          toast.success("Note deleted");
+        } else {
+          // Either someone beat us to the delete or the route
+          // changed under us.  The query invalidation in the
+          // mutation hook will re-fetch and show the empty
+          // state regardless.
+          toast.info("Note was already absent");
+        }
+      },
+      onError: (err) => {
+        toast.error(`Delete failed: ${err.message}`);
+      },
+    });
+  };
+
+  return (
+    <div data-testid="host-notes-content">
+      <MarkdownBody body={note.body} />
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Last updated by{" "}
+          <span className="font-medium">{note.updated_by}</span> on{" "}
+          {formatTimestamp(note.updated_at)} (rev {note.revision})
+        </p>
+        {canEdit ? (
+          <div className="flex shrink-0 gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEditClick}
+              data-testid="host-notes-edit-button"
+            >
+              <PencilLine className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDelete}
+              disabled={deleteMutation.isPending}
+              data-testid="host-notes-delete-button"
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              Delete
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      <RevisionsExpander
+        addr={addr}
+        currentRevision={note.revision}
+        open={showHistory}
+        onOpenChange={setShowHistory}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Revision history                                                    */
+/* ------------------------------------------------------------------ */
+
+function RevisionsExpander({
+  addr,
+  currentRevision,
+  open,
+  onOpenChange,
+}: {
+  addr: string;
+  currentRevision: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  // Defer the revisions fetch until the operator actually
+  // expands the section (``enabled: open``).  Once the fetch
+  // has settled, the trigger label below prefers
+  // ``revisionsQuery.data.length`` as the authoritative count
+  // and falls back to ``currentRevision`` as a proxy until
+  // then.  The proxy is correct only while no revisions are
+  // pruned or gapped, which holds under the current storage
+  // protocol: ``set_note`` only does ``$inc: {revision: 1}``
+  // on every write, and ``delete_note`` sweeps the entire
+  // audit log along with the parent.  So revision N today
+  // means N revisions exist.  A future feature introducing
+  // revision pruning, TTL on old revisions, or rollback /
+  // gap-creating semantics would break the proxy, but the
+  // ``data?.length ?? currentRevision`` fallback would
+  // self-correct as soon as the operator opened the
+  // expander.
+  const revisionsQuery = useHostNoteRevisions(addr, {
+    enabled: open,
+  });
+  const revisionCount = revisionsQuery.data?.length ?? currentRevision;
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      className="mt-2"
+    >
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-xs text-muted-foreground"
+          data-testid="host-notes-history-toggle"
+        >
+          {open
+            ? "Hide history"
+            : `History (${revisionCount} revision${revisionCount === 1 ? "" : "s"})`}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <RevisionsList query={revisionsQuery} />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function RevisionsList({
+  query,
+}: {
+  query: ReturnType<typeof useHostNoteRevisions>;
+}) {
+  if (query.isLoading) {
+    return (
+      <p
+        className="mt-2 text-xs italic text-muted-foreground"
+        role="status"
+      >
+        Loading revisions…
+      </p>
+    );
+  }
+  if (query.isError) {
+    return (
+      <p className="mt-2 text-xs text-destructive">
+        Failed to load history: {(query.error as Error).message}
+      </p>
+    );
+  }
+  const revisions = query.data ?? [];
+  if (revisions.length === 0) {
+    return (
+      <p className="mt-2 text-xs italic text-muted-foreground">
+        No revisions recorded.
+      </p>
+    );
+  }
+  return (
+    <ol
+      className="mt-2 space-y-2 border-l-2 border-muted pl-3"
+      data-testid="host-notes-history-list"
+    >
+      {revisions.map((rev) => (
+        <RevisionItem key={rev.revision} revision={rev} />
+      ))}
+    </ol>
+  );
+}
+
+function RevisionItem({ revision }: { revision: NoteRevision }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto justify-start p-1 text-xs"
+          >
+            <span className="font-mono text-muted-foreground">
+              rev {revision.revision}
+            </span>
+            <span className="ml-2 text-muted-foreground">
+              by {revision.created_by} on{" "}
+              {formatTimestamp(revision.created_at)}
+            </span>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-1 rounded border border-muted bg-muted/40 p-2">
+            <MarkdownBody body={revision.body} />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </li>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Editor                                                              */
+/* ------------------------------------------------------------------ */
+
+function NoteEditor({
+  addr,
+  existingNote,
+  onCancel,
+  onSaved,
+  onReloadNote,
+}: {
+  addr: string;
+  existingNote: Note | null;
+  onCancel: () => void;
+  onSaved: () => void;
+  /** Trigger a refetch of the underlying ``useHostNote`` query.
+   *  Returns a promise that resolves once the new note has
+   *  arrived.  The parent passes ``query.refetch`` here; the
+   *  editor calls it from the conflict-dialog reload path. */
+  onReloadNote: () => Promise<unknown>;
+}) {
+  const [draft, setDraft] = useState(existingNote?.body ?? "");
+  const [conflict, setConflict] = useState<{
+    message: string;
+    pendingBody: string;
+  } | null>(null);
+  const saveMutation = useSaveHostNote(addr);
+  // ``@uiw/react-md-editor`` reads ``data-color-mode`` off the
+  // nearest ancestor to pick its dark/light skin.  Mirror the
+  // resolved next-themes value onto a wrapping div so the
+  // editor blends with the rest of the SPA's theme rather than
+  // defaulting to whatever the system colour scheme is.
+  const { resolvedTheme } = useTheme();
+
+  const submit = (body: string) => {
+    const mode = existingNote
+      ? {
+          kind: "update" as const,
+          expectedRevision: existingNote.revision,
+        }
+      : { kind: "create" as const };
+    saveMutation.mutate(
+      { body, mode },
+      {
+        onSuccess: (result: SaveHostNoteResult) => {
+          if (result.kind === "saved") {
+            toast.success(
+              existingNote ? "Note updated" : "Note created",
+            );
+            onSaved();
+            return;
+          }
+          if (result.kind === "conflict") {
+            // Keep the operator's draft in scope so the
+            // ``onReloadLatest`` path in the conflict dialog
+            // can write it to the clipboard before triggering
+            // the refetch.
+            setConflict({ message: result.message, pendingBody: body });
+            return;
+          }
+          if (result.kind === "unauthorized") {
+            toast.error("Sign in to save notes");
+            return;
+          }
+          if (result.kind === "too_large") {
+            toast.error("Note body is too large");
+            return;
+          }
+          if (result.kind === "not_found") {
+            // The note was deleted between load and save.
+            // Mirror the conflict-reload path: preserve the
+            // operator's pending body to the clipboard, then
+            // refetch the query so the parent re-renders with
+            // ``existingNote = null``.  The parent's
+            // ``key={existingNote?.revision ?? "new"}`` will
+            // flip the editor's identity, remounting it in
+            // create mode with an empty ``draft``; the next
+            // Save naturally uses ``If-None-Match: *``.  The
+            // editor stays open so the operator can paste
+            // back without an extra "Add note" click.  Errors
+            // (no clipboard, refetch failure) surface via
+            // toast; we fire-and-forget here because the
+            // ``onSuccess`` callback itself is synchronous.
+            void handleNotFound(body);
+            return;
+          }
+        },
+        onError: (err) => {
+          toast.error(`Save failed: ${err.message}`);
+        },
+      },
+    );
+  };
+
+  const handleNotFound = async (pendingBody: string) => {
+    // Preserve the operator's pending edits via the clipboard
+    // so they can paste back to recreate the note after the
+    // refetch lands.  Same shape as :func:`onReloadLatest`'s
+    // clipboard step (insecure-context / permission-denied
+    // surfaces as a warning toast rather than blocking the
+    // refetch).
+    try {
+      await navigator.clipboard.writeText(pendingBody);
+      toast.error(
+        "The note was deleted while you were editing.  " +
+          "Your edits were copied to the clipboard; paste to recreate.",
+      );
+    } catch {
+      toast.error(
+        "The note was deleted while you were editing.  " +
+          "Your in-editor draft will be lost on reload.",
+      );
+    }
+    // Refetch so the parent's ``existingNote`` becomes
+    // ``null``; the ``key`` change then remounts the editor
+    // in create mode (empty ``draft``).  Errors here surface
+    // via React Query's regular error path on the next
+    // ``useHostNote`` consumer.
+    await onReloadNote();
+  };
+
+  const onReloadLatest = async () => {
+    if (!conflict) return;
+    const pendingBody = conflict.pendingBody;
+    // Close the dialog immediately so the operator sees the
+    // reload in motion.  If the refetch ends up returning the
+    // same revision (race resolved itself), the editor stays
+    // mounted with the user's draft intact and they can save
+    // again.  Otherwise, the parent's ``key`` (driven by
+    // ``existingNote.revision``) trips a remount and the
+    // editor reinitialises from the latest body.
+    setConflict(null);
+    // Preserve the operator's pending edits via the clipboard
+    // so they can paste them back to merge against the latest
+    // body.  ``navigator.clipboard.writeText`` requires a
+    // secure context and an active user gesture; both hold
+    // here (the click that opened the dialog is still the
+    // active gesture).  Failure (insecure HTTP, permissions
+    // denied) is surfaced as a warning toast rather than
+    // blocking the refetch -- the operator still gets the
+    // latest body; they just lose their unsaved draft.
+    try {
+      await navigator.clipboard.writeText(pendingBody);
+      toast.info(
+        "Your edits were copied to the clipboard; paste to merge.",
+      );
+    } catch {
+      toast.warning(
+        "Could not access clipboard; your in-editor draft will be lost on reload.",
+      );
+    }
+    await onReloadNote();
+  };
+
+  return (
+    <div data-testid="host-notes-editor" data-color-mode={resolvedTheme}>
+      {/* Explicit ``<label htmlFor>`` so the editor's textarea
+       *  has a programmatic accessible name regardless of
+       *  whether ``@uiw/react-md-editor`` forwards
+       *  ``textareaProps.aria-label`` to the inner ``<textarea>``
+       *  in a given library version.  The ``sr-only`` class
+       *  hides the label visually (the editor's toolbar /
+       *  placeholder convey the affordance in the sighted UI).
+       *  ``aria-label`` stays in ``textareaProps`` as
+       *  redundancy. */}
+      <label htmlFor="host-notes-body-textarea" className="sr-only">
+        Note body
+      </label>
+      <MDEditor
+        value={draft}
+        onChange={(val) => setDraft(val ?? "")}
+        // ``preview="live"`` shows editor + rendered preview
+        // side-by-side.  Use the editor's built-in preview here
+        // rather than our ``MarkdownBody`` -- the editor's
+        // textarea and toolbar are tightly coupled to its own
+        // preview pane; swapping in a custom preview component
+        // is non-trivial without losing the toolbar shortcuts.
+        // The read-mode display below still uses ``MarkdownBody``.
+        preview="live"
+        height={300}
+        textareaProps={{
+          id: "host-notes-body-textarea",
+          placeholder:
+            "Markdown supported. Editing is private to your session until you Save.",
+          "aria-label": "Note body",
+        }}
+      />
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onCancel}
+          disabled={saveMutation.isPending}
+          data-testid="host-notes-cancel-button"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => submit(draft)}
+          disabled={saveMutation.isPending}
+          data-testid="host-notes-save-button"
+        >
+          {saveMutation.isPending ? (
+            <>
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
+      <ConflictDialog
+        conflict={conflict}
+        onClose={() => setConflict(null)}
+        onReload={onReloadLatest}
+      />
+    </div>
+  );
+}
+
+function ConflictDialog({
+  conflict,
+  onClose,
+  onReload,
+}: {
+  conflict: { message: string; pendingBody: string } | null;
+  onClose: () => void;
+  onReload: () => void;
+}) {
+  return (
+    <Dialog open={conflict !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent data-testid="host-notes-conflict-dialog">
+        <DialogHeader>
+          <DialogTitle>Note was modified elsewhere</DialogTitle>
+          <DialogDescription>
+            Another user or tab modified this note while you were
+            editing.  The server rejected the save to prevent an
+            accidental overwrite.
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Server message:{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">
+            {conflict?.message ?? ""}
+          </code>
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Keep editing
+          </Button>
+          <Button onClick={onReload}>
+            Reload latest version
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Markdown renderer (shared by read-mode + revision-history items)    */
+/* ------------------------------------------------------------------ */
+
 /** Strip the ``node`` prop ``react-markdown`` passes to every
  *  component override -- it is the hast AST node, not a valid
  *  DOM attribute, and spreading it onto an HTML element would
- *  emit a runtime ``Unknown DOM attribute`` warning.  Returning
- *  a fresh object also keeps the override pure (no mutation of
- *  the props object react-markdown reuses across renders). */
+ *  emit a runtime ``Unknown DOM attribute`` warning. */
 function stripHastNode<T extends { node?: unknown }>(
   props: T,
 ): Omit<T, "node"> {
   const { node, ...rest } = props;
   // ``void node`` acknowledges the binding so it satisfies the
   // no-unused-vars rule without ``// eslint-disable`` or an
-  // ``_node`` underscore alias.  The value is intentionally
-  // discarded.
+  // ``_node`` underscore alias.
   void node;
   return rest;
 }
@@ -175,18 +732,14 @@ const MARKDOWN_COMPONENTS: Components = {
   // Suppress image fetches.  An operator-authored
   // ``![alt](https://attacker/track?h=...)`` would otherwise
   // cause the viewing browser to GET the URL on render,
-  // leaking IP / Referer / cookies to the third party -- the
-  // standard email-tracking-pixel attack in a notes context.
+  // leaking IP / Referer / cookies to the third party.
   // Fall back to the alt text in italic so operators who pasted
   // ``![diagram](...)`` still see "diagram" instead of nothing.
   img: ({ alt }) =>
     alt ? <em className="text-muted-foreground">{alt}</em> : null,
   // Outbound links get ``noopener noreferrer`` so a click does
-  // not leak the IVRE detail-sheet URL (which typically contains
-  // the host IP being viewed) as ``Referer``, and the destination
-  // page cannot access ``window.opener``.  ``target="_blank"``
-  // is left to the operator's link-emission preferences -- we
-  // do not force it here.
+  // not leak the IVRE detail-sheet URL as ``Referer`` and the
+  // destination cannot access ``window.opener``.
   a: (props) => {
     const { children, ...rest } = stripHastNode(props);
     return (
@@ -196,23 +749,15 @@ const MARKDOWN_COMPONENTS: Components = {
     );
   },
   // Wrap GFM tables in a horizontally-scrollable container.
-  // Without this, a wide table (many columns or long
-  // unbreakable cells -- URLs / hashes / IPv6 addresses) forces
-  // the entire host detail sheet to widen and produces page-
-  // level horizontal scroll.  ``overflow-x-auto`` keeps the
-  // overflow scoped to the table.
   table: (props) => (
     <div className="overflow-x-auto">
       <table {...stripHastNode(props)} />
     </div>
   ),
-  // Remap markdown heading levels.  The section above this body
-  // is ``<h3>``; an operator-authored ``#`` would otherwise emit
-  // an ``<h1>`` inside a ``<h3>`` section, breaking the
-  // document's heading hierarchy and confusing screen-reader
-  // heading navigation.  Shift everything two levels down so
-  // ``#`` -> ``<h4>`` (one level below the section).  ``<h6>``
-  // is HTML's deepest heading level; we cap there.
+  // Remap markdown heading levels two down so an operator-authored
+  // ``#`` lands on ``<h4>`` (the section heading is ``<h3>``)
+  // rather than ``<h1>``, keeping the document hierarchy
+  // monotone for screen-reader heading navigation.
   h1: (props) => <h4 {...stripHastNode(props)} />,
   h2: (props) => <h5 {...stripHastNode(props)} />,
   h3: (props) => <h6 {...stripHastNode(props)} />,
@@ -224,55 +769,33 @@ const MARKDOWN_COMPONENTS: Components = {
 const MARKDOWN_PLUGINS = [remarkGfm];
 
 /** Tailwind-flavoured prose container for the rendered markdown.
- *  We do not use ``@tailwindcss/typography`` (not in the dep tree),
- *  so the styling is hand-rolled via element-class targeting that
- *  matches what ``react-markdown`` emits.  After the heading
- *  override (see ``MARKDOWN_COMPONENTS``) markdown headings land
- *  on ``<h4>`` / ``<h5>`` / ``<h6>`` rather than ``<h1>`` /
- *  ``<h2>`` / ``<h3>``, so the heading styling rules target the
- *  shifted levels. */
+ *  Heading styling rules target ``<h4>`` / ``<h5>`` / ``<h6>``
+ *  to match the level-remap above. */
 function MarkdownBody({ body }: { body: string }) {
   // ``useDeferredValue`` marks the heavy ``react-markdown`` parse
-  // as low-priority work.  The host detail sheet chrome and the
-  // surrounding section's heading + footer paint immediately;
-  // the markdown body fills in on a subsequent low-priority
-  // pass.  This does not change the rendered output; it only
-  // changes the React commit order so a 1 MiB body (the soft cap
-  // on the notes API) does not block the sheet's open animation
-  // on the same tick.  Full virtualisation / web-worker parsing
-  // is a follow-up if real-world reports show this isn't
-  // enough.
+  // as low-priority work so a large note (1 MiB API cap) does
+  // not block the host detail sheet's open animation on the
+  // same React commit.
   const deferredBody = useDeferredValue(body);
   return (
     <div
       className={cn(
         "text-sm leading-relaxed",
-        // Headings: smaller scale than the page chrome so the
-        // section heading above keeps visual primacy.  Markdown
-        // ``#`` lands on ``<h4>`` after the level remap.
         "[&_h4]:mt-3 [&_h4]:mb-2 [&_h4]:text-base [&_h4]:font-semibold",
         "[&_h5]:mt-3 [&_h5]:mb-2 [&_h5]:text-sm [&_h5]:font-semibold",
         "[&_h6]:mt-3 [&_h6]:mb-1 [&_h6]:text-sm [&_h6]:font-semibold",
-        // Paragraphs / spacing.
         "[&_p]:my-2",
         "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
         "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
         "[&_li]:my-1",
-        // Inline + block code.
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs",
         "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2",
         "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        // Blockquotes.
         "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-        // Tables (gfm).  Styling targets the inner ``<table>``;
-        // the wrapping ``<div class="overflow-x-auto">`` is
-        // installed by the ``components.table`` override above.
         "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
         "[&_th]:border [&_th]:border-muted [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
         "[&_td]:border [&_td]:border-muted [&_td]:px-2 [&_td]:py-1",
-        // Links.
         "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:no-underline",
-        // Hard rule.
         "[&_hr]:my-3 [&_hr]:border-muted",
       )}
     >

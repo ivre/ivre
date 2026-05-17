@@ -9,7 +9,13 @@
  * functions with caching and refetch behaviour.
  */
 
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 import { gatedEnabled, type HookOptions } from "./api-internals";
 
@@ -775,5 +781,226 @@ export function useHostNote(
     queryFn: () => fetchHostNote(addr as string),
     ...options,
     enabled: gatedEnabled(Boolean(addr), options),
+  });
+}
+
+/** One entry of the revision history returned by
+ *  ``GET /cgi/notes/<type>/<key>/revisions``.  Newest revision
+ *  first.  The route strips ``entity_type`` / ``entity_key`` from
+ *  each entry (the caller knows them already). */
+export interface NoteRevision {
+  revision: number;
+  body: string;
+  created_at: string;
+  created_by: string;
+}
+
+/** Save-mode discriminator for :func:`saveHostNote`.
+ *
+ * * ``create`` -- ``If-None-Match: *``: PUT only succeeds when
+ *   no note exists yet.  Used by the "Add note" affordance on
+ *   the empty state.
+ * * ``update`` -- ``If-Match: <expectedRevision>``: optimistic
+ *   concurrency update.  The expected revision is the one the
+ *   operator started editing from; the storage layer rejects
+ *   the write if another caller has bumped the revision in
+ *   between.
+ */
+export type SaveHostNoteMode =
+  | { kind: "create" }
+  | { kind: "update"; expectedRevision: number };
+
+/** Discriminated outcome of :func:`saveHostNote`.
+ *
+ * * ``saved`` -- the write succeeded; carries the persisted note.
+ * * ``conflict`` -- the route returned 409.  ``message`` is the
+ *   server's abort-message text body (the storage-layer
+ *   ``NoteConcurrencyError`` -- "stored revision N does not
+ *   match expected=M..." -- or ``NoteAlreadyExists`` --
+ *   "note already exists for ..." -- distinction lives in
+ *   that text).  Callers re-fetch via
+ *   :func:`useHostNote`'s ``refetch`` (or
+ *   ``queryClient.invalidateQueries``) to repopulate the
+ *   cache with the current server-side note before
+ *   retrying.
+ * * ``unauthorized`` -- the route returned 401 (write paths
+ *   require an authenticated user).
+ * * ``too_large`` -- the route returned 413 (body exceeds
+ *   ``WEB_HOST_NOTES_MAX_BYTES``).
+ * * ``not_found`` -- the route returned 404 (only reachable on
+ *   ``update`` mode: the note was deleted between load and
+ *   save).  Empty-state recovery: surface "the note was
+ *   deleted; recreate?" to the operator.
+ *
+ * Other HTTP failures throw and reach the caller via React
+ * Query's ``isError`` path on the surrounding mutation.
+ */
+export type SaveHostNoteResult =
+  | { kind: "saved"; note: Note }
+  | { kind: "conflict"; message: string }
+  | { kind: "unauthorized" }
+  | { kind: "too_large" }
+  | { kind: "not_found" };
+
+/** Persist a host note.  See :type:`SaveHostNoteMode` for the
+ *  two write modes; :type:`SaveHostNoteResult` for the
+ *  caller-visible outcomes. */
+export async function saveHostNote(
+  addr: string,
+  body: string,
+  mode: SaveHostNoteMode,
+): Promise<SaveHostNoteResult> {
+  const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
+  // Translate the discriminated save-mode into the HTTP
+  // precondition headers documented on ``PUT /cgi/notes/...``.
+  const headers: Record<string, string> = {
+    "Content-Type": "text/markdown; charset=utf-8",
+  };
+  if (mode.kind === "create") {
+    headers["If-None-Match"] = "*";
+  } else {
+    headers["If-Match"] = String(mode.expectedRevision);
+  }
+  const response = await fetch(url, {
+    method: "PUT",
+    credentials: "same-origin",
+    headers,
+    body,
+  });
+  if (response.status === 401) return { kind: "unauthorized" };
+  if (response.status === 404) return { kind: "not_found" };
+  if (response.status === 409) {
+    // The route returns the abort-message text body; surface
+    // it so the caller can decide whether to show
+    // "concurrent edit" or "note already exists" prose
+    // (the storage-layer ``NoteConcurrencyError`` /
+    // ``NoteAlreadyExists`` distinction lives in that text).
+    const message = await response.text().catch(() => "Conflict");
+    return { kind: "conflict", message };
+  }
+  if (response.status === 413) return { kind: "too_large" };
+  await ensureOk(response, `PUT ${url}`);
+  const note = (await response.json()) as Note;
+  return { kind: "saved", note };
+}
+
+/** Delete a host note (and its revision history).  Returns
+ *  ``true`` when a note existed and was removed, ``false`` when
+ *  the route returned 404 (no note to delete).  Other failures
+ *  throw. */
+export async function deleteHostNote(addr: string): Promise<boolean> {
+  const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
+  const response = await fetch(url, {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
+  if (response.status === 404) return false;
+  if (response.status === 401) {
+    throw new Error("Authentication required to delete notes");
+  }
+  await ensureOk(response, `DELETE ${url}`);
+  return true;
+}
+
+/** Fetch the full revision history of a host note (newest
+ *  first).  Returns an empty array when no note exists for the
+ *  host -- the route is read-only and does not 404 on missing
+ *  entities (it surfaces the same shape as for an entity with
+ *  zero revisions). */
+export async function fetchHostNoteRevisions(
+  addr: string,
+): Promise<NoteRevision[]> {
+  const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}/revisions`;
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET ${url}`);
+  return (await response.json()) as NoteRevision[];
+}
+
+/** React Query hook around :func:`fetchHostNoteRevisions`.
+ *  Gated on ``Boolean(addr)`` AND on the caller opting in
+ *  via ``enabled: true`` -- the revision list is only fetched
+ *  on demand (when the operator expands the History
+ *  affordance), not on every detail-sheet open. */
+export function useHostNoteRevisions(
+  addr: string | undefined,
+  options?: HookOptions<NoteRevision[]>,
+): UseQueryResult<NoteRevision[]> {
+  return useQuery<NoteRevision[]>({
+    queryKey: ["notes", "host", addr, "revisions"],
+    queryFn: () => fetchHostNoteRevisions(addr as string),
+    ...options,
+    enabled: gatedEnabled(Boolean(addr), options),
+  });
+}
+
+/** Mutation hook that wraps :func:`saveHostNote` and
+ *  invalidates the affected ``useHostNote`` / revision queries
+ *  on success so the panel refreshes without a manual
+ *  refetch. */
+export function useSaveHostNote(
+  addr: string | undefined,
+): UseMutationResult<
+  SaveHostNoteResult,
+  Error,
+  { body: string; mode: SaveHostNoteMode }
+> {
+  const queryClient = useQueryClient();
+  return useMutation<
+    SaveHostNoteResult,
+    Error,
+    { body: string; mode: SaveHostNoteMode }
+  >({
+    mutationFn: ({ body, mode }) => saveHostNote(addr as string, body, mode),
+    onSuccess: (result) => {
+      // ``conflict`` / ``unauthorized`` / ``too_large`` /
+      // ``not_found`` are not real success states from the
+      // operator's perspective, but ``useMutation``'s onSuccess
+      // fires whenever the mutationFn returns without
+      // throwing.  Only invalidate on a real ``saved``.
+      if (result.kind === "saved") {
+        // Invalidate both query keys explicitly rather than
+        // relying on ``invalidateQueries``'s default prefix
+        // match (which would still catch the revisions key
+        // today, but creates a hidden dependency on that
+        // behaviour -- a future migration to ``exact: true``
+        // or a queryKey reshape would silently leave stale
+        // revisions in the cache after a save).
+        queryClient.invalidateQueries({
+          queryKey: ["notes", "host", addr],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["notes", "host", addr, "revisions"],
+        });
+      }
+    },
+  });
+}
+
+/** Mutation hook that wraps :func:`deleteHostNote` and
+ *  invalidates the affected queries on success. */
+export function useDeleteHostNote(
+  addr: string | undefined,
+): UseMutationResult<boolean, Error, void> {
+  const queryClient = useQueryClient();
+  return useMutation<boolean, Error, void>({
+    mutationFn: () => deleteHostNote(addr as string),
+    onSuccess: () => {
+      // Invalidate regardless of the ``existed`` return value:
+      // when the server returns 404 (already deleted by
+      // someone else), the local cache may still hold the
+      // previously-found note from before the race, and
+      // skipping the refetch would leave the panel showing
+      // the stale entry until something else triggers a
+      // reload.  Invalidating in both cases keeps the cache
+      // honest.  See ``useSaveHostNote`` above for the
+      // rationale on listing both query keys explicitly
+      // rather than relying on prefix-match defaults.
+      queryClient.invalidateQueries({
+        queryKey: ["notes", "host", addr],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["notes", "host", addr, "revisions"],
+      });
+    },
   });
 }

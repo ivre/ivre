@@ -260,6 +260,135 @@ test("Host detail sheet renders the Notes section with markdown body", async ({
   await expect(page.getByText(/rev 3/)).toBeVisible();
 });
 
+test("Host detail sheet edit flow: open editor, save, see updated note", async ({
+  page,
+}) => {
+  // Full round-trip: open the host detail sheet, click Edit on
+  // the existing note, type new content, hit Save, observe the
+  // updated note + revision-bumped footer.  ``ivre httpd`` is
+  // not running in CI dev mode so all backend routes are
+  // mocked; this exercises the React state machine + the API
+  // client's PUT shape.
+  const sample = {
+    addr: "1.2.3.4",
+    infos: { country_code: "FR", country_name: "France" },
+    ports: [
+      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+    ],
+  };
+  let currentNote = {
+    entity_type: "host",
+    entity_key: "1.2.3.4",
+    body: "Original body.",
+    revision: 3,
+    created_at: "2026-05-01T10:00:00Z",
+    created_by: "alice@example.org",
+    updated_at: "2026-05-12T14:32:11Z",
+    updated_by: "bob@example.org",
+  };
+  let putCount = 0;
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        // Auth enabled so the Edit button is visible.
+        body: "config.auth_enabled = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/auth/me") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          authenticated: true,
+          email: "alice@example.org",
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/auth/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          enabled: true,
+          providers: [],
+          magic_link: false,
+        }),
+      });
+    }
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      if (q.includes("host:")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/x-ndjson",
+          body: JSON.stringify(sample) + "\n",
+        });
+      }
+      return route.fulfill({ status: 200, body: "" });
+    }
+    if (url.pathname === "/cgi/notes/host/1.2.3.4") {
+      if (route.request().method() === "PUT") {
+        putCount += 1;
+        // Simulate the storage layer bumping the revision.
+        currentNote = {
+          ...currentNote,
+          body: route.request().postData() ?? "",
+          revision: currentNote.revision + 1,
+          updated_at: "2026-05-13T09:00:00Z",
+          updated_by: "alice@example.org",
+        };
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(currentNote),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentNote),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view/host/1.2.3.4");
+  // Original note rendered.
+  await expect(page.getByText("Original body.")).toBeVisible();
+  await expect(page.getByText(/rev 3/)).toBeVisible();
+
+  // Open editor, type new content, save.  The real
+  // ``@uiw/react-md-editor`` textarea carries
+  // ``aria-label="Note body"`` (set via ``textareaProps``);
+  // unit tests mock it with an explicit ``data-testid`` since
+  // the library's typings don't accept arbitrary HTML
+  // attributes on ``textareaProps``.
+  await page.getByTestId("host-notes-edit-button").click();
+  const editor = page.getByRole("textbox", { name: /^note body$/i });
+  await expect(editor).toBeVisible();
+  await editor.fill("Updated body content");
+  await page.getByTestId("host-notes-save-button").click();
+
+  // Server saw exactly one PUT.
+  await expect.poll(() => putCount).toBe(1);
+
+  // After save, the editor closes and the panel switches back
+  // to read-mode display.  Scope the body / footer assertions
+  // to the read-mode content container so the editor's live
+  // preview pane (briefly mounted during the save transition)
+  // does not cause strict-mode multi-matches.
+  await expect(page.getByTestId("host-notes-editor")).toHaveCount(0);
+  const content = page.getByTestId("host-notes-content");
+  await expect(content.getByText("Updated body content")).toBeVisible();
+  await expect(content.getByText(/rev 4/)).toBeVisible();
+  await expect(
+    content.getByText(/alice@example\.org/),
+  ).toBeVisible();
+});
+
 test("Host detail sheet hides the Notes section when backend returns 501", async ({
   page,
 }) => {
