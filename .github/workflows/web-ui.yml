@@ -110,6 +110,17 @@ jobs:
         #     - github.com/syntax-tree/...   transitive markdown deps
         #                                    (hast-util-* / mdast-util-*)
         #                                    source-link references
+        #     - www.ibm.com/data/dtd/...     XHTML DTD reference embedded
+        #                                    by parse5 / @wooorm/starry-night
+        #                                    (markdown code-highlighter
+        #                                    transitive dep) in its
+        #                                    namespace tables
+        #     - html.spec.whatwg.org/...     parse-error spec links
+        #                                    embedded in parse5's error
+        #                                    message strings
+        #     - www.markdownguide.org/...    syntax-help link from the
+        #                                    @uiw/react-md-editor toolbar
+        #                                    tooltips
         #     - en.wikipedia.org/wiki/MIT_License        \
         #     - opensource.org/licenses/MIT              | license-link
         #     - tldrlegal.com/license/mit-license        | comment lines
@@ -136,6 +147,9 @@ jobs:
               | grep -vE '^https?://github\.com/ungap/' \
               | grep -vE '^https?://github\.com/remarkjs/' \
               | grep -vE '^https?://github\.com/syntax-tree/' \
+              | grep -vE '^https?://www\.ibm\.com/data/dtd/' \
+              | grep -vE '^https?://html\.spec\.whatwg\.org/' \
+              | grep -vE '^https?://www\.markdownguide\.org/' \
               | grep -vE '^https?://en\.wikipedia\.org/wiki/MIT_License$' \
               | grep -vE '^https?://opensource\.org/licenses/MIT$' \
               | grep -vE '^https?://tldrlegal\.com/license/mit-license$' \
