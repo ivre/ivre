@@ -14,6 +14,7 @@ import { AdminRoute } from "./admin";
 import { ApiKeysRoute } from "./api-keys";
 import { DnsRoute } from "./dns";
 import { FlowRoute } from "./flow";
+import { NotesRoute } from "./notes";
 import { PassiveRoute } from "./passive-list";
 import { RirRoute } from "./rir";
 import { ViewRoute } from "./view";
@@ -81,6 +82,12 @@ const router = createHashRouter([
       // ``/cgi/flows`` route returns a graph object; the
       // FlowRoute renders it via cytoscape.
       { path: "flow", element: gateModule("flow", <FlowRoute />) },
+      // Notes explorer: browse + free-text search
+      // operator-authored annotations.  Hidden on non-Mongo
+      // backends via ``WEB_MODULES`` (``db.notes is None``).
+      // Deep-link with ``/notes?addr=<entity_key>`` to open
+      // the matching note's detail sheet preselected.
+      { path: "notes", element: gateModule("notes", <NotesRoute />) },
       // Account / admin pages — reachable from the user menu
       // only; intentionally absent from the section nav. Not
       // gated by ``WEB_MODULES`` (they have their own

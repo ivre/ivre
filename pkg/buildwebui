@@ -28,7 +28,26 @@ set -e
 cd "$(dirname "$0")/../web-ui" || exit 255
 
 if ! command -v pnpm >/dev/null 2>&1; then
-    echo "pkg/buildwebui requires pnpm; see web-ui/README.md" >&2
+    echo "pkg/buildwebui requires pnpm." >&2
+    exit 1
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+    echo "pkg/buildwebui requires node." >&2
+    exit 1
+fi
+
+# Pin the build to a single Node major version so the shipped
+# bundle under web/static/ui/ is reproducible across developer
+# machines and across the regen CI job that gates the
+# committed tree. The canonical version is also declared in
+# web-ui/.nvmrc and web-ui/package.json's "engines" field --
+# this check is the enforcement layer.
+EXPECTED_NODE_MAJOR=$(cat .nvmrc)
+ACTUAL_NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]")
+if [ "$ACTUAL_NODE_MAJOR" != "$EXPECTED_NODE_MAJOR" ]; then
+    echo "pkg/buildwebui requires Node ${EXPECTED_NODE_MAJOR}.x (got $(node --version))." >&2
+    echo "Switch with 'pnpm env use --global ${EXPECTED_NODE_MAJOR}' or 'nvm use'." >&2
     exit 1
 fi
 

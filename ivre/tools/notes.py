@@ -18,7 +18,8 @@
 
 
 """Administer the per-entity notes purpose: initialise collections /
-indexes, ensure indexes after a schema bump, count records.
+indexes, ensure indexes after a schema bump, count records,
+migrate pre-existing Dokuwiki notes into the DB.
 
 The notes purpose stores entity-keyed markdown annotations (per host,
 per domain, per ASN, ...) -- see :class:`ivre.db.DBNotes`.  Lifecycle
@@ -29,9 +30,104 @@ maintain the notes-side collections explicitly.
 
 import argparse
 import os
+import re
 import sys
 
-from ivre.db import db
+from ivre import utils
+from ivre.db import NoteAlreadyExists, NoteBodyTooLarge, db
+
+# Dokuwiki page filenames are ``<page-name>.txt`` under the
+# wiki's ``data/pages/`` tree.  The legacy IVRE integration
+# (``ivre.web.utils.get_notepad_pages_localdokuwiki``) only
+# matched IPv4 pages -- the dotted-decimal filename happens to
+# be valid Dokuwiki page-name syntax.  The migration mirrors
+# that scope: IPv4 pages only, importing each as a ``host``
+# entity-keyed note.  IPv6 pages would have a different
+# filename shape (colons are not valid Dokuwiki page-name
+# characters) and were never surfaced by the legacy
+# integration.
+_DOKUWIKI_IPV4_PAGE = re.compile(r"^(\d+\.\d+\.\d+\.\d+)\.txt$")
+
+
+def _import_from_dokuwiki(pagesdir: str) -> int:
+    """Walk ``pagesdir`` for Dokuwiki ``<IPv4>.txt`` pages and
+    import each as a ``host``-keyed note via
+    :meth:`DBNotes.set_note` with ``expected_revision=0`` so a
+    re-run of the import is idempotent (already-imported
+    addresses skip cleanly via :class:`NoteAlreadyExists`).
+
+    Returns the process exit code: ``0`` on a clean import (any
+    mix of imported / skipped pages), ``1`` if the directory
+    does not exist or no pages were processed at all.
+    """
+    if not os.path.isdir(pagesdir):
+        utils.LOGGER.error("Dokuwiki pages directory not found: %s", pagesdir)
+        return 1
+    imported = 0
+    skipped = 0
+    errors = 0
+    for entry in sorted(os.listdir(pagesdir)):
+        match = _DOKUWIKI_IPV4_PAGE.match(entry)
+        if not match:
+            continue
+        addr = match.group(1)
+        path = os.path.join(pagesdir, entry)
+        try:
+            with open(path, encoding="utf-8") as fdesc:
+                body = fdesc.read()
+        except OSError as exc:
+            utils.LOGGER.warning("Cannot read Dokuwiki page %s: %s", path, exc)
+            errors += 1
+            continue
+        # Skip empty / whitespace-only pages -- they are
+        # placeholders Dokuwiki leaves behind after a page
+        # delete and do not represent operator-authored
+        # content.  Migrating them as empty notes would just
+        # add noise to the new DB.
+        if not body.strip():
+            continue
+        try:
+            db.notes.set_note(
+                "host",
+                addr,
+                body,
+                "dokuwiki-import",
+                expected_revision=0,
+            )
+        except NoteAlreadyExists:
+            # Re-run safety: a previous invocation already
+            # migrated this page.  Operators get an idempotent
+            # CLI without having to track what's been imported.
+            skipped += 1
+            continue
+        except NoteBodyTooLarge as exc:
+            utils.LOGGER.warning(
+                "Dokuwiki page %s exceeds the body cap "
+                "(WEB_HOST_NOTES_MAX_BYTES); skipping: %s",
+                path,
+                exc,
+            )
+            errors += 1
+            continue
+        except ValueError as exc:
+            # Most likely a canonicalisation failure on an
+            # exotic page name that slipped past the regex (or
+            # a deliberately weird IP value).  Skip and report.
+            utils.LOGGER.warning("Skipping Dokuwiki page %s: %s", path, exc)
+            errors += 1
+            continue
+        imported += 1
+    if not imported and not skipped and not errors:
+        utils.LOGGER.error(
+            "No Dokuwiki pages matched ``<IPv4>.txt`` under %s",
+            pagesdir,
+        )
+        return 1
+    print(
+        f"Dokuwiki import: {imported} imported, "
+        f"{skipped} already present, {errors} errors"
+    )
+    return 0
 
 
 def main() -> None:
@@ -66,6 +162,21 @@ def main() -> None:
         help=(
             "Restrict --count to one entity type (e.g. ``host``).  "
             "When omitted, --count returns the total across every type."
+        ),
+    )
+    parser.add_argument(
+        "--import-from-dokuwiki",
+        metavar="PAGESDIR",
+        nargs="?",
+        const="/var/lib/dokuwiki/data/pages",
+        help=(
+            "Migrate the legacy Dokuwiki-backed notes into the "
+            "DBNotes purpose.  Walks ``PAGESDIR`` (defaults to "
+            "``/var/lib/dokuwiki/data/pages``) for "
+            "``<IPv4>.txt`` pages and imports each as a "
+            "``host``-keyed note authored by ``dokuwiki-import``.  "
+            "Idempotent: re-running skips pages already imported "
+            "via the storage layer's create-only mode."
         ),
     )
     args = parser.parse_args()
@@ -113,5 +224,8 @@ def main() -> None:
     if args.count:
         print(db.notes.count_notes(entity_type=args.entity_type))
         sys.exit(0)
+
+    if args.import_from_dokuwiki is not None:
+        sys.exit(_import_from_dokuwiki(args.import_from_dokuwiki))
 
     parser.print_help()

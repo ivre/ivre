@@ -1004,3 +1004,65 @@ export function useDeleteHostNote(
     },
   });
 }
+
+/** Query parameters accepted by the listing endpoint
+ *  ``GET /cgi/notes/``.  All fields are optional.  ``q`` runs a
+ *  ``$text`` query over note bodies; ``entity_type`` narrows to
+ *  one type; ``limit`` / ``skip`` paginate. */
+export interface NotesListParams {
+  entityType?: string;
+  q?: string;
+  limit?: number;
+  skip?: number;
+}
+
+/** Fetch the notes listing as a JSON array.  Each entry has the
+ *  full :ts:type:`Note` shape (``entity_key`` in caller-facing
+ *  form -- printable IP string for ``host``, etc.).  The
+ *  endpoint does not surface a 501 distinction in the list
+ *  shape; backends without notes support 501 the route and
+ *  surface as :ts:type:`Error` from this function (the SPA
+ *  hides the Notes tab on those deployments via
+ *  ``window.config.modules`` so users should not reach this
+ *  call in practice). */
+export async function fetchNotes(
+  params: NotesListParams = {},
+): Promise<Note[]> {
+  const url =
+    CGI_ROOT +
+    "/notes/" +
+    qs({
+      entity_type: params.entityType,
+      q: params.q,
+      limit: params.limit,
+      skip: params.skip,
+    });
+  const response = await fetch(url, { credentials: "same-origin" });
+  await ensureOk(response, `GET ${url}`);
+  return (await response.json()) as Note[];
+}
+
+/** React Query hook around :func:`fetchNotes`.  Cache key
+ *  includes every filter dimension so the panel re-fetches on
+ *  any change.  ``staleTime`` is not customised -- the
+ *  default zero matches the listing's expected workflow
+ *  (operators expect a fresh view when they navigate to the
+ *  tab). */
+export function useNotes(
+  params: NotesListParams,
+  options?: HookOptions<Note[]>,
+): UseQueryResult<Note[]> {
+  return useQuery<Note[]>({
+    queryKey: [
+      "notes",
+      "list",
+      params.entityType ?? null,
+      params.q ?? null,
+      params.limit ?? null,
+      params.skip ?? null,
+    ],
+    queryFn: () => fetchNotes(params),
+    ...options,
+    enabled: gatedEnabled(true, options),
+  });
+}

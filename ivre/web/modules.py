@@ -58,6 +58,7 @@ ALL_MODULES: tuple[str, ...] = (
     "dns",
     "rir",
     "flow",
+    "notes",
 )
 
 # Per-module backend requirements. A module is available when
@@ -73,6 +74,12 @@ _BACKEND_REQUIRES: dict[str, tuple[str, ...]] = {
     "dns": ("nmap", "passive"),
     "rir": ("rir",),
     "flow": ("flow",),
+    # ``notes`` requires the dedicated DBNotes purpose
+    # (``MongoDBNotes`` is the only backend at v1; other
+    # backend URLs leave ``db.notes`` at ``None``).  Hiding
+    # the SPA's Notes tab on backends without notes support
+    # matches the existing pattern for other data purposes.
+    "notes": ("notes",),
 }
 
 _BACKEND_REQUIRES_ANY: frozenset[str] = frozenset({"dns"})

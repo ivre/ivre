@@ -12,7 +12,8 @@ export type SectionId =
   | "passive"
   | "dns"
   | "flow"
-  | "rir";
+  | "rir"
+  | "notes";
 
 export interface SectionConfig {
   id: SectionId;
@@ -38,7 +39,7 @@ export interface SectionConfig {
   facets: readonly string[];
   /** Shape of the records returned by ``listEndpoint`` — drives
    *  which result list component to render. */
-  resultType: "hosts" | "passive" | "dns" | "rir" | "flow";
+  resultType: "hosts" | "passive" | "dns" | "rir" | "flow" | "notes";
   /** Marks the section as a stub during the rollout — the route
    *  renders an "Under construction" placeholder. */
   stub?: boolean;
@@ -141,6 +142,33 @@ export const SECTIONS: readonly SectionConfig[] = [
     topEndpoint: "/rir/top",
     facets: ["country", "source_file"],
     resultType: "rir",
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    // The Notes section talks to ``/cgi/notes/`` (listing +
+    // free-text search) and reuses the per-entity routes
+    // (``/cgi/notes/<entity_type>/<entity_key>``) for
+    // individual lookups + in-page sheet display.
+    //
+    // The list endpoint accepts ``entity_type=`` / ``q=`` /
+    // ``fields=`` / ``limit=`` / ``skip=`` query params.
+    // There is no ``top/<field>`` companion exposed today
+    // (notes have no facetable aggregation worth surfacing
+    // beyond what the free-text + entity-type filters
+    // already cover), so the section omits ``topEndpoint``
+    // and therefore the FacetSidebar -- the section's own
+    // route renders a slimmer header (search box + entity-
+    // type dropdown + sort) instead.
+    //
+    // Last in the nav: operator-authored commentary follows
+    // the auto-extracted scan data.  The tab is hidden on
+    // backends that do not implement the notes purpose --
+    // see ``ivre/web/modules.py``'s
+    // ``_BACKEND_REQUIRES["notes"]``.
+    listEndpoint: "/notes/",
+    facets: [],
+    resultType: "notes",
   },
 ] as const;
 

@@ -1409,3 +1409,122 @@ test("Flow section renders the graph + counts and forwards filters as JSON q=", 
   };
   expect(latest.nodes).toEqual(["addr =~ 10.0.0.0/24"]);
 });
+
+test("Notes section lists notes, filters by q=, and opens the detail sheet on row click", async ({
+  page,
+}) => {
+  // Mock the listing endpoint: capture every ``q=`` /
+  // ``entity_type=`` combination so we can assert the toolbar
+  // forwards filters correctly, and return a small two-note
+  // payload the operator can click through.
+  const notes = [
+    {
+      entity_type: "host",
+      entity_key: "192.0.2.10",
+      body: "## Investigation\n\nFollowing up on the **C2** traffic.",
+      revision: 3,
+      created_at: "2026-05-01T10:00:00Z",
+      created_by: "alice@example.org",
+      updated_at: "2026-05-12T14:32:11Z",
+      updated_by: "bob@example.org",
+    },
+    {
+      entity_type: "host",
+      entity_key: "192.0.2.20",
+      body: "Quick triage of the second host.",
+      revision: 1,
+      created_at: "2026-05-02T10:00:00Z",
+      created_by: "alice@example.org",
+      updated_at: "2026-05-02T10:00:00Z",
+      updated_by: "alice@example.org",
+    },
+  ];
+  const captured: Array<{ q: string; type: string }> = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/notes/") {
+      captured.push({
+        q: url.searchParams.get("q") ?? "",
+        type: url.searchParams.get("entity_type") ?? "",
+      });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(notes),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/notes");
+
+  // Header + toolbar visible.
+  await expect(
+    page.getByRole("heading", { name: /^Notes$/ }),
+  ).toBeVisible();
+  await expect(page.getByTestId("notes-explorer-toolbar")).toBeVisible();
+
+  // Both rows rendered.
+  await expect(page.getByTestId("notes-list-item")).toHaveCount(2);
+  await expect(page.getByText("192.0.2.10")).toBeVisible();
+  await expect(page.getByText("192.0.2.20")).toBeVisible();
+
+  // Type a free-text query: the debounced URL update fires
+  // and the next ``/cgi/notes/`` request carries ``q=c2``.
+  const before = captured.length;
+  await page.getByTestId("notes-search-input").fill("c2");
+  await expect.poll(() => captured.length).toBeGreaterThan(before);
+  expect(captured[captured.length - 1].q).toBe("c2");
+
+  // Click the first row: the URL gains ``?addr=...`` and the
+  // detail sheet portals in with the matching note body.
+  await page.getByTestId("note-card").first().click();
+  await expect(page).toHaveURL(/[?&]addr=192\.0\.2\.10\b/);
+  await expect(page.getByTestId("note-detail-sheet")).toBeVisible();
+  // ``## Investigation`` lands on ``<h5>`` after the
+  // heading-level remap (the sheet title is ``<h2>``; body
+  // headings shift two levels down to keep screen-reader
+  // heading navigation monotone).
+  await expect(
+    page.getByRole("heading", { name: /investigation/i, level: 5 }),
+  ).toBeVisible();
+  // Deep link to host detail for the selected entity.
+  await expect(page.getByTestId("note-detail-deep-link")).toHaveAttribute(
+    "href",
+    "#/view/host/192.0.2.10",
+  );
+});
+
+test("Notes section is hidden when WEB_MODULES omits ``notes``", async ({
+  page,
+}) => {
+  // The notes purpose is MongoDB-only today; non-Mongo
+  // deployments must drop the Notes tab from the section nav
+  // and surface the ``not exposed`` stub on direct navigation
+  // to ``/#/notes``.  Mirrors the existing WEB_MODULES allow-
+  // list test for the older sections.
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: 'config.modules = ["view", "active", "passive", "dns", "flow", "rir"];\n',
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+
+  const sectionNav = page.locator("header nav").first();
+  // Other sections still visible (back-compat sanity check).
+  await expect(sectionNav.getByRole("link", { name: "View" })).toBeVisible();
+  // Notes tab dropped from the nav.
+  await expect(sectionNav.getByRole("link", { name: "Notes" })).toHaveCount(0);
+
+  // Direct navigation falls through to the ``not exposed``
+  // stub instead of rendering the Explorer.
+  await page.goto("/#/notes");
+  await expect(page.getByText(/not exposed on this server/i)).toBeVisible();
+});

@@ -13586,7 +13586,16 @@ class WebModulesTests(unittest.TestCase):
     backend connection is required.
     """
 
-    _PURPOSES = ("view", "nmap", "passive", "rir", "flow", "data", "auth")
+    _PURPOSES = (
+        "view",
+        "nmap",
+        "passive",
+        "rir",
+        "flow",
+        "data",
+        "auth",
+        "notes",
+    )
 
     def setUp(self):
         # Save state we mutate.
@@ -13647,7 +13656,7 @@ class WebModulesTests(unittest.TestCase):
         self._set(passive=False)
         self.assertEqual(
             enabled_modules(),
-            ["view", "active", "dns", "rir", "flow"],
+            ["view", "active", "dns", "rir", "flow", "notes"],
         )
 
     def test_default_both_dns_backends_absent_drops_dns(self):
@@ -13657,14 +13666,17 @@ class WebModulesTests(unittest.TestCase):
 
         config.WEB_MODULES = None
         self._set(nmap=False, passive=False)
-        self.assertEqual(enabled_modules(), ["view", "rir", "flow"])
+        self.assertEqual(
+            enabled_modules(),
+            ["view", "rir", "flow", "notes"],
+        )
 
     def test_default_only_nmap_keeps_dns(self):
         from ivre import config
         from ivre.web.modules import enabled_modules
 
         config.WEB_MODULES = None
-        self._set(passive=False, view=False, rir=False, flow=False)
+        self._set(passive=False, view=False, rir=False, flow=False, notes=False)
         # Active alone keeps DNS alive (nmap branch of the
         # cross-backend rule).
         self.assertEqual(enabled_modules(), ["active", "dns"])
@@ -13674,7 +13686,7 @@ class WebModulesTests(unittest.TestCase):
         from ivre.web.modules import enabled_modules
 
         config.WEB_MODULES = None
-        self._set(nmap=False, view=False, rir=False, flow=False)
+        self._set(nmap=False, view=False, rir=False, flow=False, notes=False)
         # Passive alone keeps DNS alive (passive branch).
         self.assertEqual(enabled_modules(), ["passive", "dns"])
 
@@ -13692,6 +13704,23 @@ class WebModulesTests(unittest.TestCase):
         config.WEB_MODULES = ["view", "passive", "rir"]
         self._set(passive=False)  # not in DBs
         self.assertEqual(enabled_modules(), ["view", "rir"])
+
+    def test_default_notes_absent_drops_notes_only(self):
+        # The notes module gates on ``db.notes`` (the dedicated
+        # DBNotes purpose) being wired.  At v1 only ``MongoDBNotes``
+        # is registered; non-MongoDB deployments leave
+        # ``db.notes`` at ``None`` and the SPA's Notes tab is
+        # hidden from the nav as a result.  Every other module
+        # stays available.
+        from ivre import config
+        from ivre.web.modules import enabled_modules
+
+        config.WEB_MODULES = None
+        self._set(notes=False)
+        self.assertEqual(
+            enabled_modules(),
+            ["view", "active", "passive", "dns", "rir", "flow"],
+        )
 
     def test_explicit_allowlist_canonical_order(self):
         # Order is canonical (the ``ALL_MODULES`` order), not the
@@ -15843,6 +15872,136 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         assert isinstance(message, str)
         self.assertIn("Notes backend not available", message)
         self.assertIn("mongodb://", message)
+
+    def test_notes_cli_imports_dokuwiki_pages_idempotently(self) -> None:
+        # ``ivre notes --import-from-dokuwiki <dir>`` walks the
+        # supplied directory for ``<IPv4>.txt`` files and imports
+        # each as a ``host``-keyed note via the storage layer's
+        # create-only mode.  Re-running is a no-op because
+        # already-imported addresses skip cleanly via
+        # ``NoteAlreadyExists``.  We mock ``db.notes.set_note``
+        # to record the per-page call payloads and to simulate
+        # a "second of three already exists" scenario so the
+        # imported / skipped / errors counters are all
+        # exercised.
+        import tempfile
+
+        from ivre.db import NoteAlreadyExists
+        from ivre.tools import notes as notes_tool
+
+        with tempfile.TemporaryDirectory() as pagesdir:
+            # Three IPv4 pages + one non-IP file (must be
+            # ignored) + one empty IPv4 page (Dokuwiki leaves
+            # these behind after a page delete; must be
+            # silently skipped, not migrated as an empty
+            # note).
+            with open(
+                os.path.join(pagesdir, "192.0.2.1.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Note about 192.0.2.1.")
+            with open(
+                os.path.join(pagesdir, "192.0.2.2.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Note about 192.0.2.2.")
+            with open(
+                os.path.join(pagesdir, "192.0.2.3.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Note about 192.0.2.3.")
+            with open(
+                os.path.join(pagesdir, "192.0.2.4.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("   \n\n  ")  # blank placeholder
+            with open(
+                os.path.join(pagesdir, "start.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Dokuwiki landing page; not an IP.")
+
+            # ``set_note`` records the per-call payload; the
+            # second invocation raises ``NoteAlreadyExists`` to
+            # simulate that address already being in the DB.
+            set_note_calls: list[tuple[str, str, str, str]] = []
+
+            def fake_set_note(
+                entity_type: str,
+                entity_key: str,
+                body: str,
+                user: str,
+                *,
+                expected_revision: int | None = None,
+            ) -> dict:
+                set_note_calls.append((entity_type, entity_key, body, user))
+                if entity_key == "192.0.2.2":
+                    raise NoteAlreadyExists("note already exists for host/'192.0.2.2'")
+                return {
+                    "entity_type": entity_type,
+                    "entity_key": entity_key,
+                    "body": body,
+                    "revision": 1,
+                    "created_by": user,
+                    "updated_by": user,
+                }
+
+            stub_db = mock.Mock()
+            stub_db.notes.set_note.side_effect = fake_set_note
+            with mock.patch.object(notes_tool, "db", stub_db):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["ivre-notes", "--import-from-dokuwiki", pagesdir],
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        notes_tool.main()
+            self.assertEqual(ctx.exception.code, 0)
+            # Three IPv4 pages with content reached ``set_note``;
+            # ``start.txt`` was skipped by the regex and
+            # ``192.0.2.4.txt`` (blank) was skipped pre-call.
+            self.assertEqual(len(set_note_calls), 3)
+            addrs = [c[1] for c in set_note_calls]
+            self.assertEqual(addrs, ["192.0.2.1", "192.0.2.2", "192.0.2.3"])
+            # Every call is keyed ``("host", ...)`` and the
+            # author is ``"dokuwiki-import"`` so operators can
+            # filter the migrated rows after the fact.
+            for entity_type, _addr, _body, user in set_note_calls:
+                self.assertEqual(entity_type, "host")
+                self.assertEqual(user, "dokuwiki-import")
+
+    def test_notes_cli_import_fails_cleanly_when_dir_missing(self) -> None:
+        # The CLI must surface a clear failure when the
+        # ``PAGESDIR`` does not exist (operator typo; wrong
+        # Dokuwiki layout) rather than crashing with
+        # ``FileNotFoundError`` from ``os.listdir``.
+        from ivre.tools import notes as notes_tool
+
+        stub_db = mock.Mock()
+        # ``db.notes`` non-None so the backend-availability
+        # guard does not exit first; the directory check is
+        # what we want to exercise here.
+        stub_db.notes = mock.Mock()
+        stub_db.notes.set_note = mock.Mock()
+        with mock.patch.object(notes_tool, "db", stub_db):
+            with mock.patch.object(
+                sys,
+                "argv",
+                [
+                    "ivre-notes",
+                    "--import-from-dokuwiki",
+                    "/nonexistent/path/that/does/not/exist",
+                ],
+            ):
+                with self.assertRaises(SystemExit) as ctx:
+                    notes_tool.main()
+        self.assertEqual(ctx.exception.code, 1)
+        stub_db.notes.set_note.assert_not_called()
 
     def test_metadb_has_notes_property(self) -> None:
         # ``db.notes`` resolves to a ``DBNotes`` instance when

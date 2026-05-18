@@ -7,7 +7,7 @@
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@10.33.2",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=24 <25"
   },
   "scripts": {
     "dev": "vite",
