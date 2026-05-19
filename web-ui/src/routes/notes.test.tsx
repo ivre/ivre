@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NotesRoute } from "./notes";
 
-import type { Note } from "@/lib/api";
+import type { HostNoteResult, Note } from "@/lib/api";
 
 /* ------------------------------------------------------------------ */
 /* Mocks                                                               */
@@ -57,6 +57,28 @@ let notesState: {
 // hook.
 const notesCalls: Array<Parameters<typeof import("@/lib/api").useNotes>[0]> = [];
 
+// Mutable state for the per-host fallback fetch that fires
+// when ``?addr=`` targets a note outside the current listing
+// page.  ``hostNoteCalls`` records the addr/enabled the route
+// asked for so tests can assert (a) it only fires when the
+// list misses, (b) it surfaces the right kind to the sheet,
+// and (c) ``absent`` / ``unavailable`` clear the URL.
+const hostNoteCalls: Array<{
+  addr: string | undefined;
+  enabled: boolean | undefined;
+}> = [];
+let hostNoteState: {
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  data: HostNoteResult | undefined;
+} = {
+  isLoading: false,
+  isError: false,
+  error: null,
+  data: undefined,
+};
+
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>(
     "@/lib/api",
@@ -67,8 +89,34 @@ vi.mock("@/lib/api", async () => {
       notesCalls.push(params);
       return notesState;
     },
+    useHostNote: (
+      addr: string | undefined,
+      options?: { enabled?: boolean },
+    ) => {
+      hostNoteCalls.push({ addr, enabled: options?.enabled });
+      return hostNoteState;
+    },
   };
 });
+
+// ``sonner`` toast spy so tests can assert the stale-link
+// notification fired without depending on the toast renderer.
+const toastSpies = {
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  message: vi.fn(),
+};
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => toastSpies.success(...args),
+    error: (...args: unknown[]) => toastSpies.error(...args),
+    info: (...args: unknown[]) => toastSpies.info(...args),
+    warning: (...args: unknown[]) => toastSpies.warning(...args),
+    message: (...args: unknown[]) => toastSpies.message(...args),
+  },
+}));
 
 vi.mock("@/lib/config", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config")>(
@@ -93,8 +141,20 @@ afterEach(() => {
     data: sampleNotes,
     refetch: refetchSpy,
   };
+  hostNoteState = {
+    isLoading: false,
+    isError: false,
+    error: null,
+    data: undefined,
+  };
   refetchSpy.mockClear();
   notesCalls.length = 0;
+  hostNoteCalls.length = 0;
+  toastSpies.success.mockClear();
+  toastSpies.error.mockClear();
+  toastSpies.info.mockClear();
+  toastSpies.warning.mockClear();
+  toastSpies.message.mockClear();
 });
 
 /** Small test harness that mounts the route under a
@@ -292,5 +352,64 @@ describe("NotesRoute detail sheet", () => {
     expect(
       screen.getByTestId("note-detail-entity-key"),
     ).toHaveTextContent("192.0.2.10");
+    // Fast path: the list already carried the match, so the
+    // per-host fallback fetch stayed disabled.
+    expect(hostNoteCalls.every((c) => c.enabled === false)).toBe(true);
+  });
+
+  it("?addr= outside the current listing page falls back to useHostNote", async () => {
+    // Deep link to a note that is NOT in ``notesQuery.data``
+    // (e.g. operator pasted a permalink whose key falls
+    // outside the current ``limit`` window or is filtered
+    // out by ``q`` / ``type``).  The list lookup misses, the
+    // route falls back to the per-host fetch, and the sheet
+    // opens with the fallback's note.
+    const orphan: Note = {
+      entity_type: "host",
+      entity_key: "203.0.113.42",
+      body: "Note resolved via the per-host fallback path.",
+      revision: 7,
+      created_at: "2026-05-04T10:00:00Z",
+      created_by: "carol@example.org",
+      updated_at: "2026-05-04T10:00:00Z",
+      updated_by: "carol@example.org",
+    };
+    hostNoteState = { ...hostNoteState, data: { kind: "found", note: orphan } };
+
+    renderRoute(["/notes?addr=203.0.113.42"]);
+
+    // The per-host fetch was enabled (key is not in the
+    // listing page, entity type compatible with host).
+    expect(
+      hostNoteCalls.some(
+        (c) => c.addr === "203.0.113.42" && c.enabled === true,
+      ),
+    ).toBe(true);
+    // The sheet renders the fallback note.
+    expect(
+      screen.getByTestId("note-detail-entity-key"),
+    ).toHaveTextContent("203.0.113.42");
+    // No stale-link toast (the fallback succeeded).
+    expect(toastSpies.error).not.toHaveBeenCalled();
+  });
+
+  it("?addr= pointing at an absent note clears ?addr= and toasts", async () => {
+    // The deep link points at a key the storage layer does
+    // not know.  ``useHostNote`` resolves to ``absent`` (the
+    // route's 404 path).  The Explorer must (a) drop the
+    // ``addr=`` parameter from the URL so the operator does
+    // not see a permanently-closed sheet, and (b) surface a
+    // toast naming the stale key.
+    hostNoteState = { ...hostNoteState, data: { kind: "absent" } };
+    const { locationSpy } = renderRoute(["/notes?addr=198.51.100.99"]);
+
+    await waitFor(() => {
+      expect(locationSpy.value.search).not.toMatch(/[?&]addr=/);
+    });
+    expect(toastSpies.error).toHaveBeenCalledWith(
+      expect.stringMatching(/198\.51\.100\.99/),
+    );
+    // No sheet rendered (no matching note).
+    expect(screen.queryByTestId("note-detail-sheet")).toBeNull();
   });
 });

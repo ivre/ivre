@@ -159,7 +159,7 @@ export const SECTIONS: readonly SectionConfig[] = [
     // already cover), so the section omits ``topEndpoint``
     // and therefore the FacetSidebar -- the section's own
     // route renders a slimmer header (search box + entity-
-    // type dropdown + sort) instead.
+    // type dropdown) instead.
     //
     // Last in the nav: operator-authored commentary follows
     // the auto-extracted scan data.  The tab is hidden on

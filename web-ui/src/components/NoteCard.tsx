@@ -7,9 +7,9 @@ export interface NoteCardProps {
   note: Note;
   /** Click handler for opening the in-page detail sheet.  The
    *  Notes Explorer's row click opens an overlay showing the
-   *  full markdown body + revision history + a "view host
-   *  details" link; the card surfaces a short metadata strip
-   *  + a body excerpt only. */
+   *  full markdown body + an entity deep link (see
+   *  :func:`NoteDetailSheet`); the card surfaces a short
+   *  metadata strip + a body excerpt only. */
   onSelect?: (note: Note) => void;
 }
 

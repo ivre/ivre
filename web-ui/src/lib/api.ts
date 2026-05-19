@@ -958,18 +958,35 @@ export function useSaveHostNote(
       // fires whenever the mutationFn returns without
       // throwing.  Only invalidate on a real ``saved``.
       if (result.kind === "saved") {
-        // Invalidate both query keys explicitly rather than
-        // relying on ``invalidateQueries``'s default prefix
-        // match (which would still catch the revisions key
-        // today, but creates a hidden dependency on that
-        // behaviour -- a future migration to ``exact: true``
-        // or a queryKey reshape would silently leave stale
-        // revisions in the cache after a save).
+        // Invalidate every affected key explicitly rather
+        // than relying on ``invalidateQueries``'s default
+        // prefix match (which would still catch the
+        // revisions / listing keys today, but creates a
+        // hidden dependency on that behaviour -- a future
+        // migration to ``exact: true`` or a queryKey reshape
+        // would silently leave stale entries in the cache
+        // after a save).
         queryClient.invalidateQueries({
           queryKey: ["notes", "host", addr],
         });
         queryClient.invalidateQueries({
           queryKey: ["notes", "host", addr, "revisions"],
+        });
+        // Notes Explorer listing: a host-note save changes
+        // ``revision`` / ``updated_at`` / ``updated_by`` for
+        // the affected row (and creates a new row for
+        // ``create`` mode).  Without this invalidation, the
+        // listing keeps serving the pre-save snapshot for
+        // the app-wide ``staleTime`` window (see
+        // ``QueryClient`` in ``routes/root.tsx``) so an
+        // operator who edits a note then navigates to the
+        // Notes tab would see stale data.  Prefix
+        // invalidation (``["notes", "list"]``) catches every
+        // variant of the listing key emitted by
+        // :func:`useNotes` (filter dimensions are tail
+        // elements of the key).
+        queryClient.invalidateQueries({
+          queryKey: ["notes", "list"],
         });
       }
     },
@@ -993,13 +1010,21 @@ export function useDeleteHostNote(
       // the stale entry until something else triggers a
       // reload.  Invalidating in both cases keeps the cache
       // honest.  See ``useSaveHostNote`` above for the
-      // rationale on listing both query keys explicitly
+      // rationale on listing every query key explicitly
       // rather than relying on prefix-match defaults.
       queryClient.invalidateQueries({
         queryKey: ["notes", "host", addr],
       });
       queryClient.invalidateQueries({
         queryKey: ["notes", "host", addr, "revisions"],
+      });
+      // Notes Explorer listing: a host-note deletion drops
+      // the affected row from the listing.  Without this
+      // invalidation the Explorer tab keeps showing the
+      // deleted row for the app-wide ``staleTime`` window.
+      // See ``useSaveHostNote`` for the same rationale.
+      queryClient.invalidateQueries({
+        queryKey: ["notes", "list"],
       });
     },
   });
@@ -1044,10 +1069,19 @@ export async function fetchNotes(
 
 /** React Query hook around :func:`fetchNotes`.  Cache key
  *  includes every filter dimension so the panel re-fetches on
- *  any change.  ``staleTime`` is not customised -- the
- *  default zero matches the listing's expected workflow
- *  (operators expect a fresh view when they navigate to the
- *  tab). */
+ *  any change.
+ *
+ *  Freshness: overrides the app-wide
+ *  ``staleTime: 30_000`` (set on the root ``QueryClient`` in
+ *  ``routes/root.tsx``) to ``0`` and forces
+ *  ``refetchOnMount: "always"``.  Operators expect the Notes
+ *  tab to reflect the current DB state -- not a 30-second-old
+ *  snapshot -- whenever they navigate to it (covers
+ *  cross-tab edits and any future mutation path that affects
+ *  notes but skips the explicit invalidation in
+ *  :func:`useSaveHostNote` / :func:`useDeleteHostNote`).
+ *  Callers can pass ``options`` to override either default
+ *  when a caching variant is needed. */
 export function useNotes(
   params: NotesListParams,
   options?: HookOptions<Note[]>,
@@ -1062,6 +1096,8 @@ export function useNotes(
       params.skip ?? null,
     ],
     queryFn: () => fetchNotes(params),
+    staleTime: 0,
+    refetchOnMount: "always",
     ...options,
     enabled: gatedEnabled(true, options),
   });

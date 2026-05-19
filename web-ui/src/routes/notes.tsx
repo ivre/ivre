@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { NoteCard } from "@/components/NoteCard";
 import { NoteDetailSheet } from "@/components/NoteDetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNotes, type Note } from "@/lib/api";
+import { useHostNote, useNotes, type Note } from "@/lib/api";
 import { getConfig } from "@/lib/config";
 
-/** Per-page default for the Notes Explorer.  Bounded by the
- *  server's ``WEB_MAXRESULTS`` regardless of what we ask for;
- *  matches the value the rest of the SPA uses for list pages
- *  (``WEB_LIMIT`` defaults to 50 on the server, ``dflt_limit``
- *  in ``window.config``). */
+/** SPA-side fallback for the per-page limit, used only when
+ *  ``window.config.dflt_limit`` is missing or zero (i.e. an
+ *  older server that does not emit the field).  Matches the
+ *  ``config.dflt_limit || 50`` pattern used by every other
+ *  section route (``host-list.tsx``, ``rir.tsx``,
+ *  ``passive-list.tsx``, ``dns.tsx``) -- not the server's
+ *  ``WEB_LIMIT`` default (10, see ``ivre/config.py``).
+ *  Always bounded server-side by ``WEB_MAXRESULTS`` regardless
+ *  of what we ask for. */
 const DEFAULT_LIMIT = 50;
 
 /** Known entity types operators can filter on.  ``"all"`` is the
@@ -35,7 +40,7 @@ const ENTITY_TYPE_CHOICES: ReadonlyArray<{
  * purpose via the ``WEB_MODULES`` gate in ``ivre/web/modules.py``.
  *
  * Layout: a top filter strip (free-text search + entity-type
- * dropdown + sort) followed by a single-column list of
+ * dropdown) followed by a single-column list of
  * :func:`NoteCard` rows.  Clicking a card opens a
  * :func:`NoteDetailSheet` overlay with the full markdown body
  * and a deep-link to the matching entity's detail page (host
@@ -47,6 +52,16 @@ const ENTITY_TYPE_CHOICES: ReadonlyArray<{
  * query / type live in the URL so reload + back/forward
  * preserve the operator's search context, and so the page can
  * be shared via permalink.
+ *
+ * Deep-link robustness: ``?addr=`` resolves first against the
+ * current listing page (fast path: row click in the same view);
+ * on miss, the route falls back to a per-entity single-note
+ * fetch (today: :func:`useHostNote` for ``host`` entities) so a
+ * link to a note outside the current ``limit`` window or
+ * filtered out by ``q`` / ``type`` still opens the sheet.  If
+ * the fallback fetch resolves to ``absent`` / ``unavailable``
+ * the route drops ``?addr=`` and surfaces a toast rather than
+ * leaving the sheet silently closed.
  */
 export function NotesRoute() {
   const config = getConfig();
@@ -94,12 +109,64 @@ export function NotesRoute() {
   });
 
   const selectedKey = searchParams.get("addr");
-  const selectedNote =
+  // Fast path: the targeted note is already on the current
+  // listing page -- use it without an extra request so an
+  // in-page row click opens the sheet instantly.
+  const listSelectedNote =
     notesQuery.data?.find(
       (note) =>
         note.entity_key === selectedKey &&
         (entityType === "all" || note.entity_type === entityType),
     ) ?? null;
+  // Fallback path: a deep link can point at a note outside the
+  // current ``limit`` window, or filtered out by ``q`` /
+  // ``type``.  Without a backup fetch, ``/notes?addr=...`` would
+  // silently leave the sheet closed.  Today the only entity
+  // type with a single-note endpoint wired is ``host``; the
+  // gate matches what the per-entity deep-link switch in
+  // :func:`NoteDetailSheet` supports.  When the list already
+  // carries the match, we keep the query disabled so we don't
+  // hit the network for nothing.
+  const hostLookupEnabled =
+    selectedKey !== null &&
+    listSelectedNote === null &&
+    (entityType === "all" || entityType === "host");
+  const fallbackQuery = useHostNote(
+    hostLookupEnabled ? selectedKey ?? undefined : undefined,
+    { enabled: hostLookupEnabled },
+  );
+  const fallbackNote =
+    fallbackQuery.data?.kind === "found" ? fallbackQuery.data.note : null;
+  const selectedNote = listSelectedNote ?? fallbackNote;
+  // Stale-link handling: the deep link points at a key that
+  // does not exist (404) or whose backend is not wired (501).
+  // Drop ``?addr=`` from the URL so the operator doesn't end
+  // up stuck with a permanently-closed sheet, and surface a
+  // toast so the failure is visible (rather than the silent
+  // close the previous implementation produced).
+  useEffect(() => {
+    if (!hostLookupEnabled) return;
+    if (fallbackQuery.isLoading) return;
+    if (fallbackNote !== null) return;
+    const kind = fallbackQuery.data?.kind;
+    if (kind !== "absent" && kind !== "unavailable") return;
+    const params = new URLSearchParams(searchParams);
+    params.delete("addr");
+    setSearchParams(params, { replace: true });
+    toast.error(
+      kind === "absent"
+        ? `No note for ${selectedKey}; link is stale.`
+        : "Notes backend is not available on this server.",
+    );
+  }, [
+    hostLookupEnabled,
+    fallbackQuery.isLoading,
+    fallbackQuery.data,
+    fallbackNote,
+    searchParams,
+    setSearchParams,
+    selectedKey,
+  ]);
   const sheetOpen = selectedNote !== null;
   const setSheetOpen = (open: boolean) => {
     if (open) return; // we only ever close from here

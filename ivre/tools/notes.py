@@ -56,9 +56,19 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
     re-run of the import is idempotent (already-imported
     addresses skip cleanly via :class:`NoteAlreadyExists`).
 
-    Returns the process exit code: ``0`` on a clean import (any
-    mix of imported / skipped pages), ``1`` if the directory
-    does not exist or no pages were processed at all.
+    Returns the process exit code:
+
+    * ``0`` on a clean import (any mix of imported / skipped
+      pages, ``errors == 0``);
+    * ``1`` if the directory does not exist, no
+      ``<IPv4>.txt`` pages existed at all, or one or more
+      pages failed (so scripted migrations / CI can detect
+      partial failures).
+
+    Blank / whitespace-only pages are counted as skipped
+    (Dokuwiki leaves them behind after a page delete; they do
+    not represent operator-authored content but they are also
+    not an error worth flagging).
     """
     if not os.path.isdir(pagesdir):
         utils.LOGGER.error("Dokuwiki pages directory not found: %s", pagesdir)
@@ -79,12 +89,32 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
             utils.LOGGER.warning("Cannot read Dokuwiki page %s: %s", path, exc)
             errors += 1
             continue
+        except UnicodeDecodeError as exc:
+            # Corrupted page or non-UTF-8 content (legacy
+            # Dokuwiki installs sometimes carry Latin-1
+            # pages).  Count as an error rather than crashing
+            # the whole migration: the operator can re-encode
+            # the offending file and re-run.  ``set_note``
+            # would reject the bytes anyway -- the storage
+            # layer requires valid UTF-8 markdown.
+            utils.LOGGER.warning(
+                "Cannot decode Dokuwiki page %s as UTF-8: %s",
+                path,
+                exc,
+            )
+            errors += 1
+            continue
         # Skip empty / whitespace-only pages -- they are
         # placeholders Dokuwiki leaves behind after a page
         # delete and do not represent operator-authored
         # content.  Migrating them as empty notes would just
-        # add noise to the new DB.
+        # add noise to the new DB.  Count them as ``skipped``
+        # so a directory of only-blank pages does not fall
+        # through to the "no pages matched" error path
+        # (blanks did match, we intentionally chose to skip
+        # them).
         if not body.strip():
+            skipped += 1
             continue
         try:
             db.notes.set_note(
@@ -127,7 +157,11 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
         f"Dokuwiki import: {imported} imported, "
         f"{skipped} already present, {errors} errors"
     )
-    return 0
+    # Non-zero exit on partial failures so scripted
+    # migrations / CI can detect them.  The counters were
+    # printed above so the operator still sees what succeeded
+    # before the process exits.
+    return 1 if errors else 0
 
 
 def main() -> None:

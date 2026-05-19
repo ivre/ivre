@@ -15843,6 +15843,56 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         self.assertIn("Notes backend not available", ctx.exception.body)
         self.assertIn("mongodb://", ctx.exception.body)
 
+    def test_notes_web_routes_404_when_module_disabled(self) -> None:
+        # An operator who drops ``notes`` from ``WEB_MODULES``
+        # expects the route to look like it does not exist
+        # (HTTP 404), not like the backend is missing (501) and
+        # not like the route happily returns data anyway.
+        # ``require_module("notes")`` is therefore the *first*
+        # gate on every notes route, ahead of
+        # ``_require_notes_backend()``; this test pins that
+        # order so a future refactor cannot silently expose the
+        # API on a server whose WEB_MODULES allowlist excludes
+        # notes.
+        from bottle import HTTPError
+
+        from ivre import config
+        from ivre.web import app as web_app
+
+        # ``db.notes`` is wired (so the 501 gate would NOT
+        # fire), but the operator narrowed ``WEB_MODULES`` to
+        # exclude ``"notes"``.  Every notes route must surface
+        # 404 anyway.
+        #
+        # The routes are wrapped in ``@check_referer`` which
+        # runs first; ``functools.wraps`` preserves
+        # ``__wrapped__`` so we can call the inner route body
+        # directly and assert the in-route gating order
+        # without spinning up a WSGI request context.
+        stub_db = mock.Mock()
+        stub_db.notes = mock.Mock()
+        previous_modules = config.WEB_MODULES
+        config.WEB_MODULES = ["view"]
+        try:
+            with mock.patch.object(web_app, "db", stub_db):
+                for route in (
+                    lambda: web_app.get_note.__wrapped__("host", "192.0.2.1"),
+                    lambda: web_app.put_note.__wrapped__("host", "192.0.2.1"),
+                    lambda: web_app.delete_note.__wrapped__("host", "192.0.2.1"),
+                    lambda: web_app.get_note_revisions.__wrapped__("host", "192.0.2.1"),
+                    web_app.list_notes.__wrapped__,
+                ):
+                    with self.assertRaises(HTTPError) as ctx:
+                        route()
+                    self.assertEqual(ctx.exception.status_code, 404)
+                    self.assertIn("notes", ctx.exception.body)
+        finally:
+            config.WEB_MODULES = previous_modules
+        # The notes backend was never touched -- the 404 gate
+        # fires before ``_require_notes_backend()`` looks at
+        # ``db.notes``.
+        stub_db.notes.assert_not_called()
+
     def test_notes_cli_exits_when_backend_unavailable(self) -> None:
         # ``ivre notes --init`` on a backend that does not
         # implement the notes purpose (any non-MongoDB at v1)
@@ -16002,6 +16052,155 @@ class MongoDBNotesIndexTests(unittest.TestCase):
                     notes_tool.main()
         self.assertEqual(ctx.exception.code, 1)
         stub_db.notes.set_note.assert_not_called()
+
+    def test_notes_cli_import_handles_blank_only_directory(self) -> None:
+        # A directory containing only blank ``<IPv4>.txt``
+        # pages (Dokuwiki placeholders after a delete) must
+        # NOT fall through to the "no pages matched" error
+        # path: the pages did match, we intentionally chose
+        # to skip them.  Exit code 0, ``skipped`` non-zero,
+        # ``set_note`` never called.
+        import tempfile
+
+        from ivre.tools import notes as notes_tool
+
+        with tempfile.TemporaryDirectory() as pagesdir:
+            for addr in ("192.0.2.1", "192.0.2.2"):
+                with open(
+                    os.path.join(pagesdir, f"{addr}.txt"),
+                    "w",
+                    encoding="utf-8",
+                ) as fdesc:
+                    fdesc.write("   \n\n  ")
+
+            stub_db = mock.Mock()
+            stub_db.notes = mock.Mock()
+            with mock.patch.object(notes_tool, "db", stub_db):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["ivre-notes", "--import-from-dokuwiki", pagesdir],
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        notes_tool.main()
+        self.assertEqual(ctx.exception.code, 0)
+        # No write attempts: every page was blank.
+        stub_db.notes.set_note.assert_not_called()
+
+    def test_notes_cli_import_counts_undecodable_page_as_error(self) -> None:
+        # A non-UTF-8 / corrupted page must NOT crash the
+        # whole migration.  The pre-fix behaviour let the
+        # ``UnicodeDecodeError`` from ``fdesc.read()`` escape
+        # ``except OSError`` and abort the walk; the fix
+        # widens the catch and counts the page as an error so
+        # the other pages still get imported and the operator
+        # can re-encode the offender and re-run.  Mixed
+        # imported + errors must exit non-zero.
+        import tempfile
+
+        from ivre.tools import notes as notes_tool
+
+        with tempfile.TemporaryDirectory() as pagesdir:
+            # One well-formed page (gets imported) + one
+            # latin-1 page with a high-bit byte that is not
+            # valid UTF-8 (must be counted as an error).
+            with open(
+                os.path.join(pagesdir, "192.0.2.1.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("clean ascii body")
+            with open(os.path.join(pagesdir, "192.0.2.2.txt"), "wb") as fbin:
+                # ``\xff`` is invalid as a leading UTF-8 byte;
+                # opening with ``encoding="utf-8"`` raises
+                # ``UnicodeDecodeError`` on read.
+                fbin.write(b"latin-1 page with \xff bytes")
+
+            stub_db = mock.Mock()
+            stub_db.notes = mock.Mock()
+            stub_db.notes.set_note.return_value = {
+                "entity_type": "host",
+                "entity_key": "192.0.2.1",
+                "body": "clean ascii body",
+                "revision": 1,
+                "created_by": "dokuwiki-import",
+                "updated_by": "dokuwiki-import",
+            }
+            with mock.patch.object(notes_tool, "db", stub_db):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["ivre-notes", "--import-from-dokuwiki", pagesdir],
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        notes_tool.main()
+        # Non-zero exit: at least one page failed to import.
+        self.assertEqual(ctx.exception.code, 1)
+        # The clean page was still imported; the bad page
+        # never reached ``set_note``.
+        stub_db.notes.set_note.assert_called_once()
+        self.assertEqual(stub_db.notes.set_note.call_args.args[1], "192.0.2.1")
+
+    def test_notes_cli_import_exits_non_zero_on_partial_failures(self) -> None:
+        # A directory where every page imports cleanly EXCEPT
+        # one whose body exceeds the configured cap must exit
+        # non-zero so a scripted migration / CI step can
+        # detect the partial failure.  ``NoteBodyTooLarge`` is
+        # the storage layer's edge-enforcement path for the
+        # ``WEB_HOST_NOTES_MAX_BYTES`` cap.
+        import tempfile
+
+        from ivre.db import NoteBodyTooLarge
+        from ivre.tools import notes as notes_tool
+
+        with tempfile.TemporaryDirectory() as pagesdir:
+            with open(
+                os.path.join(pagesdir, "192.0.2.1.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Note about 192.0.2.1.")
+            with open(
+                os.path.join(pagesdir, "192.0.2.2.txt"),
+                "w",
+                encoding="utf-8",
+            ) as fdesc:
+                fdesc.write("Oversize note about 192.0.2.2.")
+
+            def fake_set_note(
+                entity_type: str,
+                entity_key: str,
+                body: str,
+                user: str,
+                *,
+                expected_revision: int | None = None,
+            ) -> dict:
+                if entity_key == "192.0.2.2":
+                    raise NoteBodyTooLarge("body exceeds cap")
+                return {
+                    "entity_type": entity_type,
+                    "entity_key": entity_key,
+                    "body": body,
+                    "revision": 1,
+                    "created_by": user,
+                    "updated_by": user,
+                }
+
+            stub_db = mock.Mock()
+            stub_db.notes.set_note.side_effect = fake_set_note
+            with mock.patch.object(notes_tool, "db", stub_db):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["ivre-notes", "--import-from-dokuwiki", pagesdir],
+                ):
+                    with self.assertRaises(SystemExit) as ctx:
+                        notes_tool.main()
+        # Non-zero exit on partial failures; the counters were
+        # printed to stdout before exit (not asserted here --
+        # the exit code is the contract the scripted callers
+        # depend on).
+        self.assertEqual(ctx.exception.code, 1)
 
     def test_metadb_has_notes_property(self) -> None:
         # ``db.notes`` resolves to a ``DBNotes`` instance when

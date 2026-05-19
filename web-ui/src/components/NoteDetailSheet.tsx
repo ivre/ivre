@@ -1,7 +1,6 @@
 import { ExternalLink } from "lucide-react";
-import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 
+import { NoteMarkdownBody } from "@/components/NoteMarkdownBody";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/sheet";
 import type { Note } from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export interface NoteDetailSheetProps {
   /** The note to display.  ``null`` keeps the sheet closed. */
@@ -33,17 +31,13 @@ export interface NoteDetailSheetProps {
  *  edit affordances live on the per-host ``HostNotesPanel`` --
  *  the deep-link is what brings the operator there.
  *
- *  Markdown rendering mirrors the security / a11y hardenings
- *  from :func:`HostNotesPanel.MarkdownBody`:
- *
- *   - ``<img>`` rendering disabled (no third-party
- *     tracking-pixel exfil on view).
- *   - ``<a>`` carries ``rel="noopener noreferrer"`` (no
- *     ``Referer`` leak to operator-pasted links).
- *   - Markdown heading levels remapped two down so an
- *     in-body ``#`` lands on ``<h4>`` (below the sheet's own
- *     ``<h2>`` title) -- keeps screen-reader heading
- *     navigation monotone.
+ *  Markdown rendering goes through :func:`NoteMarkdownBody`,
+ *  the shared read-only renderer.  It carries the security /
+ *  a11y contract (``<img>`` suppressed, ``<a>``
+ *  ``rel="noopener noreferrer"``, heading-level remap two
+ *  down so an in-body ``#`` lands on ``<h4>``) on behalf of
+ *  every notes consumer; see its module docstring for the
+ *  full list.
  */
 export function NoteDetailSheet({
   note,
@@ -93,7 +87,7 @@ function NoteDetailBody({ note }: { note: Note }) {
         </div>
       ) : null}
       <div className="border-t px-1 py-3" data-testid="note-detail-body">
-        <MarkdownBody body={note.body} />
+        <NoteMarkdownBody body={note.body} />
       </div>
       <p className="px-1 pt-2 text-xs text-muted-foreground">
         Created by{" "}
@@ -117,69 +111,4 @@ function entityDeepLink(note: Note): string | null {
   return null;
 }
 
-function stripHastNode<T extends { node?: unknown }>(
-  props: T,
-): Omit<T, "node"> {
-  const { node, ...rest } = props;
-  void node;
-  return rest;
-}
 
-const MARKDOWN_COMPONENTS: Components = {
-  img: ({ alt }) =>
-    alt ? <em className="text-muted-foreground">{alt}</em> : null,
-  a: (props) => {
-    const { children, ...rest } = stripHastNode(props);
-    return (
-      <a {...rest} rel="noopener noreferrer">
-        {children}
-      </a>
-    );
-  },
-  table: (props) => (
-    <div className="overflow-x-auto">
-      <table {...stripHastNode(props)} />
-    </div>
-  ),
-  h1: (props) => <h4 {...stripHastNode(props)} />,
-  h2: (props) => <h5 {...stripHastNode(props)} />,
-  h3: (props) => <h6 {...stripHastNode(props)} />,
-  h4: (props) => <h6 {...stripHastNode(props)} />,
-  h5: (props) => <h6 {...stripHastNode(props)} />,
-  h6: (props) => <h6 {...stripHastNode(props)} />,
-};
-
-const MARKDOWN_PLUGINS = [remarkGfm];
-
-function MarkdownBody({ body }: { body: string }) {
-  return (
-    <div
-      className={cn(
-        "text-sm leading-relaxed",
-        "[&_h4]:mt-3 [&_h4]:mb-2 [&_h4]:text-base [&_h4]:font-semibold",
-        "[&_h5]:mt-3 [&_h5]:mb-2 [&_h5]:text-sm [&_h5]:font-semibold",
-        "[&_h6]:mt-3 [&_h6]:mb-1 [&_h6]:text-sm [&_h6]:font-semibold",
-        "[&_p]:my-2",
-        "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-        "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
-        "[&_li]:my-1",
-        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs",
-        "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-        "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
-        "[&_th]:border [&_th]:border-muted [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
-        "[&_td]:border [&_td]:border-muted [&_td]:px-2 [&_td]:py-1",
-        "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:no-underline",
-        "[&_hr]:my-3 [&_hr]:border-muted",
-      )}
-    >
-      <Markdown
-        remarkPlugins={MARKDOWN_PLUGINS}
-        components={MARKDOWN_COMPONENTS}
-      >
-        {body}
-      </Markdown>
-    </div>
-  );
-}

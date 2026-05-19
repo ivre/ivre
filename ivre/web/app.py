@@ -1618,10 +1618,12 @@ def get_note(entity_type: str, entity_key: str):
         printable IP string for ``host``)
     :status 200: note found; JSON body
     :status 400: invalid entity_type / entity_key
-    :status 404: no note exists for this entity
+    :status 404: no note exists for this entity (or the
+        ``notes`` module is not exposed by ``WEB_MODULES``)
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     try:
@@ -1678,7 +1680,12 @@ def put_note(entity_type: str, entity_key: str):
         NoteNotFound,
     )
 
-    # Backend check first so a misconfigured deployment sees
+    # Module-allowlist check first: an operator who excludes
+    # ``notes`` from ``WEB_MODULES`` expects the route to look
+    # like it does not exist (404), not like the backend is
+    # missing (501).
+    require_module("notes")
+    # Backend check next so a misconfigured deployment sees
     # the right error before being told to authenticate; an
     # operator's first fix is the backend, not the auth.
     _require_notes_backend()
@@ -1790,10 +1797,12 @@ def delete_note(entity_type: str, entity_key: str):
     :status 204: deleted
     :status 400: invalid entity_type / entity_key
     :status 401: authentication required
-    :status 404: no note exists for this entity
+    :status 404: no note exists for this entity (or the
+        ``notes`` module is not exposed by ``WEB_MODULES``)
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     _require_authenticated_user()
@@ -1817,9 +1826,12 @@ def get_note_revisions(entity_type: str, entity_key: str):
     :status 200: JSON array of ``{revision, body, created_at,
         created_by}`` entries
     :status 400: invalid entity_type / entity_key
+    :status 404: ``notes`` module is not exposed by
+        ``WEB_MODULES``
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     try:
@@ -1855,9 +1867,12 @@ def list_notes():
     :query int skip: pagination offset (default 0)
     :status 200: JSON array
     :status 400: invalid parameters
+    :status 404: ``notes`` module is not exposed by
+        ``WEB_MODULES``
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     entity_type = request.params.get("entity_type") or None
     if entity_type is not None:

@@ -488,11 +488,15 @@ describe("useSaveHostNote invalidation", () => {
       });
     });
 
-    // Both query keys are invalidated explicitly -- not relying
-    // on React Query's default prefix-match behaviour to catch
-    // the revisions cache.  A future ``exact: true`` migration
-    // or queryKey reshape would silently leave stale revisions
-    // after a save without this explicit invalidation.
+    // Every affected query key is invalidated explicitly --
+    // not relying on React Query's default prefix-match
+    // behaviour to catch the revisions / listing caches.  A
+    // future ``exact: true`` migration or queryKey reshape
+    // would silently leave stale entries after a save
+    // without this.  Three keys total: the per-host note,
+    // its revision history, and the Notes Explorer listing
+    // (which would otherwise serve the pre-save snapshot for
+    // the app-wide ``staleTime`` window).
     const calls = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(calls).toContainEqual(["notes", "host", "192.0.2.10"]);
     expect(calls).toContainEqual([
@@ -501,6 +505,7 @@ describe("useSaveHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 
   it("does NOT invalidate on conflict / unauthorized / too_large / not_found outcomes", async () => {
@@ -618,6 +623,9 @@ describe("useDeleteHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    // The Notes Explorer listing is invalidated too so it
+    // refreshes within the app-wide ``staleTime`` window.
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 
   it("invalidates the cache even when the server returned 404 (note already gone)", async () => {
@@ -653,5 +661,6 @@ describe("useDeleteHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 });
