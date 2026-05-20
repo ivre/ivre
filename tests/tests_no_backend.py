@@ -15854,23 +15854,28 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # order so a future refactor cannot silently expose the
         # API on a server whose WEB_MODULES allowlist excludes
         # notes.
+        #
+        # The proof is observable rather than introspective:
+        # we wire ``db.notes = None`` so the 501 backend gate
+        # *would* fire if it ran first.  Each route still
+        # returning 404 (not 501) is therefore evidence that
+        # ``require_module("notes")`` short-circuited the
+        # request before ``_require_notes_backend()`` ever
+        # looked at ``db.notes``.  Mirrors the
+        # behavioural-assertion style of
+        # :meth:`test_web_require_notes_backend_aborts_501_when_unavailable`.
         from bottle import HTTPError
 
         from ivre import config
         from ivre.web import app as web_app
 
-        # ``db.notes`` is wired (so the 501 gate would NOT
-        # fire), but the operator narrowed ``WEB_MODULES`` to
-        # exclude ``"notes"``.  Every notes route must surface
-        # 404 anyway.
-        #
         # The routes are wrapped in ``@check_referer`` which
         # runs first; ``functools.wraps`` preserves
         # ``__wrapped__`` so we can call the inner route body
         # directly and assert the in-route gating order
         # without spinning up a WSGI request context.
         stub_db = mock.Mock()
-        stub_db.notes = mock.Mock()
+        stub_db.notes = None
         previous_modules = config.WEB_MODULES
         config.WEB_MODULES = ["view"]
         try:
@@ -15884,14 +15889,13 @@ class MongoDBNotesIndexTests(unittest.TestCase):
                 ):
                     with self.assertRaises(HTTPError) as ctx:
                         route()
+                    # 404, not 501: the module gate fired
+                    # before ``_require_notes_backend()`` got a
+                    # chance to abort on the missing backend.
                     self.assertEqual(ctx.exception.status_code, 404)
                     self.assertIn("notes", ctx.exception.body)
         finally:
             config.WEB_MODULES = previous_modules
-        # The notes backend was never touched -- the 404 gate
-        # fires before ``_require_notes_backend()`` looks at
-        # ``db.notes``.
-        stub_db.notes.assert_not_called()
 
     def test_notes_cli_exits_when_backend_unavailable(self) -> None:
         # ``ivre notes --init`` on a backend that does not

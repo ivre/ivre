@@ -10,17 +10,6 @@ import { useHostNote, useNotes, type Note } from "@/lib/api";
 import { getConfig } from "@/lib/config";
 import { formatQueryError } from "@/lib/format";
 
-/** SPA-side fallback for the per-page limit, used only when
- *  ``window.config.dflt_limit`` is missing or zero (i.e. an
- *  older server that does not emit the field).  Matches the
- *  ``config.dflt_limit || 50`` pattern used by every other
- *  section route (``host-list.tsx``, ``rir.tsx``,
- *  ``passive-list.tsx``, ``dns.tsx``) -- not the server's
- *  ``WEB_LIMIT`` default (10, see ``ivre/config.py``).
- *  Always bounded server-side by ``WEB_MAXRESULTS`` regardless
- *  of what we ask for. */
-const DEFAULT_LIMIT = 50;
-
 /** Known entity types operators can filter on.  ``"all"`` is the
  *  no-filter case (sent as no ``entity_type`` query parameter).
  *  As new entity types ship in the storage layer, add them
@@ -70,7 +59,16 @@ export function NotesRoute() {
 
   const q = searchParams.get("q") ?? "";
   const entityType = searchParams.get("type") ?? "all";
-  const limit = config.dflt_limit || DEFAULT_LIMIT;
+  // ``getConfig()`` merges the SPA-side ``SCALAR_DEFAULTS``
+  // (``dflt_limit: 10``) so this is always a number; the
+  // server emits the operator-configured ``WEB_LIMIT`` via
+  // ``/cgi/config`` and overrides the default on real
+  // deployments.  Notes do not surface a ``?limit=`` URL
+  // override (unlike ``host-list`` / ``rir`` / ``dns`` /
+  // ``passive-list``) -- the listing is filter-driven, not
+  // pagination-driven.  Whatever we ask for here is bounded
+  // server-side by ``WEB_MAXRESULTS``.
+  const limit = config.dflt_limit;
 
   // Debounce the search box so we don't spam ``/cgi/notes/``
   // with one request per keystroke.  300 ms matches the
