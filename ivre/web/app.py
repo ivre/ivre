@@ -1507,13 +1507,16 @@ def _require_notes_backend() -> None:
     """Abort with HTTP 501 when the configured backend does not
     implement the notes purpose.
 
-    Every notes web route calls this as its first line so a
-    misconfigured deployment surfaces a clean 501 with a
-    message naming the supported backend (and the config knob
-    to set) rather than the cryptic 500 the catch-all WSGI
-    handler would otherwise produce from
-    ``AttributeError: 'NoneType' object has no attribute
-    '<method>'``.
+    Every notes web route calls this early -- specifically, as
+    the second guard after :func:`require_module("notes")`.
+    The order matters: ``require_module`` returns 404 when the
+    operator excluded ``notes`` from ``WEB_MODULES`` (the
+    route looks like it does not exist), and
+    ``_require_notes_backend`` returns 501 when the module is
+    exposed but the backend isn't wired (the route exists but
+    the implementation is missing on this server).  Reversing
+    them would surface 501 on a route the operator has
+    explicitly disabled, which is misleading.
 
     501 is the correct HTTP semantic for "the route exists but
     the implementation is missing for this server's backend";

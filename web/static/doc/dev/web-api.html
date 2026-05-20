@@ -752,7 +752,8 @@ printable IP string for <code class="docutils literal notranslate"><span class="
 <dd class="field-even"><ul class="simple">
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – note found; JSON body</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
-<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity (or the
+<code class="docutils literal notranslate"><span class="pre">notes</span></code> module is not exposed by <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code>)</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
 </ul>
 </dd>
@@ -822,7 +823,8 @@ create-only collision</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/204">204 No Content</a></span> – deleted</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required</p></li>
-<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no note exists for this entity (or the
+<code class="docutils literal notranslate"><span class="pre">notes</span></code> module is not exposed by <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code>)</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
 </ul>
 </dd>
@@ -845,6 +847,8 @@ create-only collision</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array of <code class="docutils literal notranslate"><span class="pre">{revision,</span> <span class="pre">body,</span> <span class="pre">created_at,</span>
 <span class="pre">created_by}</span></code> entries</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – <code class="docutils literal notranslate"><span class="pre">notes</span></code> module is not exposed by
+<code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code></p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
 </ul>
 </dd>
@@ -881,6 +885,8 @@ are always added internally so the caller-facing
 <dd class="field-even"><ul class="simple">
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid parameters</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – <code class="docutils literal notranslate"><span class="pre">notes</span></code> module is not exposed by
+<code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code></p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – notes backend not configured on this server</p></li>
 </ul>
 </dd>

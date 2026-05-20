@@ -20,6 +20,7 @@ import {
   useDeleteApiKey,
   type ApiKey,
 } from "@/lib/api-keys";
+import { formatQueryError } from "@/lib/format";
 
 /**
  * Self-service API-key management panel. Lists the keys owned
@@ -82,7 +83,7 @@ export function MyApiKeysPanel() {
   if (keysQuery.error) {
     return (
       <p className="text-sm text-destructive">
-        Error: {(keysQuery.error as Error).message}
+        Error: {formatQueryError(keysQuery.error)}
       </p>
     );
   }

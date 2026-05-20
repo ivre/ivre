@@ -199,3 +199,29 @@ export function formatTimestamp(value: string | number | undefined): string {
   if (Number.isNaN(date.getTime())) return "";
   return date.toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
 }
+
+/**
+ * Format a value pulled from React Query's ``query.error`` slot
+ * (typed as ``Error | null``, but in practice anything the
+ * ``queryFn`` throws -- which TypeScript cannot narrow).  Returns
+ * a human-readable string suitable for an inline error panel.
+ *
+ * Replaces the unsound ``(query.error as Error).message`` pattern
+ * scattered across the UI: ``Error.message`` access on a non-Error
+ * value would produce ``undefined`` (printed as the literal
+ * ``"undefined"`` next to "Failed to load notes:"), and a thrown
+ * string / object would have no ``.message`` at all.  The
+ * ``String(value)`` fallback covers both: primitives become their
+ * stringification, objects go through their ``toString`` (or
+ * ``[object Object]`` if absent).
+ *
+ * Special-case ``null`` / ``undefined`` to the empty string so a
+ * stale "Error: " label is never followed by ``"null"`` --
+ * callers that need a placeholder ("unknown error") apply it
+ * themselves.
+ */
+export function formatQueryError(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Error) return value.message;
+  return String(value);
+}

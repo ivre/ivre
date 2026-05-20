@@ -12,6 +12,7 @@ import {
   parseFiltersFromQuery,
   type Filter,
 } from "@/lib/filter";
+import { formatQueryError } from "@/lib/format";
 import { formatTimelineRange } from "@/lib/timeline";
 
 /**
@@ -159,7 +160,7 @@ export function DnsRoute() {
             </p>
           ) : error ? (
             <p className="text-sm text-destructive">
-              Error: {(error as Error).message}
+              Error: {formatQueryError(error)}
             </p>
           ) : records.length === 0 ? (
             <p className="text-sm italic text-muted-foreground">

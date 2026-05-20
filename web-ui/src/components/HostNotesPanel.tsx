@@ -29,7 +29,7 @@ import {
   type SaveHostNoteResult,
 } from "@/lib/api";
 import { useAuthMe } from "@/lib/auth";
-import { formatTimestamp } from "@/lib/format";
+import { formatQueryError, formatTimestamp } from "@/lib/format";
 
 export interface HostNotesPanelProps {
   /** Caller-facing host address (printable IP string) used as the
@@ -135,7 +135,7 @@ function HostNotesBody({
         className="text-sm text-destructive"
         data-testid="host-notes-error"
       >
-        Failed to load note: {(query.error as Error).message}
+        Failed to load note: {formatQueryError(query.error)}
       </p>
     );
   }
@@ -393,7 +393,7 @@ function RevisionsList({
   if (query.isError) {
     return (
       <p className="mt-2 text-xs text-destructive">
-        Failed to load history: {(query.error as Error).message}
+        Failed to load history: {formatQueryError(query.error)}
       </p>
     );
   }

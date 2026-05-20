@@ -102,9 +102,20 @@ function excerpt(body: string): string {
     .replace(/^#{1,6}\s+/gm, "")
     // Code spans first (`` `text` ``): the inner text may
     // contain ``*`` / ``_`` we want to keep, and the emphasis
-    // passes below must not look inside the span.  Allow
-    // multi-backtick fences (`` ``text`` ``) so a span
-    // containing a literal backtick is still picked up.
+    // passes below must not look inside the span.  The regex
+    // matches a run of N backticks, the smallest possible
+    // run of non-backtick characters, then the same N
+    // backticks again (``\1`` back-reference) -- which
+    // unwraps both `` `text` `` and `` ``text`` ``.  The
+    // ``[^`]+?`` capture intentionally forbids literal
+    // backticks inside the span content: the CommonMark
+    // ``` `` `a` `` ``` corner case (an embedded backtick
+    // surrounded by N>=2 fence backticks) lands on the next
+    // emphasis pass with its ``` `` ``` markers intact rather
+    // than being unwrapped, which is acceptable for a
+    // listing-row excerpt where operators rarely paste raw
+    // backtick characters.  Switch to a full markdown parser
+    // if that ever stops being the case.
     .replace(/(`+)([^`]+?)\1/g, "$2")
     // Strong emphasis: ``**text**`` / ``__text__``.  Lazy
     // match so two adjacent runs on the same line don't get

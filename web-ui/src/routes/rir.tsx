@@ -12,7 +12,7 @@ import {
   parseFiltersFromQuery,
   type Filter,
 } from "@/lib/filter";
-import { formatResultsCount } from "@/lib/format";
+import { formatQueryError, formatResultsCount } from "@/lib/format";
 import { getSection } from "@/lib/sections";
 
 /**
@@ -137,7 +137,7 @@ function RirRouteInner() {
             </p>
           ) : error ? (
             <p className="text-sm text-destructive">
-              Error: {(error as Error).message}
+              Error: {formatQueryError(error)}
             </p>
           ) : records.length === 0 ? (
             <p className="text-sm italic text-muted-foreground">

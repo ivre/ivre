@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useHostNote, useNotes, type Note } from "@/lib/api";
 import { getConfig } from "@/lib/config";
+import { formatQueryError } from "@/lib/format";
 
 /** SPA-side fallback for the per-page limit, used only when
  *  ``window.config.dflt_limit`` is missing or zero (i.e. an
@@ -312,7 +313,7 @@ function NotesList({
         data-testid="notes-list-error"
       >
         <p className="text-destructive">
-          Failed to load notes: {(query.error as Error).message}
+          Failed to load notes: {formatQueryError(query.error)}
         </p>
         <Button
           variant="outline"
