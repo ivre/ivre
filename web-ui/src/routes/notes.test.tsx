@@ -413,6 +413,39 @@ describe("NotesRoute detail sheet", () => {
     expect(screen.queryByTestId("note-detail-sheet")).toBeNull();
   });
 
+  it("?addr= with no fallback path (unsupported ?type=) clears ?addr= and toasts", async () => {
+    // Crafted URL: ``?type=other`` is not in the dropdown
+    // today, so the per-entity fallback is gated off
+    // (``hostLookupEnabled === false`` -- the existing gate
+    // only fires for ``all`` / ``host``).  The list lookup
+    // is also a miss because no sample note carries
+    // ``entity_type === "other"``.  Without the no-fallback
+    // cleanup effect the URL would keep ``addr=`` while the
+    // sheet stayed closed and the operator would have no UI
+    // affordance to clear it.  Pin the cleanup so a future
+    // refactor cannot silently regress to the stuck-URL
+    // behaviour.
+    const { locationSpy } = renderRoute([
+      "/notes?type=other&addr=203.0.113.99",
+    ]);
+
+    await waitFor(() => {
+      expect(locationSpy.value.search).not.toMatch(/[?&]addr=/);
+    });
+    // ``?type=other`` is intentionally preserved -- the
+    // cleanup only drops the un-openable selection, it does
+    // not normalise unknown entity types.
+    expect(locationSpy.value.search).toMatch(/[?&]type=other\b/);
+    expect(toastSpies.error).toHaveBeenCalledWith(
+      expect.stringMatching(/203\.0\.113\.99/),
+    );
+    // The per-host fallback fetch stayed disabled (entity
+    // type is not ``host`` / ``all``).
+    expect(hostNoteCalls.every((c) => c.enabled === false)).toBe(true);
+    // No sheet rendered.
+    expect(screen.queryByTestId("note-detail-sheet")).toBeNull();
+  });
+
   it("?addr= whose fallback fetch errors clears ?addr= and toasts", async () => {
     // ``useHostNote`` can land in ``isError`` (network /
     // 5xx / malformed JSON) -- ``react-query`` surfaces

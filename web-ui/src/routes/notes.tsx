@@ -181,6 +181,37 @@ export function NotesRoute() {
     setSearchParams,
     selectedKey,
   ]);
+  // No-fallback cleanup: the deep link points at a key the
+  // current list page does not carry AND no per-entity
+  // fallback fetch is wired for the current ``entityType``.
+  // The most common trigger is a crafted URL whose ``type=``
+  // is a not-yet-supported entity type (today, anything
+  // other than ``all`` / ``host``); future entity types
+  // will lift the gate as their single-note hooks land.
+  // Without this cleanup the URL keeps ``addr=`` while the
+  // sheet stays permanently closed, with no UI affordance to
+  // clear it.  We wait for ``notesQuery`` to settle so a
+  // race against the initial load can still resolve the key
+  // via the fast path before we drop it.
+  useEffect(() => {
+    if (selectedKey === null) return;
+    if (listSelectedNote !== null) return;
+    if (hostLookupEnabled) return; // handled by the effect above
+    if (notesQuery.isLoading) return;
+    const params = new URLSearchParams(searchParams);
+    params.delete("addr");
+    setSearchParams(params, { replace: true });
+    toast.error(
+      `No note for ${selectedKey} under the current filters; link cleared.`,
+    );
+  }, [
+    selectedKey,
+    listSelectedNote,
+    hostLookupEnabled,
+    notesQuery.isLoading,
+    searchParams,
+    setSearchParams,
+  ]);
   const sheetOpen = selectedNote !== null;
   const setSheetOpen = (open: boolean) => {
     if (open) return; // we only ever close from here
