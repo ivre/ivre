@@ -74,6 +74,19 @@ export function NoteCard({ note, onSelect }: NoteCardProps) {
   );
 }
 
+/** Upper bound on how many characters of the raw body are
+ *  processed by the regex chain.  Note bodies can be up to
+ *  ``WEB_HOST_NOTES_MAX_BYTES`` (1 MiB by default); scanning
+ *  the full body for every row on a page of results would
+ *  waste CPU proportional to body size, not excerpt size.
+ *  4 KiB is enough to produce a 240-character excerpt even
+ *  when the body starts with a large code block or dense
+ *  heading section.  The actual display limit is
+ *  ``BODY_EXCERPT_CHARS`` (240 chars); this cap just
+ *  prevents the regex chain from scanning megabytes it will
+ *  never surface. */
+const EXCERPT_INPUT_CHARS = 4096;
+
 /** Strip markdown markers in a minimal way + truncate.  Full
  *  markdown rendering happens in the detail sheet; the listing
  *  shows a plain-text-ish excerpt to keep rows uniform-height
@@ -93,7 +106,7 @@ export function NoteCard({ note, onSelect }: NoteCardProps) {
  *  guard that ``_`` between alphanumerics never opens or
  *  closes emphasis. */
 function excerpt(body: string): string {
-  const trimmed = body
+  const trimmed = body.slice(0, EXCERPT_INPUT_CHARS)
     // Drop fenced code blocks entirely; their content is
     // typically commands / payloads / config dumps that the
     // operator won't recognise without the surrounding prose.

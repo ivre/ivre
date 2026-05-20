@@ -85,7 +85,7 @@ const router = createHashRouter([
       // Notes explorer: browse + free-text search
       // operator-authored annotations.  Hidden on non-Mongo
       // backends via ``WEB_MODULES`` (``db.notes is None``).
-      // Deep-link with ``/notes?addr=<entity_key>`` to open
+      // Deep-link with ``/#/notes?addr=<entity_key>`` to open
       // the matching note's detail sheet preselected.
       { path: "notes", element: gateModule("notes", <NotesRoute />) },
       // Account / admin pages — reachable from the user menu
