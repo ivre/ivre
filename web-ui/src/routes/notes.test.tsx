@@ -474,4 +474,77 @@ describe("NotesRoute detail sheet", () => {
     expect(message).toMatch(/198\.51\.100\.77/);
     expect(message).toMatch(/Internal Server Error/);
   });
+
+  it("preserves a non-Error fallback throw in the stale-link toast", async () => {
+    // ``react-query`` types ``error`` as ``Error | null``,
+    // but in practice anything the ``queryFn`` throws lands
+    // there -- the type system cannot narrow it.  The
+    // previous toast path used ``error?.message`` which
+    // silently fell back to "request failed" for any non-
+    // Error throw (string, plain object), dropping the
+    // operator-visible context.  Pin that the message is
+    // routed through :func:`formatQueryError` so a string
+    // throw surfaces verbatim.  Cast through ``unknown``
+    // because the test state type is ``Error | null`` but
+    // the real React Query field is ``unknown``.
+    hostNoteState = {
+      ...hostNoteState,
+      isError: true,
+      error: "EHOSTUNREACH 203.0.113.42" as unknown as Error,
+      data: undefined,
+    };
+    const { locationSpy } = renderRoute(["/notes?addr=198.51.100.55"]);
+
+    await waitFor(() => {
+      expect(locationSpy.value.search).not.toMatch(/[?&]addr=/);
+    });
+    const message = toastSpies.error.mock.calls[0]?.[0];
+    expect(message).toMatch(/198\.51\.100\.55/);
+    expect(message).toMatch(/EHOSTUNREACH 203\.0\.113\.42/);
+    expect(message).not.toMatch(/request failed/);
+  });
+
+  it("keeps ?addr= when the listing itself errors (no misleading toast)", async () => {
+    // The no-fallback cleanup effect must NOT fire when the
+    // notes listing query itself failed (e.g. the backend
+    // rejected ``?type=other`` with 400, a transient 5xx,
+    // network drop): clearing ``addr=`` and toasting "no
+    // note under the current filters" would mislead the
+    // operator into thinking the listing succeeded but had
+    // no match.  The :func:`NotesList` error panel + Retry
+    // button already surface the real listing failure; the
+    // route preserves ``addr=`` so the sheet re-opens
+    // automatically once the retry brings the matching row
+    // back.  Pin that contract here so a future refactor
+    // cannot silently re-introduce the misleading toast.
+    notesState = {
+      ...notesState,
+      isError: true,
+      error: new Error("GET /cgi/notes/ failed: 400 Bad Request"),
+      data: undefined,
+    };
+    const { locationSpy } = renderRoute([
+      "/notes?type=other&addr=203.0.113.123",
+    ]);
+
+    // ``addr=`` survives the failed listing.
+    await waitFor(() => {
+      expect(notesCalls.length).toBeGreaterThan(0);
+    });
+    expect(locationSpy.value.search).toMatch(/[?&]addr=203\.0\.113\.123\b/);
+    // The listing error panel is what surfaces the failure;
+    // no stale-link toast fired for this row.
+    expect(
+      toastSpies.error.mock.calls.every(
+        ([msg]) => !/under the current filters/.test(String(msg)),
+      ),
+    ).toBe(true);
+    // The per-host fallback fetch stayed disabled (the
+    // listing-error bail-out only applies when no per-entity
+    // fallback is wired -- ``?type=other`` keeps it off).
+    expect(hostNoteCalls.every((c) => c.enabled === false)).toBe(true);
+    // No sheet rendered: the list has no match and the
+    // fallback is gated off.
+    expect(screen.queryByTestId("note-detail-sheet")).toBeNull();
+  });
 });

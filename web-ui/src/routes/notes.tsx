@@ -159,11 +159,15 @@ export function NotesRoute() {
     setSearchParams(params, { replace: true });
     let message: string;
     if (isError) {
-      // ``react-query`` types ``error`` as ``Error | null``;
-      // we land here only when ``isError`` is true so the
-      // ``message`` access is safe, but guard against a
-      // shape-only test stub that leaves ``error`` unset.
-      const errMsg = fallbackQuery.error?.message ?? "request failed";
+      // ``react-query`` types ``error`` as ``Error | null``,
+      // but in practice anything the ``queryFn`` throws lands
+      // here -- the type system can't narrow it.  Route the
+      // value through :func:`formatQueryError` so a non-Error
+      // throw (string, plain object, ...) is still surfaced
+      // legibly, and fall back to a neutral label only when
+      // the formatter yields the empty string (shape-only
+      // test stubs that leave ``error`` unset).
+      const errMsg = formatQueryError(fallbackQuery.error) || "request failed";
       message = `Could not load note for ${selectedKey}: ${errMsg}`;
     } else if (kind === "absent") {
       message = `No note for ${selectedKey}; link is stale.`;
@@ -199,6 +203,18 @@ export function NotesRoute() {
     if (listSelectedNote !== null) return;
     if (hostLookupEnabled) return; // handled by the effect above
     if (notesQuery.isLoading) return;
+    // Listing-failed bail-out: when the notes listing itself
+    // errored out (invalid ``?type=`` rejected by the backend
+    // as 400, transient 5xx, network drop) we have no way to
+    // know whether ``addr=`` would have resolved against a
+    // successful listing.  Toasting "no note under the
+    // current filters" here would mislead the operator into
+    // thinking the listing succeeded; the real failure is
+    // already surfaced by :func:`NotesList`'s error panel
+    // plus its Retry button.  Keep ``addr=`` in the URL so
+    // the sheet re-opens automatically once a retry brings
+    // the matching row back into the listing.
+    if (notesQuery.isError) return;
     const params = new URLSearchParams(searchParams);
     params.delete("addr");
     setSearchParams(params, { replace: true });
@@ -210,6 +226,7 @@ export function NotesRoute() {
     listSelectedNote,
     hostLookupEnabled,
     notesQuery.isLoading,
+    notesQuery.isError,
     searchParams,
     setSearchParams,
   ]);
