@@ -412,4 +412,33 @@ describe("NotesRoute detail sheet", () => {
     // No sheet rendered (no matching note).
     expect(screen.queryByTestId("note-detail-sheet")).toBeNull();
   });
+
+  it("?addr= whose fallback fetch errors clears ?addr= and toasts", async () => {
+    // ``useHostNote`` can land in ``isError`` (network /
+    // 5xx / malformed JSON) -- ``react-query`` surfaces
+    // those as ``isError: true`` with ``data: undefined``
+    // rather than a discriminated ``kind``.  Without
+    // explicit handling, the previous code's effect bailed
+    // on ``kind !== "absent" && kind !== "unavailable"``
+    // and left the sheet permanently closed with
+    // ``?addr=`` still in the URL.  The route must treat
+    // an errored fallback the same way as ``absent`` /
+    // ``unavailable``: drop the param + surface a toast
+    // including the underlying error message so the
+    // operator can act on it.
+    hostNoteState = {
+      ...hostNoteState,
+      isError: true,
+      error: new Error("Internal Server Error"),
+      data: undefined,
+    };
+    const { locationSpy } = renderRoute(["/notes?addr=198.51.100.77"]);
+
+    await waitFor(() => {
+      expect(locationSpy.value.search).not.toMatch(/[?&]addr=/);
+    });
+    const message = toastSpies.error.mock.calls[0]?.[0];
+    expect(message).toMatch(/198\.51\.100\.77/);
+    expect(message).toMatch(/Internal Server Error/);
+  });
 });

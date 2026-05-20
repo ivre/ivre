@@ -17,7 +17,7 @@ export interface NoteDetailSheetProps {
   /** The note to display.  ``null`` keeps the sheet closed. */
   note: Note | null;
   /** Driven by the sheet's own open/close affordances + the
-   *  parent's selection state (see :func:`NotesExplorerPage`). */
+   *  parent's selection state (see :func:`NotesRoute`). */
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

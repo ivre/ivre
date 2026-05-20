@@ -16202,6 +16202,42 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # depend on).
         self.assertEqual(ctx.exception.code, 1)
 
+    def test_notes_cli_import_handles_listdir_oserror(self) -> None:
+        # ``os.listdir`` can raise ``OSError`` between the
+        # ``isdir`` check and the listing call (permission
+        # denied on the directory contents, transient I/O
+        # error on a network mount, TOCTOU rmdir).  The CLI's
+        # contract is to *report* failures via the exit code,
+        # not to crash with a stack trace; pin that behaviour
+        # so a future refactor cannot silently regress it
+        # back to an unhandled exception.
+        import tempfile
+
+        from ivre.tools import notes as notes_tool
+
+        with tempfile.TemporaryDirectory() as pagesdir:
+            stub_db = mock.Mock()
+            stub_db.notes = mock.Mock()
+            with mock.patch.object(notes_tool, "db", stub_db):
+                with mock.patch.object(
+                    notes_tool.os,
+                    "listdir",
+                    side_effect=PermissionError(13, "Permission denied", pagesdir),
+                ):
+                    with mock.patch.object(
+                        sys,
+                        "argv",
+                        ["ivre-notes", "--import-from-dokuwiki", pagesdir],
+                    ):
+                        with self.assertRaises(SystemExit) as ctx:
+                            notes_tool.main()
+        # Non-zero exit so a scripted migration / CI step
+        # surfaces the failure.
+        self.assertEqual(ctx.exception.code, 1)
+        # ``set_note`` was never called: the listing failed
+        # before any per-page work could start.
+        stub_db.notes.set_note.assert_not_called()
+
     def test_metadb_has_notes_property(self) -> None:
         # ``db.notes`` resolves to a ``DBNotes`` instance when
         # ``DB_NOTES`` / ``DB`` is configured to a backend that

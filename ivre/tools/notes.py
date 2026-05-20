@@ -76,7 +76,25 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
     imported = 0
     skipped = 0
     errors = 0
-    for entry in sorted(os.listdir(pagesdir)):
+    # ``os.listdir`` can raise ``OSError`` between the
+    # ``isdir`` check above and this call (TOCTOU on the
+    # directory itself, permission denied on the contents,
+    # transient I/O error on a network mount).  The CLI's
+    # contract is to *report* failures via the counters /
+    # exit code, not to crash with a stack trace -- so
+    # surface a clear log line and return the same non-zero
+    # exit code we already use for the missing-directory
+    # path.
+    try:
+        entries = sorted(os.listdir(pagesdir))
+    except OSError as exc:
+        utils.LOGGER.error(
+            "Cannot list Dokuwiki pages directory %s: %s",
+            pagesdir,
+            exc,
+        )
+        return 1
+    for entry in entries:
         match = _DOKUWIKI_IPV4_PAGE.match(entry)
         if not match:
             continue
@@ -153,9 +171,13 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
             pagesdir,
         )
         return 1
+    # ``skipped`` lumps "already present" (idempotent re-run
+    # path) and "blank placeholder" pages; both are intentional
+    # non-imports rather than failures.  Use a neutral label so
+    # the counter stays accurate without splitting the bucket
+    # into two operator-visible knobs.
     print(
-        f"Dokuwiki import: {imported} imported, "
-        f"{skipped} already present, {errors} errors"
+        f"Dokuwiki import: {imported} imported, " f"{skipped} skipped, {errors} errors"
     )
     # Non-zero exit on partial failures so scripted
     # migrations / CI can detect them.  The counters were

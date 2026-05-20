@@ -80,7 +80,18 @@ export function NoteCard({ note, onSelect }: NoteCardProps) {
  *  and scannable.  We only remove the most common heading /
  *  emphasis markers and code fences -- not a full markdown
  *  parser -- because a full parse on every row of a large
- *  listing would dominate the render budget. */
+ *  listing would dominate the render budget.
+ *
+ *  Emphasis stripping is paired-only so literal occurrences of
+ *  ``*``, ``_`` and ``` ` ``` inside operator text survive
+ *  (e.g. token names like ``CVE_2026_1234``, glob-ish snippets
+ *  like ``foo*bar``).  A previous version used a blanket
+ *  ``/[*_`]{1,3}/g`` strip which mangled those into
+ *  ``CVE20261234`` / ``foobar``.  The replacements below mirror
+ *  the CommonMark rule that emphasis runs come in matched
+ *  delimiter pairs around their content, with the additional
+ *  guard that ``_`` between alphanumerics never opens or
+ *  closes emphasis. */
 function excerpt(body: string): string {
   const trimmed = body
     // Drop fenced code blocks entirely; their content is
@@ -89,8 +100,27 @@ function excerpt(body: string): string {
     .replace(/```[\s\S]*?```/g, "")
     // Strip leading ``#``s from headings.
     .replace(/^#{1,6}\s+/gm, "")
-    // Strip emphasis markers ``**``/``__``/``*``/``_``/`` ` ``.
-    .replace(/[*_`]{1,3}/g, "")
+    // Code spans first (`` `text` ``): the inner text may
+    // contain ``*`` / ``_`` we want to keep, and the emphasis
+    // passes below must not look inside the span.  Allow
+    // multi-backtick fences (`` ``text`` ``) so a span
+    // containing a literal backtick is still picked up.
+    .replace(/(`+)([^`]+?)\1/g, "$2")
+    // Strong emphasis: ``**text**`` / ``__text__``.  Lazy
+    // match so two adjacent runs on the same line don't get
+    // glued together by a greedy capture.
+    .replace(/(\*\*|__)(?=\S)([\s\S]+?\S)\1/g, "$2")
+    // Em emphasis with ``*``: paired and non-empty, no
+    // intraword constraint (CommonMark allows ``foo*bar*baz``).
+    .replace(/\*(?=\S)([^*\n]+?\S)\*/g, "$1")
+    // Em emphasis with ``_``: same shape, but the opening /
+    // closing ``_`` must not sit between two alphanumerics
+    // (CommonMark's intraword-underscore rule, the one that
+    // keeps ``CVE_2026_1234`` from being parsed as emphasis).
+    .replace(
+      /(^|[^A-Za-z0-9_])_(?=\S)([^_\n]+?\S)_(?![A-Za-z0-9_])/g,
+      "$1$2",
+    )
     // Collapse runs of whitespace.
     .replace(/\s+/g, " ")
     .trim();

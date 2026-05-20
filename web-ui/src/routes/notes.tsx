@@ -139,28 +139,42 @@ export function NotesRoute() {
     fallbackQuery.data?.kind === "found" ? fallbackQuery.data.note : null;
   const selectedNote = listSelectedNote ?? fallbackNote;
   // Stale-link handling: the deep link points at a key that
-  // does not exist (404) or whose backend is not wired (501).
-  // Drop ``?addr=`` from the URL so the operator doesn't end
-  // up stuck with a permanently-closed sheet, and surface a
-  // toast so the failure is visible (rather than the silent
-  // close the previous implementation produced).
+  // does not exist (404), whose backend is not wired (501),
+  // or whose fetch failed outright (network error / 5xx /
+  // malformed JSON -- ``react-query`` surfaces these as
+  // ``isError`` rather than a discriminated ``kind``).  In
+  // all three cases we drop ``?addr=`` from the URL so the
+  // operator doesn't end up stuck with a permanently-closed
+  // sheet, and surface a toast so the failure is visible.
   useEffect(() => {
     if (!hostLookupEnabled) return;
     if (fallbackQuery.isLoading) return;
     if (fallbackNote !== null) return;
     const kind = fallbackQuery.data?.kind;
-    if (kind !== "absent" && kind !== "unavailable") return;
+    const isError = fallbackQuery.isError;
+    if (kind !== "absent" && kind !== "unavailable" && !isError) return;
     const params = new URLSearchParams(searchParams);
     params.delete("addr");
     setSearchParams(params, { replace: true });
-    toast.error(
-      kind === "absent"
-        ? `No note for ${selectedKey}; link is stale.`
-        : "Notes backend is not available on this server.",
-    );
+    let message: string;
+    if (isError) {
+      // ``react-query`` types ``error`` as ``Error | null``;
+      // we land here only when ``isError`` is true so the
+      // ``message`` access is safe, but guard against a
+      // shape-only test stub that leaves ``error`` unset.
+      const errMsg = fallbackQuery.error?.message ?? "request failed";
+      message = `Could not load note for ${selectedKey}: ${errMsg}`;
+    } else if (kind === "absent") {
+      message = `No note for ${selectedKey}; link is stale.`;
+    } else {
+      message = "Notes backend is not available on this server.";
+    }
+    toast.error(message);
   }, [
     hostLookupEnabled,
     fallbackQuery.isLoading,
+    fallbackQuery.isError,
+    fallbackQuery.error,
     fallbackQuery.data,
     fallbackNote,
     searchParams,

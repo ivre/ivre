@@ -69,6 +69,44 @@ describe("NoteCard", () => {
     expect(excerpt).not.toContain("whoami");
   });
 
+  it("preserves literal _ / * / ` characters in non-emphasis context", () => {
+    // The previous excerpt stripper used a blanket
+    // ``/[*_`]{1,3}/g`` which mangled identifiers like
+    // ``CVE_2026_1234`` into ``CVE20261234`` and globs like
+    // ``foo*bar`` into ``foobar``.  Pin the paired-only
+    // behaviour so a future refactor cannot silently regress
+    // to the blanket strip.
+    const note: Note = {
+      ...sampleNote,
+      body: "See CVE_2026_1234 and the glob foo*bar plus a stray ` tick.",
+    };
+
+    render(<NoteCard note={note} />);
+
+    const text = screen.getByTestId("note-card-excerpt").textContent ?? "";
+    expect(text).toContain("CVE_2026_1234");
+    expect(text).toContain("foo*bar");
+    expect(text).toContain("` tick");
+  });
+
+  it("still strips paired emphasis markers and inline code spans", () => {
+    // The complement of the test above: paired ``**...**`` /
+    // ``*...*`` / ``_..._`` / `` `...` `` runs are real
+    // markdown emphasis and *should* be unwrapped in the
+    // excerpt.
+    const note: Note = {
+      ...sampleNote,
+      body: "Look at **the C2** and *this host* and _that flag_ plus `nc -lvp`.",
+    };
+
+    render(<NoteCard note={note} />);
+
+    const text = screen.getByTestId("note-card-excerpt").textContent ?? "";
+    expect(text).toBe(
+      "Look at the C2 and this host and that flag plus nc -lvp.",
+    );
+  });
+
   it("truncates very long bodies with an ellipsis at the 240-char mark", () => {
     const note: Note = {
       ...sampleNote,
