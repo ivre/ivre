@@ -16328,9 +16328,17 @@ class WebFilterInjectorTests(unittest.TestCase):
         from ivre.web import utils as webutils
 
         self._webutils = webutils
-        # Snapshot the registry so tests are isolated from each
-        # other and from any real plugin that an operator may
-        # have installed in the test environment.
+        # Snapshot and clear the registry so each test sees a
+        # known-empty :data:`FILTER_INJECTORS` and so a real
+        # plugin installed in the test environment cannot leak
+        # callables into our assertions.  Note that this only
+        # isolates the *registry*: ``ivre.web.utils`` calls
+        # ``load_plugins("ivre.plugins.web.filter", globals())``
+        # at module import time, so any installed plugin's
+        # ``_install_<name>(scope)`` has already run by the time
+        # this ``setUp`` executes -- side effects performed
+        # outside the registry (config reads, network calls,
+        # imports, ...) are not undone here.
         self._saved = list(webutils.FILTER_INJECTORS)
         webutils.FILTER_INJECTORS.clear()
 
