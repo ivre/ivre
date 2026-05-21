@@ -42,10 +42,6 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ["20", "22", "24"]
 
     steps:
       - name: Git checkout
@@ -57,10 +53,15 @@ jobs:
           version: 10
           run_install: false
 
-      - name: Use Node ${{ matrix.node-version }}
+      - name: Use Node (from web-ui/.nvmrc)
+        # Single pinned version for lint / typecheck / test /
+        # build / e2e so the bundle bytes match what ``regen.yml``
+        # re-derives on every push. The canonical version lives
+        # in ``web-ui/.nvmrc`` and ``web-ui/package.json``'s
+        # ``engines`` field.
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: web-ui/.nvmrc
           cache: pnpm
           cache-dependency-path: web-ui/pnpm-lock.yaml
 
@@ -166,14 +167,12 @@ jobs:
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
-        if: matrix.node-version == '22'
 
       - name: End-to-end smoke test
         run: pnpm test:e2e
-        if: matrix.node-version == '22'
 
       - name: Upload Playwright report
-        if: failure() && matrix.node-version == '22'
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

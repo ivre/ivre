@@ -15,6 +15,7 @@ describe("section configs", () => {
       "dns",
       "flow",
       "rir",
+      "notes",
     ]);
   });
 

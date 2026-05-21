@@ -13,6 +13,7 @@ import {
   type FlowHostDetails,
   useFlowDetails,
 } from "@/lib/api";
+import { formatQueryError } from "@/lib/format";
 
 export interface FlowDetailSheetProps {
   /** Selection in ``"<type>:<id>"`` form, where type is
@@ -74,7 +75,7 @@ export function FlowDetailSheet({ selection, onClose }: FlowDetailSheetProps) {
           </div>
         ) : detailsQuery.error ? (
           <p className="px-4 py-6 text-sm text-destructive">
-            Error: {(detailsQuery.error as Error).message}
+            Error: {formatQueryError(detailsQuery.error)}
           </p>
         ) : detailsQuery.data ? (
           isNode ? (

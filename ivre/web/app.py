@@ -1507,13 +1507,16 @@ def _require_notes_backend() -> None:
     """Abort with HTTP 501 when the configured backend does not
     implement the notes purpose.
 
-    Every notes web route calls this as its first line so a
-    misconfigured deployment surfaces a clean 501 with a
-    message naming the supported backend (and the config knob
-    to set) rather than the cryptic 500 the catch-all WSGI
-    handler would otherwise produce from
-    ``AttributeError: 'NoneType' object has no attribute
-    '<method>'``.
+    Every notes web route calls this early -- specifically, as
+    the second guard after :func:`require_module("notes")`.
+    The order matters: ``require_module`` returns 404 when the
+    operator excluded ``notes`` from ``WEB_MODULES`` (the
+    route looks like it does not exist), and
+    ``_require_notes_backend`` returns 501 when the module is
+    exposed but the backend isn't wired (the route exists but
+    the implementation is missing on this server).  Reversing
+    them would surface 501 on a route the operator has
+    explicitly disabled, which is misleading.
 
     501 is the correct HTTP semantic for "the route exists but
     the implementation is missing for this server's backend";
@@ -1618,10 +1621,12 @@ def get_note(entity_type: str, entity_key: str):
         printable IP string for ``host``)
     :status 200: note found; JSON body
     :status 400: invalid entity_type / entity_key
-    :status 404: no note exists for this entity
+    :status 404: no note exists for this entity (or the
+        ``notes`` module is not exposed by ``WEB_MODULES``)
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     try:
@@ -1678,7 +1683,12 @@ def put_note(entity_type: str, entity_key: str):
         NoteNotFound,
     )
 
-    # Backend check first so a misconfigured deployment sees
+    # Module-allowlist check first: an operator who excludes
+    # ``notes`` from ``WEB_MODULES`` expects the route to look
+    # like it does not exist (404), not like the backend is
+    # missing (501).
+    require_module("notes")
+    # Backend check next so a misconfigured deployment sees
     # the right error before being told to authenticate; an
     # operator's first fix is the backend, not the auth.
     _require_notes_backend()
@@ -1790,10 +1800,12 @@ def delete_note(entity_type: str, entity_key: str):
     :status 204: deleted
     :status 400: invalid entity_type / entity_key
     :status 401: authentication required
-    :status 404: no note exists for this entity
+    :status 404: no note exists for this entity (or the
+        ``notes`` module is not exposed by ``WEB_MODULES``)
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     _require_authenticated_user()
@@ -1817,9 +1829,12 @@ def get_note_revisions(entity_type: str, entity_key: str):
     :status 200: JSON array of ``{revision, body, created_at,
         created_by}`` entries
     :status 400: invalid entity_type / entity_key
+    :status 404: ``notes`` module is not exposed by
+        ``WEB_MODULES``
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     _validate_entity_type(entity_type)
     try:
@@ -1855,9 +1870,12 @@ def list_notes():
     :query int skip: pagination offset (default 0)
     :status 200: JSON array
     :status 400: invalid parameters
+    :status 404: ``notes`` module is not exposed by
+        ``WEB_MODULES``
     :status 501: notes backend not configured on this server
 
     """
+    require_module("notes")
     _require_notes_backend()
     entity_type = request.params.get("entity_type") or None
     if entity_type is not None:

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatPort,
+  formatQueryError,
   formatResultsCount,
   formatServices,
   formatTimestamp,
@@ -262,5 +263,51 @@ describe("formatResultsCount", () => {
   it("renders the zero-match case as a bare ``0``", () => {
     expect(formatResultsCount(0, 0)).toBe("0");
     expect(formatResultsCount(0, undefined)).toBe("0");
+  });
+});
+
+describe("formatQueryError", () => {
+  it("returns the message of an Error instance", () => {
+    // The common case: ``fetchX()`` throws an ``Error`` from the
+    // ``ensureOk`` wrapper, react-query stashes it on
+    // ``query.error``, the UI formats it inline.
+    expect(formatQueryError(new Error("GET /cgi/notes/ failed: 500"))).toBe(
+      "GET /cgi/notes/ failed: 500",
+    );
+  });
+
+  it("subclasses of Error are formatted via Error.message", () => {
+    // Built-in subclasses (TypeError, etc.) and user subclasses
+    // both extend ``Error``; the ``instanceof`` check covers
+    // them so callers don't have to special-case each one.
+    expect(formatQueryError(new TypeError("not a function"))).toBe(
+      "not a function",
+    );
+  });
+
+  it("falls back to String() on a thrown non-Error value", () => {
+    // ``fetch()`` rejects to ``TypeError`` and our wrappers always
+    // throw ``Error``, but ``queryFn`` is typed ``unknown`` and a
+    // third-party hook (or a future refactor) could throw
+    // anything.  ``String(...)`` keeps the UI honest instead of
+    // printing the literal ``"undefined"`` you'd get from
+    // ``(value as Error).message``.
+    expect(formatQueryError("plain string thrown")).toBe(
+      "plain string thrown",
+    );
+    expect(formatQueryError(42)).toBe("42");
+    expect(formatQueryError({ toString: () => "weird object" })).toBe(
+      "weird object",
+    );
+  });
+
+  it("returns the empty string for null / undefined", () => {
+    // React Query types ``query.error`` as ``Error | null``;
+    // ``null`` lands here when ``isError`` is false but a caller
+    // formats opportunistically.  An empty string keeps the
+    // surrounding "Error: ${msg}" template visually clean rather
+    // than rendering the literal ``"null"`` next to it.
+    expect(formatQueryError(null)).toBe("");
+    expect(formatQueryError(undefined)).toBe("");
   });
 });

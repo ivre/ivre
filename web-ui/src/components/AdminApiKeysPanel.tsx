@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAdminApiKeys, useAdminDeleteApiKey } from "@/lib/admin";
 import type { ApiKey } from "@/lib/api-keys";
+import { formatQueryError } from "@/lib/format";
 
 /**
  * Admin-only audit panel: lists every API key across every
@@ -67,7 +68,7 @@ export function AdminApiKeysPanel() {
   if (keysQuery.error) {
     return (
       <p className="text-sm text-destructive">
-        Error: {(keysQuery.error as Error).message}
+        Error: {formatQueryError(keysQuery.error)}
       </p>
     );
   }

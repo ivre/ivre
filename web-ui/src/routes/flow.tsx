@@ -9,6 +9,7 @@ import {
   useFlowCounts,
   useFlowGraph,
 } from "@/lib/api";
+import { formatQueryError } from "@/lib/format";
 import { getSection } from "@/lib/sections";
 
 /** Default number of edges to render in the flow graph. Matches
@@ -168,7 +169,7 @@ function FlowRouteInner() {
           </p>
         ) : graphQuery.error ? (
           <p className="text-sm text-destructive">
-            Error: {(graphQuery.error as Error).message}
+            Error: {formatQueryError(graphQuery.error)}
           </p>
         ) : graphQuery.data ? (
           graphQuery.data.nodes.length === 0 ? (

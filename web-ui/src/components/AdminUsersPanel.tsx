@@ -18,6 +18,7 @@ import {
   useUpdateAdminUser,
   type AdminUser,
 } from "@/lib/admin";
+import { formatQueryError } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -80,7 +81,7 @@ export function AdminUsersPanel() {
   if (usersQuery.error) {
     return (
       <p className="text-sm text-destructive">
-        Error: {(usersQuery.error as Error).message}
+        Error: {formatQueryError(usersQuery.error)}
       </p>
     );
   }

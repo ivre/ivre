@@ -9,6 +9,7 @@ import {
   fetchCount,
   fetchHostNote,
   fetchHostNoteRevisions,
+  fetchNotes,
   saveHostNote,
   useDeleteHostNote,
   useSaveHostNote,
@@ -487,11 +488,15 @@ describe("useSaveHostNote invalidation", () => {
       });
     });
 
-    // Both query keys are invalidated explicitly -- not relying
-    // on React Query's default prefix-match behaviour to catch
-    // the revisions cache.  A future ``exact: true`` migration
-    // or queryKey reshape would silently leave stale revisions
-    // after a save without this explicit invalidation.
+    // Every affected query key is invalidated explicitly --
+    // not relying on React Query's default prefix-match
+    // behaviour to catch the revisions / listing caches.  A
+    // future ``exact: true`` migration or queryKey reshape
+    // would silently leave stale entries after a save
+    // without this.  Three keys total: the per-host note,
+    // its revision history, and the Notes Explorer listing
+    // (which would otherwise serve the pre-save snapshot for
+    // the app-wide ``staleTime`` window).
     const calls = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(calls).toContainEqual(["notes", "host", "192.0.2.10"]);
     expect(calls).toContainEqual([
@@ -500,6 +505,7 @@ describe("useSaveHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 
   it("does NOT invalidate on conflict / unauthorized / too_large / not_found outcomes", async () => {
@@ -528,6 +534,73 @@ describe("useSaveHostNote invalidation", () => {
   });
 });
 
+describe("fetchNotes", () => {
+  const noteRow = (addr: string): Note => ({
+    entity_type: "host",
+    entity_key: addr,
+    body: `Note for ${addr}`,
+    revision: 1,
+    created_at: "2026-05-01T10:00:00Z",
+    created_by: "alice@example.org",
+    updated_at: "2026-05-12T15:00:00Z",
+    updated_by: "alice@example.org",
+  });
+
+  it("calls GET /cgi/notes/ with no params and parses the JSON array", async () => {
+    const spy = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify([noteRow("192.0.2.1"), noteRow("192.0.2.2")]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    );
+    mockFetch(spy);
+
+    const out = await fetchNotes();
+
+    expect(out).toHaveLength(2);
+    expect(out[0].entity_key).toBe("192.0.2.1");
+    expect(spy).toHaveBeenCalledWith(
+      "/cgi/notes/",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+  });
+
+  it("forwards entity_type / q / limit / skip as URL parameters", async () => {
+    const spy = vi.fn(async () => new Response("[]", { status: 200 }));
+    mockFetch(spy);
+
+    await fetchNotes({
+      entityType: "host",
+      q: "c2",
+      limit: 25,
+      skip: 50,
+    });
+
+    // Use ``toHaveBeenCalledWith`` rather than indexing into
+    // ``mock.calls`` so the TS tuple-narrowing doesn't trip.
+    // ``qs()`` URL-encodes values; we check the decoded form
+    // via ``expect.stringMatching`` for the path prefix and
+    // ``calledWith.stringContaining`` for each param.
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/cgi\/notes\/\?/),
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+    const url = (spy.mock.calls[0] as unknown as [string])[0];
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("entity_type=host");
+    expect(decoded).toContain("q=c2");
+    expect(decoded).toContain("limit=25");
+    expect(decoded).toContain("skip=50");
+  });
+
+  it("throws on non-2xx responses", async () => {
+    mockFetch(vi.fn(async () => new Response("oops", { status: 500 })));
+
+    await expect(fetchNotes()).rejects.toThrow(/notes\/.*500/);
+  });
+});
+
 describe("useDeleteHostNote invalidation", () => {
   it("invalidates the host-note + revisions cache on a 204 success", async () => {
     mockFetch(vi.fn(async () => new Response(null, { status: 204 })));
@@ -550,6 +623,9 @@ describe("useDeleteHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    // The Notes Explorer listing is invalidated too so it
+    // refreshes within the app-wide ``staleTime`` window.
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 
   it("invalidates the cache even when the server returned 404 (note already gone)", async () => {
@@ -585,5 +661,6 @@ describe("useDeleteHostNote invalidation", () => {
       "192.0.2.10",
       "revisions",
     ]);
+    expect(calls).toContainEqual(["notes", "list"]);
   });
 });
