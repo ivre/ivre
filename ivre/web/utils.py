@@ -42,6 +42,7 @@ from regexploit.redos import find as _regexploit_find  # type: ignore[import-unt
 
 from ivre import config, utils
 from ivre.plugins import load_plugins
+from ivre.types import Filter
 
 GET_NOTEPAD_PAGES = {}
 
@@ -336,9 +337,19 @@ def _parse_query(dbase, query):
 # ``(dbase, user)`` and returns either ``None`` (no clause to
 # inject for this pair) or a backend filter object that
 # ``dbase.flt_and`` can compose with the base filter.
+#
+# Only the call to the registered injector is wrapped in a
+# try/except by :func:`apply_filter_injectors`: a returned
+# clause that ``dbase.flt_and`` cannot compose (wrong backend
+# shape, malformed Mongo operator, etc.) will propagate and
+# fail the request. Plugins are therefore responsible for
+# returning clauses that match the backend the deployment runs
+# against; ``flt_and`` failures are bugs in the plugin, not
+# something core should paper over with a fail-open default
+# that hides broken authorization wiring.
 # ---------------------------------------------------------------------
 
-FilterInjector = Callable[[Any, "str | None"], Any]
+FilterInjector = Callable[[Any, str | None], Filter | None]
 
 FILTER_INJECTORS: list[FilterInjector] = []
 
@@ -363,24 +374,34 @@ def register_filter_injector(func: FilterInjector) -> FilterInjector:
     return func
 
 
-def apply_filter_injectors(dbase: Any, base_flt: Any, user: "str | None") -> Any:
+def apply_filter_injectors(dbase: Any, base_flt: Filter, user: str | None) -> Filter:
     """Compose every registered :data:`FILTER_INJECTORS` callable
     on top of ``base_flt`` and return the resulting filter.
 
     Injectors are called in registration order. A return value of
     ``None`` skips the injector; any other value is AND'd into
-    the accumulator via ``dbase.flt_and``. Injector exceptions
-    are logged and swallowed — a misbehaving plugin must not turn
-    every API request into a 500.
+    the accumulator via ``dbase.flt_and``.
+
+    Only the *call* to the injector is wrapped in a try/except:
+    if an injector raises while computing its clause, the
+    exception is logged via :data:`ivre.utils.LOGGER` and the
+    injector is skipped so a single broken plugin cannot turn
+    every API request into a 500. The ``dbase.flt_and`` call
+    that composes the returned clause into the accumulator is
+    deliberately *not* wrapped — a clause that the backend
+    cannot AND with the running filter is a contract violation
+    by the plugin (wrong backend shape, malformed operator, …)
+    and must surface as an error rather than be silently
+    dropped, which would fail the authorization check open.
     """
     flt = base_flt
     for inj in FILTER_INJECTORS:
         try:
             clause = inj(dbase, user)
         except Exception:  # pylint: disable=broad-except
-            # A misbehaving plugin must not 500 the whole API; log
-            # and continue. The audit trail of which injector raised
-            # is captured in ``exc_info``.
+            # A misbehaving injector must not 500 the whole API;
+            # log and continue. The traceback identifying which
+            # injector raised is captured in ``exc_info``.
             utils.LOGGER.warning(
                 "Filter injector %r raised; skipping", inj, exc_info=True
             )
@@ -390,7 +411,7 @@ def apply_filter_injectors(dbase: Any, base_flt: Any, user: "str | None") -> Any
     return flt
 
 
-def _resolve_init_flt(user: "str | None", dbase: Any) -> Any:
+def _resolve_init_flt(user: str | None, dbase: Any) -> Filter:
     """Resolve the legacy ``WEB_INIT_QUERIES`` dispatch.
 
     Factored out of :func:`get_init_flt_for` so the latter can
@@ -419,7 +440,7 @@ def _resolve_init_flt(user: "str | None", dbase: Any) -> Any:
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
 
 
-def get_init_flt_for(user: "str | None", dbase: Any) -> Any:
+def get_init_flt_for(user: str | None, dbase: Any) -> Filter:
     """Return a filter corresponding to the given user's privileges.
 
     Unlike :func:`get_init_flt`, this function does not consult the
