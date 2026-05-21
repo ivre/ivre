@@ -66,6 +66,7 @@ import unittest
 from ast import literal_eval
 from datetime import datetime, timezone
 from functools import reduce
+from typing import Any
 from unittest import mock
 from xml.sax.handler import (  # nosec B406  # used only as a no-op SAX event sink against the defusedxml-hardened parser
     ContentHandler,
@@ -16263,6 +16264,211 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # what we care about here.
         self.assertIsNotNone(notes)
         self.assertIsInstance(notes, DBNotes)
+
+
+# ---------------------------------------------------------------------
+# WebFilterInjectorTests -- pin the ``ivre.plugins.web.filter``
+# hook surfaced by :mod:`ivre.web.utils`. This is the in-tree
+# extension point that hosts out-of-tree authorization /
+# scoping plugins: the plugin registers a callable that returns
+# a backend filter clause, and the hook AND's it into every
+# base filter built by :func:`get_init_flt_for` (which every
+# Bottle route reaches via :func:`get_init_flt` /
+# :func:`flt_from_query`, and which the MCP server reaches via
+# :func:`_parse`).
+#
+# These tests pin the contract end-to-end against a minimal
+# stub backend so any out-of-tree authorization plugin can rely
+# on it without an integration environment.
+# ---------------------------------------------------------------------
+
+
+class _StubFilterDB:
+    """Minimal stub of the DB interface needed by the
+    filter-injection hook tests.  Supports ``flt_empty`` and
+    ``flt_and`` only; filters are plain dicts so assertions on
+    the resulting shape stay readable."""
+
+    flt_empty: dict[str, Any] = {}
+
+    @staticmethod
+    def flt_and(*args: Any) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
+        for arg in args:
+            if isinstance(arg, dict):
+                merged.update(arg)
+        return merged
+
+
+class WebFilterInjectorTests(unittest.TestCase):
+    """Behaviour-pin for the ``ivre.plugins.web.filter`` hook
+    in :mod:`ivre.web.utils`.
+
+    The hook is a list of callables (:data:`FILTER_INJECTORS`)
+    that :func:`get_init_flt_for` invokes via
+    :func:`apply_filter_injectors`. The contract pinned here:
+
+    1. With no registered injector, :func:`get_init_flt_for`
+       returns the legacy base filter unchanged.
+    2. Registered injectors are called in registration order;
+       their return value is AND'd into the base filter via
+       ``dbase.flt_and`` unless the return value is ``None``.
+    3. An injector that raises is logged and skipped — a
+       misbehaving plugin must not turn every API request into
+       a 500.
+    4. :func:`register_filter_injector` returns the registered
+       callable unchanged so plugins can use it as a decorator.
+    5. The hook is wired into :func:`get_init_flt_for` in a
+       single exit point, so every entry point that resolves a
+       per-user base filter (Bottle, MCP, direct callers) sees
+       the injection.
+    """
+
+    def setUp(self) -> None:
+        from ivre.web import utils as webutils
+
+        self._webutils = webutils
+        # Snapshot the registry so tests are isolated from each
+        # other and from any real plugin that an operator may
+        # have installed in the test environment.
+        self._saved = list(webutils.FILTER_INJECTORS)
+        webutils.FILTER_INJECTORS.clear()
+
+    def tearDown(self) -> None:
+        self._webutils.FILTER_INJECTORS.clear()
+        self._webutils.FILTER_INJECTORS.extend(self._saved)
+
+    def test_no_injectors_returns_base_filter_unchanged(self) -> None:
+        # Empty registry: the helper is a no-op identity over
+        # the base filter (modulo ``flt_and(base)`` collapsing).
+        base = {"sentinel": "base"}
+        result = self._webutils.apply_filter_injectors(
+            _StubFilterDB, base, "alice@example.com"
+        )
+        self.assertEqual(result, base)
+
+    def test_registered_injector_clause_is_anded(self) -> None:
+        calls: list[tuple[Any, str | None]] = []
+
+        def _injector(dbase: Any, user: "str | None") -> dict[str, Any]:
+            calls.append((dbase, user))
+            return {"scope": "restricted"}
+
+        self._webutils.register_filter_injector(_injector)
+        base = {"sentinel": "base"}
+        result = self._webutils.apply_filter_injectors(
+            _StubFilterDB, base, "alice@example.com"
+        )
+        self.assertEqual(calls, [(_StubFilterDB, "alice@example.com")])
+        self.assertEqual(result, {"sentinel": "base", "scope": "restricted"})
+
+    def test_injector_returning_none_is_skipped(self) -> None:
+        def _injector(_dbase: Any, _user: "str | None") -> None:
+            return None
+
+        self._webutils.register_filter_injector(_injector)
+        base = {"sentinel": "base"}
+        result = self._webutils.apply_filter_injectors(
+            _StubFilterDB, base, "alice@example.com"
+        )
+        # ``None`` short-circuits the AND; the base filter is
+        # returned unchanged (modulo any ``flt_and(base)``
+        # normalisation, which the stub backend does not apply).
+        self.assertEqual(result, base)
+
+    def test_multiple_injectors_chain_in_registration_order(self) -> None:
+        order: list[str] = []
+
+        def _first(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+            order.append("first")
+            return {"first": True}
+
+        def _second(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+            order.append("second")
+            return {"second": True}
+
+        self._webutils.register_filter_injector(_first)
+        self._webutils.register_filter_injector(_second)
+        result = self._webutils.apply_filter_injectors(
+            _StubFilterDB, {"base": True}, None
+        )
+        self.assertEqual(order, ["first", "second"])
+        self.assertEqual(result, {"base": True, "first": True, "second": True})
+
+    def test_injector_raising_is_logged_and_skipped(self) -> None:
+        def _bad(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+            raise RuntimeError("plugin crashed")
+
+        def _good(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+            return {"good": True}
+
+        self._webutils.register_filter_injector(_bad)
+        self._webutils.register_filter_injector(_good)
+        with self.assertLogs("ivre", level="WARNING") as captured:
+            result = self._webutils.apply_filter_injectors(
+                _StubFilterDB, {"base": True}, None
+            )
+        # The good injector still applied; the bad one was
+        # logged as a warning rather than propagated.
+        self.assertEqual(result, {"base": True, "good": True})
+        self.assertTrue(
+            any("Filter injector" in msg for msg in captured.output),
+            captured.output,
+        )
+
+    def test_register_filter_injector_returns_callable_for_decorator_use(
+        self,
+    ) -> None:
+        def _injector(_dbase: Any, _user: "str | None") -> None:
+            return None
+
+        returned = self._webutils.register_filter_injector(_injector)
+        self.assertIs(returned, _injector)
+        self.assertIn(_injector, self._webutils.FILTER_INJECTORS)
+
+    def test_get_init_flt_for_applies_injectors(self) -> None:
+        # End-to-end pin: :func:`get_init_flt_for` is the single
+        # entry point every code path goes through (Bottle via
+        # :func:`get_init_flt`, MCP via ``_parse``). Registering
+        # an injector must therefore land in the base filter for
+        # every consumer for free.
+        captured: list[tuple[Any, str | None]] = []
+
+        def _injector(dbase: Any, user: "str | None") -> dict[str, Any]:
+            captured.append((dbase, user))
+            return {"scope": "restricted"}
+
+        self._webutils.register_filter_injector(_injector)
+        # Bypass the WEB_INIT_QUERIES dispatch by stubbing the
+        # internal resolver; we only care that the hook fires on
+        # the returned value here.
+        with mock.patch.object(
+            self._webutils, "_resolve_init_flt", return_value={"base": True}
+        ):
+            result = self._webutils.get_init_flt_for("alice@example.com", _StubFilterDB)
+        self.assertEqual(captured, [(_StubFilterDB, "alice@example.com")])
+        self.assertEqual(result, {"base": True, "scope": "restricted"})
+
+    def test_get_init_flt_for_with_no_injectors_returns_resolver_output(
+        self,
+    ) -> None:
+        # Mirror of the previous test on the empty-registry path:
+        # ``get_init_flt_for`` must be a no-op on top of the
+        # legacy resolver when no plugin is installed (regression
+        # gate against accidental wrapping that alters the shape).
+        with mock.patch.object(
+            self._webutils, "_resolve_init_flt", return_value={"base": True}
+        ):
+            result = self._webutils.get_init_flt_for(None, _StubFilterDB)
+        self.assertEqual(result, {"base": True})
+
+    def test_web_filter_plugin_category_is_registered(self) -> None:
+        # The ``web.filter`` category must be discoverable via
+        # :func:`ivre.plugins.list_plugins` so operators can see
+        # whether a filter plugin is loaded on their deployment.
+        from ivre import plugins as ivre_plugins
+
+        self.assertIn("web.filter", ivre_plugins.CATEGORIES)
 
 
 def _parse_args() -> None:

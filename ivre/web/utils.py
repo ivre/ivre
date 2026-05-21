@@ -26,6 +26,7 @@ import functools
 import os
 import re
 import shlex
+from typing import Any, Callable
 
 try:
     import MySQLdb  # type: ignore
@@ -40,6 +41,7 @@ from regexploit.ast.sre import SreOpParser  # type: ignore[import-untyped]
 from regexploit.redos import find as _regexploit_find  # type: ignore[import-untyped]
 
 from ivre import config, utils
+from ivre.plugins import load_plugins
 
 GET_NOTEPAD_PAGES = {}
 
@@ -309,17 +311,91 @@ def _parse_query(dbase, query):
     }[query[0]](dbase, *query[1:])
 
 
-def get_init_flt_for(user, dbase):
-    """Return a filter corresponding to the given user's privileges.
+# ---------------------------------------------------------------------
+# Filter-injection hook
+#
+# Plugins register zero or more callables in :data:`FILTER_INJECTORS`
+# via the ``ivre.plugins.web.filter`` entry-point group. Each
+# registered callable is invoked from :func:`get_init_flt_for` (and
+# therefore from every code path that builds the base filter: Bottle
+# routes via :func:`get_init_flt`, the MCP server's ``_parse``,
+# …); its return value (if not ``None``) is AND'd into the user's
+# base filter before any user-supplied query is applied.
+#
+# This is the in-tree extension point for out-of-tree
+# authorization / scoping plugins. The plugin reads the
+# authenticated identity (the ``user`` argument, or anything
+# else it pulls from the request, the auth backend, an external
+# IAM, ...) and returns a backend filter clause; the hook AND's
+# that clause into every query the user can run. The policy
+# itself -- who can see what, default-deny vs. default-allow,
+# cross-principal share rules, audit requirements -- is
+# deployment-specific and lives in the plugin; core stays
+# policy-agnostic and only ships the hook. The contract is
+# intentionally minimal: a registered callable receives
+# ``(dbase, user)`` and returns either ``None`` (no clause to
+# inject for this pair) or a backend filter object that
+# ``dbase.flt_and`` can compose with the base filter.
+# ---------------------------------------------------------------------
 
-    Unlike :func:`get_init_flt`, this function does not consult the
-    current Bottle request and does not abort on unauthenticated users;
-    callers are expected to have resolved the user beforehand (for
-    instance from an MCP transport) and to handle the unauthenticated
-    case themselves.
+FilterInjector = Callable[[Any, "str | None"], Any]
 
-    ``user`` must be either a user email (``str``) or ``None`` to mean
-    "no authenticated user".
+FILTER_INJECTORS: list[FilterInjector] = []
+
+
+def register_filter_injector(func: FilterInjector) -> FilterInjector:
+    """Register a filter-injection callable and return it unchanged.
+
+    The callable receives ``(dbase, user)`` and returns either:
+
+    * ``None`` — no clause to inject for this ``(dbase, user)``
+      pair;
+    * a backend filter — will be AND'd into the user's base
+      filter before any user-supplied query is applied.
+
+    Returns the registered function unchanged so it can be used
+    as a decorator. Plugins typically call this from an
+    ``_install_<name>(scope)`` entry-point (the ``scope`` argument
+    is the :func:`globals` of this module, but the function is
+    importable directly so plugins do not have to reach into it).
+    """
+    FILTER_INJECTORS.append(func)
+    return func
+
+
+def apply_filter_injectors(dbase: Any, base_flt: Any, user: "str | None") -> Any:
+    """Compose every registered :data:`FILTER_INJECTORS` callable
+    on top of ``base_flt`` and return the resulting filter.
+
+    Injectors are called in registration order. A return value of
+    ``None`` skips the injector; any other value is AND'd into
+    the accumulator via ``dbase.flt_and``. Injector exceptions
+    are logged and swallowed — a misbehaving plugin must not turn
+    every API request into a 500.
+    """
+    flt = base_flt
+    for inj in FILTER_INJECTORS:
+        try:
+            clause = inj(dbase, user)
+        except Exception:  # pylint: disable=broad-except
+            # A misbehaving plugin must not 500 the whole API; log
+            # and continue. The audit trail of which injector raised
+            # is captured in ``exc_info``.
+            utils.LOGGER.warning(
+                "Filter injector %r raised; skipping", inj, exc_info=True
+            )
+            continue
+        if clause is not None:
+            flt = dbase.flt_and(flt, clause)
+    return flt
+
+
+def _resolve_init_flt(user: "str | None", dbase: Any) -> Any:
+    """Resolve the legacy ``WEB_INIT_QUERIES`` dispatch.
+
+    Factored out of :func:`get_init_flt_for` so the latter can
+    wrap the result with :func:`apply_filter_injectors` in a
+    single exit point.
     """
     init_queries = {
         key: _parse_query(dbase, value)
@@ -341,6 +417,28 @@ def get_init_flt_for(user, dbase):
                 if key in init_queries:
                     return init_queries[key]
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
+
+
+def get_init_flt_for(user: "str | None", dbase: Any) -> Any:
+    """Return a filter corresponding to the given user's privileges.
+
+    Unlike :func:`get_init_flt`, this function does not consult the
+    current Bottle request and does not abort on unauthenticated users;
+    callers are expected to have resolved the user beforehand (for
+    instance from an MCP transport) and to handle the unauthenticated
+    case themselves.
+
+    ``user`` must be either a user email (``str``) or ``None`` to mean
+    "no authenticated user".
+
+    Out-of-tree plugins registered via
+    :data:`FILTER_INJECTORS` get the final say: their clauses
+    are AND'd into the returned filter via
+    :func:`apply_filter_injectors`. This is how an optional
+    authorization / scoping plugin enforces a deployment-specific
+    access policy without requiring core changes.
+    """
+    return apply_filter_injectors(dbase, _resolve_init_flt(user, dbase), user)
 
 
 def get_init_flt(dbase):
@@ -1088,3 +1186,11 @@ def parse_filter(dbase, data):
     return getattr(dbase, func)(
         *(parse_arg(a) for a in args), **{k: parse_arg(v) for k, v in kargs.items()}
     )
+
+
+# Load ``ivre.plugins.web.filter`` entry-points last, after every
+# public helper is defined, so plugins importing from this module
+# always see a fully-formed surface. Plugins typically call
+# :func:`register_filter_injector` from their
+# ``_install_<name>(scope)`` entry point.
+load_plugins("ivre.plugins.web.filter", globals())
