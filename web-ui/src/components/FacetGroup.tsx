@@ -105,24 +105,36 @@ export function FacetGroup({
   // collapse this to ``useEffectEvent(onLoaded)`` once that ships.
   const onLoadedRef = useRef(onLoaded);
   onLoadedRef.current = onLoaded;
+  // ``isAbort`` is derived at render time so the post-commit
+  // effect below depends on a stable boolean instead of the
+  // ``error`` instance.  React Query memoises ``error`` while a
+  // query stays in the error state, so this is functionally
+  // equivalent to listing ``error`` in the dep array today, but
+  // it keeps the effect contract clean against future churn
+  // (retries that recreate the error object, alternative result
+  // shapes in a later React Query major, …) without relying on
+  // the ratchet's ``Math.max`` idempotency to absorb spurious
+  // re-fires.  The :class:`FacetSidebar` ratchet IS idempotent
+  // (``setLoadedCount((c) => Math.max(c, index + 1))``); we treat
+  // that as belt-and-braces, not as the primary correctness
+  // story for this effect.
+  const isAbort =
+    isError && error instanceof DOMException && error.name === "AbortError";
   useEffect(() => {
     if (!enabled) return;
     if (isSuccess) {
       onLoadedRef.current?.();
       return;
     }
-    if (isError) {
-      // A cancellation propagated from the queryFn's
-      // ``AbortSignal`` lands here as ``isError === true`` with
-      // a ``DOMException`` whose ``name`` is ``"AbortError"``.
-      // Skip the ratchet advance in that case — the next cycle
-      // has already reset the counter and a stale notify would
-      // mis-release one of its facets.
-      const isAbort =
-        error instanceof DOMException && error.name === "AbortError";
-      if (!isAbort) onLoadedRef.current?.();
-    }
-  }, [enabled, isSuccess, isError, error, query, limit, field, topEndpoint]);
+    // A cancellation propagated from the queryFn's
+    // ``AbortSignal`` lands here as ``isError === true`` with
+    // a ``DOMException`` whose ``name`` is ``"AbortError"``
+    // (captured by ``isAbort`` above).  Skip the ratchet
+    // advance in that case — the next cycle has already reset
+    // the counter and a stale notify would mis-release one of
+    // its facets.
+    if (isError && !isAbort) onLoadedRef.current?.();
+  }, [enabled, isSuccess, isError, isAbort, query, limit, field, topEndpoint]);
 
   const items: readonly TopValue[] = data ?? [];
   const max = items.reduce((m, x) => (x.value > m ? x.value : m), 1);
