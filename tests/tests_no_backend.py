@@ -16350,7 +16350,7 @@ class WebFilterInjectorTests(unittest.TestCase):
     def test_registered_injector_clause_is_anded(self) -> None:
         calls: list[tuple[Any, str | None]] = []
 
-        def _injector(dbase: Any, user: "str | None") -> dict[str, Any]:
+        def _injector(dbase: Any, user: str | None) -> dict[str, Any]:
             calls.append((dbase, user))
             return {"scope": "restricted"}
 
@@ -16363,7 +16363,7 @@ class WebFilterInjectorTests(unittest.TestCase):
         self.assertEqual(result, {"sentinel": "base", "scope": "restricted"})
 
     def test_injector_returning_none_is_skipped(self) -> None:
-        def _injector(_dbase: Any, _user: "str | None") -> None:
+        def _injector(_dbase: Any, _user: str | None) -> None:
             return None
 
         self._webutils.register_filter_injector(_injector)
@@ -16379,11 +16379,11 @@ class WebFilterInjectorTests(unittest.TestCase):
     def test_multiple_injectors_chain_in_registration_order(self) -> None:
         order: list[str] = []
 
-        def _first(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+        def _first(_dbase: Any, _user: str | None) -> dict[str, Any]:
             order.append("first")
             return {"first": True}
 
-        def _second(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+        def _second(_dbase: Any, _user: str | None) -> dict[str, Any]:
             order.append("second")
             return {"second": True}
 
@@ -16396,10 +16396,10 @@ class WebFilterInjectorTests(unittest.TestCase):
         self.assertEqual(result, {"base": True, "first": True, "second": True})
 
     def test_injector_raising_is_logged_and_skipped(self) -> None:
-        def _bad(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+        def _bad(_dbase: Any, _user: str | None) -> dict[str, Any]:
             raise RuntimeError("plugin crashed")
 
-        def _good(_dbase: Any, _user: "str | None") -> dict[str, Any]:
+        def _good(_dbase: Any, _user: str | None) -> dict[str, Any]:
             return {"good": True}
 
         self._webutils.register_filter_injector(_bad)
@@ -16419,7 +16419,7 @@ class WebFilterInjectorTests(unittest.TestCase):
     def test_register_filter_injector_returns_callable_for_decorator_use(
         self,
     ) -> None:
-        def _injector(_dbase: Any, _user: "str | None") -> None:
+        def _injector(_dbase: Any, _user: str | None) -> None:
             return None
 
         returned = self._webutils.register_filter_injector(_injector)
@@ -16434,7 +16434,7 @@ class WebFilterInjectorTests(unittest.TestCase):
         # every consumer for free.
         captured: list[tuple[Any, str | None]] = []
 
-        def _injector(dbase: Any, user: "str | None") -> dict[str, Any]:
+        def _injector(dbase: Any, user: str | None) -> dict[str, Any]:
             captured.append((dbase, user))
             return {"scope": "restricted"}
 
