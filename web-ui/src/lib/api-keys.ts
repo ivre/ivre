@@ -68,30 +68,38 @@ async function ensureOk(response: Response, label: string): Promise<void> {
   }
 }
 
-export async function fetchApiKeys(): Promise<ApiKey[]> {
+export async function fetchApiKeys(signal?: AbortSignal): Promise<ApiKey[]> {
   const url = `${CGI_ROOT}/auth/api-keys`;
-  const r = await fetch(url, { credentials: "same-origin" });
+  const r = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(r, `GET ${url}`);
   return (await r.json()) as ApiKey[];
 }
 
-export async function createApiKey(name: string): Promise<ApiKeyCreated> {
+export async function createApiKey(
+  name: string,
+  signal?: AbortSignal,
+): Promise<ApiKeyCreated> {
   const url = `${CGI_ROOT}/auth/api-keys`;
   const r = await fetch(url, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
+    signal,
   });
   await ensureOk(r, `POST ${url}`);
   return (await r.json()) as ApiKeyCreated;
 }
 
-export async function deleteApiKey(keyHash: string): Promise<void> {
+export async function deleteApiKey(
+  keyHash: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const url = `${CGI_ROOT}/auth/api-keys/${encodeURIComponent(keyHash)}`;
   const r = await fetch(url, {
     method: "DELETE",
     credentials: "same-origin",
+    signal,
   });
   await ensureOk(r, `DELETE ${url}`);
 }
@@ -105,7 +113,7 @@ const API_KEYS_KEY = ["api-keys", "self"] as const;
 export function useApiKeys(): UseQueryResult<ApiKey[]> {
   return useQuery<ApiKey[]>({
     queryKey: API_KEYS_KEY,
-    queryFn: fetchApiKeys,
+    queryFn: ({ signal }) => fetchApiKeys(signal),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });

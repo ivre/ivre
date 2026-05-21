@@ -67,15 +67,26 @@ export function FacetGroup({
   );
 
   // Notify the parent once per cycle so the sequential controller
-  // can release the next facet. ``isSuccess``/``isError`` both
-  // terminate the cycle; a fresh ``(field, topEndpoint, query,
-  // limit)`` tuple starts a new one. ``onLoaded`` is deliberately
-  // *not* in the dep list — parents like :class:`FacetSidebar`
-  // pass an inline ``() => handleLoaded(index)`` that has a fresh
-  // identity on every render, and we don't want each render to
-  // count as a new cycle. We route the call through a ref so the
-  // latest callback is always invoked even though the effect's
-  // closure never mentions it.
+  // can release the next facet. ``isSuccess`` terminates the
+  // cycle; ``isError`` does too, EXCEPT when the error is an
+  // ``AbortError`` raised because React Query cancelled the
+  // ``fetch()`` (a filter change while the request was in flight,
+  // a route unmount, or an explicit ``cancelQueries``). The new
+  // cycle's :class:`FacetSidebar` has already reset
+  // ``loadedCount`` to 0 via the ``query``-dependent
+  // ``useEffect``; firing ``onLoaded`` from the cancelled cycle
+  // would prematurely release one of the fresh cycle's facets
+  // (advancing ``loadedCount`` with the previous cycle's index).
+  // Successful cancellations are not failures from the operator's
+  // point of view, so we silently drop them. A fresh
+  // ``(field, topEndpoint, query, limit)`` tuple starts a new
+  // cycle. ``onLoaded`` is deliberately *not* in the dep list —
+  // parents like :class:`FacetSidebar` pass an inline
+  // ``() => handleLoaded(index)`` that has a fresh identity on
+  // every render, and we don't want each render to count as a
+  // new cycle. We route the call through a ref so the latest
+  // callback is always invoked even though the effect's closure
+  // never mentions it.
   //
   // The ref is synced during render rather than in a
   // companion ``useEffect``: writing a ref during render is
@@ -96,8 +107,22 @@ export function FacetGroup({
   onLoadedRef.current = onLoaded;
   useEffect(() => {
     if (!enabled) return;
-    if (isSuccess || isError) onLoadedRef.current?.();
-  }, [enabled, isSuccess, isError, query, limit, field, topEndpoint]);
+    if (isSuccess) {
+      onLoadedRef.current?.();
+      return;
+    }
+    if (isError) {
+      // A cancellation propagated from the queryFn's
+      // ``AbortSignal`` lands here as ``isError === true`` with
+      // a ``DOMException`` whose ``name`` is ``"AbortError"``.
+      // Skip the ratchet advance in that case — the next cycle
+      // has already reset the counter and a stale notify would
+      // mis-release one of its facets.
+      const isAbort =
+        error instanceof DOMException && error.name === "AbortError";
+      if (!isAbort) onLoadedRef.current?.();
+    }
+  }, [enabled, isSuccess, isError, error, query, limit, field, topEndpoint]);
 
   const items: readonly TopValue[] = data ?? [];
   const max = items.reduce((m, x) => (x.value > m ? x.value : m), 1);

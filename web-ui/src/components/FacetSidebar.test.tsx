@@ -21,9 +21,19 @@ interface TopCall {
 const calls: TopCall[] = [];
 
 // Latest per-call mutable state, indexed by field. The mock returns
-// an object whose ``isSuccess`` / ``isLoading`` flip live so the
+// an object whose ``isSuccess`` / ``isError`` flip live so the
 // FacetGroup's ``useEffect`` notifies the sidebar.
-const state: Record<string, { isSuccess: boolean }> = {};
+//
+// ``isError`` carries a discriminator: ``"abort"`` mirrors a
+// ``DOMException`` with ``name === "AbortError"`` (the shape React
+// Query surfaces when the underlying ``fetch()`` is cancelled);
+// ``"real"`` mirrors any other failure. The FacetGroup must skip
+// the ratchet advance for ``abort`` and advance for ``real``.
+type FacetMockState =
+  | { isSuccess: true }
+  | { isError: "abort" | "real" }
+  | { isPending: true };
+const state: Record<string, FacetMockState> = {};
 
 vi.mock("@/lib/api", () => {
   return {
@@ -43,18 +53,44 @@ vi.mock("@/lib/api", () => {
           state[field] = { isSuccess: true };
         },
       });
-      const s = state[field] ?? { isSuccess: false };
+      const s: FacetMockState = state[field] ?? { isPending: true };
       // Mirror React Query v5's state machine: a query held back
       // with ``enabled: false`` keeps ``status === "pending"`` and
       // ``isPending: true`` (no data yet), while ``isLoading``
       // stays ``false`` (no request actually in flight). Once
       // ``isSuccess`` is true the query has terminated, so
       // ``isPending`` is false.
+      if ("isSuccess" in s) {
+        return {
+          data: [],
+          isLoading: false,
+          isPending: false,
+          isSuccess: true,
+          isError: false,
+          error: null,
+        };
+      }
+      if ("isError" in s) {
+        return {
+          data: undefined,
+          isLoading: false,
+          isPending: false,
+          isSuccess: false,
+          isError: true,
+          // ``DOMException`` with ``name === "AbortError"`` is the
+          // exact shape ``fetch()`` cancellation propagates
+          // through to React Query.
+          error:
+            s.isError === "abort"
+              ? new DOMException("aborted", "AbortError")
+              : new Error("backend exploded"),
+        };
+      }
       return {
-        data: s.isSuccess ? [] : undefined,
-        isLoading: enabled && !s.isSuccess,
-        isPending: !s.isSuccess,
-        isSuccess: s.isSuccess,
+        data: undefined,
+        isLoading: enabled,
+        isPending: true,
+        isSuccess: false,
         isError: false,
         error: null,
       };
@@ -309,6 +345,74 @@ describe("FacetSidebar — sequential mode", () => {
     });
     expect(screen.getAllByText("Loading…")).toHaveLength(2);
     expect(screen.getAllByText("No values.")).toHaveLength(1);
+  });
+
+  it("does NOT advance the ratchet when a facet terminates with AbortError", async () => {
+    // Regression guard for the ``AbortSignal``-forwarding fix.
+    // When React Query cancels an in-flight facet request because
+    // the active query changed, the cancelled FacetGroup must NOT
+    // call ``onLoaded`` -- the new cycle has already reset
+    // ``loadedCount`` to ``0`` and notifying with the cancelled
+    // cycle's index would prematurely release one of the new
+    // cycle's facets. A real (non-abort) error still advances
+    // the ratchet so a failing facet does not stall the
+    // sidebar.
+    const { rerender } = render(
+      <FacetSidebar
+        section={SECTION}
+        query=""
+        onAddFilter={() => {}}
+        sequential
+        enabled
+      />,
+    );
+
+    // First facet starts loading; second / third held back.
+    expect(lastEnabledByField()).toEqual({
+      country: true,
+      as: false,
+      "port:open": false,
+    });
+
+    // The first facet's underlying ``fetch()`` is cancelled.  The
+    // ratchet must NOT advance: the next facet stays held back.
+    await act(async () => {
+      state["country"] = { isError: "abort" };
+      rerender(
+        <FacetSidebar
+          section={SECTION}
+          query=""
+          onAddFilter={() => {}}
+          sequential
+          enabled
+        />,
+      );
+    });
+    expect(lastEnabledByField()).toMatchObject({
+      country: true,
+      as: false,
+      "port:open": false,
+    });
+
+    // Sanity: a non-abort error still advances the ratchet so a
+    // failing facet does not stall the sidebar forever.
+    await act(async () => {
+      state["country"] = { isError: "real" };
+      rerender(
+        <FacetSidebar
+          section={SECTION}
+          query=""
+          onAddFilter={() => {}}
+          sequential
+          enabled
+        />,
+      );
+    });
+    expect(lastEnabledByField()).toMatchObject({
+      country: true,
+      as: true,
+      "port:open": false,
+    });
   });
 
   it("renders nothing when the section declares no facets", () => {
