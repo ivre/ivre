@@ -74,9 +74,11 @@ async function ensureOk(response: Response, label: string): Promise<void> {
   }
 }
 
-export async function fetchAdminUsers(): Promise<AdminUser[]> {
+export async function fetchAdminUsers(
+  signal?: AbortSignal,
+): Promise<AdminUser[]> {
   const url = `${CGI_ROOT}/auth/admin/users`;
-  const r = await fetch(url, { credentials: "same-origin" });
+  const r = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(r, `GET ${url}`);
   return (await r.json()) as AdminUser[];
 }
@@ -84,6 +86,7 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
 export async function updateAdminUser(
   email: string,
   update: AdminUserUpdate,
+  signal?: AbortSignal,
 ): Promise<void> {
   const url = `${CGI_ROOT}/auth/admin/users/${encodeURIComponent(email)}`;
   const r = await fetch(url, {
@@ -91,22 +94,29 @@ export async function updateAdminUser(
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(update),
+    signal,
   });
   await ensureOk(r, `PUT ${url}`);
 }
 
-export async function fetchAdminApiKeys(): Promise<ApiKey[]> {
+export async function fetchAdminApiKeys(
+  signal?: AbortSignal,
+): Promise<ApiKey[]> {
   const url = `${CGI_ROOT}/auth/admin/api-keys`;
-  const r = await fetch(url, { credentials: "same-origin" });
+  const r = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(r, `GET ${url}`);
   return (await r.json()) as ApiKey[];
 }
 
-export async function adminDeleteApiKey(keyHash: string): Promise<void> {
+export async function adminDeleteApiKey(
+  keyHash: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const url = `${CGI_ROOT}/auth/admin/api-keys/${encodeURIComponent(keyHash)}`;
   const r = await fetch(url, {
     method: "DELETE",
     credentials: "same-origin",
+    signal,
   });
   await ensureOk(r, `DELETE ${url}`);
 }
@@ -121,7 +131,7 @@ const ADMIN_API_KEYS_KEY = ["admin", "api-keys"] as const;
 export function useAdminUsers(): UseQueryResult<AdminUser[]> {
   return useQuery<AdminUser[]>({
     queryKey: ADMIN_USERS_KEY,
-    queryFn: fetchAdminUsers,
+    queryFn: ({ signal }) => fetchAdminUsers(signal),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });
@@ -148,7 +158,7 @@ export function useUpdateAdminUser(): UseMutationResult<
 export function useAdminApiKeys(): UseQueryResult<ApiKey[]> {
   return useQuery<ApiKey[]>({
     queryKey: ADMIN_API_KEYS_KEY,
-    queryFn: fetchAdminApiKeys,
+    queryFn: ({ signal }) => fetchAdminApiKeys(signal),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });

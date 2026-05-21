@@ -9,7 +9,9 @@ import {
   fetchCount,
   fetchHostNote,
   fetchHostNoteRevisions,
+  fetchHosts,
   fetchNotes,
+  fetchTop,
   saveHostNote,
   useDeleteHostNote,
   useSaveHostNote,
@@ -44,6 +46,49 @@ describe("fetchCount", () => {
       expect.stringMatching(/^\/cgi\/view\/count\?.*q=country%3AFR/),
       expect.objectContaining({ credentials: "same-origin" }),
     );
+  });
+
+  it("forwards an ``AbortSignal`` to ``fetch()`` so React Query cancellation reaches the network layer", async () => {
+    // Without ``signal`` being forwarded by the raw fetcher, an
+    // outdated query whose observer has gone away keeps hammering
+    // the server until the response arrives.  This test pins the
+    // wiring so the regression is caught immediately if a future
+    // refactor drops the parameter.
+    const spy = vi.fn(async () => new Response("0\n", { status: 200 }));
+    mockFetch(spy);
+
+    const controller = new AbortController();
+    await fetchCount("/view/count", { q: "x" }, controller.signal);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        credentials: "same-origin",
+        signal: controller.signal,
+      }),
+    );
+  });
+
+  it("propagates an ``AbortError`` when the signal is aborted before fetch resolves", async () => {
+    // Simulate the real-fetch behaviour: when the caller aborts
+    // mid-flight, ``fetch()`` rejects with a ``DOMException`` whose
+    // ``name === "AbortError"``.  Raw fetchers must let that
+    // bubble so React Query categorises the query as cancelled
+    // (not as a real error to surface to the user).
+    const controller = new AbortController();
+    mockFetch(
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.signal?.aborted) {
+          throw new DOMException("aborted", "AbortError");
+        }
+        return new Response("0\n", { status: 200 });
+      }) as typeof fetch,
+    );
+
+    controller.abort();
+    await expect(
+      fetchCount("/view/count", { q: "x" }, controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("parses a bare decimal integer body (the happy path)", async () => {
@@ -125,6 +170,52 @@ describe("fetchCount", () => {
     mockFetch(vi.fn(async () => new Response("-1", { status: 200 })));
     await expect(fetchCount("/view/count", {})).rejects.toThrow(
       /non-numeric body/,
+    );
+  });
+});
+
+describe("fetchHosts and fetchTop AbortSignal forwarding", () => {
+  // ``fetchHosts`` and ``fetchTop`` are the two read endpoints hit
+  // from the host-list route on the hot path of a query change.
+  // Make sure their ``AbortSignal`` plumbing matches the contract,
+  // not just ``fetchCount``'s -- the original perf bug
+  // ("changing a filter while facets are loading keeps the old
+  // requests running") manifested through these two specifically.
+
+  it("fetchHosts forwards the signal to fetch()", async () => {
+    const spy = vi.fn(async () => new Response("", { status: 200 }));
+    mockFetch(spy);
+
+    const controller = new AbortController();
+    await fetchHosts("/view", { q: "country:FR" }, controller.signal);
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/cgi\/view\?/),
+      expect.objectContaining({
+        credentials: "same-origin",
+        signal: controller.signal,
+      }),
+    );
+  });
+
+  it("fetchTop forwards the signal to fetch()", async () => {
+    const spy = vi.fn(async () => new Response("[]", { status: 200 }));
+    mockFetch(spy);
+
+    const controller = new AbortController();
+    await fetchTop(
+      "/view/top",
+      "country",
+      { q: "tag:scanner", limit: 5 },
+      controller.signal,
+    );
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/cgi\/view\/top\/country%3A5\?/),
+      expect.objectContaining({
+        credentials: "same-origin",
+        signal: controller.signal,
+      }),
     );
   });
 });

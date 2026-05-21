@@ -181,10 +181,18 @@ async function ensureOk(response: Response, label: string): Promise<void> {
 
 /** Fetch a list of host records from a section's listEndpoint as
  *  NDJSON. ``listEndpoint`` is the path under ``/cgi/`` (e.g.
- *  ``/view``, ``/scans``). */
+ *  ``/view``, ``/scans``).
+ *
+ *  ``signal`` is forwarded to ``fetch()`` so React Query (or any
+ *  other caller) can abort the request when the query becomes
+ *  inactive (filter change, component unmount). Without this the
+ *  underlying HTTP request keeps running on the server even after
+ *  the cache observer goes away, piling up obsolete work on the
+ *  single uwsgi worker. */
 export async function fetchHosts(
   listEndpoint: string,
   params: ListParams = {},
+  signal?: AbortSignal,
 ): Promise<HostRecord[]> {
   const url =
     CGI_ROOT +
@@ -197,7 +205,7 @@ export async function fetchHosts(
       datesasstrings: params.datesasstrings ? 1 : undefined,
       format: "ndjson",
     });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return parseNdjson(response);
 }
@@ -206,9 +214,10 @@ export async function fetchHosts(
 export async function fetchCount(
   countEndpoint: string,
   params: { q?: string } = {},
+  signal?: AbortSignal,
 ): Promise<number> {
   const url = CGI_ROOT + countEndpoint + qs({ q: params.q });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   const text = await response.text();
   // Validate strictly: the body MUST be a bare non-negative
@@ -237,6 +246,7 @@ export async function fetchTop(
   topEndpoint: string,
   field: string,
   params: { q?: string; limit?: number } = {},
+  signal?: AbortSignal,
 ): Promise<TopValue[]> {
   // The IVRE backend already accepts ``<field>:<N>`` syntax for the
   // top-N limit; we use that when ``limit`` is given so the URL
@@ -249,7 +259,7 @@ export async function fetchTop(
     "/" +
     fieldPath.split("/").map(encodeURIComponent).join("/") +
     qs({ q: params.q });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as TopValue[];
 }
@@ -260,6 +270,7 @@ export async function fetchTop(
 export async function fetchPassiveRecords(
   listEndpoint: string,
   params: ListParams = {},
+  signal?: AbortSignal,
 ): Promise<PassiveRecord[]> {
   const url =
     CGI_ROOT +
@@ -272,7 +283,7 @@ export async function fetchPassiveRecords(
       datesasstrings: params.datesasstrings ? 1 : undefined,
       format: "ndjson",
     });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   const text = await response.text();
   const out: PassiveRecord[] = [];
@@ -288,10 +299,11 @@ export async function fetchPassiveRecords(
 export async function fetchCoordinates(
   mapEndpoint: string,
   params: { q?: string } = {},
+  signal?: AbortSignal,
 ): Promise<CoordinatesResponse> {
   const url =
     CGI_ROOT + mapEndpoint + qs({ q: params.q, ipsasnumbers: 1 });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as CoordinatesResponse;
 }
@@ -324,6 +336,7 @@ export interface DnsRecord {
 /** Fetch the merged DNS pseudo-record list as JSON. */
 export async function fetchDnsRecords(
   params: ListParams = {},
+  signal?: AbortSignal,
 ): Promise<DnsRecord[]> {
   const url =
     CGI_ROOT +
@@ -335,7 +348,7 @@ export async function fetchDnsRecords(
       datesasstrings: params.datesasstrings ? 1 : undefined,
       format: "json",
     });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as DnsRecord[];
 }
@@ -406,6 +419,7 @@ export function isRirAutNum(rec: RirRecord): rec is RirAutNum {
  *  query string to override. */
 export async function fetchRirRecords(
   params: ListParams = {},
+  signal?: AbortSignal,
 ): Promise<RirRecord[]> {
   const url =
     CGI_ROOT +
@@ -416,7 +430,7 @@ export async function fetchRirRecords(
       skip: params.skip,
       format: "json",
     });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as RirRecord[];
 }
@@ -557,16 +571,22 @@ function flowUrl(query: object, action?: "details"): string {
   );
 }
 
-export async function fetchFlowGraph(query: FlowQuery): Promise<FlowGraph> {
+export async function fetchFlowGraph(
+  query: FlowQuery,
+  signal?: AbortSignal,
+): Promise<FlowGraph> {
   const url = flowUrl({ ...query, count: false });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET /cgi/flows`);
   return (await response.json()) as FlowGraph;
 }
 
-export async function fetchFlowCounts(query: FlowQuery): Promise<FlowCounts> {
+export async function fetchFlowCounts(
+  query: FlowQuery,
+  signal?: AbortSignal,
+): Promise<FlowCounts> {
   const url = flowUrl({ ...query, count: true });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET /cgi/flows (count)`);
   return (await response.json()) as FlowCounts;
 }
@@ -575,9 +595,10 @@ export async function fetchFlowDetails(
   type: "node" | "edge",
   id: string,
   query: FlowQuery = {},
+  signal?: AbortSignal,
 ): Promise<FlowHostDetails | FlowEdgeDetails> {
   const url = flowUrl({ ...query, type, id }, "details");
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET /cgi/flows (details)`);
   return (await response.json()) as FlowHostDetails | FlowEdgeDetails;
 }
@@ -593,6 +614,15 @@ export async function fetchFlowDetails(
 // that file's doc block for the helper's contract and the
 // rationale behind it.
 
+// Every ``queryFn`` below destructures the ``{ signal }`` React
+// Query passes in and forwards it to the raw fetcher, which in turn
+// forwards it to ``fetch()``. Without this, when the query becomes
+// inactive (filter change, component unmount, ``cancelQueries``)
+// React Query stops subscribing to the result but the underlying
+// HTTP request keeps running to completion and the server keeps
+// doing the work — visibly slow on rapid filter edits against a
+// single-worker uwsgi deployment.
+
 export function useHosts(
   listEndpoint: string | undefined,
   params: ListParams,
@@ -600,7 +630,8 @@ export function useHosts(
 ): UseQueryResult<HostRecord[]> {
   return useQuery<HostRecord[]>({
     queryKey: ["hosts", listEndpoint, params],
-    queryFn: () => fetchHosts(listEndpoint as string, params),
+    queryFn: ({ signal }) =>
+      fetchHosts(listEndpoint as string, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(listEndpoint), options),
   });
@@ -613,7 +644,8 @@ export function usePassiveRecords(
 ): UseQueryResult<PassiveRecord[]> {
   return useQuery<PassiveRecord[]>({
     queryKey: ["passive", listEndpoint, params],
-    queryFn: () => fetchPassiveRecords(listEndpoint as string, params),
+    queryFn: ({ signal }) =>
+      fetchPassiveRecords(listEndpoint as string, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(listEndpoint), options),
   });
@@ -626,7 +658,8 @@ export function useCount(
 ): UseQueryResult<number> {
   return useQuery<number>({
     queryKey: ["count", countEndpoint, params],
-    queryFn: () => fetchCount(countEndpoint as string, params),
+    queryFn: ({ signal }) =>
+      fetchCount(countEndpoint as string, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(countEndpoint), options),
   });
@@ -640,7 +673,8 @@ export function useTop(
 ): UseQueryResult<TopValue[]> {
   return useQuery<TopValue[]>({
     queryKey: ["top", topEndpoint, field, params],
-    queryFn: () => fetchTop(topEndpoint as string, field, params),
+    queryFn: ({ signal }) =>
+      fetchTop(topEndpoint as string, field, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(topEndpoint && field), options),
   });
@@ -653,7 +687,8 @@ export function useCoordinates(
 ): UseQueryResult<CoordinatesResponse> {
   return useQuery<CoordinatesResponse>({
     queryKey: ["coordinates", mapEndpoint, params],
-    queryFn: () => fetchCoordinates(mapEndpoint as string, params),
+    queryFn: ({ signal }) =>
+      fetchCoordinates(mapEndpoint as string, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(mapEndpoint), options),
   });
@@ -665,7 +700,7 @@ export function useDnsRecords(
 ): UseQueryResult<DnsRecord[]> {
   return useQuery<DnsRecord[]>({
     queryKey: ["dns", params],
-    queryFn: () => fetchDnsRecords(params),
+    queryFn: ({ signal }) => fetchDnsRecords(params, signal),
     ...options,
   });
 }
@@ -676,7 +711,7 @@ export function useRirRecords(
 ): UseQueryResult<RirRecord[]> {
   return useQuery<RirRecord[]>({
     queryKey: ["rir", params],
-    queryFn: () => fetchRirRecords(params),
+    queryFn: ({ signal }) => fetchRirRecords(params, signal),
     ...options,
   });
 }
@@ -687,7 +722,7 @@ export function useFlowGraph(
 ): UseQueryResult<FlowGraph> {
   return useQuery<FlowGraph>({
     queryKey: ["flow", "graph", query],
-    queryFn: () => fetchFlowGraph(query),
+    queryFn: ({ signal }) => fetchFlowGraph(query, signal),
     ...options,
   });
 }
@@ -698,7 +733,7 @@ export function useFlowCounts(
 ): UseQueryResult<FlowCounts> {
   return useQuery<FlowCounts>({
     queryKey: ["flow", "counts", query],
-    queryFn: () => fetchFlowCounts(query),
+    queryFn: ({ signal }) => fetchFlowCounts(query, signal),
     ...options,
   });
 }
@@ -710,7 +745,8 @@ export function useFlowDetails(
 ): UseQueryResult<FlowHostDetails | FlowEdgeDetails> {
   return useQuery<FlowHostDetails | FlowEdgeDetails>({
     queryKey: ["flow", "details", type, id],
-    queryFn: () => fetchFlowDetails(type as "node" | "edge", id as string),
+    queryFn: ({ signal }) =>
+      fetchFlowDetails(type as "node" | "edge", id as string, {}, signal),
     ...options,
     enabled: gatedEnabled(Boolean(type && id), options),
   });
@@ -755,9 +791,12 @@ export type HostNoteResult =
 /** Fetch the note for a host (caller-facing IP string). Returns a
  *  discriminated union so the four UI states (found / absent /
  *  unavailable / error) are explicit at the call site. */
-export async function fetchHostNote(addr: string): Promise<HostNoteResult> {
+export async function fetchHostNote(
+  addr: string,
+  signal?: AbortSignal,
+): Promise<HostNoteResult> {
   const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   if (response.status === 404) {
     return { kind: "absent" };
   }
@@ -778,7 +817,7 @@ export function useHostNote(
 ): UseQueryResult<HostNoteResult> {
   return useQuery<HostNoteResult>({
     queryKey: ["notes", "host", addr],
-    queryFn: () => fetchHostNote(addr as string),
+    queryFn: ({ signal }) => fetchHostNote(addr as string, signal),
     ...options,
     enabled: gatedEnabled(Boolean(addr), options),
   });
@@ -849,6 +888,7 @@ export async function saveHostNote(
   addr: string,
   body: string,
   mode: SaveHostNoteMode,
+  signal?: AbortSignal,
 ): Promise<SaveHostNoteResult> {
   const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
   // Translate the discriminated save-mode into the HTTP
@@ -866,6 +906,7 @@ export async function saveHostNote(
     credentials: "same-origin",
     headers,
     body,
+    signal,
   });
   if (response.status === 401) return { kind: "unauthorized" };
   if (response.status === 404) return { kind: "not_found" };
@@ -888,11 +929,15 @@ export async function saveHostNote(
  *  ``true`` when a note existed and was removed, ``false`` when
  *  the route returned 404 (no note to delete).  Other failures
  *  throw. */
-export async function deleteHostNote(addr: string): Promise<boolean> {
+export async function deleteHostNote(
+  addr: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
   const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}`;
   const response = await fetch(url, {
     method: "DELETE",
     credentials: "same-origin",
+    signal,
   });
   if (response.status === 404) return false;
   if (response.status === 401) {
@@ -909,9 +954,10 @@ export async function deleteHostNote(addr: string): Promise<boolean> {
  *  zero revisions). */
 export async function fetchHostNoteRevisions(
   addr: string,
+  signal?: AbortSignal,
 ): Promise<NoteRevision[]> {
   const url = `${CGI_ROOT}/notes/host/${encodeURIComponent(addr)}/revisions`;
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as NoteRevision[];
 }
@@ -927,7 +973,7 @@ export function useHostNoteRevisions(
 ): UseQueryResult<NoteRevision[]> {
   return useQuery<NoteRevision[]>({
     queryKey: ["notes", "host", addr, "revisions"],
-    queryFn: () => fetchHostNoteRevisions(addr as string),
+    queryFn: ({ signal }) => fetchHostNoteRevisions(addr as string, signal),
     ...options,
     enabled: gatedEnabled(Boolean(addr), options),
   });
@@ -1052,6 +1098,7 @@ export interface NotesListParams {
  *  call in practice). */
 export async function fetchNotes(
   params: NotesListParams = {},
+  signal?: AbortSignal,
 ): Promise<Note[]> {
   const url =
     CGI_ROOT +
@@ -1062,7 +1109,7 @@ export async function fetchNotes(
       limit: params.limit,
       skip: params.skip,
     });
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as Note[];
 }
@@ -1095,7 +1142,7 @@ export function useNotes(
       params.limit ?? null,
       params.skip ?? null,
     ],
-    queryFn: () => fetchNotes(params),
+    queryFn: ({ signal }) => fetchNotes(params, signal),
     staleTime: 0,
     refetchOnMount: "always",
     ...options,

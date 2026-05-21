@@ -55,23 +55,42 @@ const DISABLED_AUTH_CONFIG: AuthConfig = {
 /* Raw fetchers                                                       */
 /* ------------------------------------------------------------------ */
 
+/** Predicate: ``true`` when an exception is an ``AbortError``
+ *  raised by a cancelled ``fetch()``. Used in the
+ *  catch-and-fall-back helpers below so a cancellation (the
+ *  caller no longer cares about the result) bubbles up to React
+ *  Query as a cancellation instead of being silently coerced
+ *  into a misleading fallback value. */
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof DOMException && err.name === "AbortError"
+  );
+}
+
 /** Fetch the current session's user descriptor.
  *
  *  The endpoint is ``@check_referer``-protected; same-origin
  *  ``fetch()`` includes the ``Referer`` header by default, which
  *  satisfies the check. A non-2xx response (most commonly 400 from
  *  the Referer check, or 404 when auth is disabled) is treated as
- *  an anonymous session. */
-export async function fetchAuthMe(): Promise<AuthMe> {
+ *  an anonymous session.
+ *
+ *  ``signal`` is forwarded so React Query can cancel the request
+ *  on cache invalidation; an ``AbortError`` is re-thrown rather
+ *  than coerced to "anonymous" so the cache state stays accurate
+ *  on cancellation. */
+export async function fetchAuthMe(signal?: AbortSignal): Promise<AuthMe> {
   try {
     const r = await fetch(`${CGI_ROOT}/auth/me`, {
       credentials: "same-origin",
+      signal,
     });
     if (!r.ok) {
       return { authenticated: false };
     }
     return (await r.json()) as AuthMe;
-  } catch {
+  } catch (err) {
+    if (isAbortError(err)) throw err;
     return { authenticated: false };
   }
 }
@@ -80,17 +99,23 @@ export async function fetchAuthMe(): Promise<AuthMe> {
  *
  *  When auth is disabled server-side this endpoint is not
  *  registered and returns 404; we surface that as
- *  ``{enabled: false, ...}``. */
-export async function fetchAuthConfig(): Promise<AuthConfig> {
+ *  ``{enabled: false, ...}``. ``AbortError`` is re-thrown so a
+ *  cancelled query lands as cancelled, not as
+ *  ``DISABLED_AUTH_CONFIG``. */
+export async function fetchAuthConfig(
+  signal?: AbortSignal,
+): Promise<AuthConfig> {
   try {
     const r = await fetch(`${CGI_ROOT}/auth/config`, {
       credentials: "same-origin",
+      signal,
     });
     if (!r.ok) {
       return DISABLED_AUTH_CONFIG;
     }
     return (await r.json()) as AuthConfig;
-  } catch {
+  } catch (err) {
+    if (isAbortError(err)) throw err;
     return DISABLED_AUTH_CONFIG;
   }
 }
@@ -99,10 +124,11 @@ export async function fetchAuthConfig(): Promise<AuthConfig> {
  *
  *  The endpoint is idempotent: calling it without an active
  *  session is fine. */
-export async function logout(): Promise<void> {
+export async function logout(signal?: AbortSignal): Promise<void> {
   await fetch(`${CGI_ROOT}/auth/logout`, {
     method: "POST",
     credentials: "same-origin",
+    signal,
   });
 }
 
@@ -114,6 +140,7 @@ export async function logout(): Promise<void> {
 export async function sendMagicLink(
   email: string,
   next?: string | null,
+  signal?: AbortSignal,
 ): Promise<{ status?: string; message?: string }> {
   const body: Record<string, string> = { email };
   if (next) {
@@ -124,6 +151,7 @@ export async function sendMagicLink(
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   if (!r.ok) {
     throw new Error(
@@ -157,7 +185,7 @@ const AUTH_CONFIG_KEY = ["auth", "config"] as const;
 export function useAuthMe(): UseQueryResult<AuthMe> {
   return useQuery<AuthMe>({
     queryKey: AUTH_ME_KEY,
-    queryFn: fetchAuthMe,
+    queryFn: ({ signal }) => fetchAuthMe(signal),
     // Skip the fetch entirely when the operator has not enabled
     // auth: ``/cgi/auth/me`` is not registered server-side in
     // that case, so issuing the request would just produce a
@@ -173,7 +201,7 @@ export function useAuthMe(): UseQueryResult<AuthMe> {
 export function useAuthConfig(): UseQueryResult<AuthConfig> {
   return useQuery<AuthConfig>({
     queryKey: AUTH_CONFIG_KEY,
-    queryFn: fetchAuthConfig,
+    queryFn: ({ signal }) => fetchAuthConfig(signal),
     // Same rationale as ``useAuthMe``: ``/cgi/auth/config`` is
     // not registered when ``WEB_AUTH_ENABLED`` is ``False``,
     // and the menu code already short-circuits on the same
@@ -193,7 +221,13 @@ export function useAuthConfig(): UseQueryResult<AuthConfig> {
 export function useLogout(): UseMutationResult<void, Error, void, unknown> {
   const queryClient = useQueryClient();
   return useMutation<void, Error, void>({
-    mutationFn: logout,
+    // Wrapper drops the ``variables`` argument React Query feeds
+    // ``mutationFn``. ``logout`` would otherwise be misread as
+    // ``(variables) => Promise<void>`` and TypeScript would
+    // surface a parameter-shape mismatch against the
+    // ``MutationFunction<void, void>`` contract now that the
+    // raw helper takes an optional ``AbortSignal``.
+    mutationFn: () => logout(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: AUTH_ME_KEY });
     },
