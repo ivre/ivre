@@ -261,6 +261,26 @@ def query_from_params(params):
         raise ValueError("Parameter parsing error") from exc
 
 
+def extract_api_key() -> str | None:
+    """Return the raw API key string from the current Bottle
+    request, or ``None`` if no API-key header is present.
+
+    Recognises ``X-API-Key`` (preferred) and ``Authorization:
+    Bearer <key>`` (case-insensitive scheme match). The header
+    extraction is intentionally separate from validation: it is
+    cheap and side-effect-free, so upstream gates
+    (e.g. :func:`ivre.web.base.quota_gated`) can call it on
+    every request without touching the DB.
+    """
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        return api_key
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header.split(None, 1)[1]
+    return None
+
+
 def get_user() -> str | None:
     """Return the connected user."""
     if not config.WEB_AUTH_ENABLED:
@@ -275,12 +295,19 @@ def get_user() -> str | None:
         if user and user.get("is_active"):
             return user["email"]
 
-    # 2. Check API key
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.lower().startswith("bearer "):
-            api_key = auth_header.split(None, 1)[1]
+    # 2. Check API key. If an upstream gate (e.g.
+    # :func:`ivre.web.base.quota_gated`) has already validated
+    # the key for this request, reuse its cached user record
+    # rather than hitting the DB twice (and double-stamping
+    # ``last_used``).
+    cached_user = request.environ.get("ivre.api_key_user")
+    if (
+        isinstance(cached_user, dict)
+        and cached_user.get("is_active")
+        and cached_user.get("email")
+    ):
+        return cached_user["email"]
+    api_key = extract_api_key()
     if api_key and db.auth is not None:
         user = db.auth.validate_api_key(api_key)
         if user and user.get("is_active"):

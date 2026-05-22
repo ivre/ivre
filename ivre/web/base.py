@@ -23,10 +23,11 @@ This module exists to break the cyclic import between ``app`` and
 so they live here where neither module is imported.
 """
 
+import hashlib
 import json
 from functools import wraps
 
-from bottle import Bottle, request, response
+from bottle import Bottle, abort, request, response
 
 from ivre import config, utils
 
@@ -90,6 +91,96 @@ def check_referer(func):
         ):
             return func(*args, **kargs)
         return _die(referer)
+
+    return _newfunc
+
+
+def quota_gated(func):
+    """Per-API-key sliding-window quota gate for data-plane
+    routes.
+
+    The decorator is a no-op for requests that do *not* carry an
+    ``X-API-Key`` or ``Authorization: Bearer ...`` header
+    (session-cookie / ``REMOTE_USER`` traffic is unaffected), and
+    a no-op when ``config.WEB_AUTH_ENABLED`` is ``False`` or the
+    auth backend is not configured. For requests that *do* carry
+    an API key:
+
+    * the key is validated via ``db.auth.validate_api_key``;
+      invalid / expired / disabled keys get ``HTTP 401``;
+    * the validated user record is cached on
+      ``request.environ['ivre.api_key_user']`` so a later
+      :func:`ivre.web.utils.get_user` call inside the same
+      request does not hit the DB twice;
+    * when ``config.WEB_API_KEY_RATE_MAX`` is set, the key is
+      gated through ``db.auth.is_rate_limited`` /
+      ``record_rate_limit`` with key
+      ``f"api:{sha256(key).hexdigest()}"``,
+      ``max_attempts=WEB_API_KEY_RATE_MAX``, and
+      ``window=WEB_API_KEY_RATE_WINDOW``;
+    * over-quota requests get ``HTTP 429`` and are *not* counted
+      (the window is extended only by allowed requests, matching
+      the magic-link rate-limit pattern at
+      ``ivre/web/auth.py:357-385``).
+
+    The gate is intentionally scoped to programmatic clients:
+    interactive SPA traffic uses the session cookie path, which
+    is gated by ``WEB_AUTH_ENABLED`` and the auth backend's own
+    session lifetime instead.
+    """
+
+    @wraps(func)
+    def _newfunc(*args, **kargs):
+        # Import lazily to keep this module import-cycle-free
+        # (``ivre.web.utils`` imports ``ivre.web.base`` is a
+        # one-way dep; the reverse would re-introduce the cycle
+        # this module exists to break).
+        from ivre.web.utils import (  # pylint: disable=import-outside-toplevel
+            extract_api_key,
+        )
+
+        api_key = extract_api_key()
+        if api_key is None:
+            return func(*args, **kargs)
+        if not config.WEB_AUTH_ENABLED:
+            return func(*args, **kargs)
+        from ivre.db import db  # pylint: disable=import-outside-toplevel
+
+        if db.auth is None:
+            return func(*args, **kargs)
+        user = db.auth.validate_api_key(api_key)
+        if not isinstance(user, dict) or not user.get("is_active"):
+            abort(401, "Invalid or expired API key")
+        # Cache the validated user so ``get_user`` reuses it
+        # instead of running a second ``validate_api_key`` (which
+        # would re-stamp ``last_used`` for the same request).
+        request.environ["ivre.api_key_user"] = user
+        max_attempts = config.WEB_API_KEY_RATE_MAX
+        if not isinstance(max_attempts, int) or max_attempts <= 0:
+            return func(*args, **kargs)
+        window = config.WEB_API_KEY_RATE_WINDOW
+        if not isinstance(window, int) or window <= 0:
+            return func(*args, **kargs)
+        # Hash the raw key with the same algorithm
+        # ``create_api_key`` / ``validate_api_key`` use so the
+        # rate-limit ledger never stores credential material in
+        # plaintext.
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        limit_key = f"api:{key_hash}"
+        if db.auth.is_rate_limited(limit_key, max_attempts, window):
+            utils.LOGGER.info(
+                "API key quota exceeded (key_prefix=%s, max=%d, window=%ds)",
+                api_key[:12],
+                max_attempts,
+                window,
+            )
+            abort(
+                429,
+                f"API key quota exceeded "
+                f"({max_attempts} requests per {window} seconds)",
+            )
+        db.auth.record_rate_limit(limit_key)
+        return func(*args, **kargs)
 
     return _newfunc
 

@@ -349,6 +349,22 @@ WEB_AUTH_MAGIC_LINK_LIFETIME = 900  # 15 minutes
 # Magic link rate limits (per 15-minute window)
 WEB_AUTH_MAGIC_LINK_RATE_PER_EMAIL = 3
 WEB_AUTH_MAGIC_LINK_RATE_PER_IP = 10
+# Per-API-key quota on the data-plane routes (``/scans``,
+# ``/view``, ``/passive``, ``/flows``, ``/ipdata``,
+# ``/passivedns``, ``/dns``, ``/rir``, ``/iprange``). A request
+# authenticated by an ``X-API-Key`` or ``Authorization: Bearer
+# ...`` header is gated through a sliding window of
+# ``WEB_API_KEY_RATE_MAX`` requests per
+# ``WEB_API_KEY_RATE_WINDOW`` seconds, per key. Over-quota
+# requests get ``HTTP 429``; only the *allowed* requests are
+# counted (an over-quota request does not extend the window,
+# matching the magic-link rate-limit pattern). Set
+# ``WEB_API_KEY_RATE_MAX`` to a positive integer to enable;
+# ``None`` (the default) disables the gate. Session-cookie /
+# REMOTE_USER traffic is unaffected -- this knob targets
+# programmatic clients authenticated with an API key.
+WEB_API_KEY_RATE_MAX: int | None = None
+WEB_API_KEY_RATE_WINDOW = 60
 # Base URL for OAuth callbacks (auto-detected from request if None)
 WEB_AUTH_BASE_URL = None
 # Generic OIDC provider

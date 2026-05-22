@@ -40,7 +40,7 @@ from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.tools import iprange as iprange_tool
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
-from ivre.web.base import application, check_referer, check_upload_ok
+from ivre.web.base import application, check_referer, check_upload_ok, quota_gated
 from ivre.web.modules import enabled_modules, require_module
 
 #
@@ -151,6 +151,7 @@ _SUBDB_TO_MODULE = {
     "onlyips|ipsports|timeline|coordinates|countopenports|diffcats>"
 )
 @check_referer
+@quota_gated
 def get_nmap_action(subdb, action):
     """Get special values from Nmap & View databases
 
@@ -326,6 +327,7 @@ def get_nmap_action(subdb, action):
 
 @application.get("/<subdb:re:scans|view>/count")
 @check_referer
+@quota_gated
 def get_nmap_count(subdb):
     """Get special values from Nmap & View databases
 
@@ -347,6 +349,7 @@ def get_nmap_count(subdb):
 
 @application.get("/<subdb:re:scans|view|passive|rir>/top/<field:path>")
 @check_referer
+@quota_gated
 def get_top(subdb, field):
     """Get top values from Nmap, View, Passive & RIR databases
 
@@ -414,6 +417,7 @@ def get_top(subdb, field):
 
 @application.get("/<subdb:re:scans|view|passive|rir>/distinct/<field:path>")
 @check_referer
+@quota_gated
 def get_distinct(subdb, field):
     """Get distinct values from Nmap, View, Passive & RIR databases
 
@@ -514,6 +518,7 @@ def _set_datetime_field(dbase, record, field, current=None):
 
 @application.get("/<subdb:re:scans|view>")
 @check_referer
+@quota_gated
 def get_nmap(subdb):
     """Get records from Nmap & View databases
 
@@ -680,6 +685,7 @@ def import_files(subdb, source, categories, files):
 
 @application.post("/<subdb:re:scans|view>")
 @check_referer
+@quota_gated
 @check_upload_ok
 def post_nmap(subdb):
     """Add records to Nmap & View databases
@@ -718,6 +724,7 @@ def post_nmap(subdb):
 
 @application.get("/flows")
 @check_referer
+@quota_gated
 def get_flow():
     """Get a flow graph, count, or details payload.
 
@@ -852,6 +859,7 @@ def _flow_record_from_payload(rec):
 
 @application.post("/flows")
 @check_referer
+@quota_gated
 @check_upload_ok
 def post_flow():
     """Ingest a bulk of flow records.
@@ -912,6 +920,7 @@ def post_flow():
 
 @application.post("/flows/cleanup")
 @check_referer
+@quota_gated
 @check_upload_ok
 def post_flow_cleanup():
     """Run the backend's ``cleanup_flows`` heuristic.
@@ -941,6 +950,7 @@ def post_flow_cleanup():
 
 @application.get("/ipdata/<addr>")
 @check_referer
+@quota_gated
 def get_ipdata(addr):
     """Returns (estimated) geographical and AS data for a given IP address.
 
@@ -974,6 +984,7 @@ def _iprange_param(name: str) -> str | None:
 
 @application.get("/iprange")
 @check_referer
+@quota_gated
 def get_iprange():
     """Enumerate IP addresses matching a selector (country, AS,
     network, range, or all routable IPs).
@@ -1082,6 +1093,7 @@ def get_iprange():
 
 @application.get("/passivedns/<query:path>")
 @check_referer
+@quota_gated
 def get_passivedns(query):
     """Query passive DNS data. This API is compatible with the `Common
     Output Format
@@ -1159,6 +1171,7 @@ def get_passivedns(query):
 
 @application.get("/passive")
 @check_referer
+@quota_gated
 def get_passive():
     """Get records from Passive database
 
@@ -1222,6 +1235,7 @@ def get_passive():
 
 @application.get("/passive/count")
 @check_referer
+@quota_gated
 def get_passive_count():
     """Get special values from Nmap & View databases
 
@@ -1266,6 +1280,7 @@ def _serialize_dns_record(rec, datesasstrings):
 
 @application.get("/dns")
 @check_referer
+@quota_gated
 def get_dns():
     """Return a merged DNS view across the active scan database
     (``db.nmap``) and the passive observation database
@@ -1381,6 +1396,7 @@ def get_dns():
 
 @application.get("/rir")
 @check_referer
+@quota_gated
 def get_rir():
     """Get records from the RIR database.
 
@@ -1440,6 +1456,7 @@ def get_rir():
 
 @application.get("/rir/count")
 @check_referer
+@quota_gated
 def get_rir_count():
     """Count records from the RIR database.
 
