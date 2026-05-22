@@ -16351,8 +16351,9 @@ class WebFilterInjectorTests(unittest.TestCase):
         self._webutils.FILTER_INJECTORS.extend(self._saved)
 
     def test_no_injectors_returns_base_filter_unchanged(self) -> None:
-        # Empty registry: the helper is a no-op identity over
-        # the base filter (modulo ``flt_and(base)`` collapsing).
+        # Empty registry: ``apply_filter_injectors`` never
+        # enters its loop and returns ``base_flt`` as-is, with
+        # no ``dbase.flt_and`` call.
         base = {"sentinel": "base"}
         result = self._webutils.apply_filter_injectors(
             _StubFilterDB, base, "alice@example.com"
@@ -16383,9 +16384,9 @@ class WebFilterInjectorTests(unittest.TestCase):
         result = self._webutils.apply_filter_injectors(
             _StubFilterDB, base, "alice@example.com"
         )
-        # ``None`` short-circuits the AND; the base filter is
-        # returned unchanged (modulo any ``flt_and(base)``
-        # normalisation, which the stub backend does not apply).
+        # ``None`` short-circuits the AND for that injector,
+        # so the accumulator stays equal to ``base_flt`` and is
+        # returned as-is without any ``dbase.flt_and`` call.
         self.assertEqual(result, base)
 
     def test_multiple_injectors_chain_in_registration_order(self) -> None:
