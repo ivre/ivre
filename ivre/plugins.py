@@ -40,6 +40,7 @@ CATEGORIES = [
     "tags.active",
     "tools",
     "view",
+    "web.filter",
 ]
 
 
