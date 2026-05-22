@@ -16313,9 +16313,13 @@ class WebFilterInjectorTests(unittest.TestCase):
     2. Registered injectors are called in registration order;
        their return value is AND'd into the base filter via
        ``dbase.flt_and`` unless the return value is ``None``.
-    3. An injector that raises is logged and skipped — a
-       misbehaving plugin must not turn every API request into
-       a 500.
+    3. Fail-closed on injector exception: an uncaught exception
+       is logged at ``ERROR`` level (with ``exc_info`` and the
+       failing injector's identity) and re-raised; later
+       injectors are *not* invoked. An authorization /
+       scoping plugin that wants graceful degradation must
+       catch its own failures and return a deny clause
+       (``dbase.searchnonexistent()``) itself.
     4. :func:`register_filter_injector` returns the registered
        callable unchanged so plugins can use it as a decorator.
     5. The hook is wired into :func:`get_init_flt_for` in a
@@ -16403,26 +16407,72 @@ class WebFilterInjectorTests(unittest.TestCase):
         self.assertEqual(order, ["first", "second"])
         self.assertEqual(result, {"base": True, "first": True, "second": True})
 
-    def test_injector_raising_is_logged_and_skipped(self) -> None:
+    def test_injector_raising_propagates_after_logging(self) -> None:
+        # Fail-closed contract: an uncaught exception in an
+        # authorization / scoping plugin means the plugin could
+        # not determine the scope it was supposed to enforce.
+        # Continuing would apply the bare base filter and fail
+        # open. The hook must therefore log loudly (ERROR level,
+        # ``exc_info``, failing injector identity) and re-raise
+        # the original exception; later injectors must not run.
+        later_calls: list[str] = []
+
         def _bad(_dbase: Any, _user: str | None) -> dict[str, Any]:
             raise RuntimeError("plugin crashed")
 
-        def _good(_dbase: Any, _user: str | None) -> dict[str, Any]:
-            return {"good": True}
+        def _later(_dbase: Any, _user: str | None) -> dict[str, Any]:
+            later_calls.append("later")
+            return {"later": True}
 
         self._webutils.register_filter_injector(_bad)
-        self._webutils.register_filter_injector(_good)
-        with self.assertLogs("ivre", level="WARNING") as captured:
-            result = self._webutils.apply_filter_injectors(
-                _StubFilterDB, {"base": True}, None
-            )
-        # The good injector still applied; the bad one was
-        # logged as a warning rather than propagated.
-        self.assertEqual(result, {"base": True, "good": True})
+        self._webutils.register_filter_injector(_later)
+        with self.assertLogs("ivre", level="ERROR") as captured:
+            with self.assertRaises(RuntimeError) as ctx:
+                self._webutils.apply_filter_injectors(
+                    _StubFilterDB, {"base": True}, None
+                )
+        self.assertEqual(str(ctx.exception), "plugin crashed")
+        # The injector registered after the failing one must
+        # not have been invoked -- the failure short-circuits
+        # the chain rather than skipping the bad injector and
+        # continuing.
+        self.assertEqual(later_calls, [])
+        # The log line names the failing injector (so an
+        # operator can identify the plugin in production logs)
+        # and is emitted at ERROR level.
         self.assertTrue(
             any("Filter injector" in msg for msg in captured.output),
             captured.output,
         )
+        self.assertTrue(
+            any("ERROR" in msg for msg in captured.output),
+            captured.output,
+        )
+
+    def test_injector_failure_fail_closed_plugin_pattern(self) -> None:
+        # Document, via test, the in-plugin pattern for graceful
+        # degradation: a plugin that wants to fall back to a
+        # deny-all clause on its own internal failure catches
+        # the exception itself and returns the backend's
+        # ``searchnonexistent()`` equivalent. The hook then
+        # composes that clause normally; nothing in core has to
+        # know about the policy.
+        def _scoping(dbase: Any, _user: str | None) -> dict[str, Any]:
+            try:
+                raise RuntimeError("IAM unreachable")
+            except RuntimeError:
+                # The stub backend doesn't ship
+                # ``searchnonexistent``; use a sentinel clause
+                # to stand in for the deny-all filter the real
+                # backends return.
+                _ = dbase  # would be ``dbase.searchnonexistent()``
+                return {"deny": True}
+
+        self._webutils.register_filter_injector(_scoping)
+        result = self._webutils.apply_filter_injectors(
+            _StubFilterDB, {"base": True}, "alice@example.com"
+        )
+        self.assertEqual(result, {"base": True, "deny": True})
 
     def test_register_filter_injector_returns_callable_for_decorator_use(
         self,

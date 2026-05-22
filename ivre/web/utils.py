@@ -338,15 +338,26 @@ def _parse_query(dbase, query):
 # inject for this pair) or a backend filter object that
 # ``dbase.flt_and`` can compose with the base filter.
 #
-# Only the call to the registered injector is wrapped in a
-# try/except by :func:`apply_filter_injectors`: a returned
-# clause that ``dbase.flt_and`` cannot compose (wrong backend
-# shape, malformed Mongo operator, etc.) will propagate and
-# fail the request. Plugins are therefore responsible for
-# returning clauses that match the backend the deployment runs
-# against; ``flt_and`` failures are bugs in the plugin, not
-# something core should paper over with a fail-open default
-# that hides broken authorization wiring.
+# Failure model: fail-closed. An uncaught exception in an
+# injector means the plugin could not determine the scope it
+# was supposed to enforce; for an authorization control,
+# silently continuing with whatever ``_resolve_init_flt``
+# returned would be fail-open (the user runs against the base
+# filter, often :data:`flt_empty`, i.e. the whole database).
+# :func:`apply_filter_injectors` therefore logs the failure
+# via :data:`ivre.utils.LOGGER` at ``ERROR`` level with
+# ``exc_info=True`` and the failing injector's identity, then
+# re-raises so the request is aborted -- Bottle turns the
+# unhandled exception into ``500`` and the MCP server surfaces
+# it as a tool error. A plugin that wants graceful degradation
+# (e.g. fall back to a deny-all clause on a transient IAM
+# outage) catches the failure itself and returns a backend
+# deny clause -- ``dbase.searchnonexistent()`` on every
+# backend that ships one, the in-tree ``noaccess`` preset is
+# exactly this pattern. The composing call ``dbase.flt_and``
+# is likewise not wrapped: an un-composable clause is a
+# contract violation by the plugin and must surface as an
+# error rather than be silently dropped.
 # ---------------------------------------------------------------------
 
 FilterInjector = Callable[[Any, str | None], Filter | None]
@@ -382,30 +393,42 @@ def apply_filter_injectors(dbase: Any, base_flt: Filter, user: str | None) -> Fi
     ``None`` skips the injector; any other value is AND'd into
     the accumulator via ``dbase.flt_and``.
 
-    Only the *call* to the injector is wrapped in a try/except:
-    if an injector raises while computing its clause, the
-    exception is logged via :data:`ivre.utils.LOGGER` and the
-    injector is skipped so a single broken plugin cannot turn
-    every API request into a 500. The ``dbase.flt_and`` call
-    that composes the returned clause into the accumulator is
-    deliberately *not* wrapped — a clause that the backend
-    cannot AND with the running filter is a contract violation
-    by the plugin (wrong backend shape, malformed operator, …)
-    and must surface as an error rather than be silently
-    dropped, which would fail the authorization check open.
+    Fail-closed on uncaught injector exceptions: an uncaught
+    exception means the plugin could not determine the scope it
+    was supposed to enforce, so the request is aborted. The
+    failing injector and the original exception are logged via
+    :data:`ivre.utils.LOGGER` at ``ERROR`` level with
+    ``exc_info=True``, then the exception is re-raised; later
+    injectors are *not* invoked. Bottle turns the unhandled
+    exception into ``500`` and the MCP server surfaces it as a
+    tool error. A plugin that wants graceful degradation (e.g.
+    fall back to a deny-all clause on a transient IAM outage)
+    catches the failure itself and returns a backend deny
+    clause -- ``dbase.searchnonexistent()`` on every backend
+    that ships one.
+
+    The composing call ``dbase.flt_and`` is likewise not
+    wrapped: an un-composable clause (wrong backend shape,
+    malformed operator, ...) is a contract violation by the
+    plugin and must surface as an error rather than be silently
+    dropped.
     """
     flt = base_flt
     for inj in FILTER_INJECTORS:
         try:
             clause = inj(dbase, user)
-        except Exception:  # pylint: disable=broad-except
-            # A misbehaving injector must not 500 the whole API;
-            # log and continue. The traceback identifying which
-            # injector raised is captured in ``exc_info``.
-            utils.LOGGER.warning(
-                "Filter injector %r raised; skipping", inj, exc_info=True
+        except Exception:
+            # Authorization / scoping plugins are security
+            # controls: an uncaught exception means the plugin
+            # could not return a scope clause, and continuing
+            # would silently apply the bare base filter (often
+            # ``flt_empty``) -- i.e. fail-open. Log loudly with
+            # the failing injector's identity + traceback, then
+            # re-raise so the request fails closed.
+            utils.LOGGER.error(
+                "Filter injector %r raised; aborting request", inj, exc_info=True
             )
-            continue
+            raise
         if clause is not None:
             flt = dbase.flt_and(flt, clause)
     return flt
