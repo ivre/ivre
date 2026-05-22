@@ -30,6 +30,7 @@ from functools import wraps
 from bottle import Bottle, abort, request, response
 
 from ivre import config, utils
+from ivre.db import db
 
 application = Bottle()
 
@@ -39,6 +40,29 @@ def add_security_headers():
     response.set_header("X-Frame-Options", "DENY")
     response.set_header("Content-Security-Policy", "frame-ancestors 'none'")
     response.set_header("X-Content-Type-Options", "nosniff")
+
+
+def extract_api_key():
+    """Return the raw API key string from the current Bottle
+    request, or ``None`` if no API-key header is present.
+
+    Recognises ``X-API-Key`` (preferred) and ``Authorization:
+    Bearer <key>`` (case-insensitive scheme match). The header
+    extraction is intentionally separate from validation: it is
+    cheap and side-effect-free, so upstream gates (e.g.
+    :func:`quota_gated`) can call it on every request without
+    touching the DB. Lives in this module so consumers in both
+    :mod:`ivre.web.base` and :mod:`ivre.web.utils` can reach it
+    without re-introducing the cycle ``base`` -> ``utils`` ->
+    ``base`` that the module docstring describes.
+    """
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        return api_key
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header.split(None, 1)[1]
+    return None
 
 
 def check_referer(func):
@@ -131,21 +155,11 @@ def quota_gated(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-        # Import lazily to keep this module import-cycle-free
-        # (``ivre.web.utils`` imports ``ivre.web.base`` is a
-        # one-way dep; the reverse would re-introduce the cycle
-        # this module exists to break).
-        from ivre.web.utils import (  # pylint: disable=import-outside-toplevel
-            extract_api_key,
-        )
-
         api_key = extract_api_key()
         if api_key is None:
             return func(*args, **kargs)
         if not config.WEB_AUTH_ENABLED:
             return func(*args, **kargs)
-        from ivre.db import db  # pylint: disable=import-outside-toplevel
-
         if db.auth is None:
             return func(*args, **kargs)
         user = db.auth.validate_api_key(api_key)

@@ -16661,7 +16661,7 @@ class QuotaGatedTests(unittest.TestCase):
         gated = self._web_base.quota_gated(_stub)
         with (
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth = None
             result = gated()
@@ -16681,7 +16681,7 @@ class QuotaGatedTests(unittest.TestCase):
         gated = self._web_base.quota_gated(_stub)
         with (
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = None
             with self.assertRaises(HTTPError) as ctx:
@@ -16705,7 +16705,7 @@ class QuotaGatedTests(unittest.TestCase):
         gated = self._web_base.quota_gated(_stub)
         with (
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",
@@ -16730,7 +16730,7 @@ class QuotaGatedTests(unittest.TestCase):
         with (
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",
@@ -16759,7 +16759,7 @@ class QuotaGatedTests(unittest.TestCase):
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",
@@ -16794,7 +16794,7 @@ class QuotaGatedTests(unittest.TestCase):
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 3),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",
@@ -16820,7 +16820,7 @@ class QuotaGatedTests(unittest.TestCase):
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",
@@ -16852,7 +16852,7 @@ class QuotaGatedTests(unittest.TestCase):
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
             mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
-            mock.patch("ivre.db.db") as db_mod,
+            mock.patch("ivre.web.base.db") as db_mod,
         ):
             db_mod.auth.validate_api_key.return_value = {
                 "email": "alice@example.org",

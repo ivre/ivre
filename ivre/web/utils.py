@@ -43,6 +43,7 @@ from regexploit.redos import find as _regexploit_find  # type: ignore[import-unt
 from ivre import config, utils
 from ivre.plugins import load_plugins
 from ivre.types import Filter
+from ivre.web.base import extract_api_key
 
 GET_NOTEPAD_PAGES = {}
 
@@ -259,26 +260,6 @@ def query_from_params(params):
     except ValueError as exc:
         utils.LOGGER.critical("Parameter parsing error [%s (%r)]", exc, exc)
         raise ValueError("Parameter parsing error") from exc
-
-
-def extract_api_key() -> str | None:
-    """Return the raw API key string from the current Bottle
-    request, or ``None`` if no API-key header is present.
-
-    Recognises ``X-API-Key`` (preferred) and ``Authorization:
-    Bearer <key>`` (case-insensitive scheme match). The header
-    extraction is intentionally separate from validation: it is
-    cheap and side-effect-free, so upstream gates
-    (e.g. :func:`ivre.web.base.quota_gated`) can call it on
-    every request without touching the DB.
-    """
-    api_key = request.headers.get("X-API-Key")
-    if api_key:
-        return api_key
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        return auth_header.split(None, 1)[1]
-    return None
 
 
 def get_user() -> str | None:
