@@ -34,7 +34,14 @@ from collections import namedtuple
 from bottle import abort, request, response
 
 from ivre import VERSION, config, utils
-from ivre.db import db
+from ivre.db import (
+    _ENTITY_CANONICALIZERS,
+    NoteAlreadyExists,
+    NoteBodyTooLarge,
+    NoteConcurrencyError,
+    NoteNotFound,
+    db,
+)
 from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.tools import iprange as iprange_tool
@@ -1557,10 +1564,6 @@ def _validate_entity_type(entity_type: str) -> None:
     with a friendlier message than the canonicaliser's
     registry-mismatch ``ValueError``.
     """
-    from ivre.db import (  # pylint: disable=import-outside-toplevel
-        _ENTITY_CANONICALIZERS,
-    )
-
     if entity_type not in _ENTITY_CANONICALIZERS:
         abort(
             400,
@@ -1693,13 +1696,6 @@ def put_note(entity_type: str, entity_key: str):
     :status 501: notes backend not configured on this server
 
     """
-    from ivre.db import (  # pylint: disable=import-outside-toplevel
-        NoteAlreadyExists,
-        NoteBodyTooLarge,
-        NoteConcurrencyError,
-        NoteNotFound,
-    )
-
     # Module-allowlist check first: an operator who excludes
     # ``notes`` from ``WEB_MODULES`` expects the route to look
     # like it does not exist (404), not like the backend is

@@ -36,11 +36,12 @@ except ImportError:
     HAVE_MYSQL = False
 
 
-from bottle import request  # type: ignore
+from bottle import abort, request  # type: ignore
 from regexploit.ast.sre import SreOpParser  # type: ignore[import-untyped]
 from regexploit.redos import find as _regexploit_find  # type: ignore[import-untyped]
 
 from ivre import config, utils
+from ivre.db import db
 from ivre.plugins import load_plugins
 from ivre.types import Filter
 from ivre.web.base import extract_api_key
@@ -267,8 +268,6 @@ def get_user() -> str | None:
     if not config.WEB_AUTH_ENABLED:
         return request.environ.get("REMOTE_USER")
 
-    from ivre.db import db  # pylint: disable=import-outside-toplevel
-
     # 1. Check session cookie
     session_token = request.get_cookie("_ivre_session", secret=config.WEB_SECRET)
     if session_token and db.auth is not None:
@@ -461,8 +460,6 @@ def _resolve_init_flt(user: str | None, dbase: Any) -> Filter:
             return init_queries[realm]
     # Group-based access control (when auth is enabled)
     if config.WEB_AUTH_ENABLED and user:
-        from ivre.db import db  # pylint: disable=import-outside-toplevel
-
         if db.auth is not None:
             for group in db.auth.get_user_groups(user):
                 key = f"group:{group}"
@@ -501,8 +498,6 @@ def get_init_flt(dbase):
     user = get_user()
     # When auth is enabled, deny access to unauthenticated users
     if config.WEB_AUTH_ENABLED and user is None:
-        from bottle import abort  # pylint: disable=import-outside-toplevel
-
         abort(401, "Authentication required")
     return get_init_flt_for(user, dbase)
 
