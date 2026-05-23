@@ -16589,6 +16589,21 @@ class QuotaGatedTests(unittest.TestCase):
         self._web_base = web_base
         self._request = _bottle_request
 
+        # ``bottle.request`` is a process-global ``LocalRequest``
+        # whose ``environ`` is a thread-local. ``self._bind``
+        # mutates it; without a restore, the last env we bound
+        # would leak into any subsequent test that reads
+        # ``bottle.request`` without binding first. Snapshot
+        # whatever was there before this test and restore it on
+        # tearDown (the empty-dict fallback handles the common
+        # "nothing bound yet" case).
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                _bottle_request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+
         # Build a minimal WSGI env every test reuses; tests
         # override headers / environ by calling ``self._bind``.
         self._base_env: dict[str, Any] = {
@@ -16602,6 +16617,12 @@ class QuotaGatedTests(unittest.TestCase):
             "wsgi.url_scheme": "http",
             "CONTENT_LENGTH": "0",
         }
+
+    def tearDown(self) -> None:
+        # Restore the pre-test request environ so the synthetic
+        # WSGI environ this test class binds via ``_bind`` does
+        # not leak into any other test in the same process.
+        self._request.bind(self._saved_request_environ or {})
 
     def _bind(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
         """Bind ``bottle.request`` to a fresh env carrying
@@ -16713,6 +16734,47 @@ class QuotaGatedTests(unittest.TestCase):
             }
             with self.assertRaises(HTTPError) as ctx:
                 gated()
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_user_without_email_returns_401(self) -> None:
+        # Regression for the cache-then-skip asymmetry: a user
+        # dict that ``validate_api_key`` returns with
+        # ``is_active=True`` but missing (or empty) ``email``
+        # would be cached by ``quota_gated`` but
+        # ``get_user``'s cache fast-path requires both fields,
+        # so the cache would be silently bypassed and
+        # ``validate_api_key`` called again -- defeating the
+        # "no double-stamp" goal of the cache. Tighten the gate
+        # so a half-formed user dict is treated as "invalid key"
+        # at the 401 boundary rather than cached.
+        from bottle import HTTPError
+
+        for shape in (
+            {"is_active": True},  # missing email
+            {"is_active": True, "email": ""},  # empty email
+            {"is_active": True, "email": None},  # None email
+        ):
+            with self.subTest(shape=shape):
+                env = self._bind(headers={"X-API-Key": "ivre_noemail"})
+
+                def _stub() -> str:
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
+                    db_mod.auth.validate_api_key.return_value = shape
+                    with self.assertRaises(HTTPError) as ctx:
+                        gated()
+                self.assertEqual(ctx.exception.status_code, 401)
+                # The half-formed dict must NOT have been cached
+                # on ``request.environ``: otherwise a subsequent
+                # ``get_user`` would skip the cache and call
+                # ``validate_api_key`` again on the same request,
+                # double-stamping ``last_used``.
+                self.assertNotIn("ivre.api_key_user", env)
         self.assertEqual(ctx.exception.status_code, 401)
 
     def test_quota_disabled_passes_through_and_caches_user(self) -> None:

@@ -42,7 +42,7 @@ def add_security_headers():
     response.set_header("X-Content-Type-Options", "nosniff")
 
 
-def extract_api_key():
+def extract_api_key() -> str | None:
     """Return the raw API key string from the current Bottle
     request, or ``None`` if no API-key header is present.
 
@@ -172,7 +172,20 @@ def quota_gated(func):
         if db.auth is None:
             return func(*args, **kargs)
         user = db.auth.validate_api_key(api_key)
-        if not isinstance(user, dict) or not user.get("is_active"):
+        # Mirror :func:`ivre.web.utils.get_user`'s cache fast-
+        # path requirements: a user record without ``is_active``
+        # *or* without ``email`` is unusable downstream
+        # (``get_user`` returns the email, every consumer
+        # branches on the active flag). Treat the gap as
+        # "invalid key" rather than caching a half-formed dict
+        # that ``get_user`` would silently bypass -- otherwise
+        # the cache-then-skip path would double-stamp
+        # ``last_used`` on the auth backend.
+        if (
+            not isinstance(user, dict)
+            or not user.get("is_active")
+            or not user.get("email")
+        ):
             abort(401, "Invalid or expired API key")
         # Cache the validated user so ``get_user`` reuses it
         # instead of running a second ``validate_api_key`` (which
