@@ -16780,9 +16780,19 @@ class QuotaGatedTests(unittest.TestCase):
         # semantic: ``record_rate_limit`` is only called on
         # the allowed branch, matching
         # ``ivre/web/auth.py:357-385`` (magic-link).
+        #
+        # Also pins the log-content contract: the quota-exceeded
+        # log line MUST NOT contain the raw API key (not even a
+        # truncated prefix). A previous version of this gate
+        # logged ``api_key[:12]``, which leaked 7 base64url
+        # chars of the 256-bit secret to syslog; the current
+        # version logs the SHA-256 hash prefix instead.
+        import hashlib as _hashlib
+
         from bottle import HTTPError
 
-        self._bind(headers={"X-API-Key": "ivre_over"})
+        raw_key = "ivre_overquotaXXXYYYZZZ"
+        self._bind(headers={"X-API-Key": raw_key})
         called: list[bool] = []
 
         def _stub() -> str:
@@ -16801,11 +16811,48 @@ class QuotaGatedTests(unittest.TestCase):
                 "is_active": True,
             }
             db_mod.auth.is_rate_limited.return_value = True
-            with self.assertRaises(HTTPError) as ctx:
-                gated()
+            with self.assertLogs("ivre", level="INFO") as captured:
+                with self.assertRaises(HTTPError) as ctx:
+                    gated()
             db_mod.auth.record_rate_limit.assert_not_called()
         self.assertEqual(ctx.exception.status_code, 429)
         self.assertEqual(called, [])
+        # Log content: the SHA-256 hash prefix is present; no
+        # substring of the raw key (full or truncated) appears.
+        expected_hash = _hashlib.sha256(raw_key.encode()).hexdigest()[:16]
+        log_blob = "\n".join(captured.output)
+        self.assertIn(expected_hash, log_blob)
+        # Neither the full raw key nor the 12-char prefix that
+        # the previous version of the code logged must appear in
+        # the log line.
+        self.assertNotIn(raw_key, log_blob)
+        self.assertNotIn(raw_key[:12], log_blob)
+
+    def test_authorization_bearer_without_token_is_ignored(self) -> None:
+        # Regression: ``Authorization: Bearer `` (scheme +
+        # trailing whitespace, no token) used to crash
+        # ``extract_api_key`` with ``IndexError`` because
+        # ``"Bearer ".split(None, 1)`` returns a single-element
+        # list, and indexing ``[1]`` would turn the request into
+        # a 500. The defensive parsing branch must now treat it
+        # as "no API key header" and let the gate pass-through.
+        # An ``Authorization: Bearer`` value without a trailing
+        # space fails the ``startswith("bearer ")`` check and is
+        # likewise ignored.
+        for header_value in ("Bearer ", "bearer   ", "Bearer\t", "bearer"):
+            with self.subTest(header_value=header_value):
+                self._bind(headers={"Authorization": header_value})
+                called: list[bool] = []
+
+                def _stub() -> str:
+                    called.append(True)
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                with mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True):
+                    result = gated()
+                self.assertEqual(result, "ok")
+                self.assertEqual(called, [True])
 
     def test_authorization_bearer_header_is_recognised(self) -> None:
         # The Authorization scheme match is case-insensitive

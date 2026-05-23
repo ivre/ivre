@@ -61,7 +61,16 @@ def extract_api_key():
         return api_key
     auth_header = request.headers.get("Authorization", "")
     if auth_header.lower().startswith("bearer "):
-        return auth_header.split(None, 1)[1]
+        # Defensive parsing: ``Authorization: Bearer `` (scheme +
+        # trailing whitespace, no token) passes the scheme check
+        # but ``"Bearer ".split(None, 1)`` collapses the trailing
+        # whitespace and returns a single-element list, so a
+        # naive ``[1]`` access would raise ``IndexError`` and
+        # turn the request into a 500. Require two parts AND a
+        # non-empty token before returning.
+        parts = auth_header.split(None, 1)
+        if len(parts) == 2 and parts[1]:
+            return parts[1]
     return None
 
 
@@ -182,9 +191,16 @@ def quota_gated(func):
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         limit_key = f"api:{key_hash}"
         if db.auth.is_rate_limited(limit_key, max_attempts, window):
+            # Log the SHA-256 prefix rather than ``api_key[:12]``
+            # (which would put 7 base64url chars of the raw
+            # 256-bit secret in syslog). The hash prefix
+            # identifies the offending key for operators without
+            # leaking credential material; the full SHA-256 lives
+            # in the rate-limit ledger and can be cross-referenced
+            # there if needed.
             utils.LOGGER.info(
-                "API key quota exceeded (key_prefix=%s, max=%d, window=%ds)",
-                api_key[:12],
+                "API key quota exceeded (key_hash=%s, max=%d, window=%ds)",
+                key_hash[:16],
                 max_attempts,
                 window,
             )
