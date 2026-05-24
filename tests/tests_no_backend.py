@@ -13447,14 +13447,28 @@ class WebUploadOkTests(unittest.TestCase):
     """Pin :func:`ivre.web.base.check_upload_ok`."""
 
     def setUp(self):
+        from bottle import response
+
         from ivre import config
 
         self._saved = config.WEB_UPLOAD_OK
+        # ``check_upload_ok`` and the tests that drive it via
+        # ``route.call()`` mutate the thread-local
+        # ``bottle.response.status`` to ``"403 Forbidden"``.
+        # Snapshot it in ``setUp`` and restore in ``tearDown``
+        # so the 403 does not leak into later tests in the
+        # same process. ``CheckRefererBearerTests`` /
+        # ``QuotaGatedTests`` use the same snapshot/restore
+        # pattern.
+        self._saved_response_status = response.status
 
     def tearDown(self):
+        from bottle import response
+
         from ivre import config
 
         config.WEB_UPLOAD_OK = self._saved
+        response.status = self._saved_response_status
 
     def test_disabled_returns_403_and_skips_handler(self):
         # ``WEB_UPLOAD_OK = False`` is the default; the
