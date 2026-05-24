@@ -268,11 +268,15 @@ def get_user() -> str | None:
     if not config.WEB_AUTH_ENABLED:
         return request.environ.get("REMOTE_USER")
 
-    # 1. Check session cookie
+    # 1. Check session cookie. Mirror the cache-reader's
+    # ``email`` requirement so a session record without an
+    # email field falls through to the next resolution step
+    # rather than crashing on ``user["email"]`` -> ``KeyError``
+    # -> 500.
     session_token = request.get_cookie("_ivre_session", secret=config.WEB_SECRET)
     if session_token and db.auth is not None:
         user = db.auth.validate_session(session_token)
-        if user and user.get("is_active"):
+        if user and user.get("is_active") and user.get("email"):
             return user["email"]
 
     # 2. Check API key. If an upstream gate (e.g.
@@ -287,10 +291,13 @@ def get_user() -> str | None:
         and cached_user.get("email")
     ):
         return cached_user["email"]
+    # Same ``email``-required check as the session-cookie path
+    # and the cache reader above: a half-formed user dict from
+    # ``validate_api_key`` must not crash on ``user["email"]``.
     api_key = extract_api_key()
     if api_key and db.auth is not None:
         user = db.auth.validate_api_key(api_key)
-        if user and user.get("is_active"):
+        if user and user.get("is_active") and user.get("email"):
             return user["email"]
 
     # 3. Check REMOTE_USER (reverse proxy)

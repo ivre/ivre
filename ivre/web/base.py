@@ -210,7 +210,17 @@ def quota_gated(func):
         # Cache the validated user so ``get_user`` reuses it
         # instead of running a second ``validate_api_key`` (which
         # would re-stamp ``last_used`` for the same request).
-        request.environ["ivre.api_key_user"] = user
+        # Only cache the two fields ``get_user`` actually reads
+        # (``email`` and ``is_active``): the backend's full user
+        # record may carry display name, group memberships,
+        # last-login timestamp, etc., none of which the cache
+        # reader needs, and keeping them on ``request.environ``
+        # would needlessly widen the surface a logging
+        # middleware or error-traceback dump might surface.
+        request.environ["ivre.api_key_user"] = {
+            "email": user["email"],
+            "is_active": user["is_active"],
+        }
         max_attempts = config.WEB_API_KEY_RATE_MAX
         if not isinstance(max_attempts, int) or max_attempts <= 0:
             return func(*args, **kargs)

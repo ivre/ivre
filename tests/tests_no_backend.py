@@ -17058,6 +17058,93 @@ class QuotaGatedTests(unittest.TestCase):
             {"email": "alice@example.org", "is_active": True},
         )
 
+    def test_cache_strips_extra_fields_from_backend_user(self) -> None:
+        # Defense-in-depth pin for the cache shape: the auth
+        # backend's full user record may carry display name,
+        # group memberships, last-login timestamp, etc. None
+        # of those fields are read by ``get_user``, so the
+        # cache must not carry them through to
+        # ``request.environ`` -- a logging middleware or
+        # error-traceback dump would otherwise surface PII
+        # the cache reader never needed.
+        env = self._bind(headers={"X-API-Key": "ivre_rich_user"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+                # The fields below stand in for everything a
+                # real auth backend may attach -- display
+                # name, group memberships, audit timestamps,
+                # etc.  None of them must survive the trim.
+                "display_name": "Alice Example",
+                "groups": ["admins", "ops"],
+                "created_at": "2025-01-01T00:00:00Z",
+                "last_login": "2026-05-24T10:00:00Z",
+            }
+            gated()
+        cached = env.get("ivre.api_key_user")
+        self.assertEqual(cached, {"email": "alice@example.org", "is_active": True})
+
+    def test_get_user_session_with_missing_email_does_not_500(self) -> None:
+        # Regression mirroring ``test_user_without_email_returns_401``
+        # but on the session-cookie path: a ``validate_session``
+        # call that returns ``{"is_active": True}`` without an
+        # ``email`` field must not crash on ``user["email"]``
+        # -> ``KeyError`` -> 500. The session path falls
+        # through to the next resolution step instead, which
+        # in this no-cookie/no-key/no-REMOTE_USER setup yields
+        # ``None``.
+        from ivre.web import utils as webutils
+
+        # No headers at all; ``get_user``'s session-cookie
+        # branch reads ``request.get_cookie``, which we steer
+        # via ``request.environ['HTTP_COOKIE']``.
+        env = dict(self._base_env)
+        env["HTTP_COOKIE"] = "_ivre_session=any-cookie-the-mock-ignores"
+        self._request.bind(env)
+        with (
+            mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.utils.db") as db_mod,
+        ):
+            db_mod.auth.validate_session.return_value = {"is_active": True}
+            # Both ``validate_api_key`` and ``ensure_remote_user``
+            # are also reachable via fall-through; stub them so
+            # the test focuses on the session branch.
+            db_mod.auth.validate_api_key.return_value = None
+            result = webutils.get_user()
+        self.assertIsNone(result)
+
+    def test_get_user_api_key_with_missing_email_does_not_500(self) -> None:
+        # Mirror of the previous test on the non-cached API-key
+        # branch (``ivre/web/utils.py:290-294``): a
+        # ``validate_api_key`` call that returns
+        # ``{"is_active": True}`` without an ``email`` field
+        # must not crash on ``user["email"]`` -> ``KeyError``.
+        # No cache entry is present, so the path that hits the
+        # DB directly is exercised.
+        from ivre.web import utils as webutils
+
+        self._bind(headers={"X-API-Key": "ivre_noemail_direct"})
+        with (
+            mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.utils.db") as db_mod,
+        ):
+            db_mod.auth.validate_session.return_value = None
+            db_mod.auth.validate_api_key.return_value = {"is_active": True}
+            result = webutils.get_user()
+        # No email -> fall through past the API-key branch.
+        # No REMOTE_USER set -> final return is ``None``.
+        self.assertIsNone(result)
+
 
 # ---------------------------------------------------------------------
 # CheckRefererBearerTests -- pin the CSRF-bypass parser inside
