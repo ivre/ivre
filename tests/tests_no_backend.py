@@ -16684,42 +16684,13 @@ class QuotaGatedTests(unittest.TestCase):
 
     def test_no_api_key_passes_through_without_db_call(self) -> None:
         # No header, no validation, no rate-limit call: the
-        # decorator must be invisible.
+        # decorator must be invisible. ``db.auth`` is mocked
+        # (non-None) so the gate proceeds past the
+        # ``db.auth is None`` check and reaches the
+        # ``api_key is None`` branch we're actually testing
+        # here; ``validate_api_key`` / ``is_rate_limited`` /
+        # ``record_rate_limit`` are then asserted not-called.
         self._bind(headers={})
-        called: list[bool] = []
-
-        def _stub() -> str:
-            called.append(True)
-            return "ok"
-
-        gated = self._web_base.quota_gated(_stub)
-        with mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True):
-            result = gated()
-        self.assertEqual(result, "ok")
-        self.assertEqual(called, [True])
-
-    def test_auth_disabled_passes_through_even_with_header(self) -> None:
-        # When ``WEB_AUTH_ENABLED`` is ``False`` the gate must
-        # not validate the key. This matches the pre-existing
-        # ``check_referer`` shortcut and lets operators deploy a
-        # read-only IVRE without the API-key plumbing.
-        self._bind(headers={"X-API-Key": "ivre_anything"})
-        called: list[bool] = []
-
-        def _stub() -> str:
-            called.append(True)
-            return "ok"
-
-        gated = self._web_base.quota_gated(_stub)
-        with mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", False):
-            result = gated()
-        self.assertEqual(result, "ok")
-        self.assertEqual(called, [True])
-
-    def test_no_auth_backend_passes_through(self) -> None:
-        # ``db.auth is None`` means no auth backend is wired;
-        # the gate must not crash, it must pass-through.
-        self._bind(headers={"X-API-Key": "ivre_anything"})
         called: list[bool] = []
 
         def _stub() -> str:
@@ -16731,10 +16702,68 @@ class QuotaGatedTests(unittest.TestCase):
             mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
             mock.patch("ivre.web.base.db") as db_mod,
         ):
+            result = gated()
+        self.assertEqual(result, "ok")
+        self.assertEqual(called, [True])
+        db_mod.auth.validate_api_key.assert_not_called()
+        db_mod.auth.is_rate_limited.assert_not_called()
+        db_mod.auth.record_rate_limit.assert_not_called()
+
+    def test_auth_disabled_passes_through_even_with_header(self) -> None:
+        # When ``WEB_AUTH_ENABLED`` is ``False`` the gate must
+        # not validate the key. This matches the pre-existing
+        # ``check_referer`` shortcut and lets operators deploy a
+        # read-only IVRE without the API-key plumbing.
+        #
+        # Ordering pin: the auth-disabled short-circuit fires
+        # BEFORE any header parsing. This keeps the gate cheap
+        # on the most common deployment (``WEB_AUTH_ENABLED =
+        # False`` is the default) and defends against a future
+        # ``extract_api_key`` rewrite that grows side effects.
+        self._bind(headers={"X-API-Key": "ivre_anything"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", False),
+            mock.patch.object(self._web_base, "extract_api_key") as extract_mock,
+        ):
+            result = gated()
+        self.assertEqual(result, "ok")
+        self.assertEqual(called, [True])
+        extract_mock.assert_not_called()
+
+    def test_no_auth_backend_passes_through(self) -> None:
+        # ``db.auth is None`` means no auth backend is wired;
+        # the gate must not crash, it must pass-through.
+        #
+        # Ordering pin: the ``db.auth is None`` short-circuit
+        # also fires BEFORE any header parsing, so a
+        # misconfigured deployment does not waste cycles on
+        # ``extract_api_key`` for a request it cannot
+        # validate anyway.
+        self._bind(headers={"X-API-Key": "ivre_anything"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.base.db") as db_mod,
+            mock.patch.object(self._web_base, "extract_api_key") as extract_mock,
+        ):
             db_mod.auth = None
             result = gated()
         self.assertEqual(result, "ok")
         self.assertEqual(called, [True])
+        extract_mock.assert_not_called()
 
     def test_invalid_api_key_returns_401(self) -> None:
         from bottle import HTTPError
@@ -16957,10 +16986,18 @@ class QuotaGatedTests(unittest.TestCase):
                     return "ok"
 
                 gated = self._web_base.quota_gated(_stub)
-                with mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True):
+                # ``db.auth`` is mocked so the gate proceeds
+                # past the deployment-shape checks and hits the
+                # ``api_key is None`` short-circuit we're
+                # actually testing here.
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
                     result = gated()
                 self.assertEqual(result, "ok")
                 self.assertEqual(called, [True])
+                db_mod.auth.validate_api_key.assert_not_called()
 
     def test_authorization_bearer_header_is_recognised(self) -> None:
         # The Authorization scheme match is case-insensitive

@@ -184,12 +184,22 @@ def quota_gated(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-        api_key = extract_api_key()
-        if api_key is None:
-            return func(*args, **kargs)
+        # Cheap deployment-shape checks first: on the most
+        # common deployment (``WEB_AUTH_ENABLED = False``,
+        # the default) the gate must short-circuit before
+        # parsing any request header. ``extract_api_key`` is
+        # cheap and side-effect-free today, but reading two
+        # headers per request on 17 data-plane routes adds up
+        # -- and keeping the gate's parser dependency-free
+        # also defends against a future ``extract_api_key``
+        # rewrite that grows side effects (logging,
+        # validation, ...).
         if not config.WEB_AUTH_ENABLED:
             return func(*args, **kargs)
         if db.auth is None:
+            return func(*args, **kargs)
+        api_key = extract_api_key()
+        if api_key is None:
             return func(*args, **kargs)
         user = db.auth.validate_api_key(api_key)
         # Mirror :func:`ivre.web.utils.get_user`'s cache fast-
