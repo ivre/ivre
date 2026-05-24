@@ -244,12 +244,16 @@ def quota_gated(func):
             "email": user["email"],
             "is_active": user["is_active"],
         }
+        # Quota knobs are validated at module load by
+        # :func:`_validate_quota_config`, so the only runtime
+        # branch left here is "gate disabled?". When
+        # ``WEB_API_KEY_RATE_MAX`` is ``None`` the user has
+        # explicitly opted out of quota enforcement (the
+        # default); skip the ledger writes and pass through.
         max_attempts = config.WEB_API_KEY_RATE_MAX
-        if not isinstance(max_attempts, int) or max_attempts <= 0:
+        if max_attempts is None:
             return func(*args, **kargs)
         window = config.WEB_API_KEY_RATE_WINDOW
-        if not isinstance(window, int) or window <= 0:
-            return func(*args, **kargs)
         # Hash the raw key with the same algorithm
         # ``create_api_key`` / ``validate_api_key`` use so the
         # rate-limit ledger never stores credential material in
@@ -279,6 +283,60 @@ def quota_gated(func):
         return func(*args, **kargs)
 
     return _newfunc
+
+
+def _validate_quota_config() -> None:
+    """Validate the ``WEB_API_KEY_RATE_*`` config knobs at
+    module load.
+
+    Raises :class:`ValueError` if either knob is malformed, so
+    the misconfiguration surfaces during ``ivre httpd`` startup
+    (when the WSGI worker imports :mod:`ivre.web.base`) rather
+    than after the first API-key request has silently bypassed
+    the gate. An operator who typos
+    ``WEB_API_KEY_RATE_MAX = True`` or
+    ``WEB_API_KEY_RATE_WINDOW = "60"`` in ``ivre.conf`` should
+    see the failure before traffic is served, not as a quiet
+    degradation in production logs.
+
+    Validation rules:
+
+    * ``WEB_API_KEY_RATE_MAX``: ``None`` (gate disabled, the
+      default) or a positive ``int``. ``bool`` is rejected
+      even though Python considers ``True`` and ``False``
+      instances of ``int`` -- ``True`` would silently enable a
+      1-request-per-window quota, locking every API-key client
+      out after their first call.
+    * ``WEB_API_KEY_RATE_WINDOW``: a positive ``int``, with
+      the same ``bool`` exclusion. Only enforced when
+      ``WEB_API_KEY_RATE_MAX`` is set; when the gate is
+      disabled the window value is irrelevant and goes
+      unchecked.
+    """
+    max_attempts = config.WEB_API_KEY_RATE_MAX
+    if max_attempts is None:
+        # Gate disabled; the window value is unused, so don't
+        # constrain operators who want to stage a window value
+        # while the gate itself stays off.
+        return
+    if (
+        not isinstance(max_attempts, int)
+        or isinstance(max_attempts, bool)
+        or max_attempts <= 0
+    ):
+        raise ValueError(
+            "WEB_API_KEY_RATE_MAX must be None or a positive int "
+            f"(got {type(max_attempts).__name__}: {max_attempts!r})"
+        )
+    window = config.WEB_API_KEY_RATE_WINDOW
+    if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
+        raise ValueError(
+            "WEB_API_KEY_RATE_WINDOW must be a positive int "
+            f"(got {type(window).__name__}: {window!r})"
+        )
+
+
+_validate_quota_config()
 
 
 def check_upload_ok(func):

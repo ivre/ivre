@@ -363,6 +363,16 @@ WEB_AUTH_MAGIC_LINK_RATE_PER_IP = 10
 # ``None`` (the default) disables the gate. Session-cookie /
 # REMOTE_USER traffic is unaffected -- this knob targets
 # programmatic clients authenticated with an API key.
+#
+# Both knobs are validated at WSGI worker startup (see
+# ``ivre.web.base._validate_quota_config``):
+# ``WEB_API_KEY_RATE_MAX`` must be ``None`` or a positive
+# ``int`` (``bool`` is explicitly rejected so ``True`` does not
+# silently enable a 1-request quota), and
+# ``WEB_API_KEY_RATE_WINDOW`` must be a positive ``int`` when
+# the gate is enabled. A malformed value raises ``ValueError``
+# during ``ivre httpd`` startup rather than degrading silently
+# at request time.
 WEB_API_KEY_RATE_MAX: int | None = None
 WEB_API_KEY_RATE_WINDOW = 60
 # Base URL for OAuth callbacks (auto-detected from request if None)

@@ -17220,6 +17220,153 @@ class QuotaGatedTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# QuotaConfigValidationTests -- pin
+# :func:`ivre.web.base._validate_quota_config`, the
+# module-load validator that rejects malformed
+# ``WEB_API_KEY_RATE_*`` knobs at WSGI worker startup so an
+# operator typoing ``WEB_API_KEY_RATE_MAX = True`` sees a
+# clear ``ValueError`` during ``ivre httpd`` startup rather
+# than a silently disabled quota in production.
+# ---------------------------------------------------------------------
+
+
+class QuotaConfigValidationTests(unittest.TestCase):
+    """Behaviour pin for
+    :func:`ivre.web.base._validate_quota_config`.
+
+    The validator runs once at module import (so the WSGI
+    worker refuses to come up on an invalid config) and is
+    re-callable from tests with mocked config values.
+
+    Contract pinned here:
+
+    1. ``WEB_API_KEY_RATE_MAX = None`` -> gate disabled, the
+       window value is irrelevant and goes unchecked.
+    2. ``WEB_API_KEY_RATE_MAX`` accepts a positive int.
+    3. ``WEB_API_KEY_RATE_MAX`` rejects ``bool`` (``True`` /
+       ``False``), ``0``, negative ints, floats, strings,
+       and other non-int types.
+    4. ``WEB_API_KEY_RATE_WINDOW`` is validated only when
+       ``MAX`` is set; same type rules as ``MAX`` (positive
+       int, no bools).
+    5. The error message names the offending knob, the
+       observed type, and the observed value -- so an
+       operator reading the daemon log can fix the typo
+       without inspecting the source.
+    """
+
+    def setUp(self) -> None:
+        from ivre.web import base as web_base
+
+        self._web_base = web_base
+        # The validator is private but importable; tests call
+        # it directly with mocked config values.
+        self._validate = web_base._validate_quota_config
+
+    def _patch_config(
+        self,
+        max_attempts: Any,
+        window: Any = 60,
+    ) -> Any:
+        return (
+            mock.patch.object(
+                self._web_base.config, "WEB_API_KEY_RATE_MAX", max_attempts
+            ),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", window),
+        )
+
+    def test_none_max_disables_validation_of_window(self) -> None:
+        # When the gate is disabled the window value is unused;
+        # the validator must NOT reject an unused window even
+        # if the value would otherwise be invalid. This lets
+        # operators stage a window value while the gate stays
+        # off.
+        for unused_window in (60, 0, -1, "60", True, False, None):
+            with self.subTest(unused_window=unused_window):
+                p_max, p_win = self._patch_config(None, unused_window)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_positive_int_max_is_accepted(self) -> None:
+        for max_attempts in (1, 5, 100, 10_000):
+            with self.subTest(max_attempts=max_attempts):
+                p_max, p_win = self._patch_config(max_attempts, 60)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_bool_max_is_rejected(self) -> None:
+        # The headline footgun: ``True`` and ``False`` are
+        # instances of ``int`` in Python, so a naive
+        # ``isinstance(x, int)`` check would accept them.
+        # ``True`` would enable a 1-request-per-window quota
+        # silently; ``False`` would behave like ``0`` and is
+        # equally meaningless. Both must raise at startup
+        # with a clear message naming the knob.
+        for bad_value in (True, False):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+                self.assertIn("bool", str(ctx.exception))
+
+    def test_zero_or_negative_max_is_rejected(self) -> None:
+        for bad_value in (0, -1, -100):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+                self.assertIn(repr(bad_value), str(ctx.exception))
+
+    def test_non_int_max_is_rejected(self) -> None:
+        for bad_value in (1.0, "5", [5], (5,), object()):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+
+    def test_window_validated_only_when_gate_enabled(self) -> None:
+        # Sanity that the window-rejection branch only fires
+        # when ``MAX`` is set. The previous test
+        # ``test_none_max_disables_validation_of_window``
+        # covers the disabled-gate side; this one covers the
+        # enabled-gate side rejecting a bad window.
+        for bad_window in (0, -1, True, False, 1.0, "60", None):
+            with self.subTest(bad_window=bad_window):
+                p_max, p_win = self._patch_config(5, bad_window)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_WINDOW", str(ctx.exception))
+
+    def test_positive_int_window_is_accepted(self) -> None:
+        for window in (1, 60, 3600, 86400):
+            with self.subTest(window=window):
+                p_max, p_win = self._patch_config(5, window)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_error_message_includes_type_and_value(self) -> None:
+        # Operator-facing error quality: the message must name
+        # the knob AND the type AND the offending value, so a
+        # log line is enough to diagnose the typo without
+        # opening the source.
+        p_max, p_win = self._patch_config("not-an-int", 60)
+        with p_max, p_win:
+            with self.assertRaises(ValueError) as ctx:
+                self._validate()
+        msg = str(ctx.exception)
+        self.assertIn("WEB_API_KEY_RATE_MAX", msg)
+        self.assertIn("str", msg)
+        self.assertIn("'not-an-int'", msg)
+
+
+# ---------------------------------------------------------------------
 # CheckRefererBearerTests -- pin the CSRF-bypass parser inside
 # :func:`ivre.web.base.check_referer`. The bypass condition
 # delegates to :func:`ivre.web.base.extract_api_key`, which in
