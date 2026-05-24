@@ -17057,6 +17057,42 @@ class QuotaGatedTests(unittest.TestCase):
             db_mod.auth.validate_api_key.assert_called_once_with("ivre_tab_separated")
         self.assertEqual(result, "ok")
 
+    def test_bearer_with_extra_segments_is_ignored(self) -> None:
+        # Tightening pin: ``Authorization: Bearer token extra``
+        # (three or more whitespace-separated parts) is treated
+        # as "no API key" by the gate. A real IVRE API key is
+        # ``"ivre_" + token_urlsafe(32)``, which only contains
+        # base64url characters and therefore no whitespace; a
+        # header that splits into more than two parts cannot
+        # authenticate downstream, so ``_parse_bearer`` rejects
+        # it at the parser layer rather than handing
+        # ``"token extra"`` to ``validate_api_key``.
+        for header_value in (
+            "Bearer token extra",
+            "bearer a b c",
+            "Bearer\ttoken\textra",
+            "Bearer  token  trailing-segment",
+        ):
+            with self.subTest(header_value=header_value):
+                self._bind(headers={"Authorization": header_value})
+                called: list[bool] = []
+
+                def _stub() -> str:
+                    called.append(True)
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
+                    result = gated()
+                # Pass-through (no API key seen) -> handler ran,
+                # ``validate_api_key`` never touched.
+                self.assertEqual(result, "ok")
+                self.assertEqual(called, [True])
+                db_mod.auth.validate_api_key.assert_not_called()
+
     def test_cached_user_is_reused_by_get_user(self) -> None:
         # End-to-end pin between the gate and ``get_user``: a
         # validated user cached by the gate must be returned by
@@ -17313,6 +17349,31 @@ class CheckRefererBearerTests(unittest.TestCase):
         # (``extract_api_key`` returns ``None``) cannot bypass
         # CSRF either, so the two layers stay consistent.
         self._bind(headers={"Authorization": "Bearer "})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
+
+    def test_bearer_with_extra_segments_does_not_bypass_csrf(self) -> None:
+        # Companion to the no-token tightening: a Bearer header
+        # with three or more whitespace-separated parts
+        # (``"Bearer token extra"``) cannot authenticate
+        # downstream because no IVRE API key contains
+        # whitespace (``token_urlsafe`` only emits base64url
+        # characters), so it must not bypass CSRF either.
+        # ``_parse_bearer`` rejects it, ``extract_api_key``
+        # returns ``None``, and the request falls through to
+        # the Referer check (-> 400 when no Referer is
+        # present).
+        self._bind(headers={"Authorization": "Bearer token extra"})
         called: list[bool] = []
 
         def _stub() -> str:

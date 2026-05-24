@@ -55,7 +55,16 @@ def _parse_bearer(auth_header: str) -> str | None:
     * missing / empty header value;
     * any scheme other than ``bearer`` (case-insensitive);
     * scheme present but no token (``"Bearer "``, ``"Bearer\\t"``,
-      whitespace-only header, ...).
+      whitespace-only header, ...);
+    * extra whitespace-separated segments after the token
+      (``"Bearer token extra"``, ``"Bearer a b c"``, ...). A
+      real IVRE API key is ``"ivre_" + token_urlsafe(32)``,
+      which only contains base64url characters and therefore
+      no whitespace; any header that splits into more than two
+      parts is malformed and cannot authenticate downstream,
+      so rejecting it here keeps the CSRF bypass predicate
+      aligned with what can actually validate against
+      ``db.auth.validate_api_key``.
 
     Used by :func:`extract_api_key` to surface the token to the
     auth layer, and by :func:`check_referer` to gate the CSRF
@@ -65,7 +74,11 @@ def _parse_bearer(auth_header: str) -> str | None:
     ``check_referer`` did the parse inline and raised
     ``IndexError`` on whitespace-only ``Authorization`` values).
     """
-    parts = auth_header.split(None, 1)
+    # ``str.split()`` with no arguments splits on any whitespace
+    # run, strips leading/trailing whitespace, and never yields
+    # empty parts -- so ``len(parts) == 2`` is precisely "scheme
+    # plus exactly one token", with no extra segments.
+    parts = auth_header.split()
     if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1]:
         return parts[1]
     return None
