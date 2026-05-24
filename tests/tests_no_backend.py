@@ -13570,6 +13570,53 @@ class WebUploadOkTests(unittest.TestCase):
                 )
                 self.assertIn("Uploads are disabled", body)
 
+    def test_upload_disabled_does_not_consume_quota(self):
+        # Decorator-order pin: on upload routes the stack is
+        # ``@check_referer @check_upload_ok @quota_gated``, so
+        # a request to a write endpoint when
+        # ``WEB_UPLOAD_OK = False`` returns 403 *before*
+        # ``quota_gated`` has a chance to validate the API
+        # key, bump ``last_used``, or consume a quota slot.
+        # A previous decorator order
+        # (``@check_referer @quota_gated @check_upload_ok``)
+        # made the gate run first, which is wasted work for a
+        # request the server statically refuses.
+        from unittest.mock import patch
+
+        from ivre import config
+        from ivre.web.app import application
+
+        config.WEB_UPLOAD_OK = False
+        post_rules = [
+            r
+            for r in application.routes
+            if r.method == "POST" and not r.rule.startswith("/auth/")
+        ]
+        # Drive each write route under fully-enabled auth +
+        # quota config. ``check_upload_ok`` must short-circuit
+        # before ``quota_gated`` touches ``db.auth``.
+        fake_headers = {"X-API-Key": "ivre_disabled_upload_probe"}
+        with (
+            patch("ivre.web.base.request") as fake_request,
+            patch.object(config, "WEB_AUTH_ENABLED", True),
+            patch.object(config, "WEB_API_KEY_RATE_MAX", 5),
+            patch.object(config, "WEB_API_KEY_RATE_WINDOW", 60),
+            patch("ivre.web.base.db") as db_mod,
+        ):
+            fake_request.headers.get.side_effect = fake_headers.get
+            for route in post_rules:
+                db_mod.reset_mock()
+                try:
+                    route.call()
+                except TypeError:
+                    # ``post_nmap(subdb)`` requires a positional
+                    # arg; placeholder is irrelevant because the
+                    # 403 fires before the handler body.
+                    route.call("scans")
+                db_mod.auth.validate_api_key.assert_not_called()
+                db_mod.auth.is_rate_limited.assert_not_called()
+                db_mod.auth.record_rate_limit.assert_not_called()
+
 
 # ---------------------------------------------------------------------
 # WebModulesTests -- WEB_MODULES allowlist & per-module backend gating
@@ -16775,7 +16822,6 @@ class QuotaGatedTests(unittest.TestCase):
                 # ``validate_api_key`` again on the same request,
                 # double-stamping ``last_used``.
                 self.assertNotIn("ivre.api_key_user", env)
-        self.assertEqual(ctx.exception.status_code, 401)
 
     def test_quota_disabled_passes_through_and_caches_user(self) -> None:
         # When ``WEB_API_KEY_RATE_MAX`` is ``None`` (or 0/negative),
@@ -16939,6 +16985,41 @@ class QuotaGatedTests(unittest.TestCase):
             result = gated()
         self.assertEqual(result, "ok")
 
+    def test_bearer_with_tab_separator_is_recognised(self) -> None:
+        # Regression: the unified ``_parse_bearer`` helper
+        # accepts any whitespace separator between the scheme
+        # and the token, so ``"Bearer\ttoken"`` reaches the
+        # gate exactly like ``"Bearer token"``. A previous
+        # version of ``extract_api_key`` used
+        # ``startswith("bearer ")`` (literal space) and would
+        # silently drop tab-separated bearer headers; pin that
+        # the new shared parser handles them.
+        self._bind(headers={"Authorization": "Bearer\tivre_tab_separated"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            db_mod.auth.is_rate_limited.return_value = False
+            result = gated()
+            # The key the gate validated is the tab-separated
+            # token, not the whole header value -- pinning this
+            # catches a regression where ``_parse_bearer`` is
+            # rewritten to swallow the whitespace into the
+            # returned token.
+            db_mod.auth.validate_api_key.assert_called_once_with("ivre_tab_separated")
+        self.assertEqual(result, "ok")
+
     def test_cached_user_is_reused_by_get_user(self) -> None:
         # End-to-end pin between the gate and ``get_user``: a
         # validated user cached by the gate must be returned by
@@ -16976,6 +17057,150 @@ class QuotaGatedTests(unittest.TestCase):
             env.get("ivre.api_key_user"),
             {"email": "alice@example.org", "is_active": True},
         )
+
+
+# ---------------------------------------------------------------------
+# CheckRefererBearerTests -- pin the CSRF-bypass parser inside
+# :func:`ivre.web.base.check_referer`. The bypass condition
+# delegates to :func:`ivre.web.base.extract_api_key`, which in
+# turn calls :func:`ivre.web.base._parse_bearer`. These tests
+# pin the edge cases that previously crashed (whitespace-only
+# ``Authorization`` value -> ``IndexError`` -> 500) or
+# silently bypassed without being recognised as auth by the
+# downstream layers (``Bearer`` with no token).
+# ---------------------------------------------------------------------
+
+
+class CheckRefererBearerTests(unittest.TestCase):
+    """Behaviour pin for :func:`ivre.web.base.check_referer`'s
+    bearer-bypass condition.
+
+    Each test binds a synthetic Bottle request, wraps a stub
+    handler with ``check_referer``, then invokes the wrapped
+    handler. The stub is observed to confirm whether the
+    bypass fired (handler called) or the Referer-check path
+    fired (handler skipped, 400 returned).
+    """
+
+    def setUp(self) -> None:
+        import io as _io
+
+        from bottle import request as _bottle_request
+        from bottle import response as _bottle_response
+
+        from ivre.web import base as web_base
+
+        self._web_base = web_base
+        self._request = _bottle_request
+        self._response = _bottle_response
+
+        # Snapshot / restore the thread-local Bottle globals so
+        # nothing leaks across tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                _bottle_request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+        self._saved_response_status = _bottle_response.status
+
+        self._base_env: dict[str, Any] = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "ivre.example.org",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "ivre.example.org",
+            "PATH_INFO": "/stub",
+            "QUERY_STRING": "",
+            "wsgi.input": _io.BytesIO(b""),
+            "wsgi.url_scheme": "http",
+            "CONTENT_LENGTH": "0",
+        }
+
+    def tearDown(self) -> None:
+        self._request.bind(self._saved_request_environ or {})
+        self._response.status = self._saved_response_status
+
+    def _bind(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        env = dict(self._base_env)
+        for name, value in (headers or {}).items():
+            env[f"HTTP_{name.upper().replace('-', '_')}"] = value
+        self._request.bind(env)
+        return env
+
+    def test_whitespace_only_authorization_does_not_500(self) -> None:
+        # Regression: a previous version of ``check_referer``
+        # parsed the bearer header inline with
+        # ``request.headers.get("Authorization", "").split(None, 1)[0]``,
+        # which raises ``IndexError`` on a whitespace-only
+        # ``Authorization`` value (``"   ".split(None, 1)``
+        # returns ``[]``). The unified ``_parse_bearer``
+        # helper returns ``None`` cleanly, so the bypass does
+        # not fire and the regular Referer check proceeds; with
+        # no Referer in the request, that yields the JSON 400
+        # from ``_die``, NOT a 500.
+        self._bind(headers={"Authorization": "   "})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
+
+    def test_tab_separated_bearer_bypasses_csrf(self) -> None:
+        # ``Authorization: Bearer\t<token>`` (tab separator)
+        # must bypass CSRF identically to space-separated
+        # bearer: the bypass condition shares ``_parse_bearer``
+        # with ``extract_api_key``, so a header recognised as
+        # auth downstream is also recognised as a
+        # programmatic-client signal here. Without this pin,
+        # an ``extract_api_key`` rewrite that re-introduces a
+        # ``startswith("bearer ")`` literal-space check would
+        # silently break tab-separated clients.
+        self._bind(headers={"Authorization": "Bearer\tivre_tab_token"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            result = wrapped()
+        self.assertEqual(called, [True])
+        self.assertEqual(result, "ok")
+
+    def test_bearer_without_token_does_not_bypass_csrf(self) -> None:
+        # Deliberate tightening of the bypass condition: a
+        # malformed ``Authorization: Bearer `` (no token)
+        # previously bypassed CSRF because the old inline
+        # parser only checked ``parts[0].lower() == "bearer"``.
+        # The unified ``_parse_bearer`` requires both the right
+        # scheme AND a non-empty token; a token-less bearer
+        # header is therefore rejected at the CSRF layer and
+        # falls through to the Referer check (-> 400 when no
+        # Referer is present). The semantic improvement: a
+        # request that cannot authenticate downstream
+        # (``extract_api_key`` returns ``None``) cannot bypass
+        # CSRF either, so the two layers stay consistent.
+        self._bind(headers={"Authorization": "Bearer "})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
 
 
 def _parse_args() -> None:

@@ -692,8 +692,8 @@ def import_files(subdb, source, categories, files):
 
 @application.post("/<subdb:re:scans|view>")
 @check_referer
-@quota_gated
 @check_upload_ok
+@quota_gated
 def post_nmap(subdb):
     """Add records to Nmap & View databases
 
@@ -866,8 +866,8 @@ def _flow_record_from_payload(rec):
 
 @application.post("/flows")
 @check_referer
-@quota_gated
 @check_upload_ok
+@quota_gated
 def post_flow():
     """Ingest a bulk of flow records.
 
@@ -927,8 +927,8 @@ def post_flow():
 
 @application.post("/flows/cleanup")
 @check_referer
-@quota_gated
 @check_upload_ok
+@quota_gated
 def post_flow_cleanup():
     """Run the backend's ``cleanup_flows`` heuristic.
 

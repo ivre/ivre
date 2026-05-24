@@ -42,14 +42,44 @@ def add_security_headers():
     response.set_header("X-Content-Type-Options", "nosniff")
 
 
+def _parse_bearer(auth_header: str) -> str | None:
+    """Return the token from an ``Authorization: Bearer <token>``
+    header value, or ``None`` if the value is not a well-formed
+    bearer credential.
+
+    Accepts any whitespace separator between scheme and token
+    (a single space, a tab, multiple-whitespace runs, ...) so
+    callers do not have to know the exact byte the client used.
+    Returns ``None`` on every malformed shape:
+
+    * missing / empty header value;
+    * any scheme other than ``bearer`` (case-insensitive);
+    * scheme present but no token (``"Bearer "``, ``"Bearer\\t"``,
+      whitespace-only header, ...).
+
+    Used by :func:`extract_api_key` to surface the token to the
+    auth layer, and by :func:`check_referer` to gate the CSRF
+    bypass on a positive parse. Sharing the parser is what
+    keeps the two functions from disagreeing on what counts as
+    "this looks like an API request" (a previous version of
+    ``check_referer`` did the parse inline and raised
+    ``IndexError`` on whitespace-only ``Authorization`` values).
+    """
+    parts = auth_header.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1]:
+        return parts[1]
+    return None
+
+
 def extract_api_key() -> str | None:
     """Return the raw API key string from the current Bottle
     request, or ``None`` if no API-key header is present.
 
     Recognises ``X-API-Key`` (preferred) and ``Authorization:
-    Bearer <key>`` (case-insensitive scheme match). The header
-    extraction is intentionally separate from validation: it is
-    cheap and side-effect-free, so upstream gates (e.g.
+    Bearer <key>`` (case-insensitive scheme match, any
+    whitespace separator). The header extraction is
+    intentionally separate from validation: it is cheap and
+    side-effect-free, so upstream gates (e.g.
     :func:`quota_gated`) can call it on every request without
     touching the DB. Lives in this module so consumers in both
     :mod:`ivre.web.base` and :mod:`ivre.web.utils` can reach it
@@ -59,19 +89,7 @@ def extract_api_key() -> str | None:
     api_key = request.headers.get("X-API-Key")
     if api_key:
         return api_key
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        # Defensive parsing: ``Authorization: Bearer `` (scheme +
-        # trailing whitespace, no token) passes the scheme check
-        # but ``"Bearer ".split(None, 1)`` collapses the trailing
-        # whitespace and returns a single-element list, so a
-        # naive ``[1]`` access would raise ``IndexError`` and
-        # turn the request into a 500. Require two parts AND a
-        # non-empty token before returning.
-        parts = auth_header.split(None, 1)
-        if len(parts) == 2 and parts[1]:
-            return parts[1]
-    return None
+    return _parse_bearer(request.headers.get("Authorization", ""))
 
 
 def check_referer(func):
@@ -97,17 +115,19 @@ def check_referer(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-        # Header with an existing X-API-Key header or an
-        # Authorization: Bearer XXX are OK as anti-CSRF protections.
-        # When auth is enabled, they are also validated against the
-        # auth backend in get_user().
-        if request.headers.get("X-API-Key") or (
-            request.headers.get("Authorization")
-            and (
-                request.headers.get("Authorization", "").split(None, 1)[0].lower()
-                == "bearer"
-            )
-        ):
+        # An ``X-API-Key`` or ``Authorization: Bearer <token>``
+        # header is recognised as a programmatic-client signal
+        # and bypasses the Referer check: browsers do not
+        # auto-attach these headers, so a CSRF attacker cannot
+        # forge them. Delegating to ``extract_api_key`` keeps
+        # the bypass predicate aligned with what the auth /
+        # quota layers actually accept downstream (so a
+        # well-formed header here also reaches ``get_user`` /
+        # ``quota_gated``, and a malformed one neither bypasses
+        # CSRF nor is treated as auth material). When auth is
+        # enabled the key is validated for real later in the
+        # request (``get_user`` / ``quota_gated``).
+        if extract_api_key() is not None:
             return func(*args, **kargs)
 
         referer = request.headers.get("Referer")
