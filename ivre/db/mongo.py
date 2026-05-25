@@ -8432,8 +8432,16 @@ class MongoDBAudit(MongoDB, DBAudit):
     * ``(event_type ASC, created_at DESC)`` -- "show me the
       last N upload events".
     * ``(actor.user_email ASC, created_at DESC)`` -- "show me
-      what alice did".  Sparse because cookie-less /
-      REMOTE_USER-less callers leave the field unset.
+      what alice did".  Restricted via a
+      ``partialFilterExpression`` to events whose
+      ``actor.user_email`` is a string so anonymous /
+      REMOTE_USER-less events (which :meth:`record` normalises
+      to ``actor.user_email = None`` at write time) do not
+      bloat the index with a giant NULL bucket.  A plain
+      ``sparse: True`` would not work here -- ``sparse``
+      excludes documents where the indexed field is *missing*,
+      not those where it is *present-but-null*, and write-time
+      normalisation always materialises the key.
     * ``(created_at DESC)`` -- generic time-window scan.
 
     Insert failures (``PyMongoError``) are wrapped in
@@ -8465,7 +8473,23 @@ class MongoDBAudit(MongoDB, DBAudit):
                     ("actor.user_email", pymongo.ASCENDING),
                     ("created_at", pymongo.DESCENDING),
                 ],
-                {"sparse": True},
+                # ``partialFilterExpression`` (not ``sparse``)
+                # because :meth:`record` always writes
+                # ``actor.user_email`` -- as a string for
+                # authenticated callers, as ``None`` for
+                # anonymous ones.  ``sparse: True`` only skips
+                # documents where the field is *missing*; it
+                # would still index every anonymous event under
+                # a single NULL bucket, which is exactly what
+                # we want to avoid for an audit collection that
+                # may carry millions of anonymous reads.
+                # ``{"$type": "string"}`` matches every real
+                # email and rejects ``None`` / missing.
+                {
+                    "partialFilterExpression": {
+                        "actor.user_email": {"$type": "string"},
+                    },
+                },
             ),
             ([("created_at", pymongo.DESCENDING)], {}),
             # ``event_id`` is operator-supplied or auto-

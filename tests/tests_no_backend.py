@@ -16465,7 +16465,7 @@ class DBAuditAbstractSurfaceTests(unittest.TestCase):
         from ivre.db import DB, DBAudit
 
         # Build a bare instance via ``object.__new__`` so we
-        # don't trip the :class:`DB` ``__init__`` (which
+        # don't trip the :class:`DB` ``__init__`` (which does
         # nothing for the ABC itself).
         instance = object.__new__(DBAudit)
         # ``DB.__init__`` is parameterless.
@@ -16526,11 +16526,24 @@ class MongoDBAuditIndexTests(unittest.TestCase):
             "missing event_id index",
         )
 
-    def test_audit_user_email_index_is_sparse(self) -> None:
-        # ``actor.user_email`` is nullable (anonymous /
-        # REMOTE_USER traffic), so the per-user composite must
-        # be sparse to avoid indexing every event with a NULL
-        # entry.
+    def test_audit_user_email_index_excludes_anonymous_events(self) -> None:
+        # ``actor.user_email`` is normalised to ``None`` at
+        # write time for anonymous / REMOTE_USER-less callers
+        # (see :meth:`MongoDBAudit.record`).  The per-user
+        # composite must therefore exclude those events via a
+        # ``partialFilterExpression`` rather than the obvious
+        # ``sparse: True`` flag: ``sparse`` only excludes
+        # documents where the indexed field is *missing*, but
+        # write-time normalisation always materialises the key
+        # (with a ``None`` value for anonymous events), so the
+        # sparse path would still index every anonymous event
+        # under a single NULL bucket.
+        #
+        # ``{"$type": "string"}`` matches every real email and
+        # rejects both ``None`` and missing entries -- pin the
+        # exact filter so a regression to ``sparse: True``
+        # (which silently no-ops under the new write-time
+        # normalisation contract) surfaces here.
         from ivre.db.mongo import MongoDBAudit
 
         block = MongoDBAudit.indexes[MongoDBAudit.column_audit_events]
@@ -16539,7 +16552,17 @@ class MongoDBAuditIndexTests(unittest.TestCase):
             for keys, opts in block
             if keys == [("actor.user_email", 1), ("created_at", -1)]
         )
-        self.assertTrue(user_idx.get("sparse"))
+        self.assertNotIn(
+            "sparse",
+            user_idx,
+            "actor.user_email index must not use sparse "
+            "(write-time normalisation defeats it); "
+            "use partialFilterExpression instead",
+        )
+        self.assertEqual(
+            user_idx.get("partialFilterExpression"),
+            {"actor.user_email": {"$type": "string"}},
+        )
 
     def test_audit_event_id_index_is_unique(self) -> None:
         from ivre.db.mongo import MongoDBAudit

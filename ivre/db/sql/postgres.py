@@ -2744,5 +2744,5 @@ class PostgresDBAudit(PostgresDB, SQLDBAudit):
     native ``uuid`` type (16-byte storage, type-safe at the DB
     layer with a server-side rejection of malformed UUIDs at
     insert time -- a defence-in-depth on top of
-    :meth:`DBAudit._validate_event_type`).
+    :meth:`DBAudit._normalize_event_id`).
     """
