@@ -16577,6 +16577,26 @@ class MongoDBAuditIndexTests(unittest.TestCase):
         self.assertIn('"audit_events"', src)
 
 
+# ``SQLDBAudit*`` tests need SQLAlchemy at import time
+# (``ivre.db.sql.tables`` triggers ``from sqlalchemy import ...``
+# at module load).  The CI "build (3.12)" job installs
+# ``.[elasticsearch,mcp]`` only -- neither extra pulls
+# SQLAlchemy -- so the test classes must be guarded behind an
+# ``ImportError`` guard.  Mirrors ``_HAVE_SQLDB_AUTH`` etc.
+try:
+    from ivre.db.sql.tables import (  # noqa: E402, F401
+        AuditEvent as _AuditEvent_for_tests,
+    )
+
+    _HAVE_SQLDB_AUDIT = True
+except ImportError:
+    _HAVE_SQLDB_AUDIT = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUDIT,
+    "SQLAlchemy is required for SQLDBAuditSchemaTests",
+)
 class SQLDBAuditSchemaTests(unittest.TestCase):
     """Pin the SQL ``audit_events`` table schema + indexes,
     matching the Mongo backend's logical shape.  Backend-free:
@@ -16683,6 +16703,22 @@ class SQLDBAuditSchemaTests(unittest.TestCase):
         self.assertTrue(issubclass(DuckDBAudit, SQLDBAudit))
 
 
+# ``SQLDBAuditLiveIntegrationTests`` additionally needs the
+# ``duckdb-engine`` SQLAlchemy dialect at runtime; the
+# ``[duckdb]`` optional extras pin that.  Mirrors
+# ``_HAVE_DUCKDB_ENGINE_FOR_AUTH`` for the auth tests.
+try:
+    import duckdb_engine as _duckdb_engine_for_audit_tests  # type: ignore[import-untyped]  # noqa: F401, E402
+
+    _HAVE_DUCKDB_ENGINE_FOR_AUDIT = True
+except ImportError:
+    _HAVE_DUCKDB_ENGINE_FOR_AUDIT = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUDIT and _HAVE_DUCKDB_ENGINE_FOR_AUDIT,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
 class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
     """End-to-end tests against an in-memory DuckDB.  Mirrors
     :class:`SQLDBAuthLiveIntegrationTests`: builds the schema
