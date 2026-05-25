@@ -6337,9 +6337,20 @@ class DBAudit(DB):
         try:
             return uuid.UUID(event_id).hex
         except (AttributeError, TypeError, ValueError) as exc:
+            # The error message enumerates every textual form
+            # :class:`uuid.UUID` actually accepts so a caller
+            # who hits the reject path knows which spellings
+            # are legal (and which are not): the 32-char hex,
+            # the 36-char hex-with-dashes, the brace-wrapped
+            # ``{...}`` form, and the RFC 4122 ``urn:uuid:...``
+            # prefixed form.  Keeping the message in sync with
+            # the parser avoids the false impression that only
+            # the two "canonical" spellings work.
             raise ValueError(
-                f"event_id must be a UUID hex string (32-char no-dashes "
-                f"or 36-char with-dashes form); got {event_id!r}"
+                f"event_id must be a UUID textual form accepted by "
+                f"uuid.UUID() (32-char hex, 36-char hex-with-dashes, "
+                f"brace-wrapped ``{{...}}``, or ``urn:uuid:...``); "
+                f"got {event_id!r}"
             ) from exc
 
     def record(

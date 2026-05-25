@@ -1160,11 +1160,19 @@ class AuditEvent(Base):
     consistent with the Mongo backend.
 
     Three composite indexes match Mongo's query patterns:
-    ``(event_type, created_at DESC)`` for type-filtered scans,
-    ``(actor_user_email, created_at DESC)`` for per-user audit
+    ``(event_type, created_at)`` for type-filtered scans,
+    ``(actor_user_email, created_at)`` for per-user audit
     trails, and a plain ``(created_at)`` for generic time
-    windows.  ``event_id`` is uniquely indexed; duplicate
-    inserts fail loud (matches the Mongo backend).
+    windows.  The SQLAlchemy ``Index(...)`` declarations below
+    do not encode a per-column sort order -- the Mongo
+    backend's matching indexes are ``DESC`` on ``created_at``,
+    but on SQL the analogous newest-first semantic is provided
+    by :meth:`SQLDBAudit.query` via ``ORDER BY created_at
+    DESC``, which both PostgreSQL and DuckDB can satisfy with
+    a plain b-tree index regardless of declared direction (the
+    planner reads it backwards as needed).  ``event_id`` is
+    uniquely indexed; duplicate inserts fail loud (matches the
+    Mongo backend).
 
     Retention is operator-driven; no TTL.
     """
