@@ -16328,13 +16328,13 @@ class MongoDBNotesIndexTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
-# DBAuditTests / MongoDBAuditIndexTests / SQLDBAuditIndexTests
-# / SQLDBAuditLiveIntegrationTests -- backend-free pin tests
-# for the ``audit`` purpose (append-only audit log of uploads,
-# admin actions, and oversized queries).  Mirrors the
-# ``MongoDBNotesIndexTests`` block in spirit: ABC surface,
-# typed-exception class, Mongo schema + indexes, SQL schema +
-# indexes, and a DuckDB-driven integration block for
+# DBAuditAbstractSurfaceTests / MongoDBAuditIndexTests /
+# SQLDBAuditSchemaTests / SQLDBAuditLiveIntegrationTests --
+# backend-free pin tests for the ``audit`` purpose (append-only
+# audit log of uploads, admin actions, and oversized queries).
+# Mirrors the ``MongoDBNotesIndexTests`` block in spirit: ABC
+# surface, typed-exception class, Mongo schema + indexes, SQL
+# schema + indexes, and a DuckDB-driven integration block for
 # end-to-end behaviour of the SQL path.
 # ---------------------------------------------------------------------
 
@@ -16575,6 +16575,54 @@ class MongoDBAuditIndexTests(unittest.TestCase):
         src = inspect.getsource(MongoDBAudit.__init__)
         self.assertIn("colname_audit_events", src)
         self.assertIn('"audit_events"', src)
+
+    def test_audit_record_normalises_actor_and_resource_at_write_time(
+        self,
+    ) -> None:
+        # Cross-backend parity pin: ``MongoDBAudit.record`` must
+        # store ``actor`` / ``resource`` with the full canonical
+        # key set (defaulting missing fields to ``None``) so the
+        # on-disk shape matches what :meth:`SQLDBAudit._row2event`
+        # reassembles from per-column NULLs.  Without this, a
+        # call like ``record(actor={"user_email": "alice"})``
+        # would round-trip as ``{"user_email": "alice"}`` on
+        # Mongo but ``{"user_email": "alice", "api_key_hash":
+        # None, "remote_addr": None}`` on SQL.
+        from ivre.db.mongo import MongoDBAudit
+
+        events_col = mock.Mock()
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        # ``MongoDBAudit.db`` is a property delegating to
+        # ``self._db.db``; stub the inner ``_db`` so the
+        # ``self.db[...]`` lookup returns our mocked
+        # ``audit_events`` collection.  Same pattern as
+        # ``test_set_note_swallows_audit_insert_failure``.
+        backend._db = mock.Mock()
+        backend._db.db = {"audit_events": events_col}
+        event_id = backend.record(
+            "upload",
+            actor={"user_email": "alice@example.org"},  # partial
+            # ``resource`` omitted entirely
+            details={"k": "v"},
+            outcome=200,
+        )
+        self.assertEqual(len(event_id), 32)
+        events_col.insert_one.assert_called_once()
+        doc = events_col.insert_one.call_args.args[0]
+        # ``actor`` has the full canonical key set with ``None``
+        # for fields the caller did not supply.
+        self.assertEqual(
+            doc["actor"],
+            {
+                "user_email": "alice@example.org",
+                "api_key_hash": None,
+                "remote_addr": None,
+            },
+        )
+        # ``resource`` likewise carries the full canonical key
+        # set even though the caller passed nothing.
+        self.assertEqual(doc["resource"], {"route": None, "method": None})
 
 
 # ``SQLDBAudit*`` tests need SQLAlchemy at import time

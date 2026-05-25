@@ -7114,10 +7114,14 @@ class SQLDBAudit(SQLDB, DBAudit):
         # under both PostgreSQL and DuckDB; the duckdb-engine
         # dialect returns ``rowcount=-1`` for every DELETE
         # otherwise (same workaround used in
-        # :meth:`SQLDBAuth.delete_api_key`).
+        # :meth:`SQLDBAuth.delete_api_key`).  Count rows in a
+        # streaming fashion via ``sum(1 for _ in ...)`` rather
+        # than materialising the ``RETURNING`` result into a
+        # list: for a large purge the difference is one O(N)
+        # int allocation we can avoid for free.
         stmt = stmt.returning(self.tables.events.id)
         with self.db.begin() as conn:
-            return len(list(conn.execute(stmt)))
+            return sum(1 for _ in conn.execute(stmt))
 
     def get(self, spec, **kargs):
         # Low-level escape hatch.  The audit log's primary API

@@ -8498,12 +8498,33 @@ class MongoDBAudit(MongoDB, DBAudit):
         self._validate_details(details)
         if event_id is None:
             event_id = uuid.uuid4().hex
+        # Normalise ``actor`` / ``resource`` to the canonical
+        # key sets at write time so the on-disk shape matches
+        # the caller-visible shape every :class:`DBAudit`
+        # backend returns.  The SQL backend always reassembles
+        # the full key set from its individual columns
+        # (``actor_user_email`` etc., defaulting to ``None``
+        # when nullable columns are unset); Mongo does the same
+        # normalisation up front so a partial caller-supplied
+        # dict turns into the same shape on disk and on the
+        # ``query()`` / ``record()`` boundary.  Forensics
+        # expects ``audit.events`` documents to look like they
+        # did when written, not like a query-layer projection.
+        actor = actor or {}
+        resource = resource or {}
         doc = {
             "event_id": event_id,
             "event_type": event_type,
             "created_at": datetime.datetime.now(tz=datetime.timezone.utc),
-            "actor": actor or {},
-            "resource": resource or {},
+            "actor": {
+                "user_email": actor.get("user_email"),
+                "api_key_hash": actor.get("api_key_hash"),
+                "remote_addr": actor.get("remote_addr"),
+            },
+            "resource": {
+                "route": resource.get("route"),
+                "method": resource.get("method"),
+            },
             "details": details or {},
             "outcome": outcome,
         }
@@ -8511,7 +8532,7 @@ class MongoDBAudit(MongoDB, DBAudit):
             self.db[self.columns[self.column_audit_events]].insert_one(doc)
         except PyMongoError as exc:
             raise AuditWriteError(
-                f"failed to record audit event {event_id} " f"({event_type}): {exc}"
+                f"failed to record audit event {event_id} ({event_type}): {exc}"
             ) from exc
         return event_id
 
@@ -8579,10 +8600,17 @@ class MongoDBAudit(MongoDB, DBAudit):
             since=since,
             until=until,
         )
-        col = self.db[self.columns[self.column_audit_events]]
-        if not flt:
-            return col.estimated_document_count()
-        return col.count_documents(flt)
+        # Always use ``count_documents`` -- including for the
+        # empty filter.  The :class:`MongoDBNotes.count` pattern
+        # uses ``estimated_document_count`` as a fast path, but
+        # that returns the collection's metadata count, which
+        # lags behind the live state during chunk migrations /
+        # segment writes.  The SQL backend's ``count(*)`` is
+        # exact, and the audit log's contract is "tell me
+        # exactly how many events I have" for compliance /
+        # forensics; an approximation would silently diverge
+        # across backends.
+        return self.db[self.columns[self.column_audit_events]].count_documents(flt)
 
     def purge_older_than(self, cutoff):
         col = self.db[self.columns[self.column_audit_events]]
