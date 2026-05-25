@@ -6287,16 +6287,26 @@ class DBAudit(DB):
     @staticmethod
     def _validate_details(details: Any) -> None:
         """Raise :class:`ValueError` if ``details`` is not
-        ``None`` and not JSON-serializable.
+        ``None`` and not strict-JSON-serializable.
 
         Caught at the ABC so a caller that passes a
         ``datetime`` / ``set`` / custom object surfaces the
         problem at insert time with a clear error rather than
         at SQL JSON-serialization time (or worse, at later
         read time on a Mongo backend that happily stored the
-        BSON-but-not-JSON value).  The default ``json.dumps``
-        encoder is sufficient: any value the rest of IVRE
-        emits to JSON via stdlib ``json`` will serialize here.
+        BSON-but-not-JSON value).
+
+        ``allow_nan=False`` makes :func:`json.dumps` reject
+        ``NaN`` / ``Infinity`` / ``-Infinity`` floats.  The
+        stdlib default (``allow_nan=True``) emits the literal
+        tokens ``NaN`` / ``Infinity`` / ``-Infinity``, which
+        are **not** part of RFC 8259 JSON: strict consumers
+        (any standards-conformant JSON parser, ``JSON`` /
+        ``JSONB`` column types on some SQL dialects, every
+        downstream non-Python consumer of the audit log) will
+        choke on them.  Rejecting them here keeps the
+        cross-backend storage shape strict-JSON-clean and the
+        Mongo / SQL writes interchangeable.
         """
         if details is None:
             return
@@ -6305,7 +6315,7 @@ class DBAudit(DB):
                 f"details must be a dict (or None), got " f"{type(details).__name__}"
             )
         try:
-            json.dumps(details)
+            json.dumps(details, allow_nan=False)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"details is not JSON-serializable: {exc}") from exc
 

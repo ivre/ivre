@@ -16444,6 +16444,30 @@ class DBAuditAbstractSurfaceTests(unittest.TestCase):
                     DBAudit._validate_details(bad)
                 self.assertIn("not JSON-serializable", str(ctx.exception))
 
+    def test_validate_details_rejects_non_finite_floats(self) -> None:
+        # ``json.dumps`` accepts ``NaN`` / ``Infinity`` /
+        # ``-Infinity`` by default (``allow_nan=True``) and
+        # emits the bare tokens ``NaN`` / ``Infinity`` /
+        # ``-Infinity`` -- which are NOT part of RFC 8259 JSON.
+        # The ABC's strict-JSON contract is what keeps the
+        # audit log interchangeable across Mongo / SQL / any
+        # standards-conformant downstream consumer; reject the
+        # non-finite floats at insert time rather than letting
+        # them slip through to a backend that may or may not
+        # accept the non-standard token.
+        from ivre.db import DBAudit
+
+        for bad in (
+            {"x": float("nan")},
+            {"x": float("inf")},
+            {"x": float("-inf")},
+            {"nested": {"y": float("nan")}},  # nested too
+        ):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    DBAudit._validate_details(bad)
+                self.assertIn("not JSON-serializable", str(ctx.exception))
+
     def test_audit_write_error_is_top_level_exception(self) -> None:
         # ``AuditWriteError`` is a top-level :class:`Exception`,
         # NOT a :class:`ValueError`.  The asymmetry with
