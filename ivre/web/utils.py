@@ -36,13 +36,15 @@ except ImportError:
     HAVE_MYSQL = False
 
 
-from bottle import request  # type: ignore
+from bottle import abort, request  # type: ignore
 from regexploit.ast.sre import SreOpParser  # type: ignore[import-untyped]
 from regexploit.redos import find as _regexploit_find  # type: ignore[import-untyped]
 
 from ivre import config, utils
+from ivre.db import db
 from ivre.plugins import load_plugins
 from ivre.types import Filter
+from ivre.web.base import extract_api_key
 
 GET_NOTEPAD_PAGES = {}
 
@@ -266,24 +268,36 @@ def get_user() -> str | None:
     if not config.WEB_AUTH_ENABLED:
         return request.environ.get("REMOTE_USER")
 
-    from ivre.db import db  # pylint: disable=import-outside-toplevel
-
-    # 1. Check session cookie
+    # 1. Check session cookie. Mirror the cache-reader's
+    # ``email`` requirement so a session record without an
+    # email field falls through to the next resolution step
+    # rather than crashing on ``user["email"]`` -> ``KeyError``
+    # -> 500.
     session_token = request.get_cookie("_ivre_session", secret=config.WEB_SECRET)
     if session_token and db.auth is not None:
         user = db.auth.validate_session(session_token)
-        if user and user.get("is_active"):
+        if user and user.get("is_active") and user.get("email"):
             return user["email"]
 
-    # 2. Check API key
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.lower().startswith("bearer "):
-            api_key = auth_header.split(None, 1)[1]
+    # 2. Check API key. If an upstream gate (e.g.
+    # :func:`ivre.web.base.quota_gated`) has already validated
+    # the key for this request, reuse its cached user record
+    # rather than hitting the DB twice (and double-stamping
+    # ``last_used``).
+    cached_user = request.environ.get("ivre.api_key_user")
+    if (
+        isinstance(cached_user, dict)
+        and cached_user.get("is_active")
+        and cached_user.get("email")
+    ):
+        return cached_user["email"]
+    # Same ``email``-required check as the session-cookie path
+    # and the cache reader above: a half-formed user dict from
+    # ``validate_api_key`` must not crash on ``user["email"]``.
+    api_key = extract_api_key()
     if api_key and db.auth is not None:
         user = db.auth.validate_api_key(api_key)
-        if user and user.get("is_active"):
+        if user and user.get("is_active") and user.get("email"):
             return user["email"]
 
     # 3. Check REMOTE_USER (reverse proxy)
@@ -453,8 +467,6 @@ def _resolve_init_flt(user: str | None, dbase: Any) -> Filter:
             return init_queries[realm]
     # Group-based access control (when auth is enabled)
     if config.WEB_AUTH_ENABLED and user:
-        from ivre.db import db  # pylint: disable=import-outside-toplevel
-
         if db.auth is not None:
             for group in db.auth.get_user_groups(user):
                 key = f"group:{group}"
@@ -493,8 +505,6 @@ def get_init_flt(dbase):
     user = get_user()
     # When auth is enabled, deny access to unauthenticated users
     if config.WEB_AUTH_ENABLED and user is None:
-        from bottle import abort  # pylint: disable=import-outside-toplevel
-
         abort(401, "Authentication required")
     return get_init_flt_for(user, dbase)
 

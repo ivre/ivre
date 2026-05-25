@@ -13447,14 +13447,28 @@ class WebUploadOkTests(unittest.TestCase):
     """Pin :func:`ivre.web.base.check_upload_ok`."""
 
     def setUp(self):
+        from bottle import response
+
         from ivre import config
 
         self._saved = config.WEB_UPLOAD_OK
+        # ``check_upload_ok`` and the tests that drive it via
+        # ``route.call()`` mutate the thread-local
+        # ``bottle.response.status`` to ``"403 Forbidden"``.
+        # Snapshot it in ``setUp`` and restore in ``tearDown``
+        # so the 403 does not leak into later tests in the
+        # same process. ``CheckRefererBearerTests`` /
+        # ``QuotaGatedTests`` use the same snapshot/restore
+        # pattern.
+        self._saved_response_status = response.status
 
     def tearDown(self):
+        from bottle import response
+
         from ivre import config
 
         config.WEB_UPLOAD_OK = self._saved
+        response.status = self._saved_response_status
 
     def test_disabled_returns_403_and_skips_handler(self):
         # ``WEB_UPLOAD_OK = False`` is the default; the
@@ -13569,6 +13583,53 @@ class WebUploadOkTests(unittest.TestCase):
                     f"route {route.rule} did not honour WEB_UPLOAD_OK",
                 )
                 self.assertIn("Uploads are disabled", body)
+
+    def test_upload_disabled_does_not_consume_quota(self):
+        # Decorator-order pin: on upload routes the stack is
+        # ``@check_referer @check_upload_ok @quota_gated``, so
+        # a request to a write endpoint when
+        # ``WEB_UPLOAD_OK = False`` returns 403 *before*
+        # ``quota_gated`` has a chance to validate the API
+        # key, bump ``last_used``, or consume a quota slot.
+        # A previous decorator order
+        # (``@check_referer @quota_gated @check_upload_ok``)
+        # made the gate run first, which is wasted work for a
+        # request the server statically refuses.
+        from unittest.mock import patch
+
+        from ivre import config
+        from ivre.web.app import application
+
+        config.WEB_UPLOAD_OK = False
+        post_rules = [
+            r
+            for r in application.routes
+            if r.method == "POST" and not r.rule.startswith("/auth/")
+        ]
+        # Drive each write route under fully-enabled auth +
+        # quota config. ``check_upload_ok`` must short-circuit
+        # before ``quota_gated`` touches ``db.auth``.
+        fake_headers = {"X-API-Key": "ivre_disabled_upload_probe"}
+        with (
+            patch("ivre.web.base.request") as fake_request,
+            patch.object(config, "WEB_AUTH_ENABLED", True),
+            patch.object(config, "WEB_API_KEY_RATE_MAX", 5),
+            patch.object(config, "WEB_API_KEY_RATE_WINDOW", 60),
+            patch("ivre.web.base.db") as db_mod,
+        ):
+            fake_request.headers.get.side_effect = fake_headers.get
+            for route in post_rules:
+                db_mod.reset_mock()
+                try:
+                    route.call()
+                except TypeError:
+                    # ``post_nmap(subdb)`` requires a positional
+                    # arg; placeholder is irrelevant because the
+                    # 403 fires before the handler body.
+                    route.call("scans")
+                db_mod.auth.validate_api_key.assert_not_called()
+                db_mod.auth.is_rate_limited.assert_not_called()
+                db_mod.auth.record_rate_limit.assert_not_called()
 
 
 # ---------------------------------------------------------------------
@@ -16528,6 +16589,964 @@ class WebFilterInjectorTests(unittest.TestCase):
         from ivre import plugins as ivre_plugins
 
         self.assertIn("web.filter", ivre_plugins.CATEGORIES)
+
+
+# ---------------------------------------------------------------------
+# QuotaGatedTests -- pin :func:`ivre.web.base.quota_gated`, the
+# per-API-key sliding-window rate-limit gate stacked on the
+# data-plane routes (``/scans``, ``/view``, ``/passive``,
+# ``/flows``, ``/ipdata``, ``/passivedns``, ``/dns``, ``/rir``,
+# ``/iprange``). The gate is a no-op for cookie-authenticated
+# (or anonymous) traffic and only kicks in when the request
+# carries an ``X-API-Key`` or ``Authorization: Bearer ...``
+# header; over-quota requests get ``HTTP 429``.
+#
+# These tests drive the decorator directly against a stub
+# Bottle request via ``request.bind(env)`` plus a mocked
+# ``db.auth`` -- no DB connection is required.
+# ---------------------------------------------------------------------
+
+
+class QuotaGatedTests(unittest.TestCase):
+    """Behaviour pin for :func:`ivre.web.base.quota_gated`.
+
+    Each test sets up a synthetic WSGI environment via
+    ``bottle.request.bind`` so the decorator's ``request.headers``
+    / ``request.environ`` reads see a fresh per-test request.
+    ``db.auth`` is mocked so ``validate_api_key`` /
+    ``is_rate_limited`` / ``record_rate_limit`` can be steered
+    without a live backend.
+
+    The contract pinned here:
+
+    1. No API-key header -> pass-through (no DB call, no 401).
+    2. ``WEB_AUTH_ENABLED = False`` -> pass-through even when a
+       header is present (the gate is opt-in via auth).
+    3. ``db.auth is None`` -> pass-through (no auth backend
+       configured at all).
+    4. Invalid / disabled key -> ``abort(401, ...)``, no
+       ``record_rate_limit``, no route body call.
+    5. Valid key, quota disabled (``WEB_API_KEY_RATE_MAX is
+       None`` or non-positive) -> pass-through; the validated
+       user is cached on ``request.environ['ivre.api_key_user']``
+       so a later ``get_user()`` reuses it.
+    6. Valid key, under quota -> ``record_rate_limit`` called
+       once with key ``f"api:{sha256(raw_key).hexdigest()}"``;
+       route body called.
+    7. Valid key, over quota -> ``abort(429, ...)``; the over-
+       quota request is *not* counted (no ``record_rate_limit``),
+       matching the magic-link rate-limit pattern.
+    8. ``Authorization: Bearer ...`` header is recognised as an
+       equivalent to ``X-API-Key``.
+    """
+
+    def setUp(self) -> None:
+        import io as _io
+
+        from bottle import request as _bottle_request
+
+        from ivre.web import base as web_base
+
+        self._web_base = web_base
+        self._request = _bottle_request
+
+        # ``bottle.request`` is a process-global ``LocalRequest``
+        # whose ``environ`` is a thread-local. ``self._bind``
+        # mutates it; without a restore, the last env we bound
+        # would leak into any subsequent test that reads
+        # ``bottle.request`` without binding first. Snapshot
+        # whatever was there before this test and restore it on
+        # tearDown (the empty-dict fallback handles the common
+        # "nothing bound yet" case).
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                _bottle_request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+
+        # Build a minimal WSGI env every test reuses; tests
+        # override headers / environ by calling ``self._bind``.
+        self._base_env: dict[str, Any] = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "ivre.example.org",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "ivre.example.org",
+            "PATH_INFO": "/stub",
+            "QUERY_STRING": "",
+            "wsgi.input": _io.BytesIO(b""),
+            "wsgi.url_scheme": "http",
+            "CONTENT_LENGTH": "0",
+        }
+
+    def tearDown(self) -> None:
+        # Restore the pre-test request environ so the synthetic
+        # WSGI environ this test class binds via ``_bind`` does
+        # not leak into any other test in the same process.
+        self._request.bind(self._saved_request_environ or {})
+
+    def _bind(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        """Bind ``bottle.request`` to a fresh env carrying
+        ``headers``. Returns the env so the caller can inspect
+        ``env['ivre.api_key_user']`` after the gate has run.
+        """
+        env = dict(self._base_env)
+        for name, value in (headers or {}).items():
+            env[f"HTTP_{name.upper().replace('-', '_')}"] = value
+        self._request.bind(env)
+        return env
+
+    def test_no_api_key_passes_through_without_db_call(self) -> None:
+        # No header, no validation, no rate-limit call: the
+        # decorator must be invisible. ``db.auth`` is mocked
+        # (non-None) so the gate proceeds past the
+        # ``db.auth is None`` check and reaches the
+        # ``api_key is None`` branch we're actually testing
+        # here; ``validate_api_key`` / ``is_rate_limited`` /
+        # ``record_rate_limit`` are then asserted not-called.
+        self._bind(headers={})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            result = gated()
+        self.assertEqual(result, "ok")
+        self.assertEqual(called, [True])
+        db_mod.auth.validate_api_key.assert_not_called()
+        db_mod.auth.is_rate_limited.assert_not_called()
+        db_mod.auth.record_rate_limit.assert_not_called()
+
+    def test_auth_disabled_passes_through_even_with_header(self) -> None:
+        # When ``WEB_AUTH_ENABLED`` is ``False`` the gate must
+        # not validate the key. This matches the pre-existing
+        # ``check_referer`` shortcut and lets operators deploy a
+        # read-only IVRE without the API-key plumbing.
+        #
+        # Ordering pin: the auth-disabled short-circuit fires
+        # BEFORE any header parsing. This keeps the gate cheap
+        # on the most common deployment (``WEB_AUTH_ENABLED =
+        # False`` is the default) and defends against a future
+        # ``extract_api_key`` rewrite that grows side effects.
+        self._bind(headers={"X-API-Key": "ivre_anything"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", False),
+            mock.patch.object(self._web_base, "extract_api_key") as extract_mock,
+        ):
+            result = gated()
+        self.assertEqual(result, "ok")
+        self.assertEqual(called, [True])
+        extract_mock.assert_not_called()
+
+    def test_no_auth_backend_passes_through(self) -> None:
+        # ``db.auth is None`` means no auth backend is wired;
+        # the gate must not crash, it must pass-through.
+        #
+        # Ordering pin: the ``db.auth is None`` short-circuit
+        # also fires BEFORE any header parsing, so a
+        # misconfigured deployment does not waste cycles on
+        # ``extract_api_key`` for a request it cannot
+        # validate anyway.
+        self._bind(headers={"X-API-Key": "ivre_anything"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.base.db") as db_mod,
+            mock.patch.object(self._web_base, "extract_api_key") as extract_mock,
+        ):
+            db_mod.auth = None
+            result = gated()
+        self.assertEqual(result, "ok")
+        self.assertEqual(called, [True])
+        extract_mock.assert_not_called()
+
+    def test_invalid_api_key_returns_401(self) -> None:
+        from bottle import HTTPError
+
+        self._bind(headers={"X-API-Key": "ivre_bogus"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = None
+            with self.assertRaises(HTTPError) as ctx:
+                gated()
+        # Bottle's ``abort`` raises ``HTTPError``; pin the
+        # status code and the absence of a route body call.
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(called, [])
+
+    def test_disabled_user_returns_401(self) -> None:
+        # A valid key whose owner has been deactivated must
+        # also 401; defence-in-depth against an admin freeze
+        # leaving live tokens in circulation.
+        from bottle import HTTPError
+
+        self._bind(headers={"X-API-Key": "ivre_disabled"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": False,
+            }
+            with self.assertRaises(HTTPError) as ctx:
+                gated()
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_user_without_email_returns_401(self) -> None:
+        # Regression for the cache-then-skip asymmetry: a user
+        # dict that ``validate_api_key`` returns with
+        # ``is_active=True`` but missing (or empty) ``email``
+        # would be cached by ``quota_gated`` but
+        # ``get_user``'s cache fast-path requires both fields,
+        # so the cache would be silently bypassed and
+        # ``validate_api_key`` called again -- defeating the
+        # "no double-stamp" goal of the cache. Tighten the gate
+        # so a half-formed user dict is treated as "invalid key"
+        # at the 401 boundary rather than cached.
+        from bottle import HTTPError
+
+        for shape in (
+            {"is_active": True},  # missing email
+            {"is_active": True, "email": ""},  # empty email
+            {"is_active": True, "email": None},  # None email
+        ):
+            with self.subTest(shape=shape):
+                env = self._bind(headers={"X-API-Key": "ivre_noemail"})
+
+                def _stub() -> str:
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
+                    db_mod.auth.validate_api_key.return_value = shape
+                    with self.assertRaises(HTTPError) as ctx:
+                        gated()
+                self.assertEqual(ctx.exception.status_code, 401)
+                # The half-formed dict must NOT have been cached
+                # on ``request.environ``: otherwise a subsequent
+                # ``get_user`` would skip the cache and call
+                # ``validate_api_key`` again on the same request,
+                # double-stamping ``last_used``.
+                self.assertNotIn("ivre.api_key_user", env)
+
+    def test_quota_disabled_passes_through_and_caches_user(self) -> None:
+        # When ``WEB_API_KEY_RATE_MAX`` is ``None`` (or 0/negative),
+        # the gate must validate the key but not call
+        # ``is_rate_limited`` / ``record_rate_limit``. The
+        # validated user is still cached on ``request.environ``
+        # so a later ``get_user`` reuses it.
+        env = self._bind(headers={"X-API-Key": "ivre_valid"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            result = gated()
+            self.assertEqual(result, "ok")
+            db_mod.auth.is_rate_limited.assert_not_called()
+            db_mod.auth.record_rate_limit.assert_not_called()
+        cached = env.get("ivre.api_key_user")
+        self.assertIsInstance(cached, dict)
+        assert isinstance(cached, dict)  # for mypy on the next line
+        self.assertEqual(cached["email"], "alice@example.org")
+
+    def test_under_quota_records_attempt_and_passes_through(self) -> None:
+        import hashlib as _hashlib
+
+        raw_key = "ivre_under"
+        self._bind(headers={"X-API-Key": raw_key})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            db_mod.auth.is_rate_limited.return_value = False
+            result = gated()
+            self.assertEqual(result, "ok")
+            # The rate-limit ledger is keyed by the SHA-256 of
+            # the raw API key, prefixed to namespace it apart
+            # from magic-link keys (``magic:email:...``).
+            expected_key = f"api:{_hashlib.sha256(raw_key.encode()).hexdigest()}"
+            db_mod.auth.is_rate_limited.assert_called_once_with(expected_key, 5, 60)
+            db_mod.auth.record_rate_limit.assert_called_once_with(expected_key)
+
+    def test_over_quota_returns_429_and_does_not_record(self) -> None:
+        # Pins the "over-quota does not extend the window"
+        # semantic: ``record_rate_limit`` is only called on
+        # the allowed branch, matching
+        # ``ivre/web/auth.py:357-385`` (magic-link).
+        #
+        # Also pins the log-content contract: the quota-exceeded
+        # log line MUST NOT contain the raw API key (not even a
+        # truncated prefix). A previous version of this gate
+        # logged ``api_key[:12]``, which leaked 7 base64url
+        # chars of the 256-bit secret to syslog; the current
+        # version logs the SHA-256 hash prefix instead.
+        import hashlib as _hashlib
+
+        from bottle import HTTPError
+
+        raw_key = "ivre_overquotaXXXYYYZZZ"
+        self._bind(headers={"X-API-Key": raw_key})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 3),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            db_mod.auth.is_rate_limited.return_value = True
+            with self.assertLogs("ivre", level="INFO") as captured:
+                with self.assertRaises(HTTPError) as ctx:
+                    gated()
+            db_mod.auth.record_rate_limit.assert_not_called()
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertEqual(called, [])
+        # Log content: the SHA-256 hash prefix is present; no
+        # substring of the raw key (full or truncated) appears.
+        expected_hash = _hashlib.sha256(raw_key.encode()).hexdigest()[:16]
+        log_blob = "\n".join(captured.output)
+        self.assertIn(expected_hash, log_blob)
+        # Neither the full raw key nor the 12-char prefix that
+        # the previous version of the code logged must appear in
+        # the log line.
+        self.assertNotIn(raw_key, log_blob)
+        self.assertNotIn(raw_key[:12], log_blob)
+
+    def test_authorization_bearer_without_token_is_ignored(self) -> None:
+        # Regression: ``Authorization: Bearer `` (scheme +
+        # trailing whitespace, no token) used to crash
+        # ``extract_api_key`` with ``IndexError`` because
+        # ``"Bearer ".split(None, 1)`` returns a single-element
+        # list, and indexing ``[1]`` would turn the request into
+        # a 500. The defensive parsing branch must now treat it
+        # as "no API key header" and let the gate pass-through.
+        # An ``Authorization: Bearer`` value without a trailing
+        # space fails the ``startswith("bearer ")`` check and is
+        # likewise ignored.
+        for header_value in ("Bearer ", "bearer   ", "Bearer\t", "bearer"):
+            with self.subTest(header_value=header_value):
+                self._bind(headers={"Authorization": header_value})
+                called: list[bool] = []
+
+                def _stub() -> str:
+                    called.append(True)
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                # ``db.auth`` is mocked so the gate proceeds
+                # past the deployment-shape checks and hits the
+                # ``api_key is None`` short-circuit we're
+                # actually testing here.
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
+                    result = gated()
+                self.assertEqual(result, "ok")
+                self.assertEqual(called, [True])
+                db_mod.auth.validate_api_key.assert_not_called()
+
+    def test_authorization_bearer_header_is_recognised(self) -> None:
+        # The Authorization scheme match is case-insensitive
+        # (``Bearer``, ``bearer``, ``BEARER`` are all valid).
+        self._bind(headers={"Authorization": "bearer ivre_via_bearer"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            db_mod.auth.is_rate_limited.return_value = False
+            result = gated()
+        self.assertEqual(result, "ok")
+
+    def test_bearer_with_tab_separator_is_recognised(self) -> None:
+        # Regression: the unified ``_parse_bearer`` helper
+        # accepts any whitespace separator between the scheme
+        # and the token, so ``"Bearer\ttoken"`` reaches the
+        # gate exactly like ``"Bearer token"``. A previous
+        # version of ``extract_api_key`` used
+        # ``startswith("bearer ")`` (literal space) and would
+        # silently drop tab-separated bearer headers; pin that
+        # the new shared parser handles them.
+        self._bind(headers={"Authorization": "Bearer\tivre_tab_separated"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", 5),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", 60),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            db_mod.auth.is_rate_limited.return_value = False
+            result = gated()
+            # The key the gate validated is the tab-separated
+            # token, not the whole header value -- pinning this
+            # catches a regression where ``_parse_bearer`` is
+            # rewritten to swallow the whitespace into the
+            # returned token.
+            db_mod.auth.validate_api_key.assert_called_once_with("ivre_tab_separated")
+        self.assertEqual(result, "ok")
+
+    def test_bearer_with_extra_segments_is_ignored(self) -> None:
+        # Tightening pin: ``Authorization: Bearer token extra``
+        # (three or more whitespace-separated parts) is treated
+        # as "no API key" by the gate. A real IVRE API key is
+        # ``"ivre_" + token_urlsafe(32)``, which only contains
+        # base64url characters and therefore no whitespace; a
+        # header that splits into more than two parts cannot
+        # authenticate downstream, so ``_parse_bearer`` rejects
+        # it at the parser layer rather than handing
+        # ``"token extra"`` to ``validate_api_key``.
+        for header_value in (
+            "Bearer token extra",
+            "bearer a b c",
+            "Bearer\ttoken\textra",
+            "Bearer  token  trailing-segment",
+        ):
+            with self.subTest(header_value=header_value):
+                self._bind(headers={"Authorization": header_value})
+                called: list[bool] = []
+
+                def _stub() -> str:
+                    called.append(True)
+                    return "ok"
+
+                gated = self._web_base.quota_gated(_stub)
+                with (
+                    mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+                    mock.patch("ivre.web.base.db") as db_mod,
+                ):
+                    result = gated()
+                # Pass-through (no API key seen) -> handler ran,
+                # ``validate_api_key`` never touched.
+                self.assertEqual(result, "ok")
+                self.assertEqual(called, [True])
+                db_mod.auth.validate_api_key.assert_not_called()
+
+    def test_cached_user_is_reused_by_get_user(self) -> None:
+        # End-to-end pin between the gate and ``get_user``: a
+        # validated user cached by the gate must be returned by
+        # the next ``get_user`` call without a second
+        # ``validate_api_key`` round-trip (which would
+        # double-stamp ``last_used``).
+        from ivre.web import utils as webutils
+
+        env = self._bind(headers={"X-API-Key": "ivre_cached"})
+
+        def _stub() -> str:
+            # Inside the route body the gate's cache should
+            # already be populated; ``get_user`` reads from
+            # ``request.environ`` and never calls validate
+            # again.
+            return webutils.get_user() or ""
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+            }
+            email = gated()
+            # The gate validated once; ``get_user`` must not
+            # invoke ``validate_api_key`` a second time.
+            db_mod.auth.validate_api_key.assert_called_once_with("ivre_cached")
+        self.assertEqual(email, "alice@example.org")
+        self.assertEqual(
+            env.get("ivre.api_key_user"),
+            {"email": "alice@example.org", "is_active": True},
+        )
+
+    def test_cache_strips_extra_fields_from_backend_user(self) -> None:
+        # Defense-in-depth pin for the cache shape: the auth
+        # backend's full user record may carry display name,
+        # group memberships, last-login timestamp, etc. None
+        # of those fields are read by ``get_user``, so the
+        # cache must not carry them through to
+        # ``request.environ`` -- a logging middleware or
+        # error-traceback dump would otherwise surface PII
+        # the cache reader never needed.
+        env = self._bind(headers={"X-API-Key": "ivre_rich_user"})
+
+        def _stub() -> str:
+            return "ok"
+
+        gated = self._web_base.quota_gated(_stub)
+        with (
+            mock.patch.object(self._web_base.config, "WEB_AUTH_ENABLED", True),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_MAX", None),
+            mock.patch("ivre.web.base.db") as db_mod,
+        ):
+            db_mod.auth.validate_api_key.return_value = {
+                "email": "alice@example.org",
+                "is_active": True,
+                # The fields below stand in for everything a
+                # real auth backend may attach -- display
+                # name, group memberships, audit timestamps,
+                # etc.  None of them must survive the trim.
+                "display_name": "Alice Example",
+                "groups": ["admins", "ops"],
+                "created_at": "2025-01-01T00:00:00Z",
+                "last_login": "2026-05-24T10:00:00Z",
+            }
+            gated()
+        cached = env.get("ivre.api_key_user")
+        self.assertEqual(cached, {"email": "alice@example.org", "is_active": True})
+
+    def test_get_user_session_with_missing_email_does_not_500(self) -> None:
+        # Regression mirroring ``test_user_without_email_returns_401``
+        # but on the session-cookie path: a ``validate_session``
+        # call that returns ``{"is_active": True}`` without an
+        # ``email`` field must not crash on ``user["email"]``
+        # -> ``KeyError`` -> 500. The session path falls
+        # through to the next resolution step instead, which
+        # in this no-cookie/no-key/no-REMOTE_USER setup yields
+        # ``None``.
+        from ivre.web import utils as webutils
+
+        # No headers at all; ``get_user``'s session-cookie
+        # branch reads ``request.get_cookie``, which we steer
+        # via ``request.environ['HTTP_COOKIE']``.
+        env = dict(self._base_env)
+        env["HTTP_COOKIE"] = "_ivre_session=any-cookie-the-mock-ignores"
+        self._request.bind(env)
+        with (
+            mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.utils.db") as db_mod,
+        ):
+            db_mod.auth.validate_session.return_value = {"is_active": True}
+            # Both ``validate_api_key`` and ``ensure_remote_user``
+            # are also reachable via fall-through; stub them so
+            # the test focuses on the session branch.
+            db_mod.auth.validate_api_key.return_value = None
+            result = webutils.get_user()
+        self.assertIsNone(result)
+
+    def test_get_user_api_key_with_missing_email_does_not_500(self) -> None:
+        # Mirror of the previous test on the non-cached API-key
+        # branch (``ivre/web/utils.py:290-294``): a
+        # ``validate_api_key`` call that returns
+        # ``{"is_active": True}`` without an ``email`` field
+        # must not crash on ``user["email"]`` -> ``KeyError``.
+        # No cache entry is present, so the path that hits the
+        # DB directly is exercised.
+        from ivre.web import utils as webutils
+
+        self._bind(headers={"X-API-Key": "ivre_noemail_direct"})
+        with (
+            mock.patch.object(webutils.config, "WEB_AUTH_ENABLED", True),
+            mock.patch("ivre.web.utils.db") as db_mod,
+        ):
+            db_mod.auth.validate_session.return_value = None
+            db_mod.auth.validate_api_key.return_value = {"is_active": True}
+            result = webutils.get_user()
+        # No email -> fall through past the API-key branch.
+        # No REMOTE_USER set -> final return is ``None``.
+        self.assertIsNone(result)
+
+
+# ---------------------------------------------------------------------
+# QuotaConfigValidationTests -- pin
+# :func:`ivre.web.base._validate_quota_config`, the
+# module-load validator that rejects malformed
+# ``WEB_API_KEY_RATE_*`` knobs at WSGI worker startup so an
+# operator typoing ``WEB_API_KEY_RATE_MAX = True`` sees a
+# clear ``ValueError`` during ``ivre httpd`` startup rather
+# than a silently disabled quota in production.
+# ---------------------------------------------------------------------
+
+
+class QuotaConfigValidationTests(unittest.TestCase):
+    """Behaviour pin for
+    :func:`ivre.web.base._validate_quota_config`.
+
+    The validator runs once at module import (so the WSGI
+    worker refuses to come up on an invalid config) and is
+    re-callable from tests with mocked config values.
+
+    Contract pinned here:
+
+    1. ``WEB_API_KEY_RATE_MAX = None`` -> gate disabled, the
+       window value is irrelevant and goes unchecked.
+    2. ``WEB_API_KEY_RATE_MAX`` accepts a positive int.
+    3. ``WEB_API_KEY_RATE_MAX`` rejects ``bool`` (``True`` /
+       ``False``), ``0``, negative ints, floats, strings,
+       and other non-int types.
+    4. ``WEB_API_KEY_RATE_WINDOW`` is validated only when
+       ``MAX`` is set; same type rules as ``MAX`` (positive
+       int, no bools).
+    5. The error message names the offending knob, the
+       observed type, and the observed value -- so an
+       operator reading the daemon log can fix the typo
+       without inspecting the source.
+    """
+
+    def setUp(self) -> None:
+        from ivre.web import base as web_base
+
+        self._web_base = web_base
+        # The validator is private but importable; tests call
+        # it directly with mocked config values.
+        self._validate = web_base._validate_quota_config
+
+    def _patch_config(
+        self,
+        max_attempts: Any,
+        window: Any = 60,
+    ) -> Any:
+        return (
+            mock.patch.object(
+                self._web_base.config, "WEB_API_KEY_RATE_MAX", max_attempts
+            ),
+            mock.patch.object(self._web_base.config, "WEB_API_KEY_RATE_WINDOW", window),
+        )
+
+    def test_none_max_disables_validation_of_window(self) -> None:
+        # When the gate is disabled the window value is unused;
+        # the validator must NOT reject an unused window even
+        # if the value would otherwise be invalid. This lets
+        # operators stage a window value while the gate stays
+        # off.
+        for unused_window in (60, 0, -1, "60", True, False, None):
+            with self.subTest(unused_window=unused_window):
+                p_max, p_win = self._patch_config(None, unused_window)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_positive_int_max_is_accepted(self) -> None:
+        for max_attempts in (1, 5, 100, 10_000):
+            with self.subTest(max_attempts=max_attempts):
+                p_max, p_win = self._patch_config(max_attempts, 60)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_bool_max_is_rejected(self) -> None:
+        # The headline footgun: ``True`` and ``False`` are
+        # instances of ``int`` in Python, so a naive
+        # ``isinstance(x, int)`` check would accept them.
+        # ``True`` would enable a 1-request-per-window quota
+        # silently; ``False`` would behave like ``0`` and is
+        # equally meaningless. Both must raise at startup
+        # with a clear message naming the knob.
+        for bad_value in (True, False):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+                self.assertIn("bool", str(ctx.exception))
+
+    def test_zero_or_negative_max_is_rejected(self) -> None:
+        for bad_value in (0, -1, -100):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+                self.assertIn(repr(bad_value), str(ctx.exception))
+
+    def test_non_int_max_is_rejected(self) -> None:
+        for bad_value in (1.0, "5", [5], (5,), object()):
+            with self.subTest(bad_value=bad_value):
+                p_max, p_win = self._patch_config(bad_value, 60)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_MAX", str(ctx.exception))
+
+    def test_window_validated_only_when_gate_enabled(self) -> None:
+        # Sanity that the window-rejection branch only fires
+        # when ``MAX`` is set. The previous test
+        # ``test_none_max_disables_validation_of_window``
+        # covers the disabled-gate side; this one covers the
+        # enabled-gate side rejecting a bad window.
+        for bad_window in (0, -1, True, False, 1.0, "60", None):
+            with self.subTest(bad_window=bad_window):
+                p_max, p_win = self._patch_config(5, bad_window)
+                with p_max, p_win:
+                    with self.assertRaises(ValueError) as ctx:
+                        self._validate()
+                self.assertIn("WEB_API_KEY_RATE_WINDOW", str(ctx.exception))
+
+    def test_positive_int_window_is_accepted(self) -> None:
+        for window in (1, 60, 3600, 86400):
+            with self.subTest(window=window):
+                p_max, p_win = self._patch_config(5, window)
+                with p_max, p_win:
+                    self._validate()  # must not raise
+
+    def test_error_message_includes_type_and_value(self) -> None:
+        # Operator-facing error quality: the message must name
+        # the knob AND the type AND the offending value, so a
+        # log line is enough to diagnose the typo without
+        # opening the source.
+        p_max, p_win = self._patch_config("not-an-int", 60)
+        with p_max, p_win:
+            with self.assertRaises(ValueError) as ctx:
+                self._validate()
+        msg = str(ctx.exception)
+        self.assertIn("WEB_API_KEY_RATE_MAX", msg)
+        self.assertIn("str", msg)
+        self.assertIn("'not-an-int'", msg)
+
+
+# ---------------------------------------------------------------------
+# CheckRefererBearerTests -- pin the CSRF-bypass parser inside
+# :func:`ivre.web.base.check_referer`. The bypass condition
+# delegates to :func:`ivre.web.base.extract_api_key`, which in
+# turn calls :func:`ivre.web.base._parse_bearer`. These tests
+# pin the edge cases that previously crashed (whitespace-only
+# ``Authorization`` value -> ``IndexError`` -> 500) or
+# silently bypassed without being recognised as auth by the
+# downstream layers (``Bearer`` with no token).
+# ---------------------------------------------------------------------
+
+
+class CheckRefererBearerTests(unittest.TestCase):
+    """Behaviour pin for :func:`ivre.web.base.check_referer`'s
+    bearer-bypass condition.
+
+    Each test binds a synthetic Bottle request, wraps a stub
+    handler with ``check_referer``, then invokes the wrapped
+    handler. The stub is observed to confirm whether the
+    bypass fired (handler called) or the Referer-check path
+    fired (handler skipped, 400 returned).
+    """
+
+    def setUp(self) -> None:
+        import io as _io
+
+        from bottle import request as _bottle_request
+        from bottle import response as _bottle_response
+
+        from ivre.web import base as web_base
+
+        self._web_base = web_base
+        self._request = _bottle_request
+        self._response = _bottle_response
+
+        # Snapshot / restore the thread-local Bottle globals so
+        # nothing leaks across tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                _bottle_request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+        self._saved_response_status = _bottle_response.status
+
+        self._base_env: dict[str, Any] = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "ivre.example.org",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "ivre.example.org",
+            "PATH_INFO": "/stub",
+            "QUERY_STRING": "",
+            "wsgi.input": _io.BytesIO(b""),
+            "wsgi.url_scheme": "http",
+            "CONTENT_LENGTH": "0",
+        }
+
+    def tearDown(self) -> None:
+        self._request.bind(self._saved_request_environ or {})
+        self._response.status = self._saved_response_status
+
+    def _bind(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        env = dict(self._base_env)
+        for name, value in (headers or {}).items():
+            env[f"HTTP_{name.upper().replace('-', '_')}"] = value
+        self._request.bind(env)
+        return env
+
+    def test_whitespace_only_authorization_does_not_500(self) -> None:
+        # Regression: a previous version of ``check_referer``
+        # parsed the bearer header inline with
+        # ``request.headers.get("Authorization", "").split(None, 1)[0]``,
+        # which raises ``IndexError`` on a whitespace-only
+        # ``Authorization`` value (``"   ".split(None, 1)``
+        # returns ``[]``). The unified ``_parse_bearer``
+        # helper returns ``None`` cleanly, so the bypass does
+        # not fire and the regular Referer check proceeds; with
+        # no Referer in the request, that yields the JSON 400
+        # from ``_die``, NOT a 500.
+        self._bind(headers={"Authorization": "   "})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
+
+    def test_tab_separated_bearer_bypasses_csrf(self) -> None:
+        # ``Authorization: Bearer\t<token>`` (tab separator)
+        # must bypass CSRF identically to space-separated
+        # bearer: the bypass condition shares ``_parse_bearer``
+        # with ``extract_api_key``, so a header recognised as
+        # auth downstream is also recognised as a
+        # programmatic-client signal here. Without this pin,
+        # an ``extract_api_key`` rewrite that re-introduces a
+        # ``startswith("bearer ")`` literal-space check would
+        # silently break tab-separated clients.
+        self._bind(headers={"Authorization": "Bearer\tivre_tab_token"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            result = wrapped()
+        self.assertEqual(called, [True])
+        self.assertEqual(result, "ok")
+
+    def test_bearer_without_token_does_not_bypass_csrf(self) -> None:
+        # Deliberate tightening of the bypass condition: a
+        # malformed ``Authorization: Bearer `` (no token)
+        # previously bypassed CSRF because the old inline
+        # parser only checked ``parts[0].lower() == "bearer"``.
+        # The unified ``_parse_bearer`` requires both the right
+        # scheme AND a non-empty token; a token-less bearer
+        # header is therefore rejected at the CSRF layer and
+        # falls through to the Referer check (-> 400 when no
+        # Referer is present). The semantic improvement: a
+        # request that cannot authenticate downstream
+        # (``extract_api_key`` returns ``None``) cannot bypass
+        # CSRF either, so the two layers stay consistent.
+        self._bind(headers={"Authorization": "Bearer "})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
+
+    def test_bearer_with_extra_segments_does_not_bypass_csrf(self) -> None:
+        # Companion to the no-token tightening: a Bearer header
+        # with three or more whitespace-separated parts
+        # (``"Bearer token extra"``) cannot authenticate
+        # downstream because no IVRE API key contains
+        # whitespace (``token_urlsafe`` only emits base64url
+        # characters), so it must not bypass CSRF either.
+        # ``_parse_bearer`` rejects it, ``extract_api_key``
+        # returns ``None``, and the request falls through to
+        # the Referer check (-> 400 when no Referer is
+        # present).
+        self._bind(headers={"Authorization": "Bearer token extra"})
+        called: list[bool] = []
+
+        def _stub() -> str:
+            called.append(True)
+            return "ok"
+
+        with mock.patch.object(self._web_base.config, "WEB_ALLOWED_REFERERS", None):
+            wrapped = self._web_base.check_referer(_stub)
+            body = wrapped()
+        self.assertEqual(called, [])
+        self.assertTrue(self._response.status.startswith("400"), self._response.status)
+        self.assertIn("Invalid Referer header", body)
 
 
 def _parse_args() -> None:

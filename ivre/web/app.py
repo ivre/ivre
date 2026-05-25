@@ -34,13 +34,20 @@ from collections import namedtuple
 from bottle import abort, request, response
 
 from ivre import VERSION, config, utils
-from ivre.db import db
+from ivre.db import (
+    _ENTITY_CANONICALIZERS,
+    NoteAlreadyExists,
+    NoteBodyTooLarge,
+    NoteConcurrencyError,
+    NoteNotFound,
+    db,
+)
 from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.tools import iprange as iprange_tool
 from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
-from ivre.web.base import application, check_referer, check_upload_ok
+from ivre.web.base import application, check_referer, check_upload_ok, quota_gated
 from ivre.web.modules import enabled_modules, require_module
 
 #
@@ -151,6 +158,7 @@ _SUBDB_TO_MODULE = {
     "onlyips|ipsports|timeline|coordinates|countopenports|diffcats>"
 )
 @check_referer
+@quota_gated
 def get_nmap_action(subdb, action):
     """Get special values from Nmap & View databases
 
@@ -326,6 +334,7 @@ def get_nmap_action(subdb, action):
 
 @application.get("/<subdb:re:scans|view>/count")
 @check_referer
+@quota_gated
 def get_nmap_count(subdb):
     """Get special values from Nmap & View databases
 
@@ -347,6 +356,7 @@ def get_nmap_count(subdb):
 
 @application.get("/<subdb:re:scans|view|passive|rir>/top/<field:path>")
 @check_referer
+@quota_gated
 def get_top(subdb, field):
     """Get top values from Nmap, View, Passive & RIR databases
 
@@ -414,6 +424,7 @@ def get_top(subdb, field):
 
 @application.get("/<subdb:re:scans|view|passive|rir>/distinct/<field:path>")
 @check_referer
+@quota_gated
 def get_distinct(subdb, field):
     """Get distinct values from Nmap, View, Passive & RIR databases
 
@@ -514,6 +525,7 @@ def _set_datetime_field(dbase, record, field, current=None):
 
 @application.get("/<subdb:re:scans|view>")
 @check_referer
+@quota_gated
 def get_nmap(subdb):
     """Get records from Nmap & View databases
 
@@ -681,6 +693,7 @@ def import_files(subdb, source, categories, files):
 @application.post("/<subdb:re:scans|view>")
 @check_referer
 @check_upload_ok
+@quota_gated
 def post_nmap(subdb):
     """Add records to Nmap & View databases
 
@@ -718,6 +731,7 @@ def post_nmap(subdb):
 
 @application.get("/flows")
 @check_referer
+@quota_gated
 def get_flow():
     """Get a flow graph, count, or details payload.
 
@@ -853,6 +867,7 @@ def _flow_record_from_payload(rec):
 @application.post("/flows")
 @check_referer
 @check_upload_ok
+@quota_gated
 def post_flow():
     """Ingest a bulk of flow records.
 
@@ -913,6 +928,7 @@ def post_flow():
 @application.post("/flows/cleanup")
 @check_referer
 @check_upload_ok
+@quota_gated
 def post_flow_cleanup():
     """Run the backend's ``cleanup_flows`` heuristic.
 
@@ -941,6 +957,7 @@ def post_flow_cleanup():
 
 @application.get("/ipdata/<addr>")
 @check_referer
+@quota_gated
 def get_ipdata(addr):
     """Returns (estimated) geographical and AS data for a given IP address.
 
@@ -974,6 +991,7 @@ def _iprange_param(name: str) -> str | None:
 
 @application.get("/iprange")
 @check_referer
+@quota_gated
 def get_iprange():
     """Enumerate IP addresses matching a selector (country, AS,
     network, range, or all routable IPs).
@@ -1082,6 +1100,7 @@ def get_iprange():
 
 @application.get("/passivedns/<query:path>")
 @check_referer
+@quota_gated
 def get_passivedns(query):
     """Query passive DNS data. This API is compatible with the `Common
     Output Format
@@ -1159,6 +1178,7 @@ def get_passivedns(query):
 
 @application.get("/passive")
 @check_referer
+@quota_gated
 def get_passive():
     """Get records from Passive database
 
@@ -1222,6 +1242,7 @@ def get_passive():
 
 @application.get("/passive/count")
 @check_referer
+@quota_gated
 def get_passive_count():
     """Get special values from Nmap & View databases
 
@@ -1266,6 +1287,7 @@ def _serialize_dns_record(rec, datesasstrings):
 
 @application.get("/dns")
 @check_referer
+@quota_gated
 def get_dns():
     """Return a merged DNS view across the active scan database
     (``db.nmap``) and the passive observation database
@@ -1381,6 +1403,7 @@ def get_dns():
 
 @application.get("/rir")
 @check_referer
+@quota_gated
 def get_rir():
     """Get records from the RIR database.
 
@@ -1440,6 +1463,7 @@ def get_rir():
 
 @application.get("/rir/count")
 @check_referer
+@quota_gated
 def get_rir_count():
     """Count records from the RIR database.
 
@@ -1540,10 +1564,6 @@ def _validate_entity_type(entity_type: str) -> None:
     with a friendlier message than the canonicaliser's
     registry-mismatch ``ValueError``.
     """
-    from ivre.db import (  # pylint: disable=import-outside-toplevel
-        _ENTITY_CANONICALIZERS,
-    )
-
     if entity_type not in _ENTITY_CANONICALIZERS:
         abort(
             400,
@@ -1676,13 +1696,6 @@ def put_note(entity_type: str, entity_key: str):
     :status 501: notes backend not configured on this server
 
     """
-    from ivre.db import (  # pylint: disable=import-outside-toplevel
-        NoteAlreadyExists,
-        NoteBodyTooLarge,
-        NoteConcurrencyError,
-        NoteNotFound,
-    )
-
     # Module-allowlist check first: an operator who excludes
     # ``notes`` from ``WEB_MODULES`` expects the route to look
     # like it does not exist (404), not like the backend is
