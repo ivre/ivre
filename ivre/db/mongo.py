@@ -30,7 +30,6 @@ import re
 import socket
 import struct
 import time
-import uuid
 from collections import OrderedDict
 from copy import deepcopy
 from secrets import token_urlsafe
@@ -8496,8 +8495,7 @@ class MongoDBAudit(MongoDB, DBAudit):
     ):
         self._validate_event_type(event_type)
         self._validate_details(details)
-        if event_id is None:
-            event_id = uuid.uuid4().hex
+        event_id = self._normalize_event_id(event_id)
         # Normalise ``actor`` / ``resource`` to the canonical
         # key sets at write time so the on-disk shape matches
         # the caller-visible shape every :class:`DBAudit`
@@ -8578,12 +8576,20 @@ class MongoDBAudit(MongoDB, DBAudit):
             since=since,
             until=until,
         )
-        cursor = self.db[self.columns[self.column_audit_events]].find(flt)
-        cursor = cursor.sort([("created_at", pymongo.DESCENDING)])
+        # Route through :meth:`MongoDB._get_cursor` so the audit
+        # query inherits the shared cursor plumbing every other
+        # purpose uses -- in particular the
+        # ``MONGODB_QUERY_TIMEOUT_MS`` cap via
+        # :meth:`set_limits`.  Bypassing it (an earlier draft
+        # called ``.find().sort().skip().limit()`` directly)
+        # let audit queries run unbounded even when an operator
+        # had set a deployment-wide query timeout.
+        cargs: dict[str, Any] = {"sort": [("created_at", pymongo.DESCENDING)]}
         if skip is not None and skip > 0:
-            cursor = cursor.skip(skip)
+            cargs["skip"] = skip
         if limit is not None and limit > 0:
-            cursor = cursor.limit(limit)
+            cargs["limit"] = limit
+        cursor = self._get_cursor(self.columns[self.column_audit_events], flt, **cargs)
         return [self._present_event(doc) for doc in cursor]
 
     def count(
@@ -8618,16 +8624,13 @@ class MongoDBAudit(MongoDB, DBAudit):
         return result.deleted_count
 
     def get(self, spec, **kargs):
-        cursor = self.db[self.columns[self.column_audit_events]].find(spec)
-        sort = kargs.pop("sort", None)
-        if sort is not None:
-            cursor = cursor.sort(sort)
-        skip = kargs.pop("skip", None)
-        if skip is not None and skip > 0:
-            cursor = cursor.skip(skip)
-        limit = kargs.pop("limit", None)
-        if limit is not None and limit > 0:
-            cursor = cursor.limit(limit)
+        # Low-level escape hatch: route through
+        # :meth:`MongoDB._get_cursor` so the standard
+        # ``fields=`` / ``projection=`` handling, the
+        # text-sort sugar, and the
+        # ``MONGODB_QUERY_TIMEOUT_MS`` cap all apply --
+        # matching :meth:`MongoDBNotes.get`.
+        cursor = self._get_cursor(self.columns[self.column_audit_events], spec, **kargs)
         for doc in cursor:
             yield self._present_event(doc)
 

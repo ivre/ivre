@@ -33,6 +33,7 @@ import socket
 import struct
 import sys
 import time
+import uuid
 from argparse import ArgumentParser
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
@@ -6307,6 +6308,39 @@ class DBAudit(DB):
             json.dumps(details)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"details is not JSON-serializable: {exc}") from exc
+
+    @staticmethod
+    def _normalize_event_id(event_id: str | None) -> str:
+        """Return the canonical 32-char hex ``event_id``.
+
+        Generates a fresh UUID v4 when ``event_id`` is
+        ``None``.  Otherwise validates the caller-supplied
+        value via :class:`uuid.UUID`, which accepts every
+        standard textual form (32-char hex, 36-char with
+        dashes, ``urn:uuid:...`` prefix, ``{...}`` braced
+        form) and rejects anything else with a clear
+        :class:`ValueError`.  The return value is always the
+        dashes-less 32-char hex form -- the on-disk shape every
+        backend stores.
+
+        Centralised at the ABC level so the contract documented
+        on :meth:`record` is enforced on every backend.  Without
+        this, the SQL backend's native ``Uuid`` column type
+        rejects malformed IDs at insert time (good), but Mongo
+        happily accepts arbitrary strings (bad), and SQL
+        dialects falling back to ``CHAR(32)`` accept anything
+        that fits in 32 chars (worse).  Catching the bad value
+        here makes the failure mode uniform across backends.
+        """
+        if event_id is None:
+            return uuid.uuid4().hex
+        try:
+            return uuid.UUID(event_id).hex
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"event_id must be a UUID hex string (32-char no-dashes "
+                f"or 36-char with-dashes form); got {event_id!r}"
+            ) from exc
 
     def record(
         self,

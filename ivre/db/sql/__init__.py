@@ -59,6 +59,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
 
 from ivre import config
@@ -7002,8 +7003,7 @@ class SQLDBAudit(SQLDB, DBAudit):
     ):
         self._validate_event_type(event_type)
         self._validate_details(details)
-        if event_id is None:
-            event_id = uuid.uuid4().hex
+        event_id = self._normalize_event_id(event_id)
         actor = actor or {}
         resource = resource or {}
         values = {
@@ -7021,16 +7021,22 @@ class SQLDBAudit(SQLDB, DBAudit):
         try:
             with self.db.begin() as conn:
                 conn.execute(insert(self.tables.events).values(**values))
-        except Exception as exc:
-            # SQLAlchemy raises ``SQLAlchemyError``; we widen
-            # to ``Exception`` so dialect-driver-specific
-            # failures (psycopg2's ``OperationalError``, the
-            # duckdb driver's catalog errors, ...) are also
-            # caught and re-raised loudly through the audit
-            # contract rather than leaking driver-specific
-            # types.
+        except SQLAlchemyError as exc:
+            # ``SQLAlchemyError`` is the SA 2.x umbrella for
+            # every DBAPI driver failure: psycopg2 /
+            # duckdb-engine / etc. raise their own exception
+            # classes, but SA wraps them in
+            # ``sqlalchemy.exc.DBAPIError`` (a SQLAlchemyError
+            # subclass) with the driver-level exception
+            # available via ``.orig``.  Catching the umbrella
+            # keeps the fail-loud contract for any backend
+            # failure while letting genuine programming bugs
+            # (``TypeError``, ``AttributeError``, ...)
+            # propagate unwrapped so they surface as the bugs
+            # they are rather than as opaque
+            # ``AuditWriteError`` instances.
             raise AuditWriteError(
-                f"failed to record audit event {event_id} " f"({event_type}): {exc}"
+                f"failed to record audit event {event_id} ({event_type}): {exc}"
             ) from exc
         return event_id
 

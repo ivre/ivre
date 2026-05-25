@@ -16624,6 +16624,100 @@ class MongoDBAuditIndexTests(unittest.TestCase):
         # set even though the caller passed nothing.
         self.assertEqual(doc["resource"], {"route": None, "method": None})
 
+    def test_audit_record_validates_caller_supplied_event_id(self) -> None:
+        # The docstring on :meth:`DBAudit.record` documents
+        # ``event_id`` as a 32-char UUID hex string.  Without
+        # validation, a caller passing ``"hello"`` reached the
+        # backend unchanged: Mongo stored the garbage; SQL's
+        # native UUID column rejected it at insert time
+        # (PostgreSQL / DuckDB) but ``CHAR(32)`` fallbacks let
+        # it through.  Cross-backend contract was inconsistent.
+        #
+        # :meth:`DBAudit._normalize_event_id` now validates
+        # caller-supplied IDs via ``uuid.UUID(...)`` and raises
+        # :class:`ValueError`.  Pin the rejection.
+        from ivre.db.mongo import MongoDBAudit
+
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        backend._db = mock.Mock()
+        backend._db.db = {"audit_events": mock.Mock()}
+        for bad in (
+            "hello",
+            "not-a-uuid",
+            "0" * 31,  # 31 chars
+            "0" * 33,  # 33 chars
+            "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",  # non-hex 32 chars
+            123,  # not a string
+        ):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    backend.record("upload", event_id=bad)
+                self.assertIn("event_id", str(ctx.exception))
+
+    def test_audit_record_normalises_dashed_event_id_to_hex(self) -> None:
+        # ``_normalize_event_id`` accepts every standard UUID
+        # textual form ``uuid.UUID()`` accepts -- including the
+        # 36-char with-dashes form an operator might paste from
+        # another system -- and returns the canonical 32-char
+        # no-dashes form.  This keeps the on-disk shape uniform
+        # across backends.
+        from ivre.db.mongo import MongoDBAudit
+
+        events_col = mock.Mock()
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        backend._db = mock.Mock()
+        backend._db.db = {"audit_events": events_col}
+        dashed = "deadbeef-dead-4bad-9bad-deadbeefcafe"
+        returned = backend.record("upload", event_id=dashed)
+        self.assertEqual(returned, "deadbeefdead4bad9baddeadbeefcafe")
+        doc = events_col.insert_one.call_args.args[0]
+        self.assertEqual(doc["event_id"], "deadbeefdead4bad9baddeadbeefcafe")
+
+    def test_audit_query_routes_through_get_cursor(self) -> None:
+        # Pin that :meth:`MongoDBAudit.query` delegates to the
+        # shared :meth:`MongoDB._get_cursor` so audit reads
+        # inherit ``MONGODB_QUERY_TIMEOUT_MS`` enforcement, the
+        # ``fields=`` -> ``projection=`` conversion, and the
+        # ``("text", ...)`` sort sugar.  Earlier draft called
+        # ``.find().sort().skip().limit()`` directly and bypassed
+        # the timeout cap entirely.
+        from ivre.db.mongo import MongoDBAudit
+
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        with mock.patch.object(backend, "_get_cursor", return_value=iter([])) as gc:
+            backend.query(event_type="upload", limit=10, skip=5)
+        gc.assert_called_once()
+        # First positional arg is the column name; the rest are
+        # keyword args (filter, sort, skip, limit).
+        args, kwargs = gc.call_args
+        self.assertEqual(args[0], "audit_events")
+        self.assertEqual(args[1], {"event_type": "upload"})
+        self.assertEqual(kwargs.get("sort"), [("created_at", -1)])
+        self.assertEqual(kwargs.get("skip"), 5)
+        self.assertEqual(kwargs.get("limit"), 10)
+
+    def test_audit_get_routes_through_get_cursor(self) -> None:
+        # Mirror of the previous test on the low-level
+        # :meth:`MongoDBAudit.get` escape hatch.  Routing
+        # through ``_get_cursor`` keeps the public ``get`` /
+        # ``query`` pair consistent with the rest of the Mongo
+        # purpose layer (notes, etc.).
+        from ivre.db.mongo import MongoDBAudit
+
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        with mock.patch.object(backend, "_get_cursor", return_value=iter([])) as gc:
+            # ``get`` is a generator; force it to run.
+            list(backend.get({"event_type": "upload"}, sort=[("created_at", -1)]))
+        gc.assert_called_once()
+        args, kwargs = gc.call_args
+        self.assertEqual(args[0], "audit_events")
+        self.assertEqual(args[1], {"event_type": "upload"})
+        self.assertEqual(kwargs.get("sort"), [("created_at", -1)])
+
 
 # ``SQLDBAudit*`` tests need SQLAlchemy at import time
 # (``ivre.db.sql.tables`` triggers ``from sqlalchemy import ...``
@@ -16803,6 +16897,29 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
             event_id=my_id,
         )
         self.assertEqual(returned, my_id)
+
+    def test_record_accepts_dashed_uuid_and_normalises(self) -> None:
+        # The SQL path goes through the same
+        # :meth:`DBAudit._normalize_event_id` helper as the
+        # Mongo path; pin the dashed form is accepted and
+        # returned in the canonical no-dashes 32-char hex.
+        dashed = "deadbeef-dead-4bad-9bad-deadbeefcafe"
+        returned = self._audit.record("upload", event_id=dashed)
+        self.assertEqual(returned, "deadbeefdead4bad9baddeadbeefcafe")
+        events = self._audit.query()
+        self.assertEqual(events[0]["event_id"], "deadbeefdead4bad9baddeadbeefcafe")
+
+    def test_record_rejects_malformed_event_id(self) -> None:
+        # ``_normalize_event_id`` rejects every non-UUID
+        # string with a ``ValueError`` -- before the SQL
+        # native ``Uuid`` column has a chance to either accept
+        # or reject it, so the failure mode is uniform across
+        # backends.
+        for bad in ("hello", "0" * 31, "0" * 33, "zzzzzzzz" * 4):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    self._audit.record("upload", event_id=bad)
+                self.assertIn("event_id", str(ctx.exception))
 
     def test_record_rejects_duplicate_event_id(self) -> None:
         # Unique constraint on event_id: a duplicate insert
