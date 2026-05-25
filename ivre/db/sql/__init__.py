@@ -27,6 +27,7 @@ import datetime
 import hashlib
 import json
 import re
+import uuid
 from collections import namedtuple
 from collections.abc import Iterator
 from secrets import token_urlsafe
@@ -64,10 +65,22 @@ from ivre import config
 from ivre import flow as ivre_flow
 from ivre import utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
-from ivre.db import DB, DBActive, DBAuth, DBFlow, DBNmap, DBPassive, DBRir, DBView
+from ivre.db import (
+    DB,
+    AuditWriteError,
+    DBActive,
+    DBAudit,
+    DBAuth,
+    DBFlow,
+    DBNmap,
+    DBPassive,
+    DBRir,
+    DBView,
+)
 from ivre.db.sql import tables as tables_module
 from ivre.db.sql.tables import (
     RIR_FTS_COLUMNS,
+    AuditEvent,
     AuthApiKey,
     AuthMagicLink,
     AuthRateLimit,
@@ -6912,3 +6925,207 @@ class SQLDBAuth(SQLDB, DBAuth):
             conn.execute(
                 insert(self.tables.rate_limit).values(key=key, created_at=_now_utc())
             )
+
+
+class SQLDBAudit(SQLDB, DBAudit):
+    """SQL-backend base for the ``audit`` purpose.
+
+    Mirrors :class:`MongoDBAudit`.  Stores append-only events in
+    the ``audit_events`` table (see :class:`AuditEvent` for the
+    schema + indexes).  Insert failures wrap
+    :class:`SQLAlchemyError` in :class:`AuditWriteError`, matching
+    the fail-loud contract.
+
+    No dialect-specific subclass is needed yet; the statements
+    are portable SQL.  The ``PostgresDBAudit`` /
+    ``DuckDBAudit`` registrations in :class:`DBAudit.backends`
+    resolve to this same class via the dialect-flavoured
+    ``PostgresDB`` / ``DuckDB`` SQLDB subclasses (the multiple-
+    inheritance pattern used by every other SQL purpose).
+    """
+
+    table_layout = namedtuple("audit_layout", ["events"])
+    tables = table_layout(AuditEvent)
+
+    SCHEMA_VERSION = 1
+
+    @staticmethod
+    def _row2event(row):
+        """Project an :class:`AuditEvent` row into the dict
+        shape :class:`MongoDBAudit` returns.
+
+        ``event_id`` is normalised from SQLAlchemy's hex-with-
+        dashes ``str`` form to the dashes-less 32-char hex the
+        ABC contract speaks.  ``actor`` / ``resource`` /
+        ``details`` are reassembled into the nested dicts the
+        Mongo backend stores natively.
+        """
+        if row is None:
+            return None
+        # ``event_id`` may arrive as ``uuid.UUID`` (on dialects
+        # where SQLAlchemy's Uuid type returns native objects
+        # despite ``as_uuid=False``) or as ``str`` (with or
+        # without dashes depending on the dialect).  Normalise
+        # to the dashes-less hex form so callers see the same
+        # shape across backends.
+        raw_event_id = row.event_id
+        if isinstance(raw_event_id, uuid.UUID):
+            event_id = raw_event_id.hex
+        else:
+            event_id = str(raw_event_id).replace("-", "")
+        return {
+            "event_id": event_id,
+            "event_type": row.event_type,
+            "created_at": row.created_at,
+            "actor": {
+                "user_email": row.actor_user_email,
+                "api_key_hash": row.actor_api_key_hash,
+                "remote_addr": row.actor_remote_addr,
+            },
+            "resource": {
+                "route": row.resource_route,
+                "method": row.resource_method,
+            },
+            "details": row.details or {},
+            "outcome": row.outcome,
+        }
+
+    def record(
+        self,
+        event_type,
+        *,
+        actor=None,
+        resource=None,
+        details=None,
+        outcome=None,
+        event_id=None,
+    ):
+        self._validate_event_type(event_type)
+        self._validate_details(details)
+        if event_id is None:
+            event_id = uuid.uuid4().hex
+        actor = actor or {}
+        resource = resource or {}
+        values = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "created_at": _now_utc(),
+            "actor_user_email": actor.get("user_email"),
+            "actor_api_key_hash": actor.get("api_key_hash"),
+            "actor_remote_addr": actor.get("remote_addr"),
+            "resource_route": resource.get("route"),
+            "resource_method": resource.get("method"),
+            "details": details or {},
+            "outcome": outcome,
+        }
+        try:
+            with self.db.begin() as conn:
+                conn.execute(insert(self.tables.events).values(**values))
+        except Exception as exc:
+            # SQLAlchemy raises ``SQLAlchemyError``; we widen
+            # to ``Exception`` so dialect-driver-specific
+            # failures (psycopg2's ``OperationalError``, the
+            # duckdb driver's catalog errors, ...) are also
+            # caught and re-raised loudly through the audit
+            # contract rather than leaking driver-specific
+            # types.
+            raise AuditWriteError(
+                f"failed to record audit event {event_id} " f"({event_type}): {exc}"
+            ) from exc
+        return event_id
+
+    def _build_query_stmt(
+        self,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+    ):
+        """Shared WHERE-clause builder for :meth:`query` and
+        :meth:`count`.  Returns a list of SQLAlchemy clauses
+        ready for ``and_(*clauses)``.
+        """
+        clauses = []
+        if event_type is not None:
+            self._validate_event_type(event_type)
+            clauses.append(self.tables.events.event_type == event_type)
+        if user_email is not None:
+            clauses.append(self.tables.events.actor_user_email == user_email)
+        if since is not None:
+            clauses.append(self.tables.events.created_at >= since)
+        if until is not None:
+            clauses.append(self.tables.events.created_at < until)
+        return clauses
+
+    def query(
+        self,
+        *,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+        limit=None,
+        skip=None,
+    ):
+        clauses = self._build_query_stmt(
+            event_type=event_type,
+            user_email=user_email,
+            since=since,
+            until=until,
+        )
+        stmt = select(self.tables.events)
+        if clauses:
+            stmt = stmt.where(and_(*clauses))
+        stmt = stmt.order_by(desc(self.tables.events.created_at))
+        if skip is not None and skip > 0:
+            stmt = stmt.offset(skip)
+        if limit is not None and limit > 0:
+            stmt = stmt.limit(limit)
+        with self.db.connect() as conn:
+            return [self._row2event(row) for row in conn.execute(stmt)]
+
+    def count(
+        self,
+        *,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+    ):
+        clauses = self._build_query_stmt(
+            event_type=event_type,
+            user_email=user_email,
+            since=since,
+            until=until,
+        )
+        # ``func.count()`` not-callable is a pre-existing
+        # pylint false positive on this codebase's SQLAlchemy
+        # 2.x usage (see ``ivre/db/sql/__init__.py:1355`` etc.);
+        # mirror the existing pattern.
+        stmt = select(func.count()).select_from(self.tables.events)
+        if clauses:
+            stmt = stmt.where(and_(*clauses))
+        with self.db.connect() as conn:
+            return conn.execute(stmt).scalar() or 0
+
+    def purge_older_than(self, cutoff):
+        stmt = delete(self.tables.events).where(self.tables.events.created_at < cutoff)
+        # ``DELETE ... RETURNING`` for an accurate row count
+        # under both PostgreSQL and DuckDB; the duckdb-engine
+        # dialect returns ``rowcount=-1`` for every DELETE
+        # otherwise (same workaround used in
+        # :meth:`SQLDBAuth.delete_api_key`).
+        stmt = stmt.returning(self.tables.events.id)
+        with self.db.begin() as conn:
+            return len(list(conn.execute(stmt)))
+
+    def get(self, spec, **kargs):
+        # Low-level escape hatch.  The audit log's primary API
+        # is :meth:`query` / :meth:`count`; ``get`` is provided
+        # for consistency with the ABC.  ``spec`` is ignored
+        # (Mongo-native filter shape does not translate to
+        # SQL); SQL callers should use :meth:`query` directly.
+        del spec, kargs
+        raise NotImplementedError(
+            "SQLDBAudit.get is not supported; use query() instead"
+        )

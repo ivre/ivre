@@ -64,7 +64,7 @@ import sys
 import tempfile
 import unittest
 from ast import literal_eval
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from typing import Any
 from unittest import mock
@@ -16325,6 +16325,540 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # what we care about here.
         self.assertIsNotNone(notes)
         self.assertIsInstance(notes, DBNotes)
+
+
+# ---------------------------------------------------------------------
+# DBAuditTests / MongoDBAuditIndexTests / SQLDBAuditIndexTests
+# / SQLDBAuditLiveIntegrationTests -- backend-free pin tests
+# for the ``audit`` purpose (append-only audit log of uploads,
+# admin actions, and oversized queries).  Mirrors the
+# ``MongoDBNotesIndexTests`` block in spirit: ABC surface,
+# typed-exception class, Mongo schema + indexes, SQL schema +
+# indexes, and a DuckDB-driven integration block for
+# end-to-end behaviour of the SQL path.
+# ---------------------------------------------------------------------
+
+
+class DBAuditAbstractSurfaceTests(unittest.TestCase):
+    """Pin the :class:`DBAudit` ABC surface + the shared
+    :meth:`_validate_event_type` and :meth:`_validate_details`
+    helpers + the :class:`AuditWriteError` exception
+    contract.  Backend-agnostic; touches neither Mongo nor SQL.
+    """
+
+    def test_audit_in_metadb_db_types(self) -> None:
+        from ivre.db import DBAudit, MetaDB
+
+        self.assertIn("audit", MetaDB.db_types)
+        self.assertIs(MetaDB.db_types["audit"], DBAudit)
+
+    def test_audit_in_metadb_close_iteration(self) -> None:
+        # ``MetaDB.close()`` enumerates the purpose attributes it
+        # owns so the cached connection is released; missing the
+        # ``audit`` entry would leak the audit-store handle.
+        import inspect
+
+        from ivre.db import MetaDB
+
+        src = inspect.getsource(MetaDB.close)
+        self.assertIn('"audit"', src, "MetaDB.close() must iterate the audit attr")
+
+    def test_metadb_has_audit_property(self) -> None:
+        from ivre.db import DBAudit, MetaDB
+
+        m = MetaDB(
+            url="mongodb:///x",
+            urls={"audit": "mongodb:///x"},
+        )
+        audit = m.audit
+        self.assertIsNotNone(audit)
+        self.assertIsInstance(audit, DBAudit)
+
+    def test_event_types_tuple_pinned(self) -> None:
+        # The ABC's enum must include exactly the three v1
+        # categories.  A new category requires extending this
+        # tuple (and probably the consumers in PR 2+).
+        from ivre.db import DBAudit
+
+        self.assertEqual(
+            DBAudit.EVENT_TYPES,
+            ("upload", "admin_action", "oversize_query"),
+        )
+
+    def test_validate_event_type_accepts_each(self) -> None:
+        from ivre.db import DBAudit
+
+        for event_type in DBAudit.EVENT_TYPES:
+            with self.subTest(event_type=event_type):
+                DBAudit._validate_event_type(event_type)  # must not raise
+
+    def test_validate_event_type_rejects_unknown(self) -> None:
+        from ivre.db import DBAudit
+
+        for bad in ("bogus", "", "UPLOAD", "upload ", " upload", None):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    DBAudit._validate_event_type(bad)  # type: ignore[arg-type]
+                self.assertIn("unknown event_type", str(ctx.exception))
+
+    def test_validate_details_accepts_none(self) -> None:
+        from ivre.db import DBAudit
+
+        DBAudit._validate_details(None)  # must not raise
+
+    def test_validate_details_accepts_json_serializable_dict(self) -> None:
+        from ivre.db import DBAudit
+
+        for shape in (
+            {},
+            {"k": "v"},
+            {"count": 42, "nested": {"a": [1, 2, 3]}},
+            {"timestamp": "2026-05-25T00:00:00Z"},  # ISO string, not datetime
+        ):
+            with self.subTest(shape=shape):
+                DBAudit._validate_details(shape)  # must not raise
+
+    def test_validate_details_rejects_non_dict(self) -> None:
+        from ivre.db import DBAudit
+
+        for bad in ([], (), "string", 42, True):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError) as ctx:
+                    DBAudit._validate_details(bad)  # type: ignore[arg-type]
+                self.assertIn("details must be a dict", str(ctx.exception))
+
+    def test_validate_details_rejects_non_json_serializable_values(self) -> None:
+        # ``datetime`` / ``set`` / arbitrary objects fail
+        # ``json.dumps``; catching at the ABC means the SQL
+        # JSON column never sees a value it cannot encode.
+        from ivre.db import DBAudit
+
+        for bad in (
+            {"x": {1, 2, 3}},  # set
+            {"x": datetime.now()},  # datetime not stringified
+            {"x": object()},  # arbitrary object
+            {"x": b"bytes"},  # bytes not JSON
+        ):
+            with self.subTest(bad_value=type(bad["x"]).__name__):
+                with self.assertRaises(ValueError) as ctx:
+                    DBAudit._validate_details(bad)
+                self.assertIn("not JSON-serializable", str(ctx.exception))
+
+    def test_audit_write_error_is_top_level_exception(self) -> None:
+        # ``AuditWriteError`` is a top-level :class:`Exception`,
+        # NOT a :class:`ValueError`.  The asymmetry with
+        # ``DBNotes``'s ``NoteAlreadyExists`` /
+        # ``NoteConcurrencyError`` (which DO subclass
+        # ``ValueError``) is intentional: the audit log's
+        # contract is fail-loud, so the exception type must
+        # NOT be silently caught by an upstream
+        # ``except ValueError`` clause that was written to
+        # handle a notes-style typed error.
+        from ivre.db import AuditWriteError
+
+        self.assertTrue(issubclass(AuditWriteError, Exception))
+        self.assertFalse(issubclass(AuditWriteError, ValueError))
+
+    def test_dbaudit_abstract_methods_raise(self) -> None:
+        # Driving each ABC method directly (bypassing the
+        # concrete override) must raise ``NotImplementedError``.
+        from ivre.db import DB, DBAudit
+
+        # Build a bare instance via ``object.__new__`` so we
+        # don't trip the :class:`DB` ``__init__`` (which
+        # nothing for the ABC itself).
+        instance = object.__new__(DBAudit)
+        # ``DB.__init__`` is parameterless.
+        DB.__init__(instance)
+        for method_args in (
+            ("record", ("upload",), {}),
+            ("query", (), {}),
+            ("count", (), {}),
+            ("purge_older_than", (datetime.now(timezone.utc),), {}),
+            ("get", ({},), {}),
+        ):
+            method_name, args, kwargs = method_args
+            with self.subTest(method=method_name):
+                with self.assertRaises(NotImplementedError):
+                    getattr(instance, method_name)(*args, **kwargs)
+
+
+class MongoDBAuditIndexTests(unittest.TestCase):
+    """Backend-free pin tests for the Mongo schema of the
+    ``audit`` purpose.  Mirrors :class:`MongoDBNotesIndexTests`
+    in spirit: schema + indexes pinned at the class level
+    without a live connection.
+    """
+
+    def test_audit_column_registered(self) -> None:
+        from ivre.db.mongo import MongoDBAudit
+
+        # Single collection, at index 0.
+        self.assertEqual(MongoDBAudit.column_audit_events, 0)
+        self.assertEqual(len(MongoDBAudit.indexes), 1)
+
+    def test_audit_indexes_pinned(self) -> None:
+        # Pin the three composite indexes Mongo needs to back
+        # the expected query patterns + the unique
+        # ``event_id`` constraint.
+        from ivre.db.mongo import MongoDBAudit
+
+        block = MongoDBAudit.indexes[MongoDBAudit.column_audit_events]
+        index_specs = [keys for keys, _opts in block]
+        self.assertIn(
+            [("event_type", 1), ("created_at", -1)],
+            index_specs,
+            "missing (event_type, created_at DESC) index",
+        )
+        self.assertIn(
+            [("actor.user_email", 1), ("created_at", -1)],
+            index_specs,
+            "missing (actor.user_email, created_at DESC) index",
+        )
+        self.assertIn(
+            [("created_at", -1)],
+            index_specs,
+            "missing (created_at DESC) index",
+        )
+        self.assertIn(
+            [("event_id", 1)],
+            index_specs,
+            "missing event_id index",
+        )
+
+    def test_audit_user_email_index_is_sparse(self) -> None:
+        # ``actor.user_email`` is nullable (anonymous /
+        # REMOTE_USER traffic), so the per-user composite must
+        # be sparse to avoid indexing every event with a NULL
+        # entry.
+        from ivre.db.mongo import MongoDBAudit
+
+        block = MongoDBAudit.indexes[MongoDBAudit.column_audit_events]
+        user_idx = next(
+            opts
+            for keys, opts in block
+            if keys == [("actor.user_email", 1), ("created_at", -1)]
+        )
+        self.assertTrue(user_idx.get("sparse"))
+
+    def test_audit_event_id_index_is_unique(self) -> None:
+        from ivre.db.mongo import MongoDBAudit
+
+        block = MongoDBAudit.indexes[MongoDBAudit.column_audit_events]
+        event_id_idx = next(opts for keys, opts in block if keys == [("event_id", 1)])
+        self.assertTrue(event_id_idx.get("unique"))
+
+    def test_audit_no_ttl_index(self) -> None:
+        # Retention is operator-driven.  A TTL index would
+        # silently purge events on the trailing edge; the
+        # design explicitly forbids it.  Adding a future
+        # ``WEB_AUDIT_TTL_SECONDS`` knob would create the TTL
+        # conditionally at startup -- not hard-code it here.
+        from ivre.db.mongo import MongoDBAudit
+
+        block = MongoDBAudit.indexes[MongoDBAudit.column_audit_events]
+        for _keys, opts in block:
+            self.assertNotIn(
+                "expireAfterSeconds",
+                opts,
+                "audit_events must not carry a TTL index",
+            )
+
+    def test_audit_columns_pop_supports_override(self) -> None:
+        # Operators can override the collection name via the
+        # ``colname_audit_events`` URL parameter.  Pin the pop
+        # so a rename or default change surfaces here.
+        import inspect
+
+        from ivre.db.mongo import MongoDBAudit
+
+        src = inspect.getsource(MongoDBAudit.__init__)
+        self.assertIn("colname_audit_events", src)
+        self.assertIn('"audit_events"', src)
+
+
+class SQLDBAuditSchemaTests(unittest.TestCase):
+    """Pin the SQL ``audit_events`` table schema + indexes,
+    matching the Mongo backend's logical shape.  Backend-free:
+    only inspects the SQLAlchemy declarative metadata.
+    """
+
+    def test_audit_events_table_name(self) -> None:
+        from ivre.db.sql.tables import AuditEvent
+
+        self.assertEqual(AuditEvent.__tablename__, "audit_events")
+
+    def test_audit_events_columns(self) -> None:
+        # Pin every column the ABC's record() shape requires.
+        from ivre.db.sql.tables import AuditEvent
+
+        names = {c.name for c in AuditEvent.__table__.columns}
+        self.assertEqual(
+            names,
+            {
+                "id",
+                "event_id",
+                "event_type",
+                "created_at",
+                "actor_user_email",
+                "actor_api_key_hash",
+                "actor_remote_addr",
+                "resource_route",
+                "resource_method",
+                "details",
+                "outcome",
+            },
+        )
+
+    def test_audit_events_event_id_type_is_uuid(self) -> None:
+        # ``event_id`` uses ``sqlalchemy.Uuid``: native UUID on
+        # PostgreSQL / DuckDB, CHAR(32) fallback elsewhere.
+        # The native type buys type-safety at the DB layer
+        # (malformed UUIDs are rejected at insert time on PG).
+        from sqlalchemy import Uuid
+
+        from ivre.db.sql.tables import AuditEvent
+
+        col = AuditEvent.__table__.columns["event_id"]
+        self.assertIsInstance(col.type, Uuid)
+        self.assertFalse(col.nullable)
+
+    def test_audit_events_nullable_fields(self) -> None:
+        # Every actor sub-field is nullable (anonymous /
+        # REMOTE_USER / non-HTTP callers leave them empty).
+        # ``outcome`` and ``details`` also nullable.
+        from ivre.db.sql.tables import AuditEvent
+
+        for nullable_col in (
+            "actor_user_email",
+            "actor_api_key_hash",
+            "actor_remote_addr",
+            "resource_route",
+            "resource_method",
+            "details",
+            "outcome",
+        ):
+            with self.subTest(col=nullable_col):
+                col = AuditEvent.__table__.columns[nullable_col]
+                self.assertTrue(col.nullable, f"{nullable_col} must be nullable")
+
+    def test_audit_events_required_fields(self) -> None:
+        # ``event_id`` / ``event_type`` / ``created_at`` MUST
+        # be non-null on every row.
+        from ivre.db.sql.tables import AuditEvent
+
+        for required_col in ("event_id", "event_type", "created_at"):
+            with self.subTest(col=required_col):
+                col = AuditEvent.__table__.columns[required_col]
+                self.assertFalse(col.nullable, f"{required_col} must be NOT NULL")
+
+    def test_audit_events_indexes(self) -> None:
+        # Mirror Mongo's index pattern: (event_type, created_at),
+        # (actor_user_email, created_at), (created_at), and a
+        # unique constraint on event_id.
+        from ivre.db.sql.tables import AuditEvent
+
+        index_names = {idx.name for idx in AuditEvent.__table__.indexes}
+        self.assertIn("audit_events_idx_type_created", index_names)
+        self.assertIn("audit_events_idx_user_created", index_names)
+        self.assertIn("audit_events_idx_created", index_names)
+        constraint_names = {c.name for c in AuditEvent.__table__.constraints if c.name}
+        self.assertIn("audit_events_idx_event_id", constraint_names)
+
+    def test_sqldbaudit_table_layout_wires_events(self) -> None:
+        from ivre.db.sql import SQLDBAudit
+        from ivre.db.sql.tables import AuditEvent
+
+        self.assertIs(SQLDBAudit.tables.events, AuditEvent)
+
+    def test_postgres_and_duckdb_subclasses_registered(self) -> None:
+        # The dialect subclasses exist and inherit
+        # :class:`SQLDBAudit` so the multi-backend dispatch in
+        # :attr:`DBAudit.backends` resolves correctly.
+        from ivre.db.sql import SQLDBAudit
+        from ivre.db.sql.duckdb import DuckDBAudit
+        from ivre.db.sql.postgres import PostgresDBAudit
+
+        self.assertTrue(issubclass(PostgresDBAudit, SQLDBAudit))
+        self.assertTrue(issubclass(DuckDBAudit, SQLDBAudit))
+
+
+class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
+    """End-to-end tests against an in-memory DuckDB.  Mirrors
+    :class:`SQLDBAuthLiveIntegrationTests`: builds the schema
+    on a throwaway ``duckdb:///:memory:`` URL, exercises every
+    public method, asserts the round-trip shape and the
+    fail-loud contract.
+    """
+
+    def setUp(self) -> None:
+        from urllib.parse import urlparse
+
+        from ivre.db.sql.duckdb import DuckDBAudit
+        from ivre.db.sql.tables import AuditEvent, Base
+
+        self._audit = DuckDBAudit(urlparse("duckdb:///:memory:"))
+        Base.metadata.create_all(self._audit.db, tables=[AuditEvent.__table__])
+
+    def test_record_returns_event_id(self) -> None:
+        event_id = self._audit.record(
+            "upload",
+            actor={"user_email": "alice@example.org"},
+            resource={"route": "/scans", "method": "POST"},
+            details={"count": 1},
+            outcome=200,
+        )
+        self.assertIsInstance(event_id, str)
+        self.assertEqual(len(event_id), 32)  # hex, no dashes
+
+    def test_record_accepts_caller_supplied_event_id(self) -> None:
+        my_id = "deadbeef" * 4
+        returned = self._audit.record(
+            "admin_action",
+            actor={"user_email": "admin@example.org"},
+            event_id=my_id,
+        )
+        self.assertEqual(returned, my_id)
+
+    def test_record_rejects_duplicate_event_id(self) -> None:
+        # Unique constraint on event_id: a duplicate insert
+        # must raise :class:`AuditWriteError` (not a silent
+        # no-op and not a generic backend error).
+        from ivre.db import AuditWriteError
+
+        eid = self._audit.record("upload")
+        with self.assertRaises(AuditWriteError) as ctx:
+            self._audit.record("upload", event_id=eid)
+        # Message names the offending event_id so an operator
+        # can find the row via grep on the log.
+        self.assertIn(eid, str(ctx.exception))
+
+    def test_query_returns_events_newest_first(self) -> None:
+        import time
+
+        ids = []
+        for i in range(3):
+            ids.append(self._audit.record("upload", details={"i": i}))
+            time.sleep(0.01)  # ensure monotonic created_at
+        events = self._audit.query()
+        self.assertEqual(len(events), 3)
+        # Newest-first ordering: last inserted is first returned.
+        self.assertEqual([e["event_id"] for e in events], list(reversed(ids)))
+
+    def test_query_event_shape(self) -> None:
+        self._audit.record(
+            "upload",
+            actor={
+                "user_email": "alice@example.org",
+                "api_key_hash": "a" * 64,
+                "remote_addr": "192.0.2.1",
+            },
+            resource={"route": "/scans", "method": "POST"},
+            details={"key": "value"},
+            outcome=200,
+        )
+        events = self._audit.query()
+        ev = events[0]
+        self.assertEqual(
+            set(ev.keys()),
+            {
+                "event_id",
+                "event_type",
+                "created_at",
+                "actor",
+                "resource",
+                "details",
+                "outcome",
+            },
+        )
+        self.assertEqual(ev["actor"]["user_email"], "alice@example.org")
+        self.assertEqual(ev["actor"]["api_key_hash"], "a" * 64)
+        self.assertEqual(ev["actor"]["remote_addr"], "192.0.2.1")
+        self.assertEqual(ev["resource"]["route"], "/scans")
+        self.assertEqual(ev["resource"]["method"], "POST")
+        self.assertEqual(ev["details"], {"key": "value"})
+        self.assertEqual(ev["outcome"], 200)
+
+    def test_query_filters(self) -> None:
+        self._audit.record("upload", actor={"user_email": "alice@example.org"})
+        self._audit.record("admin_action", actor={"user_email": "admin@example.org"})
+        self._audit.record("upload", actor={"user_email": "bob@example.org"})
+
+        # by event_type
+        self.assertEqual(len(self._audit.query(event_type="upload")), 2)
+        self.assertEqual(len(self._audit.query(event_type="admin_action")), 1)
+        # by user_email
+        self.assertEqual(len(self._audit.query(user_email="alice@example.org")), 1)
+        self.assertEqual(len(self._audit.query(user_email="absent@example.org")), 0)
+        # combined
+        self.assertEqual(
+            len(self._audit.query(event_type="upload", user_email="alice@example.org")),
+            1,
+        )
+
+    def test_query_pagination(self) -> None:
+        for i in range(10):
+            self._audit.record("upload", details={"i": i})
+        first_page = self._audit.query(limit=3)
+        self.assertEqual(len(first_page), 3)
+        second_page = self._audit.query(limit=3, skip=3)
+        self.assertEqual(len(second_page), 3)
+        # No overlap between pages.
+        first_ids = {e["event_id"] for e in first_page}
+        second_ids = {e["event_id"] for e in second_page}
+        self.assertEqual(first_ids & second_ids, set())
+
+    def test_count_filters(self) -> None:
+        self._audit.record("upload")
+        self._audit.record("upload")
+        self._audit.record("admin_action")
+        self.assertEqual(self._audit.count(), 3)
+        self.assertEqual(self._audit.count(event_type="upload"), 2)
+        self.assertEqual(self._audit.count(event_type="admin_action"), 1)
+        self.assertEqual(self._audit.count(event_type="oversize_query"), 0)
+
+    def test_purge_older_than_returns_deleted_count(self) -> None:
+        # The DELETE ... RETURNING workaround for the
+        # duckdb-engine rowcount=-1 quirk must report the
+        # actual count.
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        for _ in range(5):
+            self._audit.record("upload")
+        # cutoff in the future -> deletes everything
+        deleted = self._audit.purge_older_than(
+            _dt.now(tz=_tz.utc) + timedelta(seconds=1)
+        )
+        self.assertEqual(deleted, 5)
+        self.assertEqual(self._audit.count(), 0)
+
+    def test_purge_older_than_respects_cutoff(self) -> None:
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        for _ in range(3):
+            self._audit.record("upload")
+        # cutoff in the past -> deletes nothing
+        deleted = self._audit.purge_older_than(
+            _dt.now(tz=_tz.utc) - timedelta(seconds=60)
+        )
+        self.assertEqual(deleted, 0)
+        self.assertEqual(self._audit.count(), 3)
+
+    def test_record_rejects_unknown_event_type(self) -> None:
+        with self.assertRaises(ValueError):
+            self._audit.record("bogus_type")
+
+    def test_record_rejects_non_serializable_details(self) -> None:
+        with self.assertRaises(ValueError):
+            self._audit.record("upload", details={"bad": {1, 2, 3}})
+
+    def test_get_raises_not_implemented(self) -> None:
+        # The Mongo-flavoured ``spec`` filter doesn't
+        # translate to SQL; SQL callers use :meth:`query`.
+        with self.assertRaises(NotImplementedError):
+            list(self._audit.get({}))
 
 
 # ---------------------------------------------------------------------

@@ -30,6 +30,7 @@ import re
 import socket
 import struct
 import time
+import uuid
 from collections import OrderedDict
 from copy import deepcopy
 from secrets import token_urlsafe
@@ -58,7 +59,9 @@ from ivre import config, flow, passive, utils, xmlnmap
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
 from ivre.db import (
     DB,
+    AuditWriteError,
     DBActive,
+    DBAudit,
     DBAuth,
     DBFlow,
     DBFlowMeta,
@@ -8418,6 +8421,201 @@ class MongoDBNotes(MongoDB, DBNotes):
 
     def count_notes(self, entity_type=None):
         return self.count({} if entity_type is None else {"entity_type": entity_type})
+
+
+class MongoDBAudit(MongoDB, DBAudit):
+    """MongoDB backend for the ``audit`` purpose.
+
+    Stores audit events in a single append-only collection
+    ``audit_events`` keyed by ``event_id`` (UUID v4 hex, 32
+    chars).  Three indexes back the expected query patterns:
+
+    * ``(event_type ASC, created_at DESC)`` -- "show me the
+      last N upload events".
+    * ``(actor.user_email ASC, created_at DESC)`` -- "show me
+      what alice did".  Sparse because cookie-less /
+      REMOTE_USER-less callers leave the field unset.
+    * ``(created_at DESC)`` -- generic time-window scan.
+
+    Insert failures (``PyMongoError``) are wrapped in
+    :class:`AuditWriteError` and re-raised: the audit log is
+    fail-loud by design, consistent with the ABC contract.
+
+    There is **no TTL index** on this collection -- retention
+    is operator-driven via :meth:`purge_older_than`.  Adding a
+    TTL is a deliberate operator choice (a future
+    ``WEB_AUDIT_TTL_SECONDS`` knob would create it
+    conditionally at startup); shipping without one keeps
+    compliance setups defaulting to indefinite retention.
+    """
+
+    column_audit_events = 0
+
+    indexes: list[list[tuple[list[IndexKey], dict[str, Any]]]] = [
+        # audit_events
+        [
+            (
+                [
+                    ("event_type", pymongo.ASCENDING),
+                    ("created_at", pymongo.DESCENDING),
+                ],
+                {},
+            ),
+            (
+                [
+                    ("actor.user_email", pymongo.ASCENDING),
+                    ("created_at", pymongo.DESCENDING),
+                ],
+                {"sparse": True},
+            ),
+            ([("created_at", pymongo.DESCENDING)], {}),
+            # ``event_id`` is operator-supplied or auto-
+            # generated UUID hex; uniqueness is best-effort
+            # (caller-supplied collisions are a programming
+            # error, not a security one) so the index is plain
+            # ``unique=True`` -- a duplicate insert fails loud.
+            ([("event_id", pymongo.ASCENDING)], {"unique": True}),
+        ],
+    ]
+
+    def __init__(self, url):
+        super().__init__(url)
+        self.columns = [
+            self.params.pop("colname_audit_events", "audit_events"),
+        ]
+
+    def record(
+        self,
+        event_type,
+        *,
+        actor=None,
+        resource=None,
+        details=None,
+        outcome=None,
+        event_id=None,
+    ):
+        self._validate_event_type(event_type)
+        self._validate_details(details)
+        if event_id is None:
+            event_id = uuid.uuid4().hex
+        doc = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "created_at": datetime.datetime.now(tz=datetime.timezone.utc),
+            "actor": actor or {},
+            "resource": resource or {},
+            "details": details or {},
+            "outcome": outcome,
+        }
+        try:
+            self.db[self.columns[self.column_audit_events]].insert_one(doc)
+        except PyMongoError as exc:
+            raise AuditWriteError(
+                f"failed to record audit event {event_id} " f"({event_type}): {exc}"
+            ) from exc
+        return event_id
+
+    def _build_query_filter(
+        self,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+    ):
+        """Shared filter builder for :meth:`query` and
+        :meth:`count`.  Returns a Mongo find-filter dict; keys
+        absent when the corresponding kwarg is ``None``.
+        """
+        flt: dict[str, Any] = {}
+        if event_type is not None:
+            self._validate_event_type(event_type)
+            flt["event_type"] = event_type
+        if user_email is not None:
+            flt["actor.user_email"] = user_email
+        if since is not None or until is not None:
+            created_at: dict[str, Any] = {}
+            if since is not None:
+                created_at["$gte"] = since
+            if until is not None:
+                created_at["$lt"] = until
+            flt["created_at"] = created_at
+        return flt
+
+    def query(
+        self,
+        *,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+        limit=None,
+        skip=None,
+    ):
+        flt = self._build_query_filter(
+            event_type=event_type,
+            user_email=user_email,
+            since=since,
+            until=until,
+        )
+        cursor = self.db[self.columns[self.column_audit_events]].find(flt)
+        cursor = cursor.sort([("created_at", pymongo.DESCENDING)])
+        if skip is not None and skip > 0:
+            cursor = cursor.skip(skip)
+        if limit is not None and limit > 0:
+            cursor = cursor.limit(limit)
+        return [self._present_event(doc) for doc in cursor]
+
+    def count(
+        self,
+        *,
+        event_type=None,
+        user_email=None,
+        since=None,
+        until=None,
+    ):
+        flt = self._build_query_filter(
+            event_type=event_type,
+            user_email=user_email,
+            since=since,
+            until=until,
+        )
+        col = self.db[self.columns[self.column_audit_events]]
+        if not flt:
+            return col.estimated_document_count()
+        return col.count_documents(flt)
+
+    def purge_older_than(self, cutoff):
+        col = self.db[self.columns[self.column_audit_events]]
+        result = col.delete_many({"created_at": {"$lt": cutoff}})
+        return result.deleted_count
+
+    def get(self, spec, **kargs):
+        cursor = self.db[self.columns[self.column_audit_events]].find(spec)
+        sort = kargs.pop("sort", None)
+        if sort is not None:
+            cursor = cursor.sort(sort)
+        skip = kargs.pop("skip", None)
+        if skip is not None and skip > 0:
+            cursor = cursor.skip(skip)
+        limit = kargs.pop("limit", None)
+        if limit is not None and limit > 0:
+            cursor = cursor.limit(limit)
+        for doc in cursor:
+            yield self._present_event(doc)
+
+    @staticmethod
+    def _present_event(doc):
+        """Strip Mongo's internal ``_id`` from a stored event
+        document before handing it to a caller.  Mirrors the
+        :meth:`MongoDBNotes._present_note` projection helper
+        in spirit: the ABC's contract is the caller-visible
+        shape, not the on-disk shape.
+        """
+        if doc is None:
+            return None
+        out = dict(doc)
+        out.pop("_id", None)
+        return out
 
 
 load_plugins("ivre.plugins.db.mongo", globals())

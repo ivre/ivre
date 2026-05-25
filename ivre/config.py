@@ -42,6 +42,16 @@ DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
 # purpose is independent of every data purpose: ``view --init``,
 # ``nmap --init`` etc. do not touch notes.
 DB_NOTES = None
+# DB URL for the ``audit`` purpose (append-only audit log of
+# uploads, admin actions, and oversized queries).  Falls back to
+# ``DB`` when unset.  The ``audit`` purpose is independent of
+# every other purpose; ``view --init``, ``nmap --init`` etc. do
+# not touch audit events.  Retention is operator-driven (no TTL
+# by default); a dedicated CLI verb purges entries older than a
+# cutoff.  The web / CLI / MCP surfaces consuming this purpose
+# land in follow-up PRs; the storage layer ships first so the
+# ABC contract is reviewable in isolation.
+DB_AUDIT = None
 # Begin batch sizes
 LOCAL_BATCH_SIZE = 10000  # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
@@ -536,6 +546,16 @@ if DB_DATA is None and GEOIP_PATH is not None:
 # DB_NOTES explicitly to move notes to a separate store.
 if DB_NOTES is None:
     DB_NOTES = DB
+
+
+# Audit log defaults to the same store as everything else
+# (operators get a working ``db.audit`` out of the box).
+# Override DB_AUDIT explicitly to direct the audit stream to a
+# dedicated store -- typical compliance setups point this at a
+# write-restricted PostgreSQL with WORM-style append controls
+# while keeping the rest of IVRE on Mongo.
+if DB_AUDIT is None:
+    DB_AUDIT = DB
 
 
 if DATA_PATH is None:

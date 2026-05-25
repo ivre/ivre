@@ -71,6 +71,7 @@ from sqlalchemy.dialects import postgresql
 from ivre import utils
 from ivre.db.sql import NmapFilter, ViewFilter
 from ivre.db.sql.postgres import (
+    PostgresDBAudit,
     PostgresDBAuth,
     PostgresDBFlow,
     PostgresDBNmap,
@@ -1121,4 +1122,17 @@ class DuckDBAuth(DuckDBMixin, PostgresDBAuth):
     handled by :class:`SQLDBAuth`'s shared helpers
     (:meth:`SQLDBAuth.delete_api_key` counts via ``DELETE
     ... RETURNING`` instead).
+    """
+
+
+class DuckDBAudit(DuckDBMixin, PostgresDBAudit):
+    """DuckDB backend for the ``audit`` purpose.
+
+    Pure inheritance from :class:`PostgresDBAudit`.  DuckDB
+    has native ``UUID`` support, so the ``event_id`` column
+    behaves identically to PostgreSQL.  The
+    :meth:`SQLDBAudit.purge_older_than` ``DELETE ...
+    RETURNING`` path already works around the
+    ``duckdb-engine`` ``cursor.rowcount = -1`` quirk that
+    affects every other DELETE on this backend.
     """

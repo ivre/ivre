@@ -64,6 +64,7 @@ from ivre.db.sql import (
     PassiveCSVFile,
     ScanCSVFile,
     SQLDBActive,
+    SQLDBAudit,
     SQLDBAuth,
     SQLDBFlow,
     SQLDBNmap,
@@ -2729,4 +2730,19 @@ class PostgresDBAuth(PostgresDB, SQLDBAuth):
     this initial PR.  Future column / index changes plug in
     via the established :meth:`SQLDB.migrate_schema`
     orchestrator the active / passive backends already use.
+    """
+
+
+class PostgresDBAudit(PostgresDB, SQLDBAudit):
+    """PostgreSQL backend for the ``audit`` purpose.
+
+    Pure inheritance over :class:`SQLDBAudit`: every helper
+    that class declares uses portable SQL (``DELETE ...
+    RETURNING`` for the purge sweep is supported natively on
+    PostgreSQL).  The ``event_id`` column uses
+    :class:`sqlalchemy.Uuid`, which compiles to PostgreSQL's
+    native ``uuid`` type (16-byte storage, type-safe at the DB
+    layer with a server-side rejection of malformed UUIDs at
+    insert time -- a defence-in-depth on top of
+    :meth:`DBAudit._validate_event_type`).
     """
