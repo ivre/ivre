@@ -5557,6 +5557,7 @@ TESTS = set(
         "55_view_delete",
         "60_flow",
         "70_notes",
+        "75_audit",
         "90_cleanup",
         "conf",
         "mcp_middleware",
@@ -5579,6 +5580,7 @@ DATABASES = {
         "54_passive_delete",
         "60_flow",
         "70_notes",
+        "75_audit",
         "90_cleanup",
     ],
     "maxmind": [
@@ -5591,6 +5593,7 @@ DATABASES = {
         "55_view_delete",
         "60_flow",
         "70_notes",
+        "75_audit",
         "90_cleanup",
     ],
 }
