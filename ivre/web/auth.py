@@ -31,6 +31,7 @@ from bottle import abort, redirect, request, response
 
 from ivre import config, utils
 from ivre.db import db
+from ivre.web import audit_hook
 from ivre.web import utils as webutils
 from ivre.web.base import application, check_referer
 from ivre.web.oauth import (
@@ -587,8 +588,27 @@ def admin_list_api_keys() -> str:
     return json.dumps(keys)
 
 
+def _admin_delete_api_key_audit_details(args, kwargs, _result):
+    """``DELETE /auth/admin/api-keys/<key_hash>`` audit details.
+
+    Records the SHA-256 hex hash of the revoked API key
+    (already in pre-hashed form -- the route never sees the
+    raw secret).  No personal data leaves the audit log here:
+    the hash points back to the auth backend's
+    ``auth_api_key.key_hash`` record, which is the operator-
+    visible identifier in the admin UI.
+    """
+    key_hash = kwargs.get("key_hash") if kwargs else None
+    if key_hash is None and args:
+        key_hash = args[0]
+    return {"action": "delete_api_key", "key_hash": key_hash}
+
+
 @application.delete("/auth/admin/api-keys/<key_hash>")
 @check_referer
+@audit_hook.audit_event(
+    "admin_action", capture_details=_admin_delete_api_key_audit_details
+)
 def admin_delete_api_key(key_hash: str) -> str:
     """Admin revocation path: delete any user's key by hash. The
     owner-scoped ``DELETE /auth/api-keys/<key_hash>`` path stays
@@ -602,8 +622,42 @@ def admin_delete_api_key(key_hash: str) -> str:
     return json.dumps({"status": "ok"})
 
 
+def _admin_update_user_audit_details(args, kwargs, _result):
+    """``PUT /auth/admin/users/<email>`` audit details.
+
+    Records the target email and the list of fields the admin
+    requested to update -- *not* the new values, since
+    ``is_admin = True`` / ``is_active = False`` on a specific
+    target is the operationally interesting bit and the diff
+    is recoverable from the auth backend's user record
+    history (when one is kept).  Keeping ``details`` shape-
+    bounded also avoids the audit log carrying large
+    ``groups`` lists when an admin re-issues a wholesale
+    group rebind.
+
+    The handler publishes ``updates.keys()`` to
+    ``request.environ["ivre.audit.update_user_fields"]``
+    before returning; we read it back here.  Re-parsing the
+    body would not work -- Bottle's ``request.body`` is a
+    one-shot stream and the handler has already consumed it
+    by the time the audit decorator runs.
+    """
+    email = kwargs.get("email") if kwargs else None
+    if email is None and args:
+        email = args[0]
+    fields = request.environ.get("ivre.audit.update_user_fields") or []
+    return {
+        "action": "update_user",
+        "target_email": email,
+        "fields": sorted(fields),
+    }
+
+
 @application.put("/auth/admin/users/<email:path>")
 @check_referer
+@audit_hook.audit_event(
+    "admin_action", capture_details=_admin_update_user_audit_details
+)
 def admin_update_user(email: str) -> str:
     _ensure_admin()
     try:
@@ -614,6 +668,12 @@ def admin_update_user(email: str) -> str:
     updates = {k: v for k, v in data.items() if k in allowed_fields}
     if not updates:
         abort(400, "No valid fields to update")
+    # Stash the field-name list for the ``admin_action`` audit
+    # hook.  Bottle's ``request.body`` is a one-shot stream, so
+    # the post-handler hook cannot re-read it; publish the
+    # caller-visible field set on ``request.environ`` and let
+    # the hook read it back without consuming the body again.
+    request.environ["ivre.audit.update_user_fields"] = list(updates)
     target = db.auth.get_user_by_email(email)
     if target is None:
         # Admin can create users via PUT (upsert)

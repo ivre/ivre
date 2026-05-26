@@ -263,6 +263,46 @@ def query_from_params(params):
         raise ValueError("Parameter parsing error") from exc
 
 
+def is_admin_email(user_email: str | None) -> bool:
+    """Return ``True`` when ``user_email`` resolves to an
+    administrative user in :data:`ivre.db.db.auth`.
+
+    Shared by every route that needs an admin gate (the audit
+    read API, etc.).  Mirrors the lookup
+    :func:`ivre.web.auth._ensure_admin` does inline, factored
+    out here so callers in :mod:`ivre.web.app` /
+    :mod:`ivre.tools.mcp_server` do not need to reach into
+    ``ivre.web.auth`` (which is conditionally imported only when
+    ``WEB_AUTH_ENABLED`` is true).
+
+    Returns ``False`` for every non-admin path:
+
+    * ``user_email`` is ``None`` (no resolved caller);
+    * ``db.auth`` is ``None`` (no auth backend configured);
+    * the user record is missing or does not carry
+      ``is_admin = True``.
+
+    The check is fail-closed: a transient backend failure that
+    causes ``get_user_by_email`` to return ``None`` is treated
+    as "not an admin" rather than crashing the caller; the
+    caller's own auth gate decides how to escalate.
+    """
+    if user_email is None:
+        return False
+    if db.auth is None:
+        return False
+    try:
+        user_doc = db.auth.get_user_by_email(user_email)
+    except Exception:
+        utils.LOGGER.error(
+            "is_admin_email: get_user_by_email failed for %r",
+            user_email,
+            exc_info=True,
+        )
+        return False
+    return bool(user_doc and user_doc.get("is_admin"))
+
+
 def get_user() -> str | None:
     """Return the connected user."""
     if not config.WEB_AUTH_ENABLED:

@@ -30,6 +30,7 @@ import json
 import os
 import tempfile
 from collections import namedtuple
+from typing import Any
 
 from bottle import abort, request, response
 
@@ -46,6 +47,7 @@ from ivre.db.http import FLOW_DATETIME_KEYS
 from ivre.tags.active import set_auto_tags, set_openports_attribute
 from ivre.tools import iprange as iprange_tool
 from ivre.view import nmap_record_to_view
+from ivre.web import audit_hook
 from ivre.web import utils as webutils
 from ivre.web.base import application, check_referer, check_upload_ok, quota_gated
 from ivre.web.modules import enabled_modules, require_module
@@ -180,8 +182,12 @@ def get_nmap_action(subdb, action):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
+    route_subdb = subdb
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
+    audit_hook.record_oversize_query(
+        subdb, flt_params.flt, route=f"/{route_subdb}/{action}"
+    )
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
@@ -378,6 +384,7 @@ def get_top(subdb, field):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
+    route_subdb = subdb
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -385,6 +392,9 @@ def get_top(subdb, field):
         "view": db.view,
     }[subdb]
     flt_params = get_base(subdb)
+    audit_hook.record_oversize_query(
+        subdb, flt_params.flt, route=f"/{route_subdb}/top/{field}"
+    )
     if field[0] in "-!":
         field = field[1:]
         least = True
@@ -446,6 +456,7 @@ def get_distinct(subdb, field):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
+    route_subdb = subdb
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -453,6 +464,9 @@ def get_distinct(subdb, field):
         "view": db.view,
     }[subdb]
     flt_params = get_base(subdb)
+    audit_hook.record_oversize_query(
+        subdb, flt_params.flt, route=f"/{route_subdb}/distinct/{field}"
+    )
     cursor = subdb.distinct(
         field,
         flt=flt_params.flt,
@@ -545,8 +559,10 @@ def get_nmap(subdb):
     """
     require_module(_SUBDB_TO_MODULE[subdb])
     subdb_tool = "view" if subdb == "view" else "scancli"
+    route_subdb = subdb
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
+    audit_hook.record_oversize_query(subdb, flt_params.flt, route=f"/{route_subdb}")
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
@@ -690,10 +706,46 @@ def import_files(subdb, source, categories, files):
     return count
 
 
+def _post_nmap_audit_details(args, kwargs, result):
+    """Build the :class:`ivre.db.DBAudit` ``details`` payload for
+    a successful ``POST /scans`` or ``POST /view``.
+
+    Captures the scan-side metadata an operator typically wants
+    when reviewing an audit trail: which sub-DB received the
+    upload (read from the URL-bound ``subdb`` argument so the
+    branch that actually matched is recorded), the operator-
+    supplied ``source`` tag, the comma-separated ``categories``
+    list, the number of file parts the client uploaded, and the
+    count of records the backend actually ingested (extracted
+    from the handler's return value).  Reads from
+    ``request.forms`` rather than re-parsing the multipart body
+    so the audit hook does not consume the upload stream a
+    second time.
+    """
+    raw_categories = request.forms.get("categories") or ""
+    categories = sorted(c for c in raw_categories.split(",") if c)
+    files = request.files.getall("result")
+    if isinstance(result, dict):
+        count = result.get("count")
+    else:
+        count = None
+    subdb = kwargs.get("subdb") if kwargs else None
+    if subdb is None and args:
+        subdb = args[0]
+    return {
+        "subdb": subdb,
+        "source": request.forms.get("source"),
+        "categories": categories,
+        "n_files": len(files),
+        "count": count,
+    }
+
+
 @application.post("/<subdb:re:scans|view>")
 @check_referer
 @check_upload_ok
 @quota_gated
+@audit_hook.audit_event("upload", capture_details=_post_nmap_audit_details)
 def post_nmap(subdb):
     """Add records to Nmap & View databases
 
@@ -864,10 +916,29 @@ def _flow_record_from_payload(rec):
     return out
 
 
+def _post_flow_audit_details(_args, _kwargs, result):
+    """Build the ``details`` payload for ``POST /flows``.
+
+    Records the number of flow records ingested
+    (``result["count"]`` on success).  The wire body is a
+    JSON object whose ``records`` list can be arbitrarily
+    large; capturing its full shape would inflate the audit
+    log without forensic benefit.  Per-kind aggregate counts
+    are recoverable from the storage-layer flow database
+    itself if needed.
+    """
+    if isinstance(result, dict):
+        count = result.get("count")
+    else:
+        count = None
+    return {"count": count}
+
+
 @application.post("/flows")
 @check_referer
 @check_upload_ok
 @quota_gated
+@audit_hook.audit_event("upload", capture_details=_post_flow_audit_details)
 def post_flow():
     """Ingest a bulk of flow records.
 
@@ -929,6 +1000,7 @@ def post_flow():
 @check_referer
 @check_upload_ok
 @quota_gated
+@audit_hook.audit_event("upload")
 def post_flow_cleanup():
     """Run the backend's ``cleanup_flows`` heuristic.
 
@@ -1197,6 +1269,7 @@ def get_passive():
     """
     require_module("passive")
     flt_params = get_base(db.passive)
+    audit_hook.record_oversize_query(db.passive, flt_params.flt, route="/passive")
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
@@ -1428,6 +1501,7 @@ def get_rir():
     """
     require_module("rir")
     flt_params = get_base(db.rir)
+    audit_hook.record_oversize_query(db.rir, flt_params.flt, route="/rir")
     sortby = flt_params.sortby or [
         ("size", 1),
         ("start_0", -1),
@@ -1479,6 +1553,241 @@ def get_rir_count():
     flt_params = get_base(db.rir)
     count = db.rir.count(flt_params.flt)
     return f"{count}\n"
+
+
+#
+# /audit/  -- append-only audit log of uploads, admin actions,
+# and oversized queries.  See :class:`ivre.db.DBAudit` for the
+# storage-layer contract; producer-side hooks live in
+# :mod:`ivre.web.audit_hook`.  The read surface below is
+# admin-or-self gated: an authenticated user reads their own
+# events, an admin reads everyone's.
+#
+
+
+def _require_audit_backend() -> None:
+    """Abort with HTTP 501 when no audit backend is wired.
+
+    Mirrors :func:`_require_notes_backend` in spirit: the
+    ``audit`` purpose is independent of the data purposes and
+    may be unconfigured on a deployment that did not opt in
+    (e.g. ``DB_AUDIT = None`` and no fallback).  In that case
+    the route surface exists but the backend does not -- 501
+    is the correct HTTP semantic.
+    """
+    if db.audit is None:
+        abort(
+            501,
+            "Audit backend not available. Set DB_AUDIT (or DB) to "
+            "a backend with audit support (MongoDB, PostgreSQL, "
+            "or DuckDB) to enable it.",
+        )
+
+
+def _audit_read_gate() -> tuple[str, bool]:
+    """Resolve the caller for an ``/audit/*`` read.
+
+    Returns ``(user_email, is_admin)``.
+
+    Per the design: an authenticated user reads their own
+    audit trail; an admin reads every user's.  Anonymous
+    callers (``get_user() is None``) get HTTP 401 -- the
+    audit log is a security control and an unidentified
+    reader has no legitimate need for it.
+
+    The ``is_admin`` flag is what every read route uses to
+    decide whether to force ``user_email=<caller>`` on the
+    underlying :meth:`DBAudit.query` / :meth:`count` / :meth:`get`.
+    """
+    user = webutils.get_user()
+    if user is None:
+        abort(401, "Authentication required")
+    return user, webutils.is_admin_email(user)
+
+
+def _parse_audit_datetime(raw: str | None) -> datetime.datetime | None:
+    """Parse ``since`` / ``until`` query parameters.
+
+    Accepts:
+
+    * Unix timestamps (``"1716595200"`` or ``"1716595200.0"``)
+      -- parsed via :func:`datetime.datetime.fromtimestamp` in
+      UTC so the comparison aligns with the storage layer's
+      UTC-aware ``created_at``.
+    * ISO 8601 strings, with or without timezone
+      (``"2026-05-25T00:00:00Z"`` /
+      ``"2026-05-25T00:00:00+00:00"`` / ``"2026-05-25"``) --
+      naive strings are interpreted as UTC.
+
+    Returns ``None`` when ``raw`` is unset / empty (the
+    underlying :meth:`DBAudit.query` accepts ``None`` to mean
+    "no lower / upper bound").  Aborts with 400 on a malformed
+    value.
+    """
+    if not raw:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        pass
+    try:
+        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        abort(400, f"invalid datetime {raw!r}: {exc}")
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def _parse_audit_filters() -> dict[str, Any]:
+    """Translate ``request.params`` into the keyword arguments
+    :meth:`DBAudit.query` / :meth:`count` accept.
+
+    Validates ``event_type`` against
+    :attr:`DBAudit.EVENT_TYPES` so a typo surfaces at the
+    route edge as a 400 with a clear message rather than at
+    insert-validation depth on the SQL backend.
+    """
+    from ivre.db import DBAudit  # pylint: disable=import-outside-toplevel
+
+    event_type = request.params.get("event_type") or None
+    if event_type is not None and event_type not in DBAudit.EVENT_TYPES:
+        abort(
+            400,
+            f"unknown event_type {event_type!r}; expected one of "
+            f"{list(DBAudit.EVENT_TYPES)}",
+        )
+    return {
+        "event_type": event_type,
+        "user_email": request.params.get("user_email") or None,
+        "since": _parse_audit_datetime(request.params.get("since")),
+        "until": _parse_audit_datetime(request.params.get("until")),
+    }
+
+
+@application.get("/audit/")
+@check_referer
+def list_audit_events():
+    """List audit events.
+
+    :query str event_type: narrow to one event type (one of
+        ``upload`` / ``admin_action`` / ``oversize_query``).
+    :query str user_email: narrow to one user's events.
+        Non-admins may only supply their own email (any other
+        value returns 403); admins may filter by any user.
+    :query str since: lower bound on ``created_at`` (inclusive);
+        Unix timestamp or ISO 8601 string.
+    :query str until: upper bound on ``created_at`` (exclusive);
+        same format as ``since``.
+    :query int limit: cap on returned entries (default
+        ``WEB_LIMIT``; capped by ``WEB_MAXRESULTS``).
+    :query int skip: pagination offset (default 0).
+    :status 200: JSON array, newest-first.
+    :status 400: invalid parameters.
+    :status 401: authentication required.
+    :status 403: non-admin attempted to read another user's events.
+    :status 501: audit backend not configured on this server.
+
+    """
+    _require_audit_backend()
+    user, is_admin = _audit_read_gate()
+    filters = _parse_audit_filters()
+    if not is_admin:
+        # Force the per-user scope: a non-admin can only read
+        # events they authored.  If they supplied a different
+        # ``user_email`` we reject loudly rather than silently
+        # rewrite -- a forensic surface that silently changes
+        # what the caller asked for would be misleading.
+        if filters["user_email"] is not None and filters["user_email"] != user:
+            abort(403, "Non-admin users can only read their own audit trail")
+        filters["user_email"] = user
+    try:
+        limit_raw = request.params.get("limit")
+        limit = int(limit_raw) if limit_raw else config.WEB_LIMIT
+        skip = int(request.params.get("skip") or 0)
+    except ValueError as exc:
+        abort(400, f"limit / skip must be integers: {exc}")
+    if config.WEB_MAXRESULTS is not None:
+        limit = min(limit, config.WEB_MAXRESULTS)
+    limit = max(1, limit)
+    skip = max(0, skip)
+    events = db.audit.query(limit=limit, skip=skip, **filters)
+    response.set_header("Content-Type", "application/json")
+    return json.dumps(events, default=utils.serialize)
+
+
+@application.get("/audit/count")
+@check_referer
+def count_audit_events():
+    """Count audit events matching a filter (same filter
+    semantics as :func:`list_audit_events`).
+
+    :query str event_type: narrow to one event type.
+    :query str user_email: narrow to one user's events.
+        Non-admins may only supply their own email.
+    :query str since: lower bound on ``created_at``.
+    :query str until: upper bound on ``created_at``.
+    :status 200: integer count.
+    :status 400: invalid parameters.
+    :status 401: authentication required.
+    :status 403: non-admin attempted to count another user's events.
+    :status 501: audit backend not configured on this server.
+
+    """
+    _require_audit_backend()
+    user, is_admin = _audit_read_gate()
+    filters = _parse_audit_filters()
+    if not is_admin:
+        if filters["user_email"] is not None and filters["user_email"] != user:
+            abort(403, "Non-admin users can only count their own audit trail")
+        filters["user_email"] = user
+    count = db.audit.count(**filters)
+    response.set_header("Content-Type", "application/json")
+    return f"{count}\n"
+
+
+@application.get("/audit/<event_id>")
+@check_referer
+def get_audit_event(event_id: str):
+    """Read a single audit event by ``event_id``.
+
+    :param str event_id: 32-char UUID hex (no dashes).
+    :status 200: JSON object.
+    :status 401: authentication required.
+    :status 403: caller is not the actor on this event and
+        is not an admin.
+    :status 404: no event with that id (or the caller is not
+        permitted to see it -- the two are indistinguishable
+        on purpose, so the route does not double as an
+        existence oracle for events outside the caller's
+        scope).
+    :status 501: audit backend not configured on this server.
+
+    """
+    _require_audit_backend()
+    user, is_admin = _audit_read_gate()
+    # The ABC normalises ``event_id`` (any of the four UUID
+    # textual forms accepted by :class:`uuid.UUID`) on the way
+    # in, so the route does not need a pre-pass for it.
+    # Catching the ``ValueError`` here surfaces a 400 rather
+    # than the storage layer's own ``ValueError`` becoming a
+    # bare 500.
+    try:
+        events = db.audit.query(event_id=event_id, limit=1)
+    except ValueError as exc:
+        abort(400, str(exc))
+    if not events:
+        abort(404, f"no audit event with id {event_id}")
+    event = events[0]
+    if not is_admin:
+        actor = event.get("actor") or {}
+        if actor.get("user_email") != user:
+            # Same body as the missing-event case so the route
+            # does not leak the existence of events outside
+            # the caller's scope.
+            abort(404, f"no audit event with id {event_id}")
+    response.set_header("Content-Type", "application/json")
+    return json.dumps(event, default=utils.serialize)
 
 
 #

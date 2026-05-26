@@ -8560,6 +8560,7 @@ class MongoDBAudit(MongoDB, DBAudit):
 
     def _build_query_filter(
         self,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
@@ -8570,6 +8571,8 @@ class MongoDBAudit(MongoDB, DBAudit):
         absent when the corresponding kwarg is ``None``.
         """
         flt: dict[str, Any] = {}
+        if event_id is not None:
+            flt["event_id"] = self._normalize_event_id(event_id)
         if event_type is not None:
             self._validate_event_type(event_type)
             flt["event_type"] = event_type
@@ -8587,6 +8590,7 @@ class MongoDBAudit(MongoDB, DBAudit):
     def query(
         self,
         *,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
@@ -8595,6 +8599,7 @@ class MongoDBAudit(MongoDB, DBAudit):
         skip=None,
     ):
         flt = self._build_query_filter(
+            event_id=event_id,
             event_type=event_type,
             user_email=user_email,
             since=since,
@@ -8619,12 +8624,14 @@ class MongoDBAudit(MongoDB, DBAudit):
     def count(
         self,
         *,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
         until=None,
     ):
         flt = self._build_query_filter(
+            event_id=event_id,
             event_type=event_type,
             user_email=user_email,
             since=since,

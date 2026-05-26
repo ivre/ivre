@@ -5214,6 +5214,181 @@ class IvreTests(unittest.TestCase):
             len([e for e in notes.list_entities("host") if e["entity_type"] == "host"]),
         )
 
+    def test_75_audit(self):
+        """Round-trip the audit-log purpose against a real
+        :class:`MongoDBAudit` instance.  Covers the storage-layer
+        surface end-to-end: record, query (with every filter combo),
+        count, get-by-event_id, purge_older_than, and the
+        fail-loud :class:`AuditWriteError` contract.
+        """
+        # Same capability-gate pattern as ``test_70_notes``: only
+        # backends with an audit implementation get exercised.
+        if ivre.db.db.audit is None:
+            self.skipTest("DBAudit is not implemented on this backend")
+
+        import datetime  # noqa: PLC0415
+
+        from ivre.db import AuditWriteError  # noqa: PLC0415
+
+        audit = ivre.db.db.audit
+        # Clean slate so the test is rerunnable.  ``ivre auditcli
+        # --init`` drops the ``audit_events`` collection and
+        # recreates its indexes (including the unique
+        # ``event_id`` constraint the duplicate-insert path
+        # below relies on).
+        self.assertEqual(
+            RUN(["ivre", "auditcli", "--init"], stdin=subprocess.DEVNULL)[0],
+            0,
+        )
+
+        # --- record returns the generated event_id ---------------
+        event_id = audit.record(
+            "upload",
+            actor={
+                "user_email": "alice@example.org",
+                "api_key_hash": "a" * 64,
+                "remote_addr": "203.0.113.5",
+            },
+            resource={"route": "/scans", "method": "POST"},
+            details={"source": "test", "count": 3},
+            outcome=200,
+        )
+        self.assertIsInstance(event_id, str)
+        self.assertEqual(len(event_id), 32)  # canonical hex
+
+        # --- count + query: single event round-trips fully -------
+        self.assertEqual(audit.count(), 1)
+        events = audit.query()
+        self.assertEqual(len(events), 1)
+        evt = events[0]
+        self.assertEqual(evt["event_id"], event_id)
+        self.assertEqual(evt["event_type"], "upload")
+        self.assertEqual(evt["actor"]["user_email"], "alice@example.org")
+        self.assertEqual(evt["actor"]["api_key_hash"], "a" * 64)
+        self.assertEqual(evt["actor"]["remote_addr"], "203.0.113.5")
+        self.assertEqual(evt["resource"], {"route": "/scans", "method": "POST"})
+        self.assertEqual(evt["details"], {"source": "test", "count": 3})
+        self.assertEqual(evt["outcome"], 200)
+
+        # --- caller-supplied event_id accepted -------------------
+        my_id = "deadbeef" * 4
+        returned = audit.record(
+            "admin_action",
+            actor={"user_email": "admin@example.org"},
+            event_id=my_id,
+        )
+        self.assertEqual(returned, my_id)
+
+        # --- duplicate event_id rejected via fail-loud contract --
+        # The ABC's contract: a duplicate ``event_id`` insert
+        # surfaces as :class:`AuditWriteError` (wrapping the
+        # backend's ``DuplicateKeyError``), NOT as a silent
+        # second insert.
+        with self.assertRaises(AuditWriteError):
+            audit.record(
+                "admin_action",
+                event_id=my_id,
+            )
+
+        # --- query filters: event_id -----------------------------
+        hit = audit.query(event_id=my_id)
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(hit[0]["event_id"], my_id)
+
+        # --- query filters: dashed-UUID event_id works -----------
+        # ``_normalize_event_id`` canonicalises any UUID
+        # textual form to the 32-char hex the index keys on.
+        dashed = (
+            f"{my_id[0:8]}-{my_id[8:12]}-{my_id[12:16]}-{my_id[16:20]}-{my_id[20:32]}"
+        )
+        hit = audit.query(event_id=dashed)
+        self.assertEqual(len(hit), 1)
+        self.assertEqual(hit[0]["event_id"], my_id)
+
+        # --- query filters: event_type ---------------------------
+        self.assertEqual(len(audit.query(event_type="upload")), 1)
+        self.assertEqual(len(audit.query(event_type="admin_action")), 1)
+        self.assertEqual(len(audit.query(event_type="oversize_query")), 0)
+
+        # --- query filters: user_email ---------------------------
+        self.assertEqual(
+            len(audit.query(user_email="alice@example.org")),
+            1,
+        )
+        self.assertEqual(len(audit.query(user_email="ghost@example.org")), 0)
+
+        # --- query filters: since / until ------------------------
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        # ``since`` in the future -> nothing.
+        self.assertEqual(
+            len(audit.query(since=now + datetime.timedelta(hours=1))),
+            0,
+        )
+        # ``until`` in the past -> nothing.
+        self.assertEqual(
+            len(audit.query(until=now - datetime.timedelta(hours=1))),
+            0,
+        )
+        # Window covering now -> both events.
+        self.assertEqual(
+            len(
+                audit.query(
+                    since=now - datetime.timedelta(hours=1),
+                    until=now + datetime.timedelta(hours=1),
+                )
+            ),
+            2,
+        )
+
+        # --- query is newest-first -------------------------------
+        # The second event was recorded after the first, so it
+        # appears first in the result.
+        ordered = audit.query()
+        self.assertEqual(ordered[0]["event_id"], my_id)
+        self.assertEqual(ordered[1]["event_id"], event_id)
+
+        # --- pagination ------------------------------------------
+        first = audit.query(limit=1, skip=0)
+        second = audit.query(limit=1, skip=1)
+        self.assertEqual(len(first), 1)
+        self.assertEqual(len(second), 1)
+        self.assertNotEqual(first[0]["event_id"], second[0]["event_id"])
+
+        # --- count honours the same filters ----------------------
+        self.assertEqual(audit.count(event_type="upload"), 1)
+        self.assertEqual(audit.count(event_id=my_id), 1)
+        self.assertEqual(
+            audit.count(user_email="alice@example.org"),
+            1,
+        )
+
+        # --- record rejects unknown event_type -------------------
+        with self.assertRaises(ValueError):
+            audit.record("bogus_type")
+
+        # --- record rejects non-JSON-serializable details --------
+        with self.assertRaises(ValueError):
+            audit.record("upload", details={"x": {1, 2, 3}})
+
+        # --- record rejects non-finite floats in details --------
+        # The ABC enforces strict RFC 8259 JSON via
+        # ``allow_nan=False`` so the cross-backend on-disk
+        # shape stays consumer-safe.
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with self.assertRaises(ValueError):
+                audit.record("upload", details={"x": bad})
+
+        # --- purge_older_than: future cutoff sweeps all ----------
+        deleted = audit.purge_older_than(now + datetime.timedelta(hours=1))
+        self.assertEqual(deleted, 2)
+        self.assertEqual(audit.count(), 0)
+
+        # --- purge_older_than: empty collection no-op ------------
+        self.assertEqual(
+            audit.purge_older_than(now + datetime.timedelta(hours=1)),
+            0,
+        )
+
     def test_mcp_middleware(self):
         """Exercise PublicUrlRewriteMiddleware against a stub Starlette
         app that mimics what FastMCP emits when ``AuthSettings`` is

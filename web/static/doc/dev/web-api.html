@@ -736,6 +736,93 @@ ascending then <code class="docutils literal notranslate"><span class="pre">star
 </dd></dl>
 
 <dl class="http get">
+<dt class="sig sig-object http" id="get--audit-">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/audit/</span></span><a class="headerlink" href="#get--audit-" title="Link to this definition"></a></dt>
+<dd><p>List audit events.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>event_type</strong> (<em>str</em>) – narrow to one event type (one of
+<code class="docutils literal notranslate"><span class="pre">upload</span></code> / <code class="docutils literal notranslate"><span class="pre">admin_action</span></code> / <code class="docutils literal notranslate"><span class="pre">oversize_query</span></code>).</p></li>
+<li><p><strong>user_email</strong> (<em>str</em>) – narrow to one user’s events.
+Non-admins may only supply their own email (any other
+value returns 403); admins may filter by any user.</p></li>
+<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (inclusive);
+Unix timestamp or ISO 8601 string.</p></li>
+<li><p><strong>until</strong> (<em>str</em>) – upper bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (exclusive);
+same format as <code class="docutils literal notranslate"><span class="pre">since</span></code>.</p></li>
+<li><p><strong>limit</strong> (<em>int</em>) – cap on returned entries (default
+<code class="docutils literal notranslate"><span class="pre">WEB_LIMIT</span></code>; capped by <code class="docutils literal notranslate"><span class="pre">WEB_MAXRESULTS</span></code>).</p></li>
+<li><p><strong>skip</strong> (<em>int</em>) – pagination offset (default 0).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array, newest-first.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid parameters.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403">403 Forbidden</a></span> – non-admin attempted to read another user’s events.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – audit backend not configured on this server.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--audit-count">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/audit/count</span></span><a class="headerlink" href="#get--audit-count" title="Link to this definition"></a></dt>
+<dd><p>Count audit events matching a filter (same filter
+semantics as <code class="xref py py-func docutils literal notranslate"><span class="pre">list_audit_events()</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>event_type</strong> (<em>str</em>) – narrow to one event type.</p></li>
+<li><p><strong>user_email</strong> (<em>str</em>) – narrow to one user’s events.
+Non-admins may only supply their own email.</p></li>
+<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code>.</p></li>
+<li><p><strong>until</strong> (<em>str</em>) – upper bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – integer count.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid parameters.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403">403 Forbidden</a></span> – non-admin attempted to count another user’s events.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – audit backend not configured on this server.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt class="sig sig-object http" id="get--audit-(event_id)">
+<span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/audit/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">event_id</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--audit-(event_id)" title="Link to this definition"></a></dt>
+<dd><p>Read a single audit event by <code class="docutils literal notranslate"><span class="pre">event_id</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>event_id</strong> (<em>str</em>) – 32-char UUID hex (no dashes).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON object.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401">401 Unauthorized</a></span> – authentication required.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403">403 Forbidden</a></span> – caller is not the actor on this event and
+is not an admin.</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – no event with that id (or the caller is not
+permitted to see it – the two are indistinguishable
+on purpose, so the route does not double as an
+existence oracle for events outside the caller’s
+scope).</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/501">501 Not Implemented</a></span> – audit backend not configured on this server.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
 <dt class="sig sig-object http" id="get--notes-(entity_type)-(entity_key)">
 <span class="sig-name descname"><span class="pre">GET</span> </span><span class="sig-name descname"><span class="pre">/notes/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_type</span></em><span class="sig-paren">)</span><span class="sig-name descname"><span class="pre">/</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">entity_key</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--notes-(entity_type)-(entity_key)" title="Link to this definition"></a></dt>
 <dd><p>Read a single note.</p>

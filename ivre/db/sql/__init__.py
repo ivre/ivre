@@ -7042,6 +7042,7 @@ class SQLDBAudit(SQLDB, DBAudit):
 
     def _build_query_stmt(
         self,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
@@ -7052,6 +7053,10 @@ class SQLDBAudit(SQLDB, DBAudit):
         ready for ``and_(*clauses)``.
         """
         clauses = []
+        if event_id is not None:
+            clauses.append(
+                self.tables.events.event_id == self._normalize_event_id(event_id)
+            )
         if event_type is not None:
             self._validate_event_type(event_type)
             clauses.append(self.tables.events.event_type == event_type)
@@ -7066,6 +7071,7 @@ class SQLDBAudit(SQLDB, DBAudit):
     def query(
         self,
         *,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
@@ -7074,6 +7080,7 @@ class SQLDBAudit(SQLDB, DBAudit):
         skip=None,
     ):
         clauses = self._build_query_stmt(
+            event_id=event_id,
             event_type=event_type,
             user_email=user_email,
             since=since,
@@ -7093,12 +7100,14 @@ class SQLDBAudit(SQLDB, DBAudit):
     def count(
         self,
         *,
+        event_id=None,
         event_type=None,
         user_email=None,
         since=None,
         until=None,
     ):
         clauses = self._build_query_stmt(
+            event_id=event_id,
             event_type=event_type,
             user_email=user_email,
             since=since,
