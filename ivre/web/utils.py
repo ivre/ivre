@@ -267,13 +267,20 @@ def is_admin_email(user_email: str | None) -> bool:
     """Return ``True`` when ``user_email`` resolves to an
     administrative user in :data:`ivre.db.db.auth`.
 
-    Shared by every route that needs an admin gate (the audit
-    read API, etc.).  Mirrors the lookup
-    :func:`ivre.web.auth._ensure_admin` does inline, factored
-    out here so callers in :mod:`ivre.web.app` /
-    :mod:`ivre.tools.mcp_server` do not need to reach into
-    ``ivre.web.auth`` (which is conditionally imported only when
-    ``WEB_AUTH_ENABLED`` is true).
+    Shared by the audit read API in :mod:`ivre.web.app` and
+    the MCP audit tools in :mod:`ivre.tools.mcp_server`, both
+    of which need an admin-or-self gate without reaching into
+    ``ivre.web.auth`` (that module is conditionally imported
+    only when ``WEB_AUTH_ENABLED`` is true).
+
+    Note: :func:`ivre.web.auth._ensure_admin` still performs
+    the admin lookup inline rather than delegating here.
+    Consolidating the two is intentionally out of scope for
+    the audit work, because :func:`_ensure_admin` aborts with
+    HTTP 500 on a missing auth backend / transient DB error
+    while this helper is deliberately fail-closed (returns
+    ``False``).  Merging them is a real auth-gate semantic
+    change and deserves its own review.
 
     Returns ``False`` for every non-admin path:
 

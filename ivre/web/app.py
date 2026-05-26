@@ -1589,7 +1589,10 @@ def _audit_read_gate() -> tuple[str, bool]:
 
     The ``is_admin`` flag is what every read route uses to
     decide whether to force ``user_email=<caller>`` on the
-    underlying :meth:`DBAudit.query` / :meth:`count` / :meth:`get`.
+    underlying :meth:`DBAudit.query` / :meth:`count`.  (Single-
+    event lookup goes through :meth:`DBAudit.query` too, with
+    ``event_id=...`` and ``limit=1``; there is no separate
+    ``get`` verb on the read surface.)
     """
     user = webutils.get_user()
     if user is None:
@@ -1752,7 +1755,7 @@ def get_audit_event(event_id: str):
     """Read a single audit event by ``event_id``.
 
     :param str event_id: any UUID textual form
-        :class:`python:uuid.UUID` accepts -- 32-char hex,
+        :class:`uuid.UUID` accepts -- 32-char hex,
         36-char hex with dashes, brace-wrapped ``{...}``, or
         ``urn:uuid:...``.  Normalised to the 32-char dashes-less
         hex form before reaching the storage layer.

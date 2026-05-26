@@ -77,22 +77,34 @@ def _parse_duration(raw: str) -> datetime.timedelta:
     integer count of seconds) into a :class:`timedelta`.
 
     Raises :class:`SystemExit` (via :func:`sys.exit`) on a
-    malformed value, so an operator typo surfaces as a clean
-    CLI error rather than a stack trace.
+    malformed value, or one too large to fit in a
+    :class:`datetime.timedelta` (``timedelta`` caps out at
+    ``timedelta.max`` -- roughly 2.7 million years -- so
+    syntactically valid shorthand like ``999999999999y``
+    overflows the constructor), so an operator typo or
+    finger-slip surfaces as a clean CLI error rather than a
+    stack trace.
     """
     match = _DURATION_RE.match(raw)
     if match is None:
         try:
             return datetime.timedelta(seconds=int(raw))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             sys.exit(
                 f"Error: invalid duration {raw!r} "
                 "(expected ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny`` "
-                "or a bare integer count of seconds)"
+                "or a bare integer count of seconds, "
+                "small enough to fit in datetime.timedelta)"
             )
-    return datetime.timedelta(
-        seconds=int(match.group(1)) * _DURATION_UNITS[match.group(2)]
-    )
+    try:
+        return datetime.timedelta(
+            seconds=int(match.group(1)) * _DURATION_UNITS[match.group(2)]
+        )
+    except OverflowError:
+        sys.exit(
+            f"Error: invalid duration {raw!r} "
+            "(too large to fit in datetime.timedelta)"
+        )
 
 
 def _parse_datetime(raw: str | None) -> datetime.datetime | None:
