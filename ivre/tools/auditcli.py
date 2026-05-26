@@ -21,11 +21,16 @@
 
 Operator-side counterpart to the :class:`ivre.db.DBAudit` storage
 layer and the producer-side hook in :mod:`ivre.web.audit_hook`.
-Unlike the web routes and MCP tools (which are per-user / admin
-gated), this CLI runs locally against the configured backend with
-operator privilege -- the assumption being that anyone with shell
-access to the IVRE host can already inspect the raw audit
-collection.
+Unlike the web routes (which are per-user / admin gated), this
+CLI runs locally against the configured backend with operator
+privilege -- the assumption being that anyone with shell access
+to the IVRE host can already inspect the raw audit collection.
+
+The audit log is deliberately *not* exposed via MCP: it is a
+security control, and an LLM-driven read path would broaden the
+attack surface of the log itself.  Operators who want
+programmatic access use this CLI or the ``/cgi/audit/*`` web
+routes.
 
 Subcommands:
 

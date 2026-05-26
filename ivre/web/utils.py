@@ -267,9 +267,8 @@ def is_admin_email(user_email: str | None) -> bool:
     """Return ``True`` when ``user_email`` resolves to an
     administrative user in :data:`ivre.db.db.auth`.
 
-    Shared by the audit read API in :mod:`ivre.web.app` and
-    the MCP audit tools in :mod:`ivre.tools.mcp_server`, both
-    of which need an admin-or-self gate without reaching into
+    Used by the audit read API in :mod:`ivre.web.app` to
+    apply the admin-or-self gate without reaching into
     ``ivre.web.auth`` (that module is conditionally imported
     only when ``WEB_AUTH_ENABLED`` is true).
 

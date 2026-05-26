@@ -1117,12 +1117,19 @@ class SearchscriptMcpToolsTests(unittest.TestCase):
 
 
 class AuditMcpToolsTests(unittest.TestCase):
-    """Pin the audit-read MCP tools registered by
-    :mod:`ivre.tools.mcp_server`.  Backend-free: only checks
-    that the tools are registered, that their input schemas
-    carry the documented parameters, and that the per-user
-    gate enforcement works (non-admin caller cannot read
-    another user's events).
+    """Pin the *absence* of audit-purpose MCP tools.
+
+    The audit log is a security control and we deliberately
+    do not expose any audit-purpose read / write surface via
+    MCP -- read access is web-routes-only (``/cgi/audit/*``)
+    and admin / purge is CLI-only (``ivre auditcli``).  An
+    LLM-driven read path would broaden the attack surface of
+    the audit log itself (prompt-driven exfiltration of who
+    scanned what and when) for no concrete user-facing win.
+
+    If this gate trips later because someone wired an
+    ``audit_*`` MCP tool back in, the right move is to revisit
+    that design decision rather than to relax the test.
     """
 
     @classmethod
@@ -1132,118 +1139,20 @@ class AuditMcpToolsTests(unittest.TestCase):
         if mcp_server.FastMCP is None:
             raise unittest.SkipTest("mcp dependency not installed")
         cls.srv = mcp_server._build_server()
-        cls.audit_query = staticmethod(cls.srv._tool_manager.get_tool("audit_query").fn)
-        cls.audit_count = staticmethod(cls.srv._tool_manager.get_tool("audit_count").fn)
-        cls.audit_get = staticmethod(cls.srv._tool_manager.get_tool("audit_get").fn)
 
-    def test_audit_tools_registered(self) -> None:
-        # Pin the public surface: three read-only tools.
-        # No ``audit_set`` / ``audit_delete`` / ``audit_purge``
-        # -- audit is append-only and operator-purged via
-        # the CLI, not via an LLM-driven tool.
+    def test_no_audit_tools_registered(self) -> None:
         import asyncio  # noqa: PLC0415
 
         names = {t.name for t in asyncio.run(self.srv.list_tools())}
-        self.assertIn("audit_query", names)
-        self.assertIn("audit_count", names)
-        self.assertIn("audit_get", names)
-        for missing in ("audit_set", "audit_delete", "audit_purge"):
-            self.assertNotIn(missing, names)
-
-    def test_audit_query_signature(self) -> None:
-        # Pin the documented kwargs surface so a future
-        # refactor that drops one of them surfaces here
-        # rather than at first runtime call.
-        import asyncio  # noqa: PLC0415
-
-        tools = asyncio.run(self.srv.list_tools())
-        spec = next(t for t in tools if t.name == "audit_query")
-        props = spec.inputSchema.get("properties", {})
-        for key in ("event_type", "user_email", "since", "until", "limit", "skip"):
-            self.assertIn(key, props)
-
-    def test_audit_query_non_admin_rejects_other_user(self) -> None:
-        # The per-user gate on the MCP path mirrors the
-        # ``/cgi/audit/*`` web routes: a non-admin caller
-        # who explicitly passes a different ``user_email``
-        # gets ``INVALID_PARAMS`` rather than silently
-        # rewritten output.
-        from mcp.shared.exceptions import McpError  # noqa: PLC0415
-
-        from ivre.tools import mcp_server  # noqa: PLC0415
-
-        # Stub the audit backend and the auth resolution so
-        # the tool reaches the gate.  We don't need a real
-        # backend -- the gate fires before any DB call.
-        stub_db = mock.MagicMock()
-        stub_db.audit = mock.Mock()
-        with (
-            mock.patch.object(mcp_server, "db", stub_db),
-            mock.patch(
-                "ivre.tools.mcp_server.auth.current_user_email",
-                return_value="bob@example.org",
-            ),
-            mock.patch(
-                "ivre.web.utils.is_admin_email",
-                return_value=False,
-            ),
+        for forbidden in (
+            "audit_query",
+            "audit_count",
+            "audit_get",
+            "audit_set",
+            "audit_delete",
+            "audit_purge",
         ):
-            with self.assertRaises(McpError) as ctx:
-                self.audit_query(user_email="alice@example.org")
-        self.assertIn("own audit trail", ctx.exception.error.message)
-        stub_db.audit.query.assert_not_called()
-
-    def test_audit_query_overflow_since_invalid_params(self) -> None:
-        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
-        # ``OSError`` for out-of-range numeric input.  Both
-        # ``audit_query`` and ``audit_count`` must translate
-        # those to ``INVALID_PARAMS`` so callers see a
-        # deterministic validation error instead of an
-        # internal failure bubbling out of the MCP stack.
-        from mcp.shared.exceptions import McpError  # noqa: PLC0415
-
-        from ivre.tools import mcp_server  # noqa: PLC0415
-
-        stub_db = mock.MagicMock()
-        stub_db.audit = mock.Mock()
-        with (
-            mock.patch.object(mcp_server, "db", stub_db),
-            mock.patch(
-                "ivre.tools.mcp_server.auth.current_user_email",
-                return_value="alice@example.org",
-            ),
-            mock.patch(
-                "ivre.web.utils.is_admin_email",
-                return_value=True,
-            ),
-        ):
-            with self.assertRaises(McpError) as ctx:
-                self.audit_query(since=1e40)
-        self.assertIn("invalid timestamp", ctx.exception.error.message)
-        stub_db.audit.query.assert_not_called()
-
-    def test_audit_count_overflow_until_invalid_params(self) -> None:
-        from mcp.shared.exceptions import McpError  # noqa: PLC0415
-
-        from ivre.tools import mcp_server  # noqa: PLC0415
-
-        stub_db = mock.MagicMock()
-        stub_db.audit = mock.Mock()
-        with (
-            mock.patch.object(mcp_server, "db", stub_db),
-            mock.patch(
-                "ivre.tools.mcp_server.auth.current_user_email",
-                return_value="alice@example.org",
-            ),
-            mock.patch(
-                "ivre.web.utils.is_admin_email",
-                return_value=True,
-            ),
-        ):
-            with self.assertRaises(McpError) as ctx:
-                self.audit_count(until=1e40)
-        self.assertIn("invalid timestamp", ctx.exception.error.message)
-        stub_db.audit.count.assert_not_called()
+            self.assertNotIn(forbidden, names)
 
 
 # ---------------------------------------------------------------------
