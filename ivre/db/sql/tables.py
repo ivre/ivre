@@ -35,6 +35,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     cast,
     column,
     func,
@@ -1125,4 +1126,100 @@ class AuthMagicLink(Base):
     __table_args__ = (
         UniqueConstraint("token_hash", name="auth_magic_link_idx_token_hash"),
         Index("auth_magic_link_idx_expires_at", "expires_at"),
+    )
+
+
+# ----- audit log -----------------------------------------------
+#
+# Field-length constants shared between :class:`AuditEvent`
+# columns.  ``_AUDIT_EVENT_TYPE_LEN`` accommodates every member
+# of :attr:`ivre.db.DBAudit.EVENT_TYPES`; ``_AUDIT_HASH_LEN``
+# matches :data:`_AUTH_HASH_LEN` so the SHA-256 hex of an API
+# key fits without truncation; ``_AUDIT_ROUTE_LEN`` covers the
+# longest Bottle route string IVRE ships
+# (``/<subdb:re:scans|view|passive|rir>/distinct/<field:path>``
+# is ~60 chars; 255 leaves generous headroom).
+_AUDIT_EVENT_TYPE_LEN = 32
+_AUDIT_HASH_LEN = 64
+_AUDIT_ROUTE_LEN = 255
+_AUDIT_METHOD_LEN = 8
+_AUDIT_REMOTE_ADDR_LEN = 45  # IPv6 textual form max
+
+_seq_audit_events_id = Sequence("seq_audit_events_id")
+
+
+class AuditEvent(Base):
+    """One append-only audit event.
+
+    Mirrors :class:`MongoDBAudit`'s ``audit_events`` collection.
+    ``event_id`` uses :class:`sqlalchemy.Uuid` (``as_uuid=False``)
+    so PostgreSQL and DuckDB get the native ``UUID`` column type
+    (16-byte storage, type-safe at the DB layer) while
+    SQL dialects without UUID support fall back to ``CHAR(32)``.
+    The ABC's caller-facing contract is the 32-char hex string,
+    consistent with the Mongo backend.
+
+    Three composite indexes match Mongo's query patterns:
+    ``(event_type, created_at)`` for type-filtered scans,
+    ``(actor_user_email, created_at)`` for per-user audit
+    trails, and a plain ``(created_at)`` for generic time
+    windows.  The SQLAlchemy ``Index(...)`` declarations below
+    do not encode a per-column sort order -- the Mongo
+    backend's matching indexes are ``DESC`` on ``created_at``,
+    but on SQL the analogous newest-first semantic is provided
+    by :meth:`SQLDBAudit.query` via ``ORDER BY created_at
+    DESC``, which both PostgreSQL and DuckDB can satisfy with
+    a plain b-tree index regardless of declared direction (the
+    planner reads it backwards as needed).  ``event_id`` is
+    uniquely indexed; duplicate inserts fail loud (matches the
+    Mongo backend).
+
+    Retention is operator-driven; no TTL.
+    """
+
+    __tablename__ = "audit_events"
+    id = Column(
+        Integer,
+        _seq_audit_events_id,
+        server_default=_seq_audit_events_id.next_value(),
+        primary_key=True,
+    )
+    # ``as_uuid=False``: SQLAlchemy returns the value as a
+    # ``str`` (canonical hex-with-dashes form on the Python
+    # side; the backend dispatches to native UUID storage on
+    # dialects that support it).  The ABC normalises both
+    # representations to the dashes-less 32-char form on read.
+    event_id = Column(Uuid(as_uuid=False), nullable=False)
+    event_type = Column(String(_AUDIT_EVENT_TYPE_LEN), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    # Actor sub-fields: every one nullable because (a)
+    # anonymous / REMOTE_USER traffic has no user_email,
+    # (b) session-cookie callers carry no api_key_hash, and
+    # (c) non-HTTP callers (CLI / future MCP write tools)
+    # have no remote_addr.
+    actor_user_email = Column(String(_AUTH_EMAIL_LEN))
+    actor_api_key_hash = Column(String(_AUDIT_HASH_LEN))
+    actor_remote_addr = Column(String(_AUDIT_REMOTE_ADDR_LEN))
+    resource_route = Column(String(_AUDIT_ROUTE_LEN))
+    resource_method = Column(String(_AUDIT_METHOD_LEN))
+    # ``details`` is event-type-specific arbitrary JSON.  The
+    # ABC's :meth:`_validate_details` rejects non-JSON-
+    # serializable values at insert time so writes never blow
+    # up at SQL serialization.
+    details = Column(SQLJSONB)
+    # HTTP status code (or ``None`` for non-HTTP callers).
+    outcome = Column(Integer)
+    __table_args__ = (
+        UniqueConstraint("event_id", name="audit_events_idx_event_id"),
+        Index(
+            "audit_events_idx_type_created",
+            "event_type",
+            "created_at",
+        ),
+        Index(
+            "audit_events_idx_user_created",
+            "actor_user_email",
+            "created_at",
+        ),
+        Index("audit_events_idx_created", "created_at"),
     )

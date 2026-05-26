@@ -33,6 +33,7 @@ import socket
 import struct
 import sys
 import time
+import uuid
 from argparse import ArgumentParser
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
@@ -6209,6 +6210,248 @@ class DBNotes(DB):
         raise NotImplementedError
 
 
+class AuditWriteError(Exception):
+    """Raised by :meth:`DBAudit.record` when the backend write
+    fails (Mongo ``PyMongoError``, SQLAlchemy ``SQLAlchemyError``,
+    ...).
+
+    Unlike :class:`NoteAlreadyExists` / :class:`NoteConcurrencyError`
+    et al. on :class:`DBNotes` (which subclass :class:`ValueError`
+    because notes' best-effort revisions log can survive a missed
+    audit row), this is a top-level :class:`Exception` so the
+    caller is forced to choose explicitly whether to swallow it.
+    The audit log's contract is fail-loud: an unrecorded event
+    is worse than a failed request, so the default web/handler
+    path lets this propagate to ``HTTP 500`` rather than masking
+    it.
+    """
+
+
+class DBAudit(DB):
+    """Append-only audit log.
+
+    Captures three event categories surfaced by the web layer:
+
+    * ``upload`` -- writes against ``post_nmap`` / ``post_flow`` /
+      ``post_flow_cleanup`` (``ivre/web/app.py``).
+    * ``admin_action`` -- mutations under ``/cgi/auth/admin/*``
+      (`admin_update_user`, `admin_delete_api_key`, ...).
+    * ``oversize_query`` -- reads whose underlying result count
+      exceeds the operator-set threshold (consumed by a future
+      decorator in PR 2; this storage layer only declares the
+      type).
+
+    The hook decorator / route plumbing / read API / CLI / MCP
+    surfaces all land in follow-up PRs; this purpose ships the
+    storage contract first so the schema is reviewable in
+    isolation.  Retention is operator-driven: there is no
+    default TTL, and :meth:`purge_older_than` is the explicit
+    sweep verb the future CLI invokes.
+
+    Insert-failure model: fail-loud.  See
+    :class:`AuditWriteError`.
+    """
+
+    EVENT_TYPES: tuple[str, ...] = (
+        "upload",
+        "admin_action",
+        "oversize_query",
+    )
+
+    backends = {
+        "mongodb": ("mongo", "MongoDBAudit"),
+        "postgresql": ("sql.postgres", "PostgresDBAudit"),
+        "duckdb": ("sql.duckdb", "DuckDBAudit"),
+        # Other backends inherit ``NotImplementedError`` from
+        # this base for v1.
+    }
+
+    @staticmethod
+    def _validate_event_type(event_type: str) -> None:
+        """Raise :class:`ValueError` if ``event_type`` is not a
+        member of :attr:`EVENT_TYPES`.
+
+        The enum is intentionally strict at the ABC level: a
+        new category requires an explicit
+        :attr:`EVENT_TYPES` extension, which surfaces as a
+        compile-time signal in code review and prevents typos
+        from silently creating a new category that no
+        downstream filter knows about.
+        """
+        if event_type not in DBAudit.EVENT_TYPES:
+            raise ValueError(
+                f"unknown event_type {event_type!r}; expected one of "
+                f"{list(DBAudit.EVENT_TYPES)}"
+            )
+
+    @staticmethod
+    def _validate_details(details: Any) -> None:
+        """Raise :class:`ValueError` if ``details`` is not
+        ``None`` and not strict-JSON-serializable.
+
+        Caught at the ABC so a caller that passes a
+        ``datetime`` / ``set`` / custom object surfaces the
+        problem at insert time with a clear error rather than
+        at SQL JSON-serialization time (or worse, at later
+        read time on a Mongo backend that happily stored the
+        BSON-but-not-JSON value).
+
+        ``allow_nan=False`` makes :func:`json.dumps` reject
+        ``NaN`` / ``Infinity`` / ``-Infinity`` floats.  The
+        stdlib default (``allow_nan=True``) emits the literal
+        tokens ``NaN`` / ``Infinity`` / ``-Infinity``, which
+        are **not** part of RFC 8259 JSON: strict consumers
+        (any standards-conformant JSON parser, ``JSON`` /
+        ``JSONB`` column types on some SQL dialects, every
+        downstream non-Python consumer of the audit log) will
+        choke on them.  Rejecting them here keeps the
+        cross-backend storage shape strict-JSON-clean and the
+        Mongo / SQL writes interchangeable.
+        """
+        if details is None:
+            return
+        if not isinstance(details, dict):
+            raise ValueError(
+                f"details must be a dict (or None), got " f"{type(details).__name__}"
+            )
+        try:
+            json.dumps(details, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"details is not JSON-serializable: {exc}") from exc
+
+    @staticmethod
+    def _normalize_event_id(event_id: str | None) -> str:
+        """Return the canonical 32-char hex ``event_id``.
+
+        Generates a fresh UUID v4 when ``event_id`` is
+        ``None``.  Otherwise validates the caller-supplied
+        value via :class:`uuid.UUID`, which accepts every
+        standard textual form (32-char hex, 36-char with
+        dashes, ``urn:uuid:...`` prefix, ``{...}`` braced
+        form) and rejects anything else with a clear
+        :class:`ValueError`.  The return value is always the
+        dashes-less 32-char hex form -- the on-disk shape every
+        backend stores.
+
+        Centralised at the ABC level so the contract documented
+        on :meth:`record` is enforced on every backend.  Without
+        this, the SQL backend's native ``Uuid`` column type
+        rejects malformed IDs at insert time (good), but Mongo
+        happily accepts arbitrary strings (bad), and SQL
+        dialects falling back to ``CHAR(32)`` accept anything
+        that fits in 32 chars (worse).  Catching the bad value
+        here makes the failure mode uniform across backends.
+        """
+        if event_id is None:
+            return uuid.uuid4().hex
+        try:
+            return uuid.UUID(event_id).hex
+        except (AttributeError, TypeError, ValueError) as exc:
+            # The error message enumerates every textual form
+            # :class:`uuid.UUID` actually accepts so a caller
+            # who hits the reject path knows which spellings
+            # are legal (and which are not): the 32-char hex,
+            # the 36-char hex-with-dashes, the brace-wrapped
+            # ``{...}`` form, and the RFC 4122 ``urn:uuid:...``
+            # prefixed form.  Keeping the message in sync with
+            # the parser avoids the false impression that only
+            # the two "canonical" spellings work.
+            raise ValueError(
+                f"event_id must be a UUID textual form accepted by "
+                f"uuid.UUID() (32-char hex, 36-char hex-with-dashes, "
+                f"brace-wrapped ``{{...}}``, or ``urn:uuid:...``); "
+                f"got {event_id!r}"
+            ) from exc
+
+    def record(
+        self,
+        event_type: str,
+        *,
+        actor: dict[str, Any] | None = None,
+        resource: dict[str, Any] | None = None,
+        details: dict[str, Any] | None = None,
+        outcome: int | None = None,
+        event_id: str | None = None,
+    ) -> str:
+        """Append one event to the audit log.
+
+        ``event_type`` must be a member of :attr:`EVENT_TYPES`
+        (validated via :meth:`_validate_event_type`).
+        ``actor`` / ``resource`` / ``details`` are dicts whose
+        shape is event-type-specific; ``details`` is validated
+        as JSON-serializable via :meth:`_validate_details`.
+        ``outcome`` is the HTTP status code (or ``None`` for
+        non-HTTP callers).
+
+        ``event_id``: 32-char UUID hex (no dashes).  Auto-
+        generated via ``uuid.uuid4().hex`` when not supplied;
+        callers (e.g. cross-system correlation) may supply
+        their own.  The returned value is the event_id of the
+        persisted row.
+
+        Fail-loud on backend write failure: raises
+        :class:`AuditWriteError` chained to the underlying
+        backend exception.  The caller (typically a Bottle
+        route) lets the exception propagate to ``HTTP 500``;
+        silently swallowing it would defeat the purpose of an
+        audit trail.
+        """
+        raise NotImplementedError
+
+    def query(
+        self,
+        *,
+        event_type: str | None = None,
+        user_email: str | None = None,
+        since: Any | None = None,
+        until: Any | None = None,
+        limit: int | None = None,
+        skip: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """List audit events matching the filter.
+
+        All filter kwargs are AND'd.  Results are returned
+        newest-first (descending ``created_at``).  ``limit`` /
+        ``skip`` are applied at the backend layer.  Returns a
+        list of dicts in the same shape :meth:`record`
+        persisted.
+        """
+        raise NotImplementedError
+
+    def count(
+        self,
+        *,
+        event_type: str | None = None,
+        user_email: str | None = None,
+        since: Any | None = None,
+        until: Any | None = None,
+    ) -> int:
+        """Count audit events matching the filter.  Same
+        kwargs as :meth:`query` minus pagination.
+        """
+        raise NotImplementedError
+
+    def purge_older_than(self, cutoff: Any) -> int:
+        """Remove every audit event with ``created_at < cutoff``.
+
+        Returns the number of rows deleted.  The operator-
+        driven retention verb invoked by the future
+        ``ivre auditcli --purge-older-than`` CLI; no
+        automatic TTL runs on the table.
+        """
+        raise NotImplementedError
+
+    def get(self, spec: Any, **kargs: Any) -> Iterable[dict[str, Any]]:
+        """Low-level: iterate raw storage-layer documents
+        matching ``spec`` (a backend-native filter).  Mirrors
+        :meth:`DBNotes.get`'s contract -- the convenience
+        :meth:`query` / :meth:`count` methods are the public
+        API; this escape hatch surfaces the storage-layer
+        fields verbatim for tooling that needs them.
+        """
+        raise NotImplementedError
+
+
 class DBAuth(DB):
     """Backend-independent code to handle authentication"""
 
@@ -6464,6 +6707,7 @@ class MetaDB:
         "rir": DBRir,
         "flow": DBFlow,
         "auth": DBAuth,
+        "audit": DBAudit,
         "notes": DBNotes,
     }
 
@@ -6472,7 +6716,7 @@ class MetaDB:
         self.urls = urls or {}
 
     def close(self):
-        for attr in ["nmap", "passive", "data", "flow", "view", "notes"]:
+        for attr in ["nmap", "passive", "data", "flow", "view", "notes", "audit"]:
             try:
                 getattr(self, f"_{attr}").close()
             except AttributeError:
@@ -6555,6 +6799,16 @@ class MetaDB:
             )
         self._auth = self.get_class("auth")
         return self._auth
+
+    @property
+    def audit(self):
+        try:
+            # pylint: disable=access-member-before-definition
+            return self._audit
+        except AttributeError:
+            pass
+        self._audit = self.get_class("audit")
+        return self._audit
 
     @property
     def notes(self):
