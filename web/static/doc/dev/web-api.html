@@ -802,7 +802,11 @@ Non-admins may only supply their own email.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>event_id</strong> (<em>str</em>) – 32-char UUID hex (no dashes).</p></li>
+<li><p><strong>event_id</strong> (<em>str</em>) – any UUID textual form
+<code class="xref py py-class docutils literal notranslate"><span class="pre">python:uuid.UUID</span></code> accepts – 32-char hex,
+36-char hex with dashes, brace-wrapped <code class="docutils literal notranslate"><span class="pre">{...}</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">urn:uuid:...</span></code>.  Normalised to the 32-char dashes-less
+hex form before reaching the storage layer.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>

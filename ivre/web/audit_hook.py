@@ -225,7 +225,7 @@ def audit_event(
         def _newfunc(*args: Any, **kwargs: Any) -> Any:
             result = func(*args, **kwargs)
             try:
-                details: dict[str, Any] = (
+                details: Any = (
                     capture_details(args, kwargs, result)
                     if capture_details is not None
                     else {}
@@ -242,6 +242,24 @@ def audit_event(
                     "audit capture_details callable raised on %s",
                     event_type,
                     exc_info=True,
+                )
+                details = {}
+            if not isinstance(details, dict):
+                # Same fail-soft rationale as the ``except`` above:
+                # a callback that returns the wrong shape (e.g. a
+                # string or ``None``) would otherwise trip the
+                # ABC's ``_validate_details`` check inside
+                # ``db.audit.record`` and ``AuditWriteError`` /
+                # ``ValueError`` would bubble up to the caller --
+                # contradicting the "callback bugs must not break
+                # the wrapped route" guarantee.  Bad payloads
+                # that *are* dicts but contain non-JSON values
+                # still surface loudly through the ABC; that is
+                # a real bug worth not silencing.
+                utils.LOGGER.error(
+                    "audit capture_details returned non-dict on %s: %r",
+                    event_type,
+                    type(details).__name__,
                 )
                 details = {}
             _record(event_type, details=details, outcome=_response_status_code())

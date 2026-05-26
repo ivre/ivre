@@ -118,7 +118,15 @@ def _parse_datetime(raw: str | None) -> datetime.datetime | None:
     try:
         return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
     except (TypeError, ValueError):
+        # Not numeric -- fall through to the ISO branch.  Range
+        # errors (``OverflowError`` / ``OSError``) mean it *was*
+        # numeric but the platform can't represent it; surface
+        # those as a clean CLI error rather than falling into
+        # the ISO parser (which would also fail, with a less
+        # useful message).
         pass
+    except (OverflowError, OSError) as exc:
+        sys.exit(f"Error: invalid datetime {raw!r}: {exc}")
     try:
         parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
@@ -257,7 +265,15 @@ def main() -> None:
         sys.exit(0)
 
     if args.get is not None:
-        events = db.audit.query(event_id=args.get, limit=1)
+        # ``_normalize_event_id`` raises ``ValueError`` on a
+        # malformed UUID textual form; surface that as a clean
+        # CLI error rather than a stack trace.  Mirrors how the
+        # ``--purge-older-than`` / ``--since`` / ``--until``
+        # parsers handle bad operator input.
+        try:
+            events = db.audit.query(event_id=args.get, limit=1)
+        except ValueError as exc:
+            sys.exit(f"Error: {exc}")
         if not events:
             print("null")
         else:

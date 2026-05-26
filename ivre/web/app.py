@@ -182,12 +182,9 @@ def get_nmap_action(subdb, action):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
-    route_subdb = subdb
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
-    audit_hook.record_oversize_query(
-        subdb, flt_params.flt, route=f"/{route_subdb}/{action}"
-    )
+    audit_hook.record_oversize_query(subdb, flt_params.flt, route=request.route.rule)
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
@@ -384,7 +381,6 @@ def get_top(subdb, field):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
-    route_subdb = subdb
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -392,9 +388,7 @@ def get_top(subdb, field):
         "view": db.view,
     }[subdb]
     flt_params = get_base(subdb)
-    audit_hook.record_oversize_query(
-        subdb, flt_params.flt, route=f"/{route_subdb}/top/{field}"
-    )
+    audit_hook.record_oversize_query(subdb, flt_params.flt, route=request.route.rule)
     if field[0] in "-!":
         field = field[1:]
         least = True
@@ -456,7 +450,6 @@ def get_distinct(subdb, field):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
-    route_subdb = subdb
     subdb = {
         "passive": db.passive,
         "rir": db.rir,
@@ -464,9 +457,7 @@ def get_distinct(subdb, field):
         "view": db.view,
     }[subdb]
     flt_params = get_base(subdb)
-    audit_hook.record_oversize_query(
-        subdb, flt_params.flt, route=f"/{route_subdb}/distinct/{field}"
-    )
+    audit_hook.record_oversize_query(subdb, flt_params.flt, route=request.route.rule)
     cursor = subdb.distinct(
         field,
         flt=flt_params.flt,
@@ -559,10 +550,9 @@ def get_nmap(subdb):
     """
     require_module(_SUBDB_TO_MODULE[subdb])
     subdb_tool = "view" if subdb == "view" else "scancli"
-    route_subdb = subdb
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
-    audit_hook.record_oversize_query(subdb, flt_params.flt, route=f"/{route_subdb}")
+    audit_hook.record_oversize_query(subdb, flt_params.flt, route=request.route.rule)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
@@ -1269,7 +1259,9 @@ def get_passive():
     """
     require_module("passive")
     flt_params = get_base(db.passive)
-    audit_hook.record_oversize_query(db.passive, flt_params.flt, route="/passive")
+    audit_hook.record_oversize_query(
+        db.passive, flt_params.flt, route=request.route.rule
+    )
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
@@ -1501,7 +1493,7 @@ def get_rir():
     """
     require_module("rir")
     flt_params = get_base(db.rir)
-    audit_hook.record_oversize_query(db.rir, flt_params.flt, route="/rir")
+    audit_hook.record_oversize_query(db.rir, flt_params.flt, route=request.route.rule)
     sortby = flt_params.sortby or [
         ("size", 1),
         ("start_0", -1),
@@ -1629,7 +1621,15 @@ def _parse_audit_datetime(raw: str | None) -> datetime.datetime | None:
     try:
         return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
     except (TypeError, ValueError):
+        # Not a numeric value at all -- fall through to the ISO
+        # branch.  Range errors (``OverflowError`` / ``OSError``)
+        # mean it *was* numeric but the platform can't represent
+        # it; bounce those out as 400 below rather than trying
+        # the ISO parser (which would also fail, with a less
+        # useful message).
         pass
+    except (OverflowError, OSError) as exc:
+        abort(400, f"invalid datetime {raw!r}: {exc}")
     try:
         parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError as exc:
@@ -1751,7 +1751,11 @@ def count_audit_events():
 def get_audit_event(event_id: str):
     """Read a single audit event by ``event_id``.
 
-    :param str event_id: 32-char UUID hex (no dashes).
+    :param str event_id: any UUID textual form
+        :class:`python:uuid.UUID` accepts -- 32-char hex,
+        36-char hex with dashes, brace-wrapped ``{...}``, or
+        ``urn:uuid:...``.  Normalised to the 32-char dashes-less
+        hex form before reaching the storage layer.
     :status 200: JSON object.
     :status 401: authentication required.
     :status 403: caller is not the actor on this event and

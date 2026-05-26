@@ -1113,16 +1113,26 @@ def _register_tools() -> None:
             user_email = caller
         limit = max(1, min(limit, 1000))
         skip = max(0, skip)
-        since_dt = (
-            _dt.datetime.fromtimestamp(since, tz=_dt.timezone.utc)
-            if since is not None
-            else None
-        )
-        until_dt = (
-            _dt.datetime.fromtimestamp(until, tz=_dt.timezone.utc)
-            if until is not None
-            else None
-        )
+        # ``fromtimestamp`` raises ``OverflowError`` / ``OSError``
+        # for out-of-range values in addition to the obvious
+        # ``TypeError`` / ``ValueError``; translate every flavour
+        # to ``INVALID_PARAMS`` so callers get a deterministic
+        # validation error rather than an internal failure.
+        try:
+            since_dt = (
+                _dt.datetime.fromtimestamp(since, tz=_dt.timezone.utc)
+                if since is not None
+                else None
+            )
+            until_dt = (
+                _dt.datetime.fromtimestamp(until, tz=_dt.timezone.utc)
+                if until is not None
+                else None
+            )
+        except (TypeError, ValueError, OverflowError, OSError) as exc:
+            raise McpError(
+                ErrorData(code=INVALID_PARAMS, message=f"invalid timestamp: {exc}")
+            ) from exc
         try:
             events = db.audit.query(
                 event_type=event_type,
@@ -1164,16 +1174,23 @@ def _register_tools() -> None:
                     )
                 )
             user_email = caller
-        since_dt = (
-            _dt.datetime.fromtimestamp(since, tz=_dt.timezone.utc)
-            if since is not None
-            else None
-        )
-        until_dt = (
-            _dt.datetime.fromtimestamp(until, tz=_dt.timezone.utc)
-            if until is not None
-            else None
-        )
+        # Same range-error hardening as ``audit_query`` -- see
+        # the comment there.
+        try:
+            since_dt = (
+                _dt.datetime.fromtimestamp(since, tz=_dt.timezone.utc)
+                if since is not None
+                else None
+            )
+            until_dt = (
+                _dt.datetime.fromtimestamp(until, tz=_dt.timezone.utc)
+                if until is not None
+                else None
+            )
+        except (TypeError, ValueError, OverflowError, OSError) as exc:
+            raise McpError(
+                ErrorData(code=INVALID_PARAMS, message=f"invalid timestamp: {exc}")
+            ) from exc
         try:
             return int(
                 db.audit.count(

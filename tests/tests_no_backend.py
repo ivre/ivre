@@ -1193,6 +1193,58 @@ class AuditMcpToolsTests(unittest.TestCase):
         self.assertIn("own audit trail", ctx.exception.error.message)
         stub_db.audit.query.assert_not_called()
 
+    def test_audit_query_overflow_since_invalid_params(self) -> None:
+        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
+        # ``OSError`` for out-of-range numeric input.  Both
+        # ``audit_query`` and ``audit_count`` must translate
+        # those to ``INVALID_PARAMS`` so callers see a
+        # deterministic validation error instead of an
+        # internal failure bubbling out of the MCP stack.
+        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+
+        from ivre.tools import mcp_server  # noqa: PLC0415
+
+        stub_db = mock.MagicMock()
+        stub_db.audit = mock.Mock()
+        with (
+            mock.patch.object(mcp_server, "db", stub_db),
+            mock.patch(
+                "ivre.tools.mcp_server.auth.current_user_email",
+                return_value="alice@example.org",
+            ),
+            mock.patch(
+                "ivre.web.utils.is_admin_email",
+                return_value=True,
+            ),
+        ):
+            with self.assertRaises(McpError) as ctx:
+                self.audit_query(since=1e40)
+        self.assertIn("invalid timestamp", ctx.exception.error.message)
+        stub_db.audit.query.assert_not_called()
+
+    def test_audit_count_overflow_until_invalid_params(self) -> None:
+        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+
+        from ivre.tools import mcp_server  # noqa: PLC0415
+
+        stub_db = mock.MagicMock()
+        stub_db.audit = mock.Mock()
+        with (
+            mock.patch.object(mcp_server, "db", stub_db),
+            mock.patch(
+                "ivre.tools.mcp_server.auth.current_user_email",
+                return_value="alice@example.org",
+            ),
+            mock.patch(
+                "ivre.web.utils.is_admin_email",
+                return_value=True,
+            ),
+        ):
+            with self.assertRaises(McpError) as ctx:
+                self.audit_count(until=1e40)
+        self.assertIn("invalid timestamp", ctx.exception.error.message)
+        stub_db.audit.count.assert_not_called()
+
 
 # ---------------------------------------------------------------------
 # McpOAuthProviderTests -- pin the OAuth 2.1 Authorization Server
@@ -17547,6 +17599,46 @@ class DBAuditWebHookTests(unittest.TestCase):
 
         self.assertEqual(recorded[0]["details"], {})
 
+    def test_decorator_swallows_capture_details_non_dict_return(self) -> None:
+        # A ``capture_details`` callback that returns the
+        # wrong shape (anything that is not a ``dict``) must
+        # fall back to ``{}`` rather than tripping the ABC's
+        # ``_validate_details`` check inside
+        # ``db.audit.record``.  Without this, a callback
+        # bug that returned ``"oops"`` / ``None`` / ``123``
+        # would propagate as a ``ValueError`` from the
+        # storage layer and break the wrapped route --
+        # contradicting the "callback bugs must not break
+        # the request" contract.
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        for bad_return in ("oops", None, 123, ["not", "a", "dict"]):
+            with self.subTest(bad_return=bad_return):
+                recorded: list[dict[str, Any]] = []
+                audit = mock.Mock()
+                audit.record.side_effect = lambda et, **kw: (
+                    recorded.append(kw) or "x" * 32
+                )
+
+                def capture(_args, _kwargs, _result, _v=bad_return):
+                    return _v
+
+                with (
+                    self._patched_db_audit(audit),
+                    self._patched_request(),
+                    mock.patch.object(webutils, "get_user", return_value=None),
+                    mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+                ):
+
+                    @audit_hook.audit_event("upload", capture_details=capture)
+                    def handler() -> str:
+                        return "ok"
+
+                    self.assertEqual(handler(), "ok")
+
+                self.assertEqual(recorded[0]["details"], {})
+
     def test_record_oversize_query_silent_below_threshold(self) -> None:
         # No-op path: ``count`` is at or below
         # ``WEB_MAXRESULTS``, so no event is recorded.  Pin
@@ -17883,6 +17975,32 @@ class DBAuditCliTests(unittest.TestCase):
         self.assertIn("invalid duration", stderr)
         audit.purge_older_than.assert_not_called()
 
+    def test_get_invalid_uuid_exits_with_error(self) -> None:
+        # ``DBAudit._normalize_event_id`` raises ``ValueError``
+        # on a malformed UUID; the CLI must surface that as a
+        # clean error, not a stack trace.  Without this the
+        # operator sees an unprintable traceback from a typo.
+        audit = mock.Mock()
+        audit.query.side_effect = ValueError(
+            "event_id must be a UUID textual form accepted by uuid.UUID()"
+        )
+        code, _stdout, stderr = self._run_cli(["--get", "not-a-uuid"], audit=audit)
+        self.assertNotEqual(code, 0)
+        self.assertIn("event_id", stderr)
+
+    def test_since_overflow_exits_with_error(self) -> None:
+        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
+        # ``OSError`` for out-of-range numeric input.  An
+        # un-handled exception here would crash the CLI with a
+        # traceback instead of a clean ``Error: ...`` line.
+        audit = mock.Mock()
+        code, _stdout, stderr = self._run_cli(
+            ["--count", "--since", "1e40"], audit=audit
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("invalid datetime", stderr)
+        audit.count.assert_not_called()
+
 
 class DBAuditWebRoutesTests(unittest.TestCase):
     """Pin the ``/cgi/audit/*`` Bottle routes.
@@ -18062,6 +18180,21 @@ class DBAuditWebRoutesTests(unittest.TestCase):
         with self._ctx(user="root@example.org", is_admin=True, audit=audit):
             result = web_app.get_audit_event("deadbeefdead4bad9baddeadbeefcafe")
         self.assertIn("alice@example.org", result)
+
+    def test_parse_audit_datetime_rejects_overflow(self) -> None:
+        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
+        # ``OSError`` for out-of-range numeric input.  The
+        # original implementation only caught
+        # ``TypeError`` / ``ValueError``, so out-of-range
+        # ``since`` / ``until`` would escape as HTTP 500
+        # instead of a clean HTTP 400.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        with self.assertRaises(HTTPError) as ctx:
+            web_app._parse_audit_datetime("1e40")
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 # ---------------------------------------------------------------------
