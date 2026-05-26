@@ -715,10 +715,18 @@ def _post_nmap_audit_details(args, kwargs, result):
     raw_categories = request.forms.get("categories") or ""
     categories = sorted(c for c in raw_categories.split(",") if c)
     files = request.files.getall("result")
-    if isinstance(result, dict):
+    # The handler stashes the ingested record count on
+    # ``request.environ`` before returning so both branches
+    # (JSON dict for the default response, HTML string for
+    # ``?output=html``) are covered; reading ``result`` alone
+    # would leave ``count`` ``None`` on the HTML branch even
+    # though the value is well-defined.  Falls back to the
+    # dict-result path for callers that have not stashed the
+    # count (kept for forward-compatibility with future return
+    # shapes).
+    count = request.environ.get("ivre.audit.upload_count")
+    if count is None and isinstance(result, dict):
         count = result.get("count")
-    else:
-        count = None
     subdb = kwargs.get("subdb") if kwargs else None
     if subdb is None and args:
         subdb = args[0]
@@ -753,6 +761,16 @@ def post_nmap(subdb):
     require_module(_SUBDB_TO_MODULE[subdb])
     referer, source, categories, files = parse_form()
     count = import_files(subdb, source, categories, files)
+    # Stash the ingested record count for the ``upload`` audit
+    # hook so the audit details carry the same ``count`` value
+    # regardless of which response shape the caller asked for
+    # (JSON dict on the default path, HTML string on
+    # ``?output=html``).  ``_post_nmap_audit_details`` reads it
+    # back via :data:`request.environ` because Bottle's response
+    # body is the only signal the post-handler hook receives,
+    # and parsing the HTML page back to recover ``count`` would
+    # be brittle.
+    request.environ["ivre.audit.upload_count"] = count
     if request.params.get("output") == "html":
         response.set_header("Refresh", f"5;url={referer}")
         return f"""<html>

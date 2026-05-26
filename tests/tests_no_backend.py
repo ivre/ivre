@@ -17911,6 +17911,103 @@ class DBAuditCliTests(unittest.TestCase):
         audit.count.assert_not_called()
 
 
+class PostNmapAuditDetailsTests(unittest.TestCase):
+    """Pin :func:`ivre.web.app._post_nmap_audit_details`.
+
+    ``post_nmap`` returns a JSON dict on the default path and
+    an HTML string when ``?output=html`` is set; the audit
+    capture must record the ingested record count for both
+    response shapes.  The handler stashes the count on
+    :data:`request.environ`; this helper must read it back.
+    """
+
+    def _patched_request(self, **overrides: Any) -> Any:
+        # Minimal Bottle ``request`` stub: ``request.forms`` is
+        # accessed via ``.get`` (``categories`` / ``source``)
+        # and ``request.files`` via ``.getall`` (``result``);
+        # ``request.environ`` is a plain dict.
+        from ivre.web import app
+
+        defaults: dict[str, Any] = {
+            "forms_get": {"categories": "", "source": None},
+            "files": [],
+            "environ": {},
+        }
+        defaults.update(overrides)
+        stub_request = mock.MagicMock()
+        stub_request.forms.get.side_effect = lambda key, default=None: defaults[
+            "forms_get"
+        ].get(key, default)
+        stub_request.files.getall.return_value = defaults["files"]
+        stub_request.environ = defaults["environ"]
+        return mock.patch.object(app, "request", stub_request)
+
+    def test_count_from_dict_result(self) -> None:
+        # Default JSON response shape: ``post_nmap`` returns a
+        # dict whose ``count`` key carries the ingested record
+        # count.  The audit details should reflect that.
+        from ivre.web import app
+
+        with self._patched_request():
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 7}
+            )
+        self.assertEqual(details["count"], 7)
+        self.assertEqual(details["subdb"], "scans")
+
+    def test_count_from_environ_when_result_is_html(self) -> None:
+        # ``?output=html`` branch: ``post_nmap`` returns an
+        # HTML string, but the handler stashes ``count`` on
+        # ``request.environ`` so the audit hook still records
+        # the ingested record count instead of ``None``.  Real
+        # bug surfaced by review: parsing the HTML body back
+        # would be brittle, so the route uses ``environ`` as
+        # the explicit side-channel.
+        from ivre.web import app
+
+        with self._patched_request(
+            environ={"ivre.audit.upload_count": 12},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("view",), kwargs={}, result="<html>...</html>"
+            )
+        self.assertEqual(details["count"], 12)
+        self.assertEqual(details["subdb"], "view")
+
+    def test_environ_takes_precedence_over_dict_result(self) -> None:
+        # When both signals are present the ``environ`` value
+        # wins: the handler stashes the canonical count there
+        # and the dict-return form is a fallback for callers
+        # that bypass the stash (e.g. a future return shape).
+        # Pinning the precedence guards against a refactor
+        # that quietly swaps the lookup order.
+        from ivre.web import app
+
+        with self._patched_request(
+            environ={"ivre.audit.upload_count": 99},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 7}
+            )
+        self.assertEqual(details["count"], 99)
+
+    def test_count_none_when_neither_signal_set(self) -> None:
+        # No ``environ`` stash and a non-dict return value
+        # (the failure mode the bug fix addresses): the audit
+        # event still records, but ``count`` is ``None``.
+        # Pinning the fallback shape so a future "raise on
+        # missing count" refactor does not silently start
+        # tripping the audit decorator's fail-soft path on
+        # legitimate HTML responses.
+        from ivre.web import app
+
+        with self._patched_request():
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result="<html>...</html>"
+            )
+        self.assertIsNone(details["count"])
+
+
 class DBAuditWebRoutesTests(unittest.TestCase):
     """Pin the ``/cgi/audit/*`` Bottle routes.
 

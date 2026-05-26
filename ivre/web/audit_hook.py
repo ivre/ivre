@@ -62,13 +62,13 @@ def _capture_actor() -> dict[str, Any]:
     Three fields, all nullable (see
     :class:`ivre.db.sql.tables.AuditEvent` for the storage shape):
 
-    * ``user_email`` -- resolved via the local copy of
-      :func:`ivre.web.utils.get_user` to keep this module free of
-      the ``web.utils`` import (``web.utils`` itself imports from
-      ``web.base``; we already depend on ``web.base``, going
-      further into the ``web`` package would risk a cycle on a
-      future refactor).  ``None`` for anonymous / unauthenticated
-      callers.
+    * ``user_email`` -- resolved via :func:`ivre.web.utils.get_user`,
+      imported lazily inside the function body to avoid an
+      import-time cycle (``web.utils`` itself imports from
+      ``web.base``, which this module also depends on, so a
+      module-level ``from ivre.web import utils`` here would
+      reorder the import graph on first load).  ``None`` for
+      anonymous / unauthenticated callers.
     * ``api_key_hash`` -- SHA-256 hex of the raw API key when one
       was presented (same digest the auth backend stores in
       ``auth_api_key.key_hash``); ``None`` for cookie /
