@@ -59,8 +59,8 @@ from ivre.db import db
 # Duration shorthand for ``--purge-older-than`` and ``--since`` /
 # ``--until``: ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny``.  Mirrors
 # the ``timeago:`` syntax already supported by the web query
-# parser (``ivre/web/utils.py:643-657``); aligned so an operator
-# who knows one knows the other.
+# parser in ``ivre/web/utils.py``; aligned so an operator who
+# knows one knows the other.
 _DURATION_UNITS = {
     "s": 1,
     "m": 60,

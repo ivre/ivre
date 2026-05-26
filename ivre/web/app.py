@@ -1758,8 +1758,6 @@ def get_audit_event(event_id: str):
         hex form before reaching the storage layer.
     :status 200: JSON object.
     :status 401: authentication required.
-    :status 403: caller is not the actor on this event and
-        is not an admin.
     :status 404: no event with that id (or the caller is not
         permitted to see it -- the two are indistinguishable
         on purpose, so the route does not double as an

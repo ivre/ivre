@@ -5215,11 +5215,14 @@ class IvreTests(unittest.TestCase):
         )
 
     def test_75_audit(self):
-        """Round-trip the audit-log purpose against a real
-        :class:`MongoDBAudit` instance.  Covers the storage-layer
+        """Round-trip the audit-log purpose against the configured
+        :class:`DBAudit` backend.  Covers the storage-layer
         surface end-to-end: record, query (with every filter combo),
         count, get-by-event_id, purge_older_than, and the
-        fail-loud :class:`AuditWriteError` contract.
+        fail-loud :class:`AuditWriteError` contract.  Runs on every
+        backend that wires an audit implementation (the gate below
+        skips the rest); both the Mongo and PostgreSQL CI lanes
+        exercise it.
         """
         # Same capability-gate pattern as ``test_70_notes``: only
         # backends with an audit implementation get exercised.
