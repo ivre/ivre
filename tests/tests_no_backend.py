@@ -17991,6 +17991,25 @@ class PostNmapAuditDetailsTests(unittest.TestCase):
             )
         self.assertEqual(details["count"], 99)
 
+    def test_categories_are_deduped_and_sorted(self) -> None:
+        # ``parse_form()`` builds a ``set(...)`` from the
+        # comma-split string before passing the categories to
+        # ``import_files()``, so the *effective* category list
+        # is deduped.  The audit details must reflect that --
+        # otherwise input like ``"a,a"`` records ``["a", "a"]``
+        # in the audit log while the backend only ingested
+        # ``["a"]``.  Pin the same normalisation here so the
+        # two paths cannot drift.
+        from ivre.web import app
+
+        with self._patched_request(
+            forms_get={"categories": "b,a,a,c,b", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        self.assertEqual(details["categories"], ["a", "b", "c"])
+
     def test_count_none_when_neither_signal_set(self) -> None:
         # No ``environ`` stash and a non-dict return value
         # (the failure mode the bug fix addresses): the audit

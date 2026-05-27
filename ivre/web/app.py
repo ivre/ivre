@@ -712,8 +712,16 @@ def _post_nmap_audit_details(args, kwargs, result):
     so the audit hook does not consume the upload stream a
     second time.
     """
+    # Normalise the same way :func:`parse_form` does -- it
+    # builds a ``set(...)`` before handing the categories off
+    # to :func:`import_files`, which sorts them.  The audit
+    # details must reflect the *effective* category list (what
+    # the backend actually saw), not the raw client-supplied
+    # comma-split string, otherwise input like ``"a,a"`` would
+    # record ``["a", "a"]`` in the audit log while ingestion
+    # only used ``["a"]``.
     raw_categories = request.forms.get("categories") or ""
-    categories = sorted(c for c in raw_categories.split(",") if c)
+    categories = sorted({c for c in raw_categories.split(",") if c})
     files = request.files.getall("result")
     # The handler stashes the ingested record count on
     # ``request.environ`` before returning so both branches
