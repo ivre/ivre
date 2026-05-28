@@ -16979,6 +16979,87 @@ class SQLDBAuditSchemaTests(unittest.TestCase):
         constraint_names = {c.name for c in AuditEvent.__table__.constraints if c.name}
         self.assertIn("audit_events_idx_event_id", constraint_names)
 
+    def test_audit_events_user_index_is_partial_on_postgres(self) -> None:
+        # ``audit_events_idx_user_created`` must restrict to
+        # rows where ``actor_user_email IS NOT NULL`` on
+        # PostgreSQL.  Anonymous / ``REMOTE_USER``-less
+        # traffic produces ``NULL`` actor emails in bulk
+        # (every public ``GET /scans`` that trips
+        # ``WEB_MAXRESULTS`` records an ``oversize_query``
+        # event with a ``NULL`` actor); indexing them would
+        # bloat the b-tree without helping any query, since
+        # the per-user trail lookup
+        # (``WHERE actor_user_email = ?``) is never sargable
+        # against ``NULL``.
+        #
+        # Pin both:
+        #
+        # * the declarative shape (``postgresql_where=...``
+        #   present on the SQLAlchemy ``Index`` kwargs), so a
+        #   future refactor that drops the kwarg surfaces
+        #   here rather than silently regressing on
+        #   production-grade Postgres deployments;
+        # * the compiled DDL on the ``postgresql`` dialect,
+        #   so a SQLAlchemy upgrade that changes how the
+        #   kwarg is rendered (e.g. quoting / casing /
+        #   parenthesisation) surfaces here as well.
+        #
+        # Mirrors the MongoDB backend's
+        # ``partialFilterExpression`` on
+        # ``actor.user_email: {"$type": "string"}``.
+        from sqlalchemy.dialects import postgresql
+        from sqlalchemy.schema import CreateIndex
+
+        from ivre.db.sql.tables import AuditEvent
+
+        indexes_by_name = {ix.name: ix for ix in AuditEvent.__table__.indexes}
+        user_idx = indexes_by_name["audit_events_idx_user_created"]
+        self.assertIn("postgresql_where", user_idx.kwargs)
+        self.assertIsNotNone(user_idx.kwargs["postgresql_where"])
+
+        ddl = str(CreateIndex(user_idx).compile(dialect=postgresql.dialect()))
+        self.assertIn("audit_events_idx_user_created", ddl)
+        # Be tolerant of whitespace / case variations a future
+        # SQLAlchemy could introduce; only pin the meaningful
+        # tokens.
+        self.assertRegex(
+            ddl,
+            r"WHERE\s+actor_user_email\s+IS\s+NOT\s+NULL",
+        )
+
+    def test_audit_events_user_index_is_stripped_on_duckdb(self) -> None:
+        # ``_is_unsupported_on_duckdb`` (the DuckDB ``init()``
+        # filter) explicitly recognises ``postgresql_where``
+        # and evicts the index from the table's ``indexes``
+        # set, because DuckDB raises
+        # ``NotImplementedException: Creating partial indexes
+        # is not supported currently`` if the DDL reaches it.
+        #
+        # Pinning the recogniser here catches a future drop
+        # of the ``postgresql_where`` kwarg detector
+        # immediately rather than at the next ``ivre auditcli
+        # --init`` against a DuckDB file, where a partial
+        # index gets emitted unconditionally and the init
+        # crashes.
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import AuditEvent
+
+        indexes_by_name = {ix.name: ix for ix in AuditEvent.__table__.indexes}
+        user_idx = indexes_by_name["audit_events_idx_user_created"]
+        self.assertTrue(_is_unsupported_on_duckdb(user_idx))
+
+        # The two other audit indexes are plain b-trees and
+        # must remain supported on DuckDB (per-event-type
+        # trail + generic time-window scan).
+        for plain_idx_name in (
+            "audit_events_idx_type_created",
+            "audit_events_idx_created",
+        ):
+            with self.subTest(idx=plain_idx_name):
+                self.assertFalse(
+                    _is_unsupported_on_duckdb(indexes_by_name[plain_idx_name])
+                )
+
     def test_sqldbaudit_table_layout_wires_events(self) -> None:
         from ivre.db.sql import SQLDBAudit
         from ivre.db.sql.tables import AuditEvent
@@ -17024,11 +17105,33 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         from urllib.parse import urlparse
 
-        from ivre.db.sql.duckdb import DuckDBAudit
+        from ivre.db.sql.duckdb import DuckDBAudit, _is_unsupported_on_duckdb
         from ivre.db.sql.tables import AuditEvent, Base
 
         self._audit = DuckDBAudit(urlparse("duckdb:///:memory:"))
-        Base.metadata.create_all(self._audit.db, tables=[AuditEvent.__table__])
+        # Mirror what :meth:`DuckDBMixin.init` does at the
+        # full-backend level: evict indexes DuckDB rejects
+        # at create-time (currently the ``postgresql_where``
+        # partial index ``audit_events_idx_user_created``)
+        # before ``create_all`` reaches the catalog.  Save +
+        # restore in ``tearDown`` so other tests sharing the
+        # same metadata see the original declarations.
+        table = AuditEvent.__table__
+        self._duckdb_skipped = [
+            ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)
+        ]
+        for ix in self._duckdb_skipped:
+            table.indexes.discard(ix)
+        Base.metadata.create_all(self._audit.db, tables=[table])
+
+    def tearDown(self) -> None:
+        # Restore the partial-index declaration so a Postgres-
+        # dialect compile / schema test running later in the
+        # same process sees the canonical metadata.
+        from ivre.db.sql.tables import AuditEvent
+
+        for ix in getattr(self, "_duckdb_skipped", ()):
+            AuditEvent.__table__.indexes.add(ix)
 
     def test_record_returns_event_id(self) -> None:
         event_id = self._audit.record(
