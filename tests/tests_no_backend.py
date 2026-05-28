@@ -51,6 +51,7 @@ The module currently contains:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import errno
 import inspect
 import io
@@ -1113,6 +1114,45 @@ class SearchscriptMcpToolsTests(unittest.TestCase):
         )
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
+
+
+class AuditMcpToolsTests(unittest.TestCase):
+    """Pin the *absence* of audit-purpose MCP tools.
+
+    The audit log is a security control and we deliberately
+    do not expose any audit-purpose read / write surface via
+    MCP -- read access is web-routes-only (``/cgi/audit/*``)
+    and admin / purge is CLI-only (``ivre auditcli``).  An
+    LLM-driven read path would broaden the attack surface of
+    the audit log itself (prompt-driven exfiltration of who
+    scanned what and when) for no concrete user-facing win.
+
+    If this gate trips later because someone wired an
+    ``audit_*`` MCP tool back in, the right move is to revisit
+    that design decision rather than to relax the test.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from ivre.tools import mcp_server  # noqa: PLC0415
+
+        if mcp_server.FastMCP is None:
+            raise unittest.SkipTest("mcp dependency not installed")
+        cls.srv = mcp_server._build_server()
+
+    def test_no_audit_tools_registered(self) -> None:
+        import asyncio  # noqa: PLC0415
+
+        names = {t.name for t in asyncio.run(self.srv.list_tools())}
+        for forbidden in (
+            "audit_query",
+            "audit_count",
+            "audit_get",
+            "audit_set",
+            "audit_delete",
+            "audit_purge",
+        ):
+            self.assertNotIn(forbidden, names)
 
 
 # ---------------------------------------------------------------------
@@ -17107,6 +17147,1150 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
         # translate to SQL; SQL callers use :meth:`query`.
         with self.assertRaises(NotImplementedError):
             list(self._audit.get({}))
+
+    def test_query_filters_by_event_id(self) -> None:
+        # ``event_id`` is the cross-backend equivalent of
+        # "fetch the row with this id".  Mongo uses a unique
+        # index on a string column; SQL uses a unique
+        # constraint on a native ``Uuid`` column.  The wire
+        # form is whatever ``uuid.UUID`` accepts; the
+        # storage layer normalises both representations to
+        # the canonical 32-char hex form before the index
+        # lookup so the same call works on either backend.
+        ids = [self._audit.record("upload") for _ in range(3)]
+        target = ids[1]
+        events = self._audit.query(event_id=target)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_id"], target)
+
+    def test_query_event_id_accepts_dashed_uuid(self) -> None:
+        # Operators pasting an ``event_id`` from another
+        # system may use the 36-char hex-with-dashes form.
+        # ``_normalize_event_id`` converts to the canonical
+        # 32-char hex the index keys on, so the cross-form
+        # lookup works.
+        my_id = "deadbeefdead4bad9baddeadbeefcafe"
+        self._audit.record("upload", event_id=my_id)
+        dashed = "deadbeef-dead-4bad-9bad-deadbeefcafe"
+        events = self._audit.query(event_id=dashed)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_id"], my_id)
+
+    def test_count_filters_by_event_id(self) -> None:
+        # Symmetric to :meth:`query`; one filter, one row
+        # matched on the unique index.
+        ids = [self._audit.record("upload") for _ in range(3)]
+        self.assertEqual(self._audit.count(event_id=ids[1]), 1)
+        self.assertEqual(self._audit.count(event_id="0" * 32), 0)
+
+    def test_ensure_indexes_is_idempotent(self) -> None:
+        # ``ivre auditcli --ensure-indexes`` calls
+        # :meth:`db.audit.ensure_indexes`; the base
+        # :class:`SQLDB` raises ``NotImplementedError`` so the
+        # CLI would crash on PostgreSQL / DuckDB if the audit
+        # subclass did not override it.  Pin the override and
+        # the idempotency contract: it is safe to invoke
+        # repeatedly, both before and after the table exists,
+        # without dropping data.
+        from ivre.db.sql.tables import AuditEvent, Base
+
+        # First call: table already exists (created by setUp);
+        # ensure_indexes should be a clean no-op on the data
+        # but still re-issue ``CREATE INDEX IF NOT EXISTS``
+        # for every declared index.
+        before = self._audit.record("upload", details={"phase": "before"})
+        self._audit.ensure_indexes()  # must not raise
+        events = self._audit.query()
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_id"], before)
+
+        # Drop the table entirely and call ensure_indexes
+        # again: it must recreate the table *and* the indexes
+        # rather than failing on "no such table".  Operators
+        # may run --ensure-indexes against a freshly-pointed
+        # DB to provision the schema without losing other
+        # collections, and the contract should match.
+        Base.metadata.drop_all(self._audit.db, tables=[AuditEvent.__table__])
+        self._audit.ensure_indexes()  # must not raise
+        # The data is gone (drop_all dropped the table), but
+        # the surface is functional again.
+        self.assertEqual(self._audit.count(), 0)
+        after = self._audit.record("upload", details={"phase": "after"})
+        self.assertIsInstance(after, str)
+        self.assertEqual(self._audit.count(), 1)
+
+
+# ---------------------------------------------------------------------
+# DBAuditEventIdMongoSurfaceTests / DBAuditWebHookTests /
+# DBAuditWebRoutesTests / DBAuditMcpToolsTests /
+# DBAuditCliTests -- producer + read surfaces wired on top of
+# the storage layer.  Mongo-flavoured backend stubs cover the
+# code paths that do not need a live backend (the SQL path is
+# exercised by ``SQLDBAuditLiveIntegrationTests`` above; this
+# block focuses on the hook decorator, the Bottle routes, the
+# MCP tools, and the CLI argparse / dispatch).
+# ---------------------------------------------------------------------
+
+
+class DBAuditEventIdMongoSurfaceTests(unittest.TestCase):
+    """Mongo-side ``event_id`` filter wired through the public
+    :meth:`MongoDBAudit.query` / :meth:`count` surface, without
+    a live MongoDB connection.  The SQL path for the same
+    filter is exercised in
+    :class:`SQLDBAuditLiveIntegrationTests` above.
+    """
+
+    def _make_backend(self) -> Any:
+        from ivre.db.mongo import MongoDBAudit
+
+        backend = MongoDBAudit.__new__(MongoDBAudit)
+        backend.columns = ["audit_events"]
+        backend._db = mock.Mock()
+        return backend
+
+    def test_query_event_id_lookup_routes_through_get_cursor(self) -> None:
+        # ``MongoDBAudit.query`` builds the filter via
+        # ``_build_query_filter``, normalises ``event_id`` to
+        # the canonical 32-char hex form, and forwards
+        # through :meth:`MongoDB._get_cursor` -- inheriting
+        # the ``MONGODB_QUERY_TIMEOUT_MS`` cap and the
+        # ``("text", ...)`` sort sugar.  Pin the call shape
+        # against a regression to the
+        # ``find().sort().skip().limit()`` direct-call form.
+        backend = self._make_backend()
+        with mock.patch.object(backend, "_get_cursor", return_value=iter([])) as gc:
+            backend.query(event_id="deadbeef-dead-4bad-9bad-deadbeefcafe")
+        gc.assert_called_once()
+        _args, kwargs = gc.call_args
+        flt = gc.call_args.args[1]
+        self.assertEqual(flt, {"event_id": "deadbeefdead4bad9baddeadbeefcafe"})
+        self.assertEqual(
+            kwargs.get("sort"), [("created_at", -1)]
+        )  # pymongo.DESCENDING == -1
+
+    def test_count_event_id_lookup_uses_count_documents(self) -> None:
+        # ``count`` builds the same filter and hits
+        # ``count_documents`` -- the exact count primitive,
+        # not ``estimated_document_count`` (which would lag
+        # behind live writes on Mongo).
+        backend = self._make_backend()
+        events_col = mock.Mock()
+        events_col.count_documents.return_value = 1
+        backend._db.db = {"audit_events": events_col}
+        result = backend.count(event_id="deadbeefdead4bad9baddeadbeefcafe")
+        self.assertEqual(result, 1)
+        events_col.count_documents.assert_called_once_with(
+            {"event_id": "deadbeefdead4bad9baddeadbeefcafe"}
+        )
+
+    def test_query_event_id_rejects_malformed(self) -> None:
+        # The storage-layer ABC's ``_normalize_event_id``
+        # rejects every non-UUID textual form with
+        # :class:`ValueError`; the route ``/cgi/audit/<id>``
+        # relies on this to map the failure to HTTP 400.
+        backend = self._make_backend()
+        for bad in ("hello", "0" * 31, "0" * 33, "zzzzzzzz" * 4):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    backend.query(event_id=bad)
+
+
+class DBAuditWebHookTests(unittest.TestCase):
+    """Pin the producer-side hook in :mod:`ivre.web.audit_hook`.
+
+    Covers:
+
+    * the :func:`audit_event` decorator stamps an event after
+      the wrapped handler returns (success path);
+    * the decorator silently no-ops when ``db.audit`` is unset
+      (so deployments that have not opted into auditing keep
+      working);
+    * a backend ``AuditWriteError`` propagates (fail-loud
+      contract);
+    * :func:`record_oversize_query` fires when the underlying
+      count exceeds ``WEB_MAXRESULTS`` and stays silent
+      otherwise.
+    """
+
+    def _patched_db_audit(self, audit: Any) -> Any:
+        # ``audit_hook`` reads ``db.audit`` at every call so
+        # operators flipping ``DB_AUDIT`` at runtime see the
+        # new value.  ``db.audit`` is a ``@property`` on
+        # :class:`MetaDB`, so we cannot patch it directly;
+        # replace the whole ``db`` binding on the module
+        # with a stub whose ``.audit`` attribute is the
+        # caller-supplied mock (or ``None``).
+        from ivre.web import audit_hook
+
+        stub = mock.MagicMock()
+        stub.audit = audit
+        return mock.patch.object(audit_hook, "db", stub)
+
+    def _patched_request(self, **overrides: Any) -> Any:
+        # The hook's actor / resource capture reads
+        # ``bottle.request``; substitute a minimal stub so
+        # the test does not need a full Bottle environment.
+        from ivre.web import audit_hook
+
+        defaults = {
+            "remote_addr": "203.0.113.5",
+            "method": "POST",
+            "headers": {},
+            "environ": {},
+        }
+        defaults.update(overrides)
+        stub_request = mock.MagicMock(**defaults)
+        # ``request.route.rule`` is None unless we set it.
+        stub_request.route = mock.Mock(rule="/scans")
+        return mock.patch.object(audit_hook, "request", stub_request)
+
+    def test_decorator_records_on_success(self) -> None:
+        # The decorator is the producer-side glue: when a
+        # wrapped handler returns, the hook captures actor /
+        # resource / outcome from the current Bottle request
+        # and calls :meth:`db.audit.record`.  Pin the
+        # call-shape against a regression to the bare
+        # storage-layer call.
+        from ivre.web import audit_hook
+
+        recorded: list[dict[str, Any]] = []
+
+        def fake_record(event_type: str, **kw: Any) -> str:
+            recorded.append({"event_type": event_type, **kw})
+            return "x" * 32
+
+        audit = mock.Mock()
+        audit.record.side_effect = fake_record
+        # ``get_user`` is consulted by ``_capture_actor`` via
+        # the deferred ``ivre.web.utils`` import; patch it on
+        # the imported-elsewhere module so the deferred
+        # import inside ``_capture_actor`` resolves to our
+        # stub.
+        from ivre.web import utils as webutils
+
+        with (
+            self._patched_db_audit(audit),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value="alice@example.org"),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+        ):
+
+            @audit_hook.audit_event("upload")
+            def handler() -> dict[str, int]:
+                return {"count": 7}
+
+            result = handler()
+
+        self.assertEqual(result, {"count": 7})
+        self.assertEqual(len(recorded), 1)
+        event = recorded[0]
+        self.assertEqual(event["event_type"], "upload")
+        self.assertEqual(event["actor"]["user_email"], "alice@example.org")
+        # Anonymous-API-key case: ``api_key_hash`` is ``None``
+        # because ``extract_api_key`` was stubbed to return
+        # ``None``.
+        self.assertIsNone(event["actor"]["api_key_hash"])
+        self.assertEqual(event["actor"]["remote_addr"], "203.0.113.5")
+        self.assertEqual(event["resource"]["route"], "/scans")
+        self.assertEqual(event["resource"]["method"], "POST")
+        self.assertEqual(event["details"], {})
+
+    def test_decorator_no_op_when_audit_backend_unset(self) -> None:
+        # When the operator has not configured an audit
+        # backend (``DB_AUDIT = None``, no fallback), the
+        # decorator must be transparent: the wrapped
+        # handler still returns its value, and no audit
+        # write happens.  This is the only swallowed
+        # condition -- a real backend failure surfaces
+        # ``AuditWriteError`` as HTTP 500.
+        from ivre.web import audit_hook
+
+        with self._patched_db_audit(None), self._patched_request():
+
+            @audit_hook.audit_event("upload")
+            def handler() -> str:
+                return "ok"
+
+            self.assertEqual(handler(), "ok")
+
+    def test_decorator_propagates_audit_write_error(self) -> None:
+        # Fail-loud contract: a real backend failure must
+        # not be silently dropped.  The decorator does not
+        # catch ``AuditWriteError`` -- it propagates to the
+        # Bottle error handler and becomes HTTP 500.
+        from ivre.db import AuditWriteError
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        audit = mock.Mock()
+        audit.record.side_effect = AuditWriteError("boom")
+        with (
+            self._patched_db_audit(audit),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value=None),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+        ):
+
+            @audit_hook.audit_event("upload")
+            def handler() -> str:
+                return "ok"
+
+            with self.assertRaises(AuditWriteError):
+                handler()
+
+    def test_decorator_captures_api_key_hash(self) -> None:
+        # When the request carries an API key (``X-API-Key``
+        # / ``Authorization: Bearer ...``), the audit event
+        # records the SHA-256 hex digest -- the same value
+        # the auth backend stores in
+        # ``auth_api_key.key_hash`` -- so forensic
+        # correlation against the key registry is possible
+        # without putting credential material in the audit
+        # log.
+        import hashlib
+
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        recorded: list[dict[str, Any]] = []
+        audit = mock.Mock()
+        audit.record.side_effect = lambda et, **kw: (
+            recorded.append({"event_type": et, **kw}) or "x" * 32
+        )
+        raw_key = "ivre_" + "a" * 22
+        expected_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        with (
+            self._patched_db_audit(audit),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value="alice@example.org"),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=raw_key),
+        ):
+
+            @audit_hook.audit_event("upload")
+            def handler() -> str:
+                return "ok"
+
+            handler()
+
+        self.assertEqual(recorded[0]["actor"]["api_key_hash"], expected_hash)
+
+    def test_decorator_capture_details_receives_args_kwargs_result(self) -> None:
+        # The ``capture_details`` callback receives
+        # ``(args, kwargs, result)`` so it can read URL-bound
+        # route parameters (Bottle passes them positionally)
+        # *and* the handler's return value.  Pin the calling
+        # convention -- a regression to a result-only
+        # signature would silently drop the URL-args side
+        # of the capture.
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        recorded: list[dict[str, Any]] = []
+        audit = mock.Mock()
+        audit.record.side_effect = lambda et, **kw: (recorded.append(kw) or "x" * 32)
+
+        def capture(args, kwargs, result):
+            return {
+                "args": list(args),
+                "kwargs": dict(kwargs),
+                "result": result,
+            }
+
+        with (
+            self._patched_db_audit(audit),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value=None),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+        ):
+
+            @audit_hook.audit_event("upload", capture_details=capture)
+            def handler(subdb: str, extra: int = 0) -> dict[str, Any]:
+                return {"count": subdb + str(extra)}
+
+            handler("scans", extra=42)
+
+        self.assertEqual(recorded[0]["details"]["args"], ["scans"])
+        self.assertEqual(recorded[0]["details"]["kwargs"], {"extra": 42})
+        self.assertEqual(recorded[0]["details"]["result"], {"count": "scans42"})
+
+    def test_decorator_swallows_capture_details_exception(self) -> None:
+        # A buggy ``capture_details`` must not take down
+        # the wrapped request -- log loudly and record the
+        # event with an empty ``details``.  Inverting this
+        # (propagating) would let a one-line callback typo
+        # break every audited write route.
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        recorded: list[dict[str, Any]] = []
+        audit = mock.Mock()
+        audit.record.side_effect = lambda et, **kw: (recorded.append(kw) or "x" * 32)
+
+        def bad_capture(_args, _kwargs, _result):
+            raise RuntimeError("typo")
+
+        with (
+            self._patched_db_audit(audit),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value=None),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+        ):
+
+            @audit_hook.audit_event("upload", capture_details=bad_capture)
+            def handler() -> str:
+                return "ok"
+
+            self.assertEqual(handler(), "ok")
+
+        self.assertEqual(recorded[0]["details"], {})
+
+    def test_decorator_swallows_capture_details_non_dict_return(self) -> None:
+        # A ``capture_details`` callback that returns the
+        # wrong shape (anything that is not a ``dict``) must
+        # fall back to ``{}`` rather than tripping the ABC's
+        # ``_validate_details`` check inside
+        # ``db.audit.record``.  Without this, a callback
+        # bug that returned ``"oops"`` / ``None`` / ``123``
+        # would propagate as a ``ValueError`` from the
+        # storage layer and break the wrapped route --
+        # contradicting the "callback bugs must not break
+        # the request" contract.
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        for bad_return in ("oops", None, 123, ["not", "a", "dict"]):
+            with self.subTest(bad_return=bad_return):
+                recorded: list[dict[str, Any]] = []
+                audit = mock.Mock()
+                audit.record.side_effect = lambda et, **kw: (
+                    recorded.append(kw) or "x" * 32
+                )
+
+                def capture(_args, _kwargs, _result, _v=bad_return):
+                    return _v
+
+                with (
+                    self._patched_db_audit(audit),
+                    self._patched_request(),
+                    mock.patch.object(webutils, "get_user", return_value=None),
+                    mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+                ):
+
+                    @audit_hook.audit_event("upload", capture_details=capture)
+                    def handler() -> str:
+                        return "ok"
+
+                    self.assertEqual(handler(), "ok")
+
+                self.assertEqual(recorded[0]["details"], {})
+
+    def test_record_oversize_query_silent_below_threshold(self) -> None:
+        # No-op path: ``count`` is at or below
+        # ``WEB_MAXRESULTS``, so no event is recorded.  Pin
+        # the no-op precisely -- a regression that flipped
+        # the comparison would record an event on every
+        # under-threshold read.
+        from ivre import config
+        from ivre.web import audit_hook
+
+        audit = mock.Mock()
+        dbase = mock.Mock()
+        dbase.count.return_value = 5
+        with (
+            self._patched_db_audit(audit),
+            mock.patch.object(config, "WEB_MAXRESULTS", 10),
+            self._patched_request(),
+        ):
+            audit_hook.record_oversize_query(dbase, {}, route="/scans")
+        audit.record.assert_not_called()
+
+    def test_record_oversize_query_fires_above_threshold(self) -> None:
+        # Over-threshold: record an ``oversize_query`` event
+        # with the result_count / threshold / filter / route
+        # the design promises.  ``outcome=200`` because the
+        # request itself succeeded -- the audit event flags
+        # the operator's truncation-policy hit, not a
+        # failure.
+        from ivre import config
+        from ivre.web import audit_hook
+        from ivre.web import utils as webutils
+
+        recorded: list[dict[str, Any]] = []
+        audit = mock.Mock()
+        audit.record.side_effect = lambda et, **kw: (
+            recorded.append({"event_type": et, **kw}) or "x" * 32
+        )
+        dbase = mock.Mock()
+        dbase.count.return_value = 999
+        dbase.flt2str.return_value = '{"open": "443"}'
+        with (
+            self._patched_db_audit(audit),
+            mock.patch.object(config, "WEB_MAXRESULTS", 100),
+            self._patched_request(),
+            mock.patch.object(webutils, "get_user", return_value=None),
+            mock.patch.object(audit_hook, "extract_api_key", return_value=None),
+        ):
+            audit_hook.record_oversize_query(dbase, {"open": "443"}, route="/scans")
+        self.assertEqual(len(recorded), 1)
+        details = recorded[0]["details"]
+        self.assertEqual(details["result_count"], 999)
+        self.assertEqual(details["threshold"], 100)
+        self.assertEqual(details["filter"], '{"open": "443"}')
+        self.assertEqual(details["route"], "/scans")
+        self.assertEqual(recorded[0]["outcome"], 200)
+
+    def test_record_oversize_query_no_op_when_threshold_unset(self) -> None:
+        # ``WEB_MAXRESULTS = None`` means "no operator-set
+        # cap"; oversize is undefined and the helper must
+        # not even probe the backend (no ``count()`` call).
+        from ivre import config
+        from ivre.web import audit_hook
+
+        audit = mock.Mock()
+        dbase = mock.Mock()
+        with (
+            self._patched_db_audit(audit),
+            mock.patch.object(config, "WEB_MAXRESULTS", None),
+        ):
+            audit_hook.record_oversize_query(dbase, {}, route="/scans")
+        dbase.count.assert_not_called()
+        audit.record.assert_not_called()
+
+    def test_record_oversize_query_no_op_when_audit_backend_unset(self) -> None:
+        # The producer side is opt-in via ``db.audit``; when
+        # the operator has not configured an audit backend,
+        # the helper must skip the backend-count probe too
+        # (we have nothing to write to anyway).
+        from ivre import config
+        from ivre.web import audit_hook
+
+        dbase = mock.Mock()
+        with (
+            self._patched_db_audit(None),
+            mock.patch.object(config, "WEB_MAXRESULTS", 100),
+        ):
+            audit_hook.record_oversize_query(dbase, {}, route="/scans")
+        dbase.count.assert_not_called()
+
+    def test_record_oversize_query_swallows_count_failure(self) -> None:
+        # Audit is bookkeeping -- a backend ``count`` failure
+        # must not propagate to the data-plane read.  Log
+        # loudly, skip the event.
+        from ivre import config
+        from ivre.web import audit_hook
+
+        audit = mock.Mock()
+        dbase = mock.Mock()
+        dbase.count.side_effect = RuntimeError("backend offline")
+        with (
+            self._patched_db_audit(audit),
+            mock.patch.object(config, "WEB_MAXRESULTS", 100),
+        ):
+            audit_hook.record_oversize_query(dbase, {}, route="/scans")
+        audit.record.assert_not_called()
+
+
+class DBAuditAdminGateTests(unittest.TestCase):
+    """Pin :func:`ivre.web.utils.is_admin_email`.
+
+    The helper is the single source of truth for the admin
+    gate on the audit read API and on the MCP tools.  Pin
+    every code path: anonymous, no auth backend, admin user,
+    non-admin user, missing user record, backend failure
+    (fail-closed).
+    """
+
+    def test_anonymous_caller_is_not_admin(self) -> None:
+        from ivre.web.utils import is_admin_email
+
+        self.assertFalse(is_admin_email(None))
+
+    @staticmethod
+    def _patched_db_auth(auth: Any) -> Any:
+        # ``db.auth`` is a ``@property`` on :class:`MetaDB`,
+        # so we cannot patch it directly.  Replace the
+        # whole ``db`` binding on :mod:`ivre.web.utils`
+        # with a stub whose ``.auth`` attribute is the
+        # caller-supplied mock (or ``None``).
+        from ivre.web import utils as webutils
+
+        stub = mock.MagicMock()
+        stub.auth = auth
+        return mock.patch.object(webutils, "db", stub)
+
+    def test_no_auth_backend_is_not_admin(self) -> None:
+        # ``db.auth is None`` means the deployment does not
+        # have an auth backend wired; no caller is admin
+        # because there's nothing to compare against.
+        from ivre.web import utils as webutils
+
+        with self._patched_db_auth(None):
+            self.assertFalse(webutils.is_admin_email("alice@example.org"))
+
+    def test_admin_user_returns_true(self) -> None:
+        from ivre.web import utils as webutils
+
+        auth_stub = mock.Mock()
+        auth_stub.get_user_by_email.return_value = {
+            "email": "alice@example.org",
+            "is_admin": True,
+        }
+        with self._patched_db_auth(auth_stub):
+            self.assertTrue(webutils.is_admin_email("alice@example.org"))
+
+    def test_non_admin_user_returns_false(self) -> None:
+        from ivre.web import utils as webutils
+
+        auth_stub = mock.Mock()
+        auth_stub.get_user_by_email.return_value = {
+            "email": "bob@example.org",
+            "is_admin": False,
+        }
+        with self._patched_db_auth(auth_stub):
+            self.assertFalse(webutils.is_admin_email("bob@example.org"))
+
+    def test_missing_user_record_returns_false(self) -> None:
+        # A user resolution that returns ``None`` (the
+        # caller's email is not in the auth backend) must
+        # not crash -- it's the same "not an admin" outcome
+        # as a non-admin user.
+        from ivre.web import utils as webutils
+
+        auth_stub = mock.Mock()
+        auth_stub.get_user_by_email.return_value = None
+        with self._patched_db_auth(auth_stub):
+            self.assertFalse(webutils.is_admin_email("ghost@example.org"))
+
+    def test_backend_failure_is_fail_closed(self) -> None:
+        # Fail-closed: a transient backend failure on the
+        # ``get_user_by_email`` lookup means "we don't know
+        # if this user is an admin", and the safe default
+        # for an admin gate is "no".
+        from ivre.web import utils as webutils
+
+        auth_stub = mock.Mock()
+        auth_stub.get_user_by_email.side_effect = RuntimeError("backend down")
+        with self._patched_db_auth(auth_stub):
+            self.assertFalse(webutils.is_admin_email("alice@example.org"))
+
+
+class DBAuditCliTests(unittest.TestCase):
+    """Pin :mod:`ivre.tools.auditcli` argparse + dispatch.
+
+    Backend interactions are stubbed -- we are testing the
+    CLI wrapper, not the storage layer (covered by
+    ``SQLDBAuditLiveIntegrationTests``).  Two failure modes
+    matter here:
+
+    * a typoed ``--purge-older-than`` duration must exit
+      with a clear error rather than reach the storage
+      layer with a malformed delta;
+    * the CLI must short-circuit cleanly when
+      ``db.audit is None`` so the operator sees a friendly
+      message rather than an ``AttributeError``.
+    """
+
+    def _run_cli(self, argv: list[str], audit: Any) -> tuple[int, str, str]:
+        # Capture stdout / stderr and the SystemExit code so
+        # tests can assert against the exact CLI output.
+        # ``auditcli`` reads ``db.audit`` (a ``@property`` on
+        # :class:`MetaDB`); patch the whole ``db`` binding on
+        # the CLI module rather than the property itself.
+        from ivre.tools import auditcli
+
+        fake_db = mock.MagicMock()
+        fake_db.audit = audit
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        code = 0
+        with (
+            mock.patch.object(auditcli, "db", fake_db),
+            mock.patch.object(sys, "argv", ["ivre-auditcli"] + argv),
+            mock.patch("sys.stdout", stdout),
+            mock.patch("sys.stderr", stderr),
+        ):
+            try:
+                auditcli.main()
+            except SystemExit as exc:
+                # Some ``sys.exit`` calls pass strings;
+                # treat any truthy non-int as failure code 1.
+                code = exc.code if isinstance(exc.code, int) else 1 if exc.code else 0
+                if isinstance(exc.code, str):
+                    stderr.write(exc.code + "\n")
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_no_audit_backend_exits_with_message(self) -> None:
+        # Mirrors the ``db.notes is None`` short-circuit in
+        # ``ivre notes``: the CLI must surface a friendly
+        # message naming the supported backends and the
+        # config knob to set, not crash with
+        # ``AttributeError``.
+        code, _stdout, stderr = self._run_cli(["--count"], audit=None)
+        self.assertNotEqual(code, 0)
+        self.assertIn("Audit backend not available", stderr)
+        self.assertIn("DB_AUDIT", stderr)
+
+    def test_count_prints_audit_count(self) -> None:
+        audit = mock.Mock()
+        audit.count.return_value = 42
+        code, stdout, _stderr = self._run_cli(["--count"], audit=audit)
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout.strip(), "42")
+        audit.count.assert_called_once_with(
+            event_type=None, user_email=None, since=None, until=None
+        )
+
+    def test_count_filters_forwarded(self) -> None:
+        audit = mock.Mock()
+        audit.count.return_value = 0
+        self._run_cli(
+            [
+                "--count",
+                "--event-type",
+                "upload",
+                "--user-email",
+                "alice@example.org",
+            ],
+            audit=audit,
+        )
+        audit.count.assert_called_once_with(
+            event_type="upload",
+            user_email="alice@example.org",
+            since=None,
+            until=None,
+        )
+
+    def test_get_prints_json_event(self) -> None:
+        # ``--get`` returns either the JSON event or
+        # ``null`` (when no event matches).  Pin the
+        # ``null`` shape so the wire contract stays
+        # parseable by ``jq``-style consumers.
+        audit = mock.Mock()
+        audit.query.return_value = [
+            {
+                "event_id": "deadbeefdead4bad9baddeadbeefcafe",
+                "event_type": "upload",
+                "actor": {"user_email": "alice@example.org"},
+            }
+        ]
+        code, stdout, _stderr = self._run_cli(
+            ["--get", "deadbeefdead4bad9baddeadbeefcafe"], audit=audit
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("deadbeefdead4bad9baddeadbeefcafe", stdout)
+
+    def test_get_missing_prints_null(self) -> None:
+        audit = mock.Mock()
+        audit.query.return_value = []
+        code, stdout, _stderr = self._run_cli(
+            ["--get", "deadbeefdead4bad9baddeadbeefcafe"], audit=audit
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout.strip(), "null")
+
+    def test_purge_older_than_accepts_duration_shorthand(self) -> None:
+        # ``Nd`` / ``Nh`` / ``Ny`` shorthand mirrors the
+        # web ``timeago:`` syntax -- aligned so an operator
+        # who knows one knows the other.
+        audit = mock.Mock()
+        audit.purge_older_than.return_value = 17
+        code, stdout, _stderr = self._run_cli(
+            ["--purge-older-than", "30d"], audit=audit
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout.strip(), "17")
+        audit.purge_older_than.assert_called_once()
+        # The cutoff is "now() - 30d" computed at call time;
+        # we cannot pin its exact value, but we can pin that
+        # exactly one argument was passed and it is a datetime
+        # with UTC tzinfo.
+        cutoff = audit.purge_older_than.call_args.args[0]
+        self.assertIsInstance(cutoff, datetime)
+        self.assertEqual(cutoff.tzinfo, timezone.utc)
+
+    def test_purge_older_than_rejects_invalid_duration(self) -> None:
+        # A malformed ``--purge-older-than`` value must exit
+        # cleanly with a clear error rather than reach the
+        # backend with a bogus cutoff.
+        audit = mock.Mock()
+        code, _stdout, stderr = self._run_cli(
+            ["--purge-older-than", "thirty-days"], audit=audit
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("invalid duration", stderr)
+        audit.purge_older_than.assert_not_called()
+
+    def test_get_invalid_uuid_exits_with_error(self) -> None:
+        # ``DBAudit._normalize_event_id`` raises ``ValueError``
+        # on a malformed UUID; the CLI must surface that as a
+        # clean error, not a stack trace.  Without this the
+        # operator sees an unprintable traceback from a typo.
+        audit = mock.Mock()
+        audit.query.side_effect = ValueError(
+            "event_id must be a UUID textual form accepted by uuid.UUID()"
+        )
+        code, _stdout, stderr = self._run_cli(["--get", "not-a-uuid"], audit=audit)
+        self.assertNotEqual(code, 0)
+        self.assertIn("event_id", stderr)
+
+    def test_since_overflow_exits_with_error(self) -> None:
+        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
+        # ``OSError`` for out-of-range numeric input.  An
+        # un-handled exception here would crash the CLI with a
+        # traceback instead of a clean ``Error: ...`` line.
+        audit = mock.Mock()
+        code, _stdout, stderr = self._run_cli(
+            ["--count", "--since", "1e40"], audit=audit
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("invalid datetime", stderr)
+        audit.count.assert_not_called()
+
+
+class PostNmapAuditDetailsTests(unittest.TestCase):
+    """Pin :func:`ivre.web.app._post_nmap_audit_details`.
+
+    ``post_nmap`` returns a JSON dict on the default path and
+    an HTML string when ``?output=html`` is set; the audit
+    capture must record the ingested record count for both
+    response shapes.  The handler stashes the count on
+    :data:`request.environ`; this helper must read it back.
+    """
+
+    def _patched_request(self, **overrides: Any) -> Any:
+        # Minimal Bottle ``request`` stub: ``request.forms`` is
+        # accessed via ``.get`` (``categories`` / ``source``)
+        # and ``request.files`` via ``.getall`` (``result``);
+        # ``request.environ`` is a plain dict.
+        from ivre.web import app
+
+        defaults: dict[str, Any] = {
+            "forms_get": {"categories": "", "source": None},
+            "files": [],
+            "environ": {},
+        }
+        defaults.update(overrides)
+        stub_request = mock.MagicMock()
+        stub_request.forms.get.side_effect = lambda key, default=None: defaults[
+            "forms_get"
+        ].get(key, default)
+        stub_request.files.getall.return_value = defaults["files"]
+        stub_request.environ = defaults["environ"]
+        return mock.patch.object(app, "request", stub_request)
+
+    def test_count_from_dict_result(self) -> None:
+        # Default JSON response shape: ``post_nmap`` returns a
+        # dict whose ``count`` key carries the ingested record
+        # count.  The audit details should reflect that.
+        from ivre.web import app
+
+        with self._patched_request():
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 7}
+            )
+        self.assertEqual(details["count"], 7)
+        self.assertEqual(details["subdb"], "scans")
+
+    def test_count_from_environ_when_result_is_html(self) -> None:
+        # ``?output=html`` branch: ``post_nmap`` returns an
+        # HTML string, but the handler stashes ``count`` on
+        # ``request.environ`` so the audit hook still records
+        # the ingested record count instead of ``None``.  Real
+        # bug surfaced by review: parsing the HTML body back
+        # would be brittle, so the route uses ``environ`` as
+        # the explicit side-channel.
+        from ivre.web import app
+
+        with self._patched_request(
+            environ={"ivre.audit.upload_count": 12},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("view",), kwargs={}, result="<html>...</html>"
+            )
+        self.assertEqual(details["count"], 12)
+        self.assertEqual(details["subdb"], "view")
+
+    def test_environ_takes_precedence_over_dict_result(self) -> None:
+        # When both signals are present the ``environ`` value
+        # wins: the handler stashes the canonical count there
+        # and the dict-return form is a fallback for callers
+        # that bypass the stash (e.g. a future return shape).
+        # Pinning the precedence guards against a refactor
+        # that quietly swaps the lookup order.
+        from ivre.web import app
+
+        with self._patched_request(
+            environ={"ivre.audit.upload_count": 99},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 7}
+            )
+        self.assertEqual(details["count"], 99)
+
+    def test_categories_match_parse_form_exactly(self) -> None:
+        # ``parse_form()`` does
+        # ``set(categories.split(","))`` before passing the
+        # categories to ``import_files()``, so the *effective*
+        # category list the backend sees is whatever that
+        # ``set(...)`` returns -- deduped, but **not** stripped
+        # of empty tokens.  The audit details must reflect that
+        # exactly, otherwise the trail can diverge from
+        # ingestion in two distinct ways:
+        #
+        # * dedupe mismatch: ``"a,a"`` would record
+        #   ``["a", "a"]`` while ingestion only used ``["a"]``.
+        # * empty-token mismatch: ``"a,"`` would record
+        #   ``["a"]`` while ``parse_form()`` actually produces
+        #   ``{"a", ""}`` and forwards both to
+        #   ``import_files()``.
+        #
+        # Pin both invariants here so the two paths cannot
+        # drift; the empty-token case in particular is a
+        # regression guard against the obvious "just drop
+        # empties on the audit side" rewrite, which is a
+        # narrower normalisation than ``parse_form()`` does.
+        from ivre.web import app
+
+        with self._patched_request(
+            forms_get={"categories": "b,a,a,c,b", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        self.assertEqual(details["categories"], ["a", "b", "c"])
+
+        with self._patched_request(
+            forms_get={"categories": "a,", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        # ``parse_form()`` produces ``{"a", ""}`` -> sorted
+        # gives ``["", "a"]``; audit details must agree.
+        self.assertEqual(details["categories"], ["", "a"])
+
+        with self._patched_request(
+            forms_get={"categories": "", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        # Empty / unset ``categories`` form field collapses
+        # to ``[]`` -- ``parse_form()`` short-circuits on the
+        # falsy branch to ``set()`` and ``import_files()``
+        # sorts that to ``[]``.
+        self.assertEqual(details["categories"], [])
+
+    def test_count_none_when_neither_signal_set(self) -> None:
+        # No ``environ`` stash and a non-dict return value
+        # (the failure mode the bug fix addresses): the audit
+        # event still records, but ``count`` is ``None``.
+        # Pinning the fallback shape so a future "raise on
+        # missing count" refactor does not silently start
+        # tripping the audit decorator's fail-soft path on
+        # legitimate HTML responses.
+        from ivre.web import app
+
+        with self._patched_request():
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result="<html>...</html>"
+            )
+        self.assertIsNone(details["count"])
+
+
+class DBAuditWebRoutesTests(unittest.TestCase):
+    """Pin the ``/cgi/audit/*`` Bottle routes.
+
+    Per the design: any authenticated user reads their own
+    audit trail; admins read every user's.  Anonymous callers
+    get 401.  These tests exercise the route handlers in
+    isolation (no Bottle test client) -- the auth gate,
+    the per-user scope forcing, and the missing-event 404
+    behaviour are what we need to pin.
+    """
+
+    def _ctx(
+        self,
+        *,
+        user: str | None,
+        is_admin: bool,
+        audit: Any,
+        request_params: dict[str, Any] | None = None,
+    ) -> Any:
+        # Stack the patches we always need (audit backend +
+        # ``get_user`` + ``is_admin_email``).  Returned as
+        # an ``ExitStack`` so test methods can ``with
+        # self._ctx(...):`` and unstack on exit.
+        from ivre.web import app as web_app
+        from ivre.web import utils as webutils
+
+        stack = contextlib.ExitStack()
+        # ``db.audit`` is a ``@property`` on :class:`MetaDB`;
+        # replace the whole ``db`` binding on the route
+        # module with a stub whose ``.audit`` attribute is
+        # the caller-supplied mock (or ``None``).
+        db_stub = mock.MagicMock()
+        db_stub.audit = audit
+        stack.enter_context(mock.patch.object(web_app, "db", db_stub))
+        stack.enter_context(mock.patch.object(webutils, "get_user", return_value=user))
+        stack.enter_context(
+            mock.patch.object(webutils, "is_admin_email", return_value=is_admin)
+        )
+        # Bottle's ``request.params`` is consulted by the
+        # route; default to an empty params dict so tests
+        # that do not need filters can skip patching it.
+        stack.enter_context(
+            mock.patch.object(
+                web_app, "request", mock.MagicMock(params=request_params or {})
+            )
+        )
+        # Same for ``response``; the route sets a
+        # Content-Type header on it.
+        stack.enter_context(mock.patch.object(web_app, "response", mock.MagicMock()))
+        # The route is wrapped by ``@check_referer``, which
+        # would otherwise abort with HTTP 400 on the
+        # request stub's missing ``Referer`` header.
+        # Short-circuit the CSRF gate by making
+        # :func:`ivre.web.base.extract_api_key` return a
+        # truthy value -- the same bypass used in
+        # production by API-key clients (which carry no
+        # ``Referer``).  We are testing the audit-side
+        # auth gate; the CSRF gate is covered by its own
+        # pin tests elsewhere.
+        from ivre.web import base as web_base
+
+        stack.enter_context(
+            mock.patch.object(web_base, "extract_api_key", return_value="test-key")
+        )
+        return stack
+
+    def test_list_audit_events_admin_sees_all(self) -> None:
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        audit.query.return_value = [
+            {"event_id": "a" * 32, "actor": {"user_email": "alice@example.org"}}
+        ]
+        with self._ctx(user="root@example.org", is_admin=True, audit=audit):
+            result = web_app.list_audit_events()
+        # Admin gate: no ``user_email`` filter is forced
+        # (the route passes ``user_email=None`` through
+        # untouched so the storage layer sees "no
+        # per-user filter").
+        kwargs = audit.query.call_args.kwargs
+        self.assertIsNone(kwargs.get("user_email"))
+        self.assertIn("alice@example.org", result)
+
+    def test_list_audit_events_non_admin_forced_to_own_scope(self) -> None:
+        # Non-admin caller: the route must force
+        # ``user_email=<caller>`` even when the request
+        # supplied no ``user_email`` parameter, so a
+        # non-admin cannot read events outside their scope
+        # by omitting the filter.
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        audit.query.return_value = []
+        with self._ctx(user="bob@example.org", is_admin=False, audit=audit):
+            web_app.list_audit_events()
+        kwargs = audit.query.call_args.kwargs
+        self.assertEqual(kwargs["user_email"], "bob@example.org")
+
+    def test_list_audit_events_non_admin_rejects_other_user(self) -> None:
+        # Explicit per-user filter that does not match the
+        # caller is 403, not silently rewritten.  A forensic
+        # surface that silently changed what the caller
+        # asked for would be misleading.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        with self._ctx(
+            user="bob@example.org",
+            is_admin=False,
+            audit=audit,
+            request_params={"user_email": "alice@example.org"},
+        ):
+            with self.assertRaises(HTTPError) as ctx:
+                web_app.list_audit_events()
+        self.assertEqual(ctx.exception.status_code, 403)
+        audit.query.assert_not_called()
+
+    def test_list_audit_events_unauthenticated(self) -> None:
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        with self._ctx(user=None, is_admin=False, audit=audit):
+            with self.assertRaises(HTTPError) as ctx:
+                web_app.list_audit_events()
+        self.assertEqual(ctx.exception.status_code, 401)
+        audit.query.assert_not_called()
+
+    def test_list_audit_events_no_backend(self) -> None:
+        # When ``db.audit is None`` the route must surface
+        # HTTP 501 (Not Implemented) -- the route exists
+        # but the backend is missing.  Mirrors
+        # ``_require_notes_backend``.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        with self._ctx(user="alice@example.org", is_admin=True, audit=None):
+            with self.assertRaises(HTTPError) as ctx:
+                web_app.list_audit_events()
+        self.assertEqual(ctx.exception.status_code, 501)
+
+    def test_get_audit_event_non_admin_404_on_out_of_scope(self) -> None:
+        # Out-of-scope events return 404, not 403, so the
+        # route does not double as an existence oracle for
+        # events outside the caller's scope.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        audit.query.return_value = [
+            {
+                "event_id": "deadbeefdead4bad9baddeadbeefcafe",
+                "actor": {"user_email": "alice@example.org"},
+            }
+        ]
+        with self._ctx(user="bob@example.org", is_admin=False, audit=audit):
+            with self.assertRaises(HTTPError) as ctx:
+                web_app.get_audit_event("deadbeefdead4bad9baddeadbeefcafe")
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_get_audit_event_admin_sees_any(self) -> None:
+        from ivre.web import app as web_app
+
+        audit = mock.Mock()
+        audit.query.return_value = [
+            {
+                "event_id": "deadbeefdead4bad9baddeadbeefcafe",
+                "actor": {"user_email": "alice@example.org"},
+            }
+        ]
+        with self._ctx(user="root@example.org", is_admin=True, audit=audit):
+            result = web_app.get_audit_event("deadbeefdead4bad9baddeadbeefcafe")
+        self.assertIn("alice@example.org", result)
+
+    def test_parse_audit_datetime_rejects_overflow(self) -> None:
+        # ``datetime.fromtimestamp`` raises ``OverflowError`` /
+        # ``OSError`` for out-of-range numeric input.  The
+        # original implementation only caught
+        # ``TypeError`` / ``ValueError``, so out-of-range
+        # ``since`` / ``until`` would escape as HTTP 500
+        # instead of a clean HTTP 400.
+        from bottle import HTTPError
+
+        from ivre.web import app as web_app
+
+        with self.assertRaises(HTTPError) as ctx:
+            web_app._parse_audit_datetime("1e40")
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 # ---------------------------------------------------------------------

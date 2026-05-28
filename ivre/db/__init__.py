@@ -6401,6 +6401,7 @@ class DBAudit(DB):
     def query(
         self,
         *,
+        event_id: str | None = None,
         event_type: str | None = None,
         user_email: str | None = None,
         since: Any | None = None,
@@ -6415,12 +6416,23 @@ class DBAudit(DB):
         ``skip`` are applied at the backend layer.  Returns a
         list of dicts in the same shape :meth:`record`
         persisted.
+
+        ``event_id`` is the cross-backend equivalent of "fetch
+        the row with this id": any UUID textual form
+        :class:`uuid.UUID` accepts is normalised via
+        :meth:`_normalize_event_id` before reaching the index,
+        so the same call shape works on Mongo (string column,
+        unique index) and SQL (native ``Uuid`` column, unique
+        constraint).  The match is exact -- the underlying
+        index is unique, so the result list is at most one
+        entry long.
         """
         raise NotImplementedError
 
     def count(
         self,
         *,
+        event_id: str | None = None,
         event_type: str | None = None,
         user_email: str | None = None,
         since: Any | None = None,

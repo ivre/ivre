@@ -28,6 +28,7 @@ from ivre.plugins import load_plugins
 __all__ = [
     "airodump2db",
     "arp2db",
+    "auditcli",
     "auditdom",
     "authcli",
     "db2view",

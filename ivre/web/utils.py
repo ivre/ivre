@@ -263,6 +263,52 @@ def query_from_params(params):
         raise ValueError("Parameter parsing error") from exc
 
 
+def is_admin_email(user_email: str | None) -> bool:
+    """Return ``True`` when ``user_email`` resolves to an
+    administrative user in :data:`ivre.db.db.auth`.
+
+    Used by the audit read API in :mod:`ivre.web.app` to
+    apply the admin-or-self gate without reaching into
+    ``ivre.web.auth`` (that module is conditionally imported
+    only when ``WEB_AUTH_ENABLED`` is true).
+
+    Note: :func:`ivre.web.auth._ensure_admin` still performs
+    the admin lookup inline rather than delegating here.
+    Consolidating the two is intentionally out of scope for
+    the audit work, because :func:`_ensure_admin` aborts with
+    HTTP 500 on a missing auth backend / transient DB error
+    while this helper is deliberately fail-closed (returns
+    ``False``).  Merging them is a real auth-gate semantic
+    change and deserves its own review.
+
+    Returns ``False`` for every non-admin path:
+
+    * ``user_email`` is ``None`` (no resolved caller);
+    * ``db.auth`` is ``None`` (no auth backend configured);
+    * the user record is missing or does not carry
+      ``is_admin = True``.
+
+    The check is fail-closed: a transient backend failure that
+    causes ``get_user_by_email`` to return ``None`` is treated
+    as "not an admin" rather than crashing the caller; the
+    caller's own auth gate decides how to escalate.
+    """
+    if user_email is None:
+        return False
+    if db.auth is None:
+        return False
+    try:
+        user_doc = db.auth.get_user_by_email(user_email)
+    except Exception:
+        utils.LOGGER.error(
+            "is_admin_email: get_user_by_email failed for %r",
+            user_email,
+            exc_info=True,
+        )
+        return False
+    return bool(user_doc and user_doc.get("is_admin"))
+
+
 def get_user() -> str | None:
     """Return the connected user."""
     if not config.WEB_AUTH_ENABLED:

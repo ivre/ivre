@@ -1012,6 +1012,15 @@ def _register_tools() -> None:
             raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
         return json.dumps(revisions, default=serialize)
 
+    # The audit-log purpose is intentionally *not* exposed via
+    # MCP.  ``DBAudit`` is an append-only security control; the
+    # web routes (``/cgi/audit/*``) and the operator CLI
+    # (``ivre auditcli``) are the only read / admin surfaces.
+    # Adding an LLM-driven read path would broaden the
+    # attack surface of the audit log itself (prompt-driven
+    # exfiltration of who scanned what and when) without a
+    # concrete user-facing need today.
+
     # --- Resources ---
 
     @mcp.resource("ivre://guides/scope-discovery")
