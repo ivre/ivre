@@ -528,6 +528,52 @@ class DuckDBMixin:
                     col.foreign_keys.add(fk)
                     col.table.foreign_keys.add(fk)
 
+    @override
+    def ensure_indexes(self) -> None:  # type: ignore[misc]
+        """DuckDB override of :meth:`SQLDB.ensure_indexes`.
+
+        The base implementation iterates
+        ``table.__table__.indexes`` and calls
+        :meth:`Index.create` on every entry.  After
+        :meth:`init` returns, the in-process
+        :data:`~ivre.db.sql.tables.Base.metadata` once again
+        carries every declaration -- including the few
+        :func:`_is_unsupported_on_duckdb` rejects at create
+        time (GIN, partial ``postgresql_where``, INET / ARRAY
+        keys).  Calling the unfiltered base loop would re-emit
+        their DDL against the DuckDB catalog and crash, for
+        example, ``audit_events_idx_user_created`` on
+        :class:`~ivre.db.sql.tables.AuditEvent`.
+
+        Mirror the strip / restore pattern :meth:`init` uses:
+        evict the unsupported indexes from each table's
+        ``indexes`` set for the duration of the base call, then
+        put them back so other engines sharing the same
+        metadata in the same Python process (e.g. a parallel
+        test against PostgreSQL) keep their canonical
+        declarations.
+        """
+        # Local import: same rationale as :meth:`db` above --
+        # break the ``ivre.db.sql`` <-> ``ivre.db.sql.duckdb``
+        # cycle at module-load time.
+        # pylint: disable=import-outside-toplevel
+        from ivre.db.sql import SQLDB
+
+        saved_indexes: dict[Any, list[Any]] = {}
+        try:
+            for table_cls in self.tables:
+                table = table_cls.__table__
+                skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
+                if skipped:
+                    saved_indexes[table] = skipped
+                    for ix in skipped:
+                        table.indexes.discard(ix)
+            SQLDB.ensure_indexes(self)
+        finally:
+            for table, indexes in saved_indexes.items():
+                for ix in indexes:
+                    table.indexes.add(ix)
+
 
 class _DuckDBActiveFilterMixin:
     """Mixin overriding :meth:`ActiveFilter._text_predicate` for

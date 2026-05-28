@@ -17113,25 +17113,28 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
         # full-backend level: evict indexes DuckDB rejects
         # at create-time (currently the ``postgresql_where``
         # partial index ``audit_events_idx_user_created``)
-        # before ``create_all`` reaches the catalog.  Save +
-        # restore in ``tearDown`` so other tests sharing the
-        # same metadata see the original declarations.
+        # before ``create_all`` reaches the catalog, then put
+        # them back as soon as the table is materialised so
+        # the rest of the test runs against the same
+        # canonical metadata operators see after
+        # :meth:`DuckDBMixin.init` returns.  In particular,
+        # :meth:`test_ensure_indexes_is_idempotent` must
+        # exercise the post-init() state where the partial
+        # index is once again declared on the table -- that
+        # is the path the new
+        # :meth:`DuckDBMixin.ensure_indexes` override has to
+        # handle without crashing.  ``try`` / ``finally`` so
+        # an unexpected ``create_all`` failure still restores
+        # the metadata for tests later in the same process.
         table = AuditEvent.__table__
-        self._duckdb_skipped = [
-            ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)
-        ]
-        for ix in self._duckdb_skipped:
+        skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
+        for ix in skipped:
             table.indexes.discard(ix)
-        Base.metadata.create_all(self._audit.db, tables=[table])
-
-    def tearDown(self) -> None:
-        # Restore the partial-index declaration so a Postgres-
-        # dialect compile / schema test running later in the
-        # same process sees the canonical metadata.
-        from ivre.db.sql.tables import AuditEvent
-
-        for ix in getattr(self, "_duckdb_skipped", ()):
-            AuditEvent.__table__.indexes.add(ix)
+        try:
+            Base.metadata.create_all(self._audit.db, tables=[table])
+        finally:
+            for ix in skipped:
+                table.indexes.add(ix)
 
     def test_record_returns_event_id(self) -> None:
         event_id = self._audit.record(
