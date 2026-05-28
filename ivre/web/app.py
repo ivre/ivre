@@ -712,16 +712,27 @@ def _post_nmap_audit_details(args, kwargs, result):
     so the audit hook does not consume the upload stream a
     second time.
     """
-    # Normalise the same way :func:`parse_form` does -- it
-    # builds a ``set(...)`` before handing the categories off
-    # to :func:`import_files`, which sorts them.  The audit
-    # details must reflect the *effective* category list (what
-    # the backend actually saw), not the raw client-supplied
-    # comma-split string, otherwise input like ``"a,a"`` would
-    # record ``["a", "a"]`` in the audit log while ingestion
-    # only used ``["a"]``.
-    raw_categories = request.forms.get("categories") or ""
-    categories = sorted({c for c in raw_categories.split(",") if c})
+    # Mirror :func:`parse_form` exactly -- it builds
+    # ``set(categories.split(","))`` before handing the
+    # result off to :func:`import_files`, which sorts it.
+    # The audit details must reflect that effective list
+    # (what the backend actually saw), not a different
+    # normalisation, otherwise the audit trail can diverge
+    # from ingestion in two distinct ways:
+    #
+    # * ``"a,a"`` would record ``["a", "a"]`` in the audit
+    #   log while ingestion only used ``["a"]`` (dedupe
+    #   mismatch).
+    # * ``"a,"`` would record ``["a"]`` while
+    #   :func:`parse_form` actually produces ``{"a", ""}``
+    #   (empty-token mismatch).  Stripping empties only on
+    #   the audit side is a different, narrower
+    #   normalisation than :func:`parse_form` performs, so
+    #   keep the empty token: closing this gap is a
+    #   :func:`parse_form` + :func:`import_files` change, not
+    #   an audit-side change.
+    raw_categories = request.forms.get("categories")
+    categories = sorted(set(raw_categories.split(","))) if raw_categories else []
     files = request.files.getall("result")
     # The handler stashes the ingested record count on
     # ``request.environ`` before returning so both branches

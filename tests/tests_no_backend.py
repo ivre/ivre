@@ -17183,6 +17183,42 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
         self.assertEqual(self._audit.count(event_id=ids[1]), 1)
         self.assertEqual(self._audit.count(event_id="0" * 32), 0)
 
+    def test_ensure_indexes_is_idempotent(self) -> None:
+        # ``ivre auditcli --ensure-indexes`` calls
+        # :meth:`db.audit.ensure_indexes`; the base
+        # :class:`SQLDB` raises ``NotImplementedError`` so the
+        # CLI would crash on PostgreSQL / DuckDB if the audit
+        # subclass did not override it.  Pin the override and
+        # the idempotency contract: it is safe to invoke
+        # repeatedly, both before and after the table exists,
+        # without dropping data.
+        from ivre.db.sql.tables import AuditEvent, Base
+
+        # First call: table already exists (created by setUp);
+        # ensure_indexes should be a clean no-op on the data
+        # but still re-issue ``CREATE INDEX IF NOT EXISTS``
+        # for every declared index.
+        before = self._audit.record("upload", details={"phase": "before"})
+        self._audit.ensure_indexes()  # must not raise
+        events = self._audit.query()
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_id"], before)
+
+        # Drop the table entirely and call ensure_indexes
+        # again: it must recreate the table *and* the indexes
+        # rather than failing on "no such table".  Operators
+        # may run --ensure-indexes against a freshly-pointed
+        # DB to provision the schema without losing other
+        # collections, and the contract should match.
+        Base.metadata.drop_all(self._audit.db, tables=[AuditEvent.__table__])
+        self._audit.ensure_indexes()  # must not raise
+        # The data is gone (drop_all dropped the table), but
+        # the surface is functional again.
+        self.assertEqual(self._audit.count(), 0)
+        after = self._audit.record("upload", details={"phase": "after"})
+        self.assertIsInstance(after, str)
+        self.assertEqual(self._audit.count(), 1)
+
 
 # ---------------------------------------------------------------------
 # DBAuditEventIdMongoSurfaceTests / DBAuditWebHookTests /
@@ -17991,15 +18027,28 @@ class PostNmapAuditDetailsTests(unittest.TestCase):
             )
         self.assertEqual(details["count"], 99)
 
-    def test_categories_are_deduped_and_sorted(self) -> None:
-        # ``parse_form()`` builds a ``set(...)`` from the
-        # comma-split string before passing the categories to
-        # ``import_files()``, so the *effective* category list
-        # is deduped.  The audit details must reflect that --
-        # otherwise input like ``"a,a"`` records ``["a", "a"]``
-        # in the audit log while the backend only ingested
-        # ``["a"]``.  Pin the same normalisation here so the
-        # two paths cannot drift.
+    def test_categories_match_parse_form_exactly(self) -> None:
+        # ``parse_form()`` does
+        # ``set(categories.split(","))`` before passing the
+        # categories to ``import_files()``, so the *effective*
+        # category list the backend sees is whatever that
+        # ``set(...)`` returns -- deduped, but **not** stripped
+        # of empty tokens.  The audit details must reflect that
+        # exactly, otherwise the trail can diverge from
+        # ingestion in two distinct ways:
+        #
+        # * dedupe mismatch: ``"a,a"`` would record
+        #   ``["a", "a"]`` while ingestion only used ``["a"]``.
+        # * empty-token mismatch: ``"a,"`` would record
+        #   ``["a"]`` while ``parse_form()`` actually produces
+        #   ``{"a", ""}`` and forwards both to
+        #   ``import_files()``.
+        #
+        # Pin both invariants here so the two paths cannot
+        # drift; the empty-token case in particular is a
+        # regression guard against the obvious "just drop
+        # empties on the audit side" rewrite, which is a
+        # narrower normalisation than ``parse_form()`` does.
         from ivre.web import app
 
         with self._patched_request(
@@ -18009,6 +18058,28 @@ class PostNmapAuditDetailsTests(unittest.TestCase):
                 args=("scans",), kwargs={}, result={"count": 1}
             )
         self.assertEqual(details["categories"], ["a", "b", "c"])
+
+        with self._patched_request(
+            forms_get={"categories": "a,", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        # ``parse_form()`` produces ``{"a", ""}`` -> sorted
+        # gives ``["", "a"]``; audit details must agree.
+        self.assertEqual(details["categories"], ["", "a"])
+
+        with self._patched_request(
+            forms_get={"categories": "", "source": "test"},
+        ):
+            details = app._post_nmap_audit_details(
+                args=("scans",), kwargs={}, result={"count": 1}
+            )
+        # Empty / unset ``categories`` form field collapses
+        # to ``[]`` -- ``parse_form()`` short-circuits on the
+        # falsy branch to ``set()`` and ``import_files()``
+        # sorts that to ``[]``.
+        self.assertEqual(details["categories"], [])
 
     def test_count_none_when_neither_signal_set(self) -> None:
         # No ``environ`` stash and a non-dict return value

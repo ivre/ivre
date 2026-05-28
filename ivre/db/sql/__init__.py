@@ -6950,6 +6950,74 @@ class SQLDBAudit(SQLDB, DBAudit):
 
     SCHEMA_VERSION = 1
 
+    def ensure_indexes(self):
+        """Idempotently create every index declared on
+        :class:`AuditEvent` (and the table itself if it is
+        somehow missing).
+
+        ``SQLDB.create()`` uses ``Table.create(checkfirst=True)``,
+        which short-circuits when the table already exists --
+        and that *also* skips index creation, so a deployment
+        whose ``audit_events`` table predates an index addition
+        would silently miss it.  Iterating the declared
+        ``Index`` objects and creating each one that is missing
+        closes that gap without dropping data, matching the
+        operator expectation that ``ivre auditcli
+        --ensure-indexes`` is a safe, repeatable maintenance
+        step.
+
+        The base :class:`SQLDB.ensure_indexes` raises
+        ``NotImplementedError``; overriding here keeps the
+        audit-specific maintenance command working on every SQL
+        audit backend (PostgreSQL + DuckDB) without forcing a
+        wider SQL-purpose maintenance refactor in this PR.
+
+        ``Index.create(bind=conn, checkfirst=True)`` cannot be
+        relied on across dialects: the duckdb-engine driver
+        does not translate ``checkfirst`` into ``CREATE INDEX
+        IF NOT EXISTS`` semantics (a second invocation raises
+        ``CatalogException: Index with name "..." already
+        exists``), and its inspector explicitly does not
+        reflect indexes (it warns ``duckdb-engine doesn't yet
+        support reflection on indices`` and returns ``[]``), so
+        the inspector-based "create only what's missing" trick
+        does not work either.  Wrapping each ``CREATE INDEX``
+        in its own transaction and treating a
+        ``ProgrammingError`` (PostgreSQL's
+        ``DuplicateObjectError`` and DuckDB's
+        ``CatalogException`` both surface here under
+        SQLAlchemy 2.x) as "already there, fine" gives
+        portable idempotency without depending on either
+        backend's catalog semantics.
+        """
+        table = self.tables.events.__table__
+        with self.db.begin() as conn:
+            table.create(bind=conn, checkfirst=True)
+        # ``UniqueConstraint`` -- declared on
+        # :class:`AuditEvent` as ``audit_events_idx_event_id``
+        # -- is created with the table itself rather than via
+        # :class:`Index`, so it does not appear in
+        # ``table.indexes``; no special-case needed here.
+        for index in table.indexes:
+            try:
+                with self.db.begin() as conn:
+                    index.create(bind=conn)
+            except SQLAlchemyError as exc:
+                # Both PostgreSQL's ``DuplicateObjectError``
+                # and DuckDB's ``CatalogException`` reach us
+                # through SQLAlchemy 2.x as ``DBAPIError``
+                # subclasses; treat any "already exists"
+                # variant as the success path.  Other
+                # ``SQLAlchemyError`` instances (permission
+                # denied, dialect bug, ...) are real failures
+                # and must propagate.
+                if "already exists" not in str(exc):
+                    raise
+                utils.LOGGER.debug(
+                    "audit ensure_indexes: %s already exists, skipping",
+                    index.name,
+                )
+
     @staticmethod
     def _row2event(row):
         """Project an :class:`AuditEvent` row into the dict
