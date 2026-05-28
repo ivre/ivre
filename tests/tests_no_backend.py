@@ -11092,6 +11092,71 @@ class SQLDBAuthLiveIntegrationTests(unittest.TestCase):
         # Sessions / api-keys / magic-links cascaded.
         self.assertEqual(self.db.list_api_keys("alice@example.com"), [])
 
+    def test_ensure_indexes_is_idempotent_across_multiple_tables(self) -> None:
+        # ``ivre authcli --ensure-indexes`` (and every other
+        # SQL purpose's equivalent verb) calls
+        # :meth:`db.<purpose>.ensure_indexes`; the base
+        # :class:`SQLDB.ensure_indexes` walks ``self.tables`` /
+        # ``table.__table__.indexes`` and creates each one
+        # idempotently across PostgreSQL and DuckDB.
+        #
+        # The auth purpose is the right surface to pin the
+        # cross-table contract on: it has five tables
+        # (``auth_user``, ``auth_session``, ``auth_api_key``,
+        # ``auth_rate_limit``, ``auth_magic_link``) and a dozen
+        # declared :class:`Index` blocks across them.  A
+        # single-table coverage (the audit purpose) would not
+        # exercise the outer ``for table in self.tables`` loop
+        # in :meth:`SQLDB.ensure_indexes`; this test does.
+        from sqlalchemy import delete
+
+        from ivre.db.sql.tables import Base
+
+        # First call: every table already exists (created by
+        # ``setUpClass`` via ``Base.metadata.create_all``);
+        # ``ensure_indexes`` should be a clean no-op on the
+        # data but still re-issue ``CREATE INDEX`` for each
+        # declared index without crashing on "already exists".
+        self.db.create_user(
+            "alice@example.com",
+            display_name="Alice",
+            is_active=True,
+        )
+        self.db.ensure_indexes()  # must not raise
+        self.assertIsNotNone(self.db.get_user_by_email("alice@example.com"))
+
+        # Drop every auth table and call ensure_indexes again:
+        # it must recreate every table *and* every declared
+        # index without dropping data from other tables.
+        # ``Base.metadata.drop_all(... tables=...)`` issues
+        # ``DROP TABLE IF EXISTS`` in dependency order;
+        # ``ensure_indexes`` is expected to reverse that
+        # ground-up.
+        Base.metadata.drop_all(self._engine, tables=self._auth_tables)
+        # Sanity check: tables are gone.
+        with self._engine.connect() as conn:
+            from sqlalchemy import inspect as sa_inspect
+
+            existing = set(sa_inspect(conn).get_table_names())
+            self.assertNotIn("auth_user", existing)
+
+        self.db.ensure_indexes()  # must not raise
+
+        # Schema is functional again: insert / fetch round-trip
+        # works on a freshly-provisioned auth surface.
+        self.db.create_user(
+            "bob@example.com",
+            display_name="Bob",
+            is_active=True,
+        )
+        self.assertIsNotNone(self.db.get_user_by_email("bob@example.com"))
+
+        # Clean up so the next test in the class starts from
+        # the same empty-but-existing state ``setUp`` builds.
+        with self._engine.begin() as conn:
+            for tbl in self._auth_tables:
+                conn.execute(delete(tbl))
+
 
 # ---------------------------------------------------------------------
 # PostgresDBAuthTests -- pin :class:`ivre.db.sql.postgres.PostgresDBAuth`.
@@ -17186,12 +17251,13 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
     def test_ensure_indexes_is_idempotent(self) -> None:
         # ``ivre auditcli --ensure-indexes`` calls
         # :meth:`db.audit.ensure_indexes`; the base
-        # :class:`SQLDB` raises ``NotImplementedError`` so the
-        # CLI would crash on PostgreSQL / DuckDB if the audit
-        # subclass did not override it.  Pin the override and
-        # the idempotency contract: it is safe to invoke
-        # repeatedly, both before and after the table exists,
-        # without dropping data.
+        # :class:`SQLDB.ensure_indexes` (which
+        # :class:`SQLDBAudit` inherits unchanged) creates every
+        # declared table and index idempotently across
+        # PostgreSQL and DuckDB.  Pin the idempotency contract
+        # specifically on the audit purpose: it is safe to
+        # invoke repeatedly, both before and after the table
+        # exists, without dropping rows.
         from ivre.db.sql.tables import AuditEvent, Base
 
         # First call: table already exists (created by setUp);
