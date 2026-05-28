@@ -17021,10 +17021,15 @@ class SQLDBAuditSchemaTests(unittest.TestCase):
         self.assertIn("audit_events_idx_user_created", ddl)
         # Be tolerant of whitespace / case variations a future
         # SQLAlchemy could introduce; only pin the meaningful
-        # tokens.
+        # tokens.  Lower-case the compiled DDL (and the regex
+        # tokens) so a release that emits ``where`` /
+        # ``is not null`` -- or any other casing -- still
+        # matches.  The ``\s+`` whitespace tolerance is
+        # preserved.
+        normalized_ddl = ddl.lower()
         self.assertRegex(
-            ddl,
-            r"WHERE\s+actor_user_email\s+IS\s+NOT\s+NULL",
+            normalized_ddl,
+            r"where\s+actor_user_email\s+is\s+not\s+null",
         )
 
     def test_audit_events_user_index_is_stripped_on_duckdb(self) -> None:
