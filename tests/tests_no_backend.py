@@ -17397,6 +17397,74 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
         self.assertEqual(self._audit.count(), 1)
 
 
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUDIT and _HAVE_DUCKDB_ENGINE_FOR_AUDIT,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
+class DuckDBEnsureIndexesFkStripTests(unittest.TestCase):
+    """Regression for :meth:`DuckDBMixin.ensure_indexes`'s
+    foreign-key strip path.
+
+    Purposes carrying ``ondelete='CASCADE'`` foreign-key
+    constraints (``nmap`` / ``view`` -- see
+    :mod:`ivre.db.sql.tables`) reach DuckDB through
+    ``Table.create(checkfirst=True)`` on the first pass of
+    :meth:`SQLDB.ensure_indexes`.  DuckDB rejects ``CASCADE``
+    (``Parser Error: FOREIGN KEY constraints cannot use
+    CASCADE, SET NULL or SET DEFAULT``); the override must
+    strip the FK declarations for the duration of the call,
+    in lockstep with what :meth:`DuckDBMixin.init` does.
+
+    Pin both halves:
+
+    * the call against a fresh DuckDB does not raise,
+    * the metadata is restored on exit so PostgreSQL-flavoured
+      schema tests running later in the same process still see
+      the canonical ``ForeignKeyConstraint`` declarations.
+    """
+
+    def test_ensure_indexes_strips_cascade_fks_on_nmap(self) -> None:
+        from urllib.parse import urlparse
+
+        from ivre.db.sql.duckdb import DuckDBNmap
+        from ivre.db.sql.tables import N_Port
+
+        # Pre-flight: the cascade FKCs we expect to crash on
+        # must actually be declared, otherwise this test would
+        # pass trivially after a future refactor that removes
+        # them.
+        cascade_fkcs_before = [
+            fkc
+            for fkc in N_Port.__table__.foreign_key_constraints
+            if fkc.ondelete == "CASCADE"
+        ]
+        self.assertTrue(
+            cascade_fkcs_before,
+            "N_Port is expected to carry ON DELETE CASCADE FKs",
+        )
+
+        db = DuckDBNmap(urlparse("duckdb:///:memory:"))
+        # Must not raise.  Before the FK strip was wired into
+        # the override, this crashed in the base
+        # ``Table.create(checkfirst=True)`` pass.
+        db.ensure_indexes()
+
+        # Metadata restored.  Sibling tests (e.g. the audit
+        # schema tests above) rely on the canonical FK set
+        # being back on :class:`N_Port.__table__` after this
+        # class runs.
+        cascade_fkcs_after = [
+            fkc
+            for fkc in N_Port.__table__.foreign_key_constraints
+            if fkc.ondelete == "CASCADE"
+        ]
+        self.assertEqual(
+            len(cascade_fkcs_after),
+            len(cascade_fkcs_before),
+            "DuckDBMixin.ensure_indexes must restore stripped FKs",
+        )
+
+
 # ---------------------------------------------------------------------
 # DBAuditEventIdMongoSurfaceTests / DBAuditWebHookTests /
 # DBAuditWebRoutesTests / DBAuditMcpToolsTests /

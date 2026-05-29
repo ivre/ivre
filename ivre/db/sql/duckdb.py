@@ -47,7 +47,9 @@ methods win the MRO lookup against ``PostgresDB*``'s defaults.
 # pylint: disable=singleton-comparison
 
 
+import contextlib
 import re
+from collections.abc import Iterable, Iterator
 from typing import Any, override
 
 from sqlalchemy import (
@@ -193,6 +195,74 @@ def _is_unsupported_on_duckdb(index: Any) -> bool:
 # in child tables are not visible to the read paths (which
 # always project from ``scan`` joined to children); a periodic
 # vacuum can be wired in later if needed.
+
+
+@contextlib.contextmanager
+def _duckdb_metadata_rewrites(tables: Iterable[Any]) -> Iterator[None]:
+    """Temporarily strip declarations DuckDB rejects at create
+    time from ``tables``, restoring them on exit.
+
+    Three eviction passes mirror the schema rewrites the DuckDB
+    backend has always needed at ``init()`` time:
+
+    * unsupported indexes (GIN, partial ``postgresql_where``,
+      INET / ARRAY keys) -- see
+      :func:`_is_unsupported_on_duckdb`;
+    * table-level ``ForeignKeyConstraint`` objects -- DuckDB
+      rejects ``ON DELETE CASCADE`` (see the comment block
+      above) and the implicit ``RESTRICT`` fallback would break
+      IVRE's scan-rooted delete paths;
+    * column-level ``ForeignKey`` objects (e.g. ``Flow.src`` /
+      ``Flow.dst``) -- same rationale, different SQLAlchemy
+      attachment site.
+
+    Snapshots are taken before the strip and the originals are
+    re-attached in a ``finally`` block so other engines sharing
+    the same :data:`~ivre.db.sql.tables.Base.metadata` in the
+    same Python process (e.g. a parallel test against
+    PostgreSQL) keep their canonical declarations.
+
+    Shared by :meth:`DuckDBMixin.init` (full-metadata rewrite
+    around the drop / create cycle) and
+    :meth:`DuckDBMixin.ensure_indexes` (per-purpose rewrite
+    around the ``Table.create(checkfirst=True)`` + index loop
+    in :meth:`SQLDB.ensure_indexes`).
+    """
+    saved_indexes: dict[Any, list[Any]] = {}
+    saved_table_fkcs: dict[Any, set[Any]] = {}
+    saved_column_fks: dict[Any, set[Any]] = {}
+    # Materialise the iterable so the ``finally`` block can
+    # iterate it a second time (callers may pass a generator).
+    tables_list = list(tables)
+    try:
+        for table in tables_list:
+            skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
+            if skipped:
+                saved_indexes[table] = skipped
+                for ix in skipped:
+                    table.indexes.discard(ix)
+            if table.foreign_key_constraints:
+                saved_table_fkcs[table] = set(table.foreign_key_constraints)
+                for fkc in list(table.foreign_key_constraints):
+                    table.constraints.discard(fkc)
+            for col in table.columns:
+                if col.foreign_keys:
+                    saved_column_fks[col] = set(col.foreign_keys)
+                    for fk in list(col.foreign_keys):
+                        col.foreign_keys.discard(fk)
+                        table.foreign_keys.discard(fk)
+        yield
+    finally:
+        for table, indexes in saved_indexes.items():
+            for ix in indexes:
+                table.indexes.add(ix)
+        for table, fkcs in saved_table_fkcs.items():
+            for fkc in fkcs:
+                table.append_constraint(fkc)
+        for col, fks in saved_column_fks.items():
+            for fk in fks:
+                col.foreign_keys.add(fk)
+                col.table.foreign_keys.add(fk)
 
 
 class DuckDBMixin:
@@ -468,35 +538,14 @@ class DuckDBMixin:
         materialise a fresh engine -- and therefore a fresh
         DuckDB session -- which the subsequent :meth:`create`
         runs against without the catalog conflict.
+
+        The strip / restore of unsupported indexes and FK
+        constraints is delegated to
+        :func:`_duckdb_metadata_rewrites`, which is shared
+        with :meth:`ensure_indexes` so both schema-provision
+        paths apply the same set of DuckDB rewrites.
         """
-        saved_indexes: dict[Any, list[Any]] = {}
-        saved_table_fkcs: dict[Any, set[Any]] = {}
-        saved_column_fks: dict[Any, set[Any]] = {}
-        try:
-            for table in Base.metadata.tables.values():
-                skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
-                if skipped:
-                    saved_indexes[table] = skipped
-                    for ix in skipped:
-                        table.indexes.discard(ix)
-                # Snapshot then strip table-level FK constraints
-                # (``ForeignKeyConstraint(...)``) -- DuckDB
-                # cannot enforce ``ON DELETE CASCADE`` and the
-                # implicit ``RESTRICT`` would break IVRE's
-                # scan-rooted delete paths (see top-of-module
-                # comment).
-                if table.foreign_key_constraints:
-                    saved_table_fkcs[table] = set(table.foreign_key_constraints)
-                    for fkc in list(table.foreign_key_constraints):
-                        table.constraints.discard(fkc)
-                # Same treatment for column-level ``ForeignKey``
-                # objects (e.g. ``Flow.src`` / ``Flow.dst``).
-                for col in table.columns:
-                    if col.foreign_keys:
-                        saved_column_fks[col] = set(col.foreign_keys)
-                        for fk in list(col.foreign_keys):
-                            col.foreign_keys.discard(fk)
-                            table.foreign_keys.discard(fk)
+        with _duckdb_metadata_rewrites(Base.metadata.tables.values()):
             self.drop()
             # Recycle the engine before ``create()``: see the
             # docstring above for the catalog-conflict
@@ -516,42 +565,38 @@ class DuckDBMixin:
             # indexes that subsequent ``searchtext()`` calls
             # rebuild via ``overwrite=1`` once data is in.
             self._create_fts_indexes()
-        finally:
-            for table, indexes in saved_indexes.items():
-                for ix in indexes:
-                    table.indexes.add(ix)
-            for table, fkcs in saved_table_fkcs.items():
-                for fkc in fkcs:
-                    table.append_constraint(fkc)
-            for col, fks in saved_column_fks.items():
-                for fk in fks:
-                    col.foreign_keys.add(fk)
-                    col.table.foreign_keys.add(fk)
 
     @override
     def ensure_indexes(self) -> None:  # type: ignore[misc]
         """DuckDB override of :meth:`SQLDB.ensure_indexes`.
 
-        The base implementation iterates
-        ``table.__table__.indexes`` and calls
-        :meth:`Index.create` on every entry.  After
-        :meth:`init` returns, the in-process
-        :data:`~ivre.db.sql.tables.Base.metadata` once again
-        carries every declaration -- including the few
-        :func:`_is_unsupported_on_duckdb` rejects at create
-        time (GIN, partial ``postgresql_where``, INET / ARRAY
-        keys).  Calling the unfiltered base loop would re-emit
-        their DDL against the DuckDB catalog and crash, for
-        example, ``audit_events_idx_user_created`` on
-        :class:`~ivre.db.sql.tables.AuditEvent`.
+        The base implementation does two passes over
+        ``self.tables``: ``Table.create(checkfirst=True)`` on
+        every table, then :meth:`Index.create` on every index
+        attached to it.  After :meth:`init` returns, the
+        in-process :data:`~ivre.db.sql.tables.Base.metadata`
+        once again carries every declaration -- including the
+        few DuckDB rejects at create time:
 
-        Mirror the strip / restore pattern :meth:`init` uses:
-        evict the unsupported indexes from each table's
-        ``indexes`` set for the duration of the base call, then
-        put them back so other engines sharing the same
-        metadata in the same Python process (e.g. a parallel
-        test against PostgreSQL) keep their canonical
-        declarations.
+        * unsupported indexes (GIN, partial
+          ``postgresql_where``, INET / ARRAY keys) flagged by
+          :func:`_is_unsupported_on_duckdb` -- the base loop
+          would re-emit, for example,
+          ``audit_events_idx_user_created`` on
+          :class:`~ivre.db.sql.tables.AuditEvent` and crash;
+        * ``ON DELETE CASCADE`` foreign keys on the ``nmap`` /
+          ``view`` / ``flow`` tables -- the base
+          ``Table.create`` pass would re-emit them and
+          DuckDB raises ``Parser Error: FOREIGN KEY
+          constraints cannot use CASCADE, ...``.
+
+        Both rewrites are applied by
+        :func:`_duckdb_metadata_rewrites`, shared with
+        :meth:`init`.  The scope is narrowed to the current
+        purpose's ``self.tables`` (vs ``init()``'s
+        ``Base.metadata.tables.values()``) because only those
+        tables are touched by the base
+        :meth:`SQLDB.ensure_indexes` loops.
         """
         # Local import: same rationale as :meth:`db` above --
         # break the ``ivre.db.sql`` <-> ``ivre.db.sql.duckdb``
@@ -559,20 +604,8 @@ class DuckDBMixin:
         # pylint: disable=import-outside-toplevel
         from ivre.db.sql import SQLDB
 
-        saved_indexes: dict[Any, list[Any]] = {}
-        try:
-            for table_cls in self.tables:
-                table = table_cls.__table__
-                skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
-                if skipped:
-                    saved_indexes[table] = skipped
-                    for ix in skipped:
-                        table.indexes.discard(ix)
+        with _duckdb_metadata_rewrites(t.__table__ for t in self.tables):
             SQLDB.ensure_indexes(self)
-        finally:
-            for table, indexes in saved_indexes.items():
-                for ix in indexes:
-                    table.indexes.add(ix)
 
 
 class _DuckDBActiveFilterMixin:
