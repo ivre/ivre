@@ -12,6 +12,7 @@ import { DEFAULT_SECTION, type SectionId } from "@/lib/sections";
 import { ActiveRoute } from "./active";
 import { AdminRoute } from "./admin";
 import { ApiKeysRoute } from "./api-keys";
+import { AuditRoute } from "./audit";
 import { DnsRoute } from "./dns";
 import { FlowRoute } from "./flow";
 import { NotesRoute } from "./notes";
@@ -94,6 +95,12 @@ const router = createHashRouter([
       // ``WEB_AUTH_ENABLED`` / ``is_admin`` knobs).
       { path: "admin", element: <AdminRoute /> },
       { path: "api-keys", element: <ApiKeysRoute /> },
+      // "My audit log" self-service surface: the caller's own
+      // ``GET /cgi/audit/?user_email=<self>`` trail.  Like
+      // ``/api-keys``, reachable from the user menu only -- not
+      // a section.  The matching cross-user view lives under
+      // Admin > Audit log.
+      { path: "audit", element: <AuditRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],

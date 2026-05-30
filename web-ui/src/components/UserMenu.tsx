@@ -1,4 +1,11 @@
-import { KeyRound, LogIn, LogOut, ShieldCheck, User } from "lucide-react";
+import {
+  KeyRound,
+  LogIn,
+  LogOut,
+  ScrollText,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 
 import { SignInDialog } from "@/components/SignInDialog";
@@ -112,6 +119,12 @@ export function UserMenu() {
           <a href="#/api-keys">
             <KeyRound className="size-4" />
             API keys
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href="#/audit">
+            <ScrollText className="size-4" />
+            My audit log
           </a>
         </DropdownMenuItem>
         {me.is_admin ? (
