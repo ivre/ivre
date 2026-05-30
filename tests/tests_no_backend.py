@@ -16979,6 +16979,92 @@ class SQLDBAuditSchemaTests(unittest.TestCase):
         constraint_names = {c.name for c in AuditEvent.__table__.constraints if c.name}
         self.assertIn("audit_events_idx_event_id", constraint_names)
 
+    def test_audit_events_user_index_is_partial_on_postgres(self) -> None:
+        # ``audit_events_idx_user_created`` must restrict to
+        # rows where ``actor_user_email IS NOT NULL`` on
+        # PostgreSQL.  Anonymous / ``REMOTE_USER``-less
+        # traffic produces ``NULL`` actor emails in bulk
+        # (every public ``GET /scans`` that trips
+        # ``WEB_MAXRESULTS`` records an ``oversize_query``
+        # event with a ``NULL`` actor); indexing them would
+        # bloat the b-tree without helping any query, since
+        # the per-user trail lookup
+        # (``WHERE actor_user_email = ?``) is never sargable
+        # against ``NULL``.
+        #
+        # Pin both:
+        #
+        # * the declarative shape (``postgresql_where=...``
+        #   present on the SQLAlchemy ``Index`` kwargs), so a
+        #   future refactor that drops the kwarg surfaces
+        #   here rather than silently regressing on
+        #   production-grade Postgres deployments;
+        # * the compiled DDL on the ``postgresql`` dialect,
+        #   so a SQLAlchemy upgrade that changes how the
+        #   kwarg is rendered (e.g. quoting / casing /
+        #   parenthesisation) surfaces here as well.
+        #
+        # Mirrors the MongoDB backend's
+        # ``partialFilterExpression`` on
+        # ``actor.user_email: {"$type": "string"}``.
+        from sqlalchemy.dialects import postgresql
+        from sqlalchemy.schema import CreateIndex
+
+        from ivre.db.sql.tables import AuditEvent
+
+        indexes_by_name = {ix.name: ix for ix in AuditEvent.__table__.indexes}
+        user_idx = indexes_by_name["audit_events_idx_user_created"]
+        self.assertIn("postgresql_where", user_idx.kwargs)
+        self.assertIsNotNone(user_idx.kwargs["postgresql_where"])
+
+        ddl = str(CreateIndex(user_idx).compile(dialect=postgresql.dialect()))
+        self.assertIn("audit_events_idx_user_created", ddl)
+        # Be tolerant of whitespace / case variations a future
+        # SQLAlchemy could introduce; only pin the meaningful
+        # tokens.  Lower-case the compiled DDL (and the regex
+        # tokens) so a release that emits ``where`` /
+        # ``is not null`` -- or any other casing -- still
+        # matches.  The ``\s+`` whitespace tolerance is
+        # preserved.
+        normalized_ddl = ddl.lower()
+        self.assertRegex(
+            normalized_ddl,
+            r"where\s+actor_user_email\s+is\s+not\s+null",
+        )
+
+    def test_audit_events_user_index_is_stripped_on_duckdb(self) -> None:
+        # ``_is_unsupported_on_duckdb`` (the DuckDB ``init()``
+        # filter) explicitly recognises ``postgresql_where``
+        # and evicts the index from the table's ``indexes``
+        # set, because DuckDB raises
+        # ``NotImplementedException: Creating partial indexes
+        # is not supported currently`` if the DDL reaches it.
+        #
+        # Pinning the recogniser here catches a future drop
+        # of the ``postgresql_where`` kwarg detector
+        # immediately rather than at the next ``ivre auditcli
+        # --init`` against a DuckDB file, where a partial
+        # index gets emitted unconditionally and the init
+        # crashes.
+        from ivre.db.sql.duckdb import _is_unsupported_on_duckdb
+        from ivre.db.sql.tables import AuditEvent
+
+        indexes_by_name = {ix.name: ix for ix in AuditEvent.__table__.indexes}
+        user_idx = indexes_by_name["audit_events_idx_user_created"]
+        self.assertTrue(_is_unsupported_on_duckdb(user_idx))
+
+        # The two other audit indexes are plain b-trees and
+        # must remain supported on DuckDB (per-event-type
+        # trail + generic time-window scan).
+        for plain_idx_name in (
+            "audit_events_idx_type_created",
+            "audit_events_idx_created",
+        ):
+            with self.subTest(idx=plain_idx_name):
+                self.assertFalse(
+                    _is_unsupported_on_duckdb(indexes_by_name[plain_idx_name])
+                )
+
     def test_sqldbaudit_table_layout_wires_events(self) -> None:
         from ivre.db.sql import SQLDBAudit
         from ivre.db.sql.tables import AuditEvent
@@ -17024,11 +17110,36 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         from urllib.parse import urlparse
 
-        from ivre.db.sql.duckdb import DuckDBAudit
+        from ivre.db.sql.duckdb import DuckDBAudit, _is_unsupported_on_duckdb
         from ivre.db.sql.tables import AuditEvent, Base
 
         self._audit = DuckDBAudit(urlparse("duckdb:///:memory:"))
-        Base.metadata.create_all(self._audit.db, tables=[AuditEvent.__table__])
+        # Mirror what :meth:`DuckDBMixin.init` does at the
+        # full-backend level: evict indexes DuckDB rejects
+        # at create-time (currently the ``postgresql_where``
+        # partial index ``audit_events_idx_user_created``)
+        # before ``create_all`` reaches the catalog, then put
+        # them back as soon as the table is materialised so
+        # the rest of the test runs against the same
+        # canonical metadata operators see after
+        # :meth:`DuckDBMixin.init` returns.  In particular,
+        # :meth:`test_ensure_indexes_is_idempotent` must
+        # exercise the post-init() state where the partial
+        # index is once again declared on the table -- that
+        # is the path the new
+        # :meth:`DuckDBMixin.ensure_indexes` override has to
+        # handle without crashing.  ``try`` / ``finally`` so
+        # an unexpected ``create_all`` failure still restores
+        # the metadata for tests later in the same process.
+        table = AuditEvent.__table__
+        skipped = [ix for ix in table.indexes if _is_unsupported_on_duckdb(ix)]
+        for ix in skipped:
+            table.indexes.discard(ix)
+        try:
+            Base.metadata.create_all(self._audit.db, tables=[table])
+        finally:
+            for ix in skipped:
+                table.indexes.add(ix)
 
     def test_record_returns_event_id(self) -> None:
         event_id = self._audit.record(
@@ -17284,6 +17395,74 @@ class SQLDBAuditLiveIntegrationTests(unittest.TestCase):
         after = self._audit.record("upload", details={"phase": "after"})
         self.assertIsInstance(after, str)
         self.assertEqual(self._audit.count(), 1)
+
+
+@unittest.skipUnless(
+    _HAVE_SQLDB_AUDIT and _HAVE_DUCKDB_ENGINE_FOR_AUDIT,
+    "duckdb-engine is required (install with the ``duckdb`` extras)",
+)
+class DuckDBEnsureIndexesFkStripTests(unittest.TestCase):
+    """Regression for :meth:`DuckDBMixin.ensure_indexes`'s
+    foreign-key strip path.
+
+    Purposes carrying ``ondelete='CASCADE'`` foreign-key
+    constraints (``nmap`` / ``view`` -- see
+    :mod:`ivre.db.sql.tables`) reach DuckDB through
+    ``Table.create(checkfirst=True)`` on the first pass of
+    :meth:`SQLDB.ensure_indexes`.  DuckDB rejects ``CASCADE``
+    (``Parser Error: FOREIGN KEY constraints cannot use
+    CASCADE, SET NULL or SET DEFAULT``); the override must
+    strip the FK declarations for the duration of the call,
+    in lockstep with what :meth:`DuckDBMixin.init` does.
+
+    Pin both halves:
+
+    * the call against a fresh DuckDB does not raise,
+    * the metadata is restored on exit so PostgreSQL-flavoured
+      schema tests running later in the same process still see
+      the canonical ``ForeignKeyConstraint`` declarations.
+    """
+
+    def test_ensure_indexes_strips_cascade_fks_on_nmap(self) -> None:
+        from urllib.parse import urlparse
+
+        from ivre.db.sql.duckdb import DuckDBNmap
+        from ivre.db.sql.tables import N_Port
+
+        # Pre-flight: the cascade FKCs we expect to crash on
+        # must actually be declared, otherwise this test would
+        # pass trivially after a future refactor that removes
+        # them.
+        cascade_fkcs_before = [
+            fkc
+            for fkc in N_Port.__table__.foreign_key_constraints
+            if fkc.ondelete == "CASCADE"
+        ]
+        self.assertTrue(
+            cascade_fkcs_before,
+            "N_Port is expected to carry ON DELETE CASCADE FKs",
+        )
+
+        db = DuckDBNmap(urlparse("duckdb:///:memory:"))
+        # Must not raise.  Before the FK strip was wired into
+        # the override, this crashed in the base
+        # ``Table.create(checkfirst=True)`` pass.
+        db.ensure_indexes()
+
+        # Metadata restored.  Sibling tests (e.g. the audit
+        # schema tests above) rely on the canonical FK set
+        # being back on :class:`N_Port.__table__` after this
+        # class runs.
+        cascade_fkcs_after = [
+            fkc
+            for fkc in N_Port.__table__.foreign_key_constraints
+            if fkc.ondelete == "CASCADE"
+        ]
+        self.assertEqual(
+            len(cascade_fkcs_after),
+            len(cascade_fkcs_before),
+            "DuckDBMixin.ensure_indexes must restore stripped FKs",
+        )
 
 
 # ---------------------------------------------------------------------

@@ -40,6 +40,7 @@ from sqlalchemy import (
     column,
     func,
     literal_column,
+    text,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import declarative_base, declared_attr, mapped_column
@@ -1216,10 +1217,39 @@ class AuditEvent(Base):
             "event_type",
             "created_at",
         ),
+        # Partial index: the per-user trail lookup (``WHERE
+        # actor_user_email = ? ORDER BY created_at DESC``) never
+        # benefits from rows where ``actor_user_email IS NULL``,
+        # but anonymous / ``REMOTE_USER``-less traffic produces
+        # exactly those rows in bulk (every public ``GET /scans``
+        # that trips ``WEB_MAXRESULTS`` records an
+        # ``oversize_query`` event with a ``NULL`` actor).
+        # Restricting the index to non-NULL emails cuts the
+        # index size to the cardinality of the audited-actors
+        # set rather than every audit event ever recorded,
+        # without changing the query plan -- the planner picks
+        # the partial index whenever the filter is sargable
+        # against the predicate.
+        #
+        # ``postgresql_where`` is a PostgreSQL-only DDL option;
+        # the duckdb-engine dialect inherits from PostgreSQL's
+        # but DuckDB itself raises ``NotImplementedException:
+        # Creating partial indexes is not supported currently``.
+        # :func:`ivre.db.sql.duckdb._is_unsupported_on_duckdb`
+        # already recognises ``postgresql_where`` and strips
+        # such indexes from each table's ``__table__.indexes``
+        # at ``init()`` time on the DuckDB backend, so the SQL
+        # mirrors the MongoDB backend's
+        # ``partialFilterExpression`` on PostgreSQL (the
+        # production target) and degrades to a sequential scan
+        # on DuckDB (dev / test only, where audit volumes are
+        # tiny by construction).  Same precedent as the
+        # :class:`Passive` table's partial-unique indexes.
         Index(
             "audit_events_idx_user_created",
             "actor_user_email",
             "created_at",
+            postgresql_where=text("actor_user_email IS NOT NULL"),
         ),
         Index("audit_events_idx_created", "created_at"),
     )
