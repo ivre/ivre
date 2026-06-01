@@ -93,7 +93,6 @@ export function AuditEventRow({
         ? {
             role: "button",
             tabIndex: 0,
-            "aria-pressed": selected ?? false,
             onClick: () => onSelect(event),
             onKeyDown: (e: ReactKeyboardEvent) => {
               if (e.key === "Enter" || e.key === " ") {
