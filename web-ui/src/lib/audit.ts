@@ -138,6 +138,18 @@ export function isoToLocalInput(iso: string | null | undefined): string {
   );
 }
 
+/** Sanitize a ``since`` / ``until`` value read from the URL before
+ *  it is forwarded to the backend.  The Explorer always writes
+ *  canonical ISO here, but a hand-edited or stale permalink can
+ *  carry garbage; forwarding it would make the events query fail
+ *  with HTTP 400 and leave the (blank) input inconsistent with
+ *  the URL.  Returns the value unchanged when it parses as a
+ *  date, ``""`` otherwise (treated as "no bound"). */
+export function sanitizeWhen(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return Number.isNaN(new Date(raw).getTime()) ? "" : raw;
+}
+
 /* ------------------------------------------------------------------ */
 /* Raw fetchers                                                       */
 /* ------------------------------------------------------------------ */

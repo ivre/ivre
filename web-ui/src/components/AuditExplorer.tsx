@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   isoToLocalInput,
   localInputToIso,
+  sanitizeWhen,
   useAuditCount,
   useAuditEvent,
   useAuditEvents,
@@ -70,8 +71,13 @@ export function AuditExplorer() {
     ? (rawType as AuditEventType)
     : undefined;
   const userEmail = searchParams.get("user") ?? "";
-  const since = searchParams.get("since") ?? "";
-  const until = searchParams.get("until") ?? "";
+  // Sanitize the time bounds on read: a malformed ``?since`` /
+  // ``?until`` (hand-edited or stale permalink) is treated as
+  // unset rather than forwarded to the backend, which would
+  // reject it with HTTP 400 and leave the blank input
+  // inconsistent with the URL.
+  const since = sanitizeWhen(searchParams.get("since"));
+  const until = sanitizeWhen(searchParams.get("until"));
 
   const filters: AuditFilters = {
     event_type: eventType,
@@ -86,13 +92,23 @@ export function AuditExplorer() {
   const events = eventsQuery.data?.pages.flat() ?? [];
 
   // -- URL helpers ------------------------------------------------
+  // Functional updater so the mutation always rebuilds from the
+  // *latest* params at apply time.  This matters for the
+  // debounced user-email commit below: a timer scheduled against
+  // one render must not clobber filter changes (type / since /
+  // until) made before it fires.
   const patchParams = (
     mutate: (p: URLSearchParams) => void,
     opts: { replace?: boolean } = {},
   ) => {
-    const next = new URLSearchParams(searchParams);
-    mutate(next);
-    setSearchParams(next, { replace: opts.replace ?? false });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        mutate(next);
+        return next;
+      },
+      { replace: opts.replace ?? false },
+    );
   };
 
   const setEventType = (value: string) =>
@@ -115,23 +131,31 @@ export function AuditExplorer() {
       else p.delete("until");
     });
 
-  // -- user_email debounce (mirrors NotesRoute search box) --------
+  // -- user_email debounce ----------------------------------------
+  // Commit the typed value to the URL 300ms after the last
+  // keystroke.  The timer applies the change through a functional
+  // ``setSearchParams`` updater (reading the latest params at
+  // apply time), so a pending commit never overwrites filter
+  // changes the operator made in the meantime.  ``setSearchParams``
+  // is identity-stable, so the deps are exhaustive without a
+  // suppression.
   const [userInput, setUserInput] = useState(userEmail);
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (userInput.trim() === userEmail) return;
-      patchParams(
-        (p) => {
-          const trimmed = userInput.trim();
-          if (trimmed) p.set("user", trimmed);
-          else p.delete("user");
+      const trimmed = userInput.trim();
+      if (trimmed === userEmail) return;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (trimmed) next.set("user", trimmed);
+          else next.delete("user");
+          return next;
         },
         { replace: true },
       );
     }, 300);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userInput, userEmail]);
+  }, [userInput, userEmail, setSearchParams]);
   useEffect(() => {
     setUserInput(userEmail);
   }, [userEmail]);
@@ -147,7 +171,12 @@ export function AuditExplorer() {
     });
 
   // -- detail-sheet resolution ------------------------------------
-  const selectedId = searchParams.get("event");
+  // Normalize an empty ``?event=`` to ``null``: otherwise the
+  // sheet would open (``open={selectedId !== null}``) on an empty
+  // string while the single-event query stays disabled, leaving a
+  // blank sheet.  ``null`` keeps the sheet closed when no id is
+  // selected.
+  const selectedId = searchParams.get("event") || null;
   const listSelected =
     events.find((ev) => ev.event_id === selectedId) ?? null;
   // Fall back to the single-event endpoint when the selected id

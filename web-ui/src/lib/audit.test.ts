@@ -6,6 +6,7 @@ import {
   fetchAuditEvents,
   isoToLocalInput,
   localInputToIso,
+  sanitizeWhen,
   type AuditEvent,
 } from "./audit";
 
@@ -225,5 +226,30 @@ describe("isoToLocalInput", () => {
     ]) {
       expect(isoToLocalInput(localInputToIso(local))).toBe(local);
     }
+  });
+});
+
+describe("sanitizeWhen", () => {
+  it("returns '' for empty / null / undefined", () => {
+    expect(sanitizeWhen("")).toBe("");
+    expect(sanitizeWhen(null)).toBe("");
+    expect(sanitizeWhen(undefined)).toBe("");
+  });
+
+  it("returns '' for an unparsable value (would 400 the backend)", () => {
+    expect(sanitizeWhen("garbage")).toBe("");
+    expect(sanitizeWhen("2026-13-99T99:99")).toBe("");
+  });
+
+  it("passes a valid ISO / timestamp value through unchanged", () => {
+    expect(sanitizeWhen("2026-05-25T00:00:00.000Z")).toBe(
+      "2026-05-25T00:00:00.000Z",
+    );
+    expect(sanitizeWhen("2026-05-25")).toBe("2026-05-25");
+    // A bare epoch-seconds string is a valid backend input but
+    // not a JS Date string; the Explorer never writes one, and
+    // ``new Date("1716595200")`` is invalid, so it is treated as
+    // unset here.  Documented as a known narrowing, not a bug.
+    expect(sanitizeWhen("not-a-date")).toBe("");
   });
 });

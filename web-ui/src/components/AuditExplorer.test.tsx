@@ -282,6 +282,51 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     expect(currentSearch).not.toContain("user=");
     expect(currentSearch).not.toContain("since=");
   });
+
+  it("a pending user-email debounce does not clobber a later filter change", () => {
+    // Regression: the debounce timer must apply through a
+    // functional setSearchParams updater so it rebuilds from the
+    // latest params.  Type into the user box (timer pending),
+    // change the event type, then let the timer fire -- both the
+    // type change and the user commit must survive.
+    vi.useFakeTimers();
+    renderExplorer();
+
+    fireEvent.change(screen.getByTestId("audit-explorer-user-input"), {
+      target: { value: "carol@example.org" },
+    });
+    // Before the debounce fires, change another filter.
+    fireEvent.change(screen.getByTestId("audit-explorer-type-select"), {
+      target: { value: "upload" },
+    });
+    expect(currentSearch).toContain("type=upload");
+
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+
+    const params = new URLSearchParams(currentSearch);
+    expect(params.get("type")).toBe("upload"); // not clobbered
+    expect(params.get("user")).toBe("carol@example.org");
+  });
+
+  it("treats a malformed ?since as unset (not forwarded to the backend)", () => {
+    renderExplorer("/audit/explorer?since=garbage&type=upload");
+    // The bad bound is sanitized to ``undefined`` in the filter
+    // dict so the events query never forwards it (which would
+    // 400); the rest of the filter set is unaffected.
+    expect(
+      useAuditEventsCalls.some(
+        (f) => f.since === undefined && f.event_type === "upload",
+      ),
+    ).toBe(true);
+    // The since input renders blank (consistent with "no bound").
+    expect(
+      (screen.getByTestId(
+        "audit-explorer-since-input",
+      ) as HTMLInputElement).value,
+    ).toBe("");
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -373,6 +418,23 @@ describe("AuditExplorer detail sheet", () => {
     // Radix Dialog close button carries an accessible name.
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     await waitFor(() => expect(currentSearch).not.toContain("event="));
+  });
+
+  it("keeps the sheet closed for an empty ?event= (no blank sheet)", () => {
+    // ``searchParams.get("event")`` is "" for ``?event=``;
+    // normalizing to null must keep the sheet closed and the
+    // single-event query disabled rather than opening a blank
+    // sheet.
+    eventsState.data = { pages: [[makeEvent()]], pageParams: [0] };
+
+    renderExplorer("/audit/explorer?event=");
+
+    expect(
+      screen.queryByTestId("audit-event-detail-sheet"),
+    ).not.toBeInTheDocument();
+    // The fallback single-event query must not be enabled for an
+    // empty id.
+    expect(useAuditEventCalls.every((c) => c.enabled !== true)).toBe(true);
   });
 });
 
