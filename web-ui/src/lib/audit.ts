@@ -114,7 +114,7 @@ export interface AuditFilters {
  *  instant.  The backend's ``_parse_audit_datetime`` accepts ISO
  *  with a ``Z`` offset directly, so the comparison aligns with
  *  the UTC-aware ``created_at`` column without any server-side
- *  guessing.  Returns ``undefined`` for an empty / unparseable
+ *  guessing.  Returns ``undefined`` for an empty / unparsable
  *  value so callers can drop the filter cleanly. */
 export function localInputToIso(local: string): string | undefined {
   if (!local) return undefined;
@@ -126,7 +126,7 @@ export function localInputToIso(local: string): string | undefined {
 /** Inverse of :func:`localInputToIso`: render a stored ISO /
  *  timestamp value back into the local ``YYYY-MM-DDTHH:mm`` shape
  *  a ``datetime-local`` input expects.  Returns ``""`` for an
- *  empty / unparseable value. */
+ *  empty / unparsable value. */
 export function isoToLocalInput(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);

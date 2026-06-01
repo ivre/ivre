@@ -185,7 +185,7 @@ describe("localInputToIso", () => {
     expect(localInputToIso("")).toBeUndefined();
   });
 
-  it("returns undefined for an unparseable value", () => {
+  it("returns undefined for an unparsable value", () => {
     expect(localInputToIso("not-a-date")).toBeUndefined();
   });
 
@@ -210,7 +210,7 @@ describe("isoToLocalInput", () => {
     expect(isoToLocalInput(undefined)).toBe("");
   });
 
-  it("returns '' for an unparseable value", () => {
+  it("returns '' for an unparsable value", () => {
     expect(isoToLocalInput("garbage")).toBe("");
   });
 
