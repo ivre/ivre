@@ -1,9 +1,11 @@
 import { CloudUpload, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { AuditEvent, AuditEventType } from "@/lib/audit";
 import { formatTimestamp } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export interface AuditEventsTableProps {
   events: readonly AuditEvent[];
@@ -55,18 +57,52 @@ export function AuditEventsTable({
   );
 }
 
-function AuditEventRow({
-  event,
-  showActor,
-}: {
+export interface AuditEventRowProps {
   event: AuditEvent;
   showActor: boolean;
-}) {
+  /** When provided, the row becomes an interactive button that
+   *  invokes this with the event (used by the Explorer to open
+   *  the detail sheet).  Omitted on the read-only Step 1
+   *  panels, where rows are static. */
+  onSelect?: (event: AuditEvent) => void;
+  /** Highlight the row as the currently-open detail target. */
+  selected?: boolean;
+}
+
+/** A single audit-event card.  Exported so both
+ *  :func:`AuditEventsTable` (static, Step 1 panels) and the
+ *  virtualized Explorer list render identical rows. */
+export function AuditEventRow({
+  event,
+  showActor,
+  onSelect,
+  selected,
+}: AuditEventRowProps) {
+  const interactive = onSelect !== undefined;
   return (
     <Card
-      className="border-gray-200/60 py-0 shadow-none dark:border-blue-950/60"
+      className={cn(
+        "border-gray-200/60 py-0 shadow-none dark:border-blue-950/60",
+        interactive &&
+          "cursor-pointer transition-colors hover:border-blue-400/60 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        selected && "border-blue-500/70 bg-accent/60",
+      )}
       data-testid="audit-events-row"
       data-event-id={event.event_id}
+      {...(interactive
+        ? {
+            role: "button",
+            tabIndex: 0,
+            "aria-pressed": selected ?? false,
+            onClick: () => onSelect(event),
+            onKeyDown: (e: ReactKeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(event);
+              }
+            },
+          }
+        : {})}
     >
       <CardContent className="space-y-1 p-3">
         <div className="flex items-start justify-between gap-3">

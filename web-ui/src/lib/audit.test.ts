@@ -4,6 +4,8 @@ import {
   fetchAuditCount,
   fetchAuditEvent,
   fetchAuditEvents,
+  isoToLocalInput,
+  localInputToIso,
   type AuditEvent,
 } from "./audit";
 
@@ -171,5 +173,57 @@ describe("fetchAuditEvent", () => {
   it("throws on 404", async () => {
     mockFetch(vi.fn(async () => new Response("nf", { status: 404 })));
     await expect(fetchAuditEvent("abc")).rejects.toThrow(/audit\/abc.*404/);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* datetime-local <-> ISO helpers                                     */
+/* ------------------------------------------------------------------ */
+
+describe("localInputToIso", () => {
+  it("returns undefined for an empty value (filter dropped)", () => {
+    expect(localInputToIso("")).toBeUndefined();
+  });
+
+  it("returns undefined for an unparseable value", () => {
+    expect(localInputToIso("not-a-date")).toBeUndefined();
+  });
+
+  it("produces a UTC ISO string ending in Z for a valid local value", () => {
+    const iso = localInputToIso("2026-05-25T12:00");
+    expect(iso).toBeDefined();
+    // Canonical UTC form: ends in ``Z`` so the backend's ISO
+    // parser reads it as UTC-aware, matching ``created_at``.
+    expect(iso).toMatch(/Z$/);
+    // It must denote the same instant the local input did,
+    // regardless of the test runner's timezone.
+    expect(new Date(iso as string).getTime()).toBe(
+      new Date("2026-05-25T12:00").getTime(),
+    );
+  });
+});
+
+describe("isoToLocalInput", () => {
+  it("returns '' for empty / null / undefined", () => {
+    expect(isoToLocalInput("")).toBe("");
+    expect(isoToLocalInput(null)).toBe("");
+    expect(isoToLocalInput(undefined)).toBe("");
+  });
+
+  it("returns '' for an unparseable value", () => {
+    expect(isoToLocalInput("garbage")).toBe("");
+  });
+
+  it("round-trips with localInputToIso (timezone-independent)", () => {
+    // The key invariant: a value typed into the datetime-local
+    // input survives a URL store (as UTC ISO) and a reload back
+    // into the input unchanged, whatever the runner's TZ is.
+    for (const local of [
+      "2026-05-25T12:00",
+      "2026-01-01T00:00",
+      "2025-12-31T23:59",
+    ]) {
+      expect(isoToLocalInput(localInputToIso(local))).toBe(local);
+    }
   });
 });

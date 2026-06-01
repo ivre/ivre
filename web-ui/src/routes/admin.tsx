@@ -1,8 +1,9 @@
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, SlidersHorizontal } from "lucide-react";
 
 import { AdminApiKeysPanel } from "@/components/AdminApiKeysPanel";
 import { AdminAuditEventsPanel } from "@/components/AdminAuditEventsPanel";
 import { AdminUsersPanel } from "@/components/AdminUsersPanel";
+import { Button } from "@/components/ui/button";
 import {
   Tabs,
   TabsContent,
@@ -85,7 +86,15 @@ export function AdminRoute() {
         <TabsContent value="api-keys">
           <AdminApiKeysPanel />
         </TabsContent>
-        <TabsContent value="audit">
+        <TabsContent value="audit" className="space-y-3">
+          <div className="flex justify-end">
+            <Button asChild variant="outline" size="sm">
+              <a href="#/audit/explorer" data-testid="admin-audit-open-explorer">
+                <SlidersHorizontal className="size-4" aria-hidden />
+                Open Explorer
+              </a>
+            </Button>
+          </div>
           <AdminAuditEventsPanel />
         </TabsContent>
       </Tabs>

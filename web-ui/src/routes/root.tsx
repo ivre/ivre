@@ -13,6 +13,7 @@ import { ActiveRoute } from "./active";
 import { AdminRoute } from "./admin";
 import { ApiKeysRoute } from "./api-keys";
 import { AuditRoute } from "./audit";
+import { AuditExplorerRoute } from "./audit-explorer";
 import { DnsRoute } from "./dns";
 import { FlowRoute } from "./flow";
 import { NotesRoute } from "./notes";
@@ -101,6 +102,12 @@ const router = createHashRouter([
       // a section.  The matching cross-user view lives under
       // Admin > Audit log.
       { path: "audit", element: <AuditRoute /> },
+      // Full audit-log Explorer: the Step-2 surface with the
+      // complete filter set, virtualized list, and deep-linkable
+      // single-event detail sheet (``?event=<id>``).  Linked
+      // from the Admin "Audit log" tab; open to any
+      // authenticated user (backend scopes non-admins to self).
+      { path: "audit/explorer", element: <AuditExplorerRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],
