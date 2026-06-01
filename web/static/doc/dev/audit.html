@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audit log &mdash; IVRE  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tests" href="tests.html" />
+    <link rel="prev" title="Web API" href="web-api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            IVRE
+              <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="web-api.html">Web API</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Audit log</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#event-types">Event types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#reading-the-log">Reading the log</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#command-line">Command line</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#web-api">Web API</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#no-mcp-surface">No MCP surface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#retention">Retention</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="tests.html">Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linting.html">Code linting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mcp-plugins.html">MCP server plugins</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Development</a></li>
+      <li class="breadcrumb-item active">Audit log</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/dev/audit.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="audit-log">
+<h1>Audit log<a class="headerlink" href="#audit-log" title="Link to this heading"></a></h1>
+<p>IVRE keeps an <strong>append-only audit log</strong> of the security-relevant
+actions performed through its web layer: data uploads, admin
+actions, and queries large enough to be truncated. It is a
+security control first and a debugging aid second – the storage
+layer is <em>fail-loud</em>, so an event that cannot be written aborts
+the request rather than silently dropping the record.</p>
+<p>The audit purpose (<code class="docutils literal notranslate"><span class="pre">db.audit</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ivre.db.DBAudit</span></code>) is
+independent from the data purposes (<code class="docutils literal notranslate"><span class="pre">nmap</span></code> / <code class="docutils literal notranslate"><span class="pre">view</span></code> /
+<code class="docutils literal notranslate"><span class="pre">passive</span></code> / <code class="docutils literal notranslate"><span class="pre">flow</span></code>): it can point at a different,
+write-restricted backend, and a deployment that does not opt into
+it simply has <code class="docutils literal notranslate"><span class="pre">db.audit</span> <span class="pre">is</span> <span class="pre">None</span></code> with no events recorded.</p>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<p>The backend is selected by the <code class="docutils literal notranslate"><span class="pre">DB_AUDIT</span></code> option in
+<code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>. When left unset it defaults to the value of
+<code class="docutils literal notranslate"><span class="pre">DB</span></code>, so operators get a working <code class="docutils literal notranslate"><span class="pre">db.audit</span></code> out of the box:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Same store as everything else (the default): leave</span>
+<span class="c1"># DB_AUDIT unset and it follows DB.</span>
+
+<span class="c1"># Or send the audit stream to a dedicated, write-restricted</span>
+<span class="c1"># store (typical for compliance setups):</span>
+<span class="n">DB_AUDIT</span> <span class="o">=</span> <span class="s2">&quot;postgresql://ivre:ivre@db.example/ivre_audit&quot;</span>
+</pre></div>
+</div>
+<p>The audit purpose is supported on MongoDB, PostgreSQL and DuckDB.
+Provision (or re-provision) its collection / table and indexes
+with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre auditcli --init            # drop + recreate (destroys events)
+$ ivre auditcli --ensure-indexes  # create missing indexes, keep data
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--ensure-indexes</span></code> is idempotent and never drops rows; run it
+after upgrading IVRE on an existing deployment.</p>
+</section>
+<section id="event-types">
+<h2>Event types<a class="headerlink" href="#event-types" title="Link to this heading"></a></h2>
+<p>Three categories are recorded (the closed set in
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">ivre.db.DBAudit.EVENT_TYPES</span></code>):</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">upload</span></code></dt><dd><p>A successful write against <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/scans</span></code>, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/view</span></code>,
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/flows</span></code> or <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/flows/cleanup</span></code> – data ingested
+through the web API.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">admin_action</span></code></dt><dd><p>A mutating request under <code class="docutils literal notranslate"><span class="pre">/cgi/auth/admin/*</span></code> (creating or
+updating a user, revoking another user’s API key, …).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oversize_query</span></code></dt><dd><p>A record-listing request whose underlying result count
+exceeded <code class="docutils literal notranslate"><span class="pre">WEB_MAXRESULTS</span></code>. The event is recorded before the
+truncated response is streamed, so the trail captures queries
+that saw only part of the matching set.</p>
+</dd>
+</dl>
+<p>Each event carries the actor (user e-mail, API-key hash and
+remote address, any of which may be empty for anonymous traffic),
+the targeted resource (route and method), an outcome (typically
+the HTTP status), a free-form <code class="docutils literal notranslate"><span class="pre">details</span></code> object whose shape
+depends on the event type, and a UTC <code class="docutils literal notranslate"><span class="pre">created_at</span></code> timestamp.</p>
+<p>Events are produced automatically by the per-route hook in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">ivre.web.audit_hook</span></code>; application code does not call the
+storage layer directly.</p>
+</section>
+<section id="reading-the-log">
+<h2>Reading the log<a class="headerlink" href="#reading-the-log" title="Link to this heading"></a></h2>
+<section id="command-line">
+<h3>Command line<a class="headerlink" href="#command-line" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditcli</span></code> is the operator-side reader. It runs locally
+against the configured backend with full privilege – the
+assumption being that shell access to the IVRE host already
+grants access to the raw collection – so it applies <strong>no</strong>
+per-user gating, unlike the web API below.</p>
+<p>Actions (mutually exclusive; <code class="docutils literal notranslate"><span class="pre">--query</span></code> is the default):</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">--query</span></code></dt><dd><p>List matching events as a JSON array, newest first.
+<code class="docutils literal notranslate"><span class="pre">--limit</span></code> (default 100) and <code class="docutils literal notranslate"><span class="pre">--skip</span></code> paginate.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--count</span></code></dt><dd><p>Print the number of matching events.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--get</span> <span class="pre">EVENT_ID</span></code></dt><dd><p>Fetch a single event by id (any textual UUID form), or
+<code class="docutils literal notranslate"><span class="pre">null</span></code> when none matches.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--purge-older-than</span> <span class="pre">DURATION</span></code></dt><dd><p>Delete every event older than the cutoff and print the number
+removed (see <a class="reference internal" href="#retention"><span class="std std-ref">Retention</span></a>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--init</span></code> / <code class="docutils literal notranslate"><span class="pre">--ensure-indexes</span></code></dt><dd><p>Collection / index lifecycle (see
+<a class="reference internal" href="#configuration"><span class="std std-ref">Configuration</span></a>).</p>
+</dd>
+</dl>
+<p>Filters (apply to <code class="docutils literal notranslate"><span class="pre">--query</span></code> and <code class="docutils literal notranslate"><span class="pre">--count</span></code>):</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">--event-type</span> <span class="pre">{upload,admin_action,oversize_query}</span></code></dt><dd><p>Narrow to one category.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--user-email</span> <span class="pre">EMAIL</span></code></dt><dd><p>Narrow to one user’s events.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--since</span> <span class="pre">WHEN</span></code> / <code class="docutils literal notranslate"><span class="pre">--until</span> <span class="pre">WHEN</span></code></dt><dd><p>Bound <code class="docutils literal notranslate"><span class="pre">created_at</span></code>. <code class="docutils literal notranslate"><span class="pre">WHEN</span></code> accepts duration shorthand
+relative to now (<code class="docutils literal notranslate"><span class="pre">30d</span></code>, <code class="docutils literal notranslate"><span class="pre">2h</span></code>, <code class="docutils literal notranslate"><span class="pre">90m</span></code>, …), a Unix
+timestamp, or an ISO-8601 datetime (naive values are read as
+UTC). <code class="docutils literal notranslate"><span class="pre">--since</span></code> is inclusive, <code class="docutils literal notranslate"><span class="pre">--until</span></code> exclusive.</p>
+</dd>
+</dl>
+<p>The duration shorthand matches the <code class="docutils literal notranslate"><span class="pre">timeago:</span></code> syntax of the web
+query parser, so the same expression works on both sides.</p>
+<p>Examples:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># Everything alice did in the last week:
+$ ivre auditcli --user-email alice@example.org --since 7d
+
+# How many oversize queries in the last 30 days:
+$ ivre auditcli --count --event-type oversize_query --since 30d
+
+# One event, pretty-printed:
+$ ivre auditcli --get 3f1e8c1a... --indent 2
+</pre></div>
+</div>
+</section>
+<section id="web-api">
+<h3>Web API<a class="headerlink" href="#web-api" title="Link to this heading"></a></h3>
+<p>The same events are exposed read-only under <code class="docutils literal notranslate"><span class="pre">/cgi/audit/*</span></code>.
+These routes are <strong>admin-or-self</strong> gated: an authenticated user
+reads their own trail, an admin reads everyone’s, and an
+anonymous caller gets <code class="docutils literal notranslate"><span class="pre">401</span></code>. A non-admin who asks for another
+user’s events with <code class="docutils literal notranslate"><span class="pre">user_email=</span></code> gets <code class="docutils literal notranslate"><span class="pre">403</span></code>. When no audit
+backend is configured the routes return <code class="docutils literal notranslate"><span class="pre">501</span></code>.</p>
+<p>The full request / response reference (query parameters, status
+codes, response shapes) is generated from the route docstrings on
+the <a class="reference internal" href="web-api.html#web-api"><span class="std std-ref">Web API</span></a> page; see the <em>List audit events</em>,
+<em>Count audit events</em> and <em>Read a single audit event</em> endpoints.
+Authentication uses the standard web-layer session / API-key flow
+(see <a class="reference internal" href="../usage/web-auth.html#web-authentication"><span class="std std-ref">Web Authentication</span></a>).</p>
+</section>
+</section>
+<section id="no-mcp-surface">
+<h2>No MCP surface<a class="headerlink" href="#no-mcp-surface" title="Link to this heading"></a></h2>
+<p>The audit log is deliberately <strong>not</strong> exposed through the
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span></code>. It is a security control, and giving an
+LLM-driven agent a read path into the log would broaden the
+attack surface of the log itself (and risk leaking one user’s
+actions to another through a tool the gate does not cover).
+Programmatic consumers use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditcli</span></code> or the
+<code class="docutils literal notranslate"><span class="pre">/cgi/audit/*</span></code> routes, both of which apply the appropriate
+trust boundary.</p>
+</section>
+<section id="retention">
+<h2>Retention<a class="headerlink" href="#retention" title="Link to this heading"></a></h2>
+<p>Retention is <strong>operator-driven</strong>. IVRE ships <strong>no</strong> automatic
+expiry: there is no TTL index and no <code class="docutils literal notranslate"><span class="pre">WEB_AUDIT_TTL_SECONDS</span></code> (or
+equivalent) configuration knob. An audit log that silently sheds
+its oldest entries is a poor security control – the deletion
+policy should be an explicit, auditable operator decision, not a
+hidden default.</p>
+<p>The single retention verb is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre auditcli --purge-older-than 180d
+</pre></div>
+</div>
+<p>which deletes every event whose <code class="docutils literal notranslate"><span class="pre">created_at</span></code> is older than the
+cutoff and prints the number removed. <code class="docutils literal notranslate"><span class="pre">DURATION</span></code> accepts the
+same shorthand as <code class="docutils literal notranslate"><span class="pre">--since</span></code> (<code class="docutils literal notranslate"><span class="pre">180d</span></code>, <code class="docutils literal notranslate"><span class="pre">2y</span></code>, or a bare
+integer count of seconds).</p>
+<p>Operators who want periodic pruning schedule this command
+themselves – for example a daily <code class="docutils literal notranslate"><span class="pre">cron</span></code> entry or a <code class="docutils literal notranslate"><span class="pre">systemd</span></code>
+timer:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># /etc/cron.d/ivre-audit-retention</span>
+<span class="mi">17</span> <span class="mi">3</span> <span class="o">*</span> <span class="o">*</span> <span class="o">*</span>  <span class="n">ivre</span>  <span class="n">ivre</span> <span class="n">auditcli</span> <span class="o">--</span><span class="n">purge</span><span class="o">-</span><span class="n">older</span><span class="o">-</span><span class="n">than</span> <span class="mi">365</span><span class="n">d</span>
+</pre></div>
+</div>
+<p>Pointing <code class="docutils literal notranslate"><span class="pre">DB_AUDIT</span></code> at a dedicated, write-restricted store (for
+example a PostgreSQL instance with append-only controls) composes
+with this: the application only ever appends and runs the explicit
+purge, while the database enforces the WORM-style guarantees a
+compliance regime may require.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="web-api.html" class="btn btn-neutral float-left" title="Web API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tests.html" class="btn btn-neutral float-right" title="Tests" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2011 - 2026, Pierre LALET.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
