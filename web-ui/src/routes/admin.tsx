@@ -1,6 +1,7 @@
 import { ShieldAlert } from "lucide-react";
 
 import { AdminApiKeysPanel } from "@/components/AdminApiKeysPanel";
+import { AdminAuditEventsPanel } from "@/components/AdminAuditEventsPanel";
 import { AdminUsersPanel } from "@/components/AdminUsersPanel";
 import {
   Tabs,
@@ -12,7 +13,7 @@ import { useAuthMe } from "@/lib/auth";
 import { isAuthEnabled } from "@/lib/config";
 
 /**
- * Admin route. Two panels:
+ * Admin route. Three panels:
  *
  *  - **Users**: lists every user via ``/cgi/auth/admin/users``;
  *    quick toggles for ``is_active`` / ``is_admin``; an inline
@@ -23,6 +24,10 @@ import { isAuthEnabled } from "@/lib/config";
  *    revoke any key from here. The same admin (like every
  *    other user) manages their own keys from the
  *    ``/api-keys`` self-service page.
+ *  - **Audit log**: cross-user audit trail via
+ *    ``/cgi/audit/``; admins can filter by ``user_email`` to
+ *    pivot to one user's trail.  The matching self-service
+ *    surface (the caller's own trail) lives at ``/audit``.
  *
  * The Admin route is reachable from the user menu only — it
  * does not appear in the section nav (which is reserved for
@@ -72,12 +77,16 @@ export function AdminRoute() {
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="api-keys">API keys</TabsTrigger>
+          <TabsTrigger value="audit">Audit log</TabsTrigger>
         </TabsList>
         <TabsContent value="users">
           <AdminUsersPanel />
         </TabsContent>
         <TabsContent value="api-keys">
           <AdminApiKeysPanel />
+        </TabsContent>
+        <TabsContent value="audit">
+          <AdminAuditEventsPanel />
         </TabsContent>
       </Tabs>
     </div>

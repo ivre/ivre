@@ -166,6 +166,15 @@ jobs:
           echo "Bundle is self-contained."
 
       - name: Install Playwright browsers
+        # Cap this step: the browser download has been observed
+        # to stall *after* the Chrome-for-Testing archive reaches
+        # 100% (a transient Playwright-CDN / runner network
+        # hang), which otherwise pins the job until GitHub's 6h
+        # hard max-duration limit before it is killed. A tight
+        # per-step timeout turns that into a fast, retryable
+        # failure instead of a 6h runner burn. The normal install
+        # finishes in well under a minute.
+        timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium
 
       - name: End-to-end smoke test
