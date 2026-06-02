@@ -4,6 +4,9 @@ import {
   fetchAuditCount,
   fetchAuditEvent,
   fetchAuditEvents,
+  isoToLocalInput,
+  localInputToIso,
+  sanitizeWhen,
   type AuditEvent,
 } from "./audit";
 
@@ -171,5 +174,82 @@ describe("fetchAuditEvent", () => {
   it("throws on 404", async () => {
     mockFetch(vi.fn(async () => new Response("nf", { status: 404 })));
     await expect(fetchAuditEvent("abc")).rejects.toThrow(/audit\/abc.*404/);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* datetime-local <-> ISO helpers                                     */
+/* ------------------------------------------------------------------ */
+
+describe("localInputToIso", () => {
+  it("returns undefined for an empty value (filter dropped)", () => {
+    expect(localInputToIso("")).toBeUndefined();
+  });
+
+  it("returns undefined for an unparsable value", () => {
+    expect(localInputToIso("not-a-date")).toBeUndefined();
+  });
+
+  it("produces a UTC ISO string ending in Z for a valid local value", () => {
+    const iso = localInputToIso("2026-05-25T12:00");
+    expect(iso).toBeDefined();
+    // Canonical UTC form: ends in ``Z`` so the backend's ISO
+    // parser reads it as UTC-aware, matching ``created_at``.
+    expect(iso).toMatch(/Z$/);
+    // It must denote the same instant the local input did,
+    // regardless of the test runner's timezone.
+    expect(new Date(iso as string).getTime()).toBe(
+      new Date("2026-05-25T12:00").getTime(),
+    );
+  });
+});
+
+describe("isoToLocalInput", () => {
+  it("returns '' for empty / null / undefined", () => {
+    expect(isoToLocalInput("")).toBe("");
+    expect(isoToLocalInput(null)).toBe("");
+    expect(isoToLocalInput(undefined)).toBe("");
+  });
+
+  it("returns '' for an unparsable value", () => {
+    expect(isoToLocalInput("garbage")).toBe("");
+  });
+
+  it("round-trips with localInputToIso (timezone-independent)", () => {
+    // The key invariant: a value typed into the datetime-local
+    // input survives a URL store (as UTC ISO) and a reload back
+    // into the input unchanged, whatever the runner's TZ is.
+    for (const local of [
+      "2026-05-25T12:00",
+      "2026-01-01T00:00",
+      "2025-12-31T23:59",
+    ]) {
+      expect(isoToLocalInput(localInputToIso(local))).toBe(local);
+    }
+  });
+});
+
+describe("sanitizeWhen", () => {
+  it("returns '' for empty / null / undefined", () => {
+    expect(sanitizeWhen("")).toBe("");
+    expect(sanitizeWhen(null)).toBe("");
+    expect(sanitizeWhen(undefined)).toBe("");
+  });
+
+  it("returns '' for an unparsable value (would 400 the backend)", () => {
+    expect(sanitizeWhen("garbage")).toBe("");
+    expect(sanitizeWhen("2026-13-99T99:99")).toBe("");
+  });
+
+  it("passes a valid ISO / timestamp value through unchanged", () => {
+    expect(sanitizeWhen("2026-05-25T00:00:00.000Z")).toBe(
+      "2026-05-25T00:00:00.000Z",
+    );
+    expect(sanitizeWhen("2026-05-25")).toBe("2026-05-25");
+    // A bare epoch-seconds string is a valid backend input but
+    // not a JS Date string; the Explorer never writes one, and
+    // ``new Date("1716595200")`` is invalid, so it is treated as
+    // unset here.  Documented as a known narrowing, not a bug.
+    expect(sanitizeWhen("not-a-date")).toBe("");
   });
 });
