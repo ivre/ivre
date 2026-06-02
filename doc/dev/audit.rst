@@ -45,9 +45,10 @@ Three categories are recorded (the closed set in
 :attr:`ivre.db.DBAudit.EVENT_TYPES`):
 
 ``upload``
-    A successful write against ``POST /scans``, ``POST /view``,
-    ``POST /flows`` or ``POST /flows/cleanup`` -- data ingested
-    through the web API.
+    A successful write against ``POST /cgi/scans``,
+    ``POST /cgi/view``, ``POST /cgi/flows`` or
+    ``POST /cgi/flows/cleanup`` -- data ingested through the web
+    API, plus the flows-cleanup maintenance write.
 
 ``admin_action``
     A mutating request under ``/cgi/auth/admin/*`` (creating or

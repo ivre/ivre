@@ -146,9 +146,10 @@ after upgrading IVRE on an existing deployment.</p>
 <p>Three categories are recorded (the closed set in
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">ivre.db.DBAudit.EVENT_TYPES</span></code>):</p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">upload</span></code></dt><dd><p>A successful write against <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/scans</span></code>, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/view</span></code>,
-<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/flows</span></code> or <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/flows/cleanup</span></code> – data ingested
-through the web API.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">upload</span></code></dt><dd><p>A successful write against <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cgi/scans</span></code>,
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cgi/view</span></code>, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cgi/flows</span></code> or
+<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/cgi/flows/cleanup</span></code> – data ingested through the web
+API, plus the flows-cleanup maintenance write.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">admin_action</span></code></dt><dd><p>A mutating request under <code class="docutils literal notranslate"><span class="pre">/cgi/auth/admin/*</span></code> (creating or
 updating a user, revoking another user’s API key, …).</p>
