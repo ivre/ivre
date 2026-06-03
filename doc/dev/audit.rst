@@ -45,13 +45,12 @@ Three categories are recorded (the closed set in
 :attr:`ivre.db.DBAudit.EVENT_TYPES`):
 
 ``upload``
-    A successful write against ``POST /cgi/scans``,
-    ``POST /cgi/view``, ``POST /cgi/flows`` or
-    ``POST /cgi/flows/cleanup`` -- data ingested through the web
-    API, plus the flows-cleanup maintenance write.
+    A successful write against ``POST /scans``, ``POST /view``,
+    ``POST /flows`` or ``POST /flows/cleanup`` -- data ingested
+    through the web API, plus the flows-cleanup maintenance write.
 
 ``admin_action``
-    A mutating request under ``/cgi/auth/admin/*`` (creating or
+    A mutating request under ``/auth/admin/*`` (creating or
     updating a user, revoking another user's API key, ...).
 
 ``oversize_query``
@@ -65,6 +64,14 @@ remote address, any of which may be empty for anonymous traffic),
 the targeted resource (route and method), an outcome (typically
 the HTTP status), a free-form ``details`` object whose shape
 depends on the event type, and a UTC ``created_at`` timestamp.
+
+The route values above (and the ``resource.route`` field stored
+on each event) are the **application paths** the handlers
+register, matching the :ref:`dev/web-api:Web API` reference. At
+runtime they are served under the deployment's mount prefix --
+``/cgi/`` for ``ivre httpd`` and the bundled NGINX example, so
+``/scans`` is reached at ``/cgi/scans`` and ``/audit/`` at
+``/cgi/audit/``.
 
 Events are produced automatically by the per-route hook in
 :mod:`ivre.web.audit_hook`; application code does not call the
@@ -134,7 +141,7 @@ Examples::
 Web API
 -------
 
-The same events are exposed read-only under ``/cgi/audit/*``.
+The same events are exposed read-only under ``/audit/*``.
 These routes are **admin-or-self** gated: an authenticated user
 reads their own trail, an admin reads everyone's, and an
 anonymous caller gets ``401``. A non-admin who asks for another
@@ -157,7 +164,7 @@ LLM-driven agent a read path into the log would broaden the
 attack surface of the log itself (and risk leaking one user's
 actions to another through a tool the gate does not cover).
 Programmatic consumers use ``ivre auditcli`` or the
-``/cgi/audit/*`` routes, both of which apply the appropriate
+``/audit/*`` routes, both of which apply the appropriate
 trust boundary.
 
 Retention

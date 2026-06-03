@@ -100,14 +100,15 @@
 <p class="admonition-title">Note</p>
 <p>The endpoints below are listed under their <strong>application
 paths</strong> – the paths each route handler registers. At runtime
-the application is served under a deployment-specific mount
-prefix, so every route is reached one level deeper than it
-appears here. <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">httpd</span></code> and the bundled NGINX example use
-<code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> (<code class="docutils literal notranslate"><span class="pre">/scans</span></code> is reached at <code class="docutils literal notranslate"><span class="pre">/cgi/scans</span></code>, <code class="docutils literal notranslate"><span class="pre">/audit/</span></code>
-at <code class="docutils literal notranslate"><span class="pre">/cgi/audit/</span></code>, and so on); the bundled Apache example
-instead mounts the application at <code class="docutils literal notranslate"><span class="pre">/ivre/cgi</span></code>. Prepend your
-deployment’s prefix to every path in this reference when
-calling the API.</p>
+the application is usually served under a deployment-specific
+mount prefix, so every route is reached one level deeper than
+it appears here. <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">httpd</span></code> and the bundled NGINX example
+use <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> (<code class="docutils literal notranslate"><span class="pre">/scans</span></code> is reached at <code class="docutils literal notranslate"><span class="pre">/cgi/scans</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/audit/</span></code> at <code class="docutils literal notranslate"><span class="pre">/cgi/audit/</span></code>, and so on); the bundled Apache
+example instead mounts the application at <code class="docutils literal notranslate"><span class="pre">/ivre/cgi</span></code>.
+Prepend your deployment’s prefix, if any, to every path in
+this reference when calling the API (a deployment that mounts
+the application at the root serves the paths exactly as shown).</p>
 </div>
 <dl class="http get">
 <dt class="sig sig-object http" id="get--config">
