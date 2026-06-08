@@ -1,3 +1,9 @@
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
@@ -6,6 +12,7 @@ import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { HostCardList } from "@/components/HostCardList";
 import { HostDetailSheet } from "@/components/HostDetailSheet";
 import { Timeline } from "@/components/Timeline";
+import { Button } from "@/components/ui/button";
 import { WorldMap } from "@/components/WorldMap";
 import {
   useCoordinates,
@@ -86,9 +93,10 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
       const params = new URLSearchParams(searchParams);
       if (nextQ) params.set("q", nextQ);
       else params.delete("q");
+      if (sectionId === "view") params.delete("skip");
       setSearchParams(params, { replace: false });
     },
-    [searchParams, setSearchParams],
+    [searchParams, sectionId, setSearchParams],
   );
 
   const addFilter = useCallback(
@@ -107,13 +115,20 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     Number.parseInt(searchParams.get("limit") ?? "", 10) ||
     config.dflt_limit ||
     50;
+  const paginationEnabled = sectionId === "view";
+  const skip = paginationEnabled
+    ? Math.max(0, Number.parseInt(searchParams.get("skip") ?? "", 10) || 0)
+    : 0;
 
   const sequential = isSequentialLoading();
+  const pagedQuery = paginationEnabled
+    ? withListPaging(query, limit, skip)
+    : query;
 
   const hostsQuery = useHosts(section.listEndpoint, {
-    q: query,
-    limit,
-    skip: 0,
+    q: pagedQuery,
+    limit: paginationEnabled ? undefined : limit,
+    skip: paginationEnabled ? undefined : skip,
   });
   const { data: hosts = [], isLoading, error } = hostsQuery;
   // Total number of records matching ``q=`` — used to render the
@@ -125,6 +140,19 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
   // ``data`` stays ``undefined``, falling back to the bare
   // ``(N)`` form.
   const { data: totalCount } = useCount(section.countEndpoint, { q: query });
+
+  const setSkip = useCallback(
+    (nextSkip: number) => {
+      const params = new URLSearchParams(searchParams);
+      const normalized = Math.max(0, nextSkip);
+      if (normalized === 0) params.delete("skip");
+      else params.set("skip", String(normalized));
+      setSearchParams(params, { replace: false });
+    },
+    [searchParams, setSearchParams],
+  );
+  const showPagination =
+    paginationEnabled && !isLoading && !error && (hosts.length > 0 || skip > 0);
 
   // Sequential-loading orchestration. In ``sequential`` mode the
   // map waits for the hosts request to settle (success OR error
@@ -333,6 +361,15 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
             onHover={showTimeline ? setHoveredIndex : undefined}
             registerCardRef={showTimeline ? registerCardRef : undefined}
           />
+          {showPagination ? (
+            <HostPagination
+              loaded={hosts.length}
+              limit={limit}
+              skip={skip}
+              total={totalCount}
+              onSkipChange={setSkip}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -359,6 +396,96 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
       />
     </div>
   );
+}
+
+function HostPagination({
+  loaded,
+  limit,
+  skip,
+  total,
+  onSkipChange,
+}: {
+  loaded: number;
+  limit: number;
+  skip: number;
+  total?: number;
+  onSkipChange: (skip: number) => void;
+}) {
+  const first = skip + 1;
+  const last = skip + loaded;
+  const atStart = skip === 0;
+  const atEnd =
+    total !== undefined ? last >= total : loaded < limit || loaded === 0;
+  const lastSkip =
+    total === undefined || total === 0
+      ? 0
+      : Math.floor((total - 1) / limit) * limit;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground">
+      <span>
+        {loaded === 0 ? (
+          <>
+            No results on this page
+            {total !== undefined ? ` of ${total}` : null}
+          </>
+        ) : (
+          <>
+            Showing {first} to {last}
+            {total !== undefined ? ` of ${total}` : null}
+          </>
+        )}
+      </span>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          disabled={atStart}
+          onClick={() => onSkipChange(0)}
+          aria-label="First page"
+        >
+          <ChevronsLeft className="size-4" aria-hidden />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          disabled={atStart}
+          onClick={() => onSkipChange(skip - limit)}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          disabled={atEnd}
+          onClick={() => onSkipChange(skip + limit)}
+          aria-label="Next page"
+        >
+          <ChevronRight className="size-4" aria-hidden />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          disabled={atEnd || total === undefined}
+          onClick={() => onSkipChange(lastSkip)}
+          aria-label="Last page"
+        >
+          <ChevronsRight className="size-4" aria-hidden />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function withListPaging(query: string, limit: number, skip: number): string {
+  return [query, `limit:${limit}`, skip > 0 ? `skip:${skip}` : ""]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** A :type:`TimelineRecord`-shaped projection of a
