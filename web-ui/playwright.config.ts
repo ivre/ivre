@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Playwright config — drives end-to-end smoke tests against `pnpm dev`.
-// CI runs `pnpm exec playwright install --with-deps chromium` first.
+// The chromium project uses channel: "chrome" so it launches the
+// system-installed Google Chrome (preinstalled on the CI runner image)
+// instead of Playwright's bundled Chromium. This avoids downloading the
+// browser from cdn.playwright.dev, which repeatedly hung in CI. CI only
+// needs `pnpm exec playwright install-deps chromium` for the OS libs.
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -16,7 +20,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], channel: "chrome" },
     },
   ],
   webServer: {

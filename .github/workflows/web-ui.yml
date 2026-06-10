@@ -165,17 +165,16 @@ jobs:
           fi
           echo "Bundle is self-contained."
 
-      - name: Install Playwright browsers
-        # Cap this step: the browser download has been observed
-        # to stall *after* the Chrome-for-Testing archive reaches
-        # 100% (a transient Playwright-CDN / runner network
-        # hang), which otherwise pins the job until GitHub's 6h
-        # hard max-duration limit before it is killed. A tight
-        # per-step timeout turns that into a fast, retryable
-        # failure instead of a 6h runner burn. The normal install
-        # finishes in well under a minute.
-        timeout-minutes: 10
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright system dependencies
+        # The e2e suite runs against the runner's preinstalled Google
+        # Chrome (channel: "chrome" in playwright.config.ts), so there
+        # is no browser download from cdn.playwright.dev -- that step
+        # repeatedly hung *after* reaching 100% (the CDN connection was
+        # never torn down), pinning the job until its timeout. Only the
+        # OS libraries are installed here, via apt, which is reliable;
+        # cap it anyway so a hung apt mirror fails fast.
+        timeout-minutes: 5
+        run: pnpm exec playwright install-deps chromium
 
       - name: End-to-end smoke test
         run: pnpm test:e2e
