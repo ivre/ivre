@@ -1528,3 +1528,164 @@ test("Notes section is hidden when WEB_MODULES omits ``notes``", async ({
   await page.goto("/#/notes");
   await expect(page.getByText(/not exposed on this server/i)).toBeVisible();
 });
+
+test("View section paginates results through the skip:/limit: meta-params", async ({
+  page,
+}) => {
+  // The View host-list cannot pass skip/limit as standalone URL
+  // params: ``/cgi/view`` only honours them when they are folded
+  // into the ``q=`` string as ``limit:N`` / ``skip:N`` meta-tokens.
+  // Mock ``/cgi/view`` to serve a windowed slice of a 120-record
+  // set derived from those tokens, and ``/cgi/view/count`` to report
+  // the (unpaginated) total, then drive the First/Prev/Next/Last
+  // controls and assert both the URL ``skip`` and the outgoing
+  // ``q=`` track the page.
+  const TOTAL = 120;
+  const viewQueries: string[] = [];
+  const countQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view/count") {
+      countQueries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: String(TOTAL),
+      });
+    }
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      viewQueries.push(q);
+      const limit = Number(q.match(/(?:^|\s)limit:(\d+)/)?.[1] ?? "50");
+      const skip = Number(q.match(/(?:^|\s)skip:(\d+)/)?.[1] ?? "0");
+      const n = Math.max(0, Math.min(limit, TOTAL - skip));
+      const rows = Array.from({ length: n }, (_, i) => {
+        const idx = skip + i;
+        return JSON.stringify({
+          addr: `10.0.${Math.floor(idx / 256)}.${idx % 256}`,
+          ports: [],
+        });
+      });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: rows.length ? rows.join("\n") + "\n" : "",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  // Pin the page size in the URL so the assertions don't depend on
+  // the deployment's default ``limit`` (config.dflt_limit).
+  await page.goto("/#/view?limit=50");
+
+  // First page: bounds rendered, the first window omits skip: (it
+  // defaults to 0) and the count query is unpaginated.
+  await expect(page.getByText(/Showing 1 to 50 of 120/)).toBeVisible();
+  expect(viewQueries[0]).toBe("limit:50");
+  expect(countQueries.every((q) => !/\b(skip|limit):/.test(q))).toBe(true);
+
+  const first = page.getByRole("button", { name: "First page" });
+  const prev = page.getByRole("button", { name: "Previous page" });
+  const next = page.getByRole("button", { name: "Next page" });
+  const last = page.getByRole("button", { name: "Last page" });
+
+  await expect(first).toBeDisabled();
+  await expect(prev).toBeDisabled();
+  await expect(next).toBeEnabled();
+  await expect(last).toBeEnabled();
+
+  // Next -> page 2: URL gains skip=50 and the fetch carries skip:50.
+  await next.click();
+  await expect(page).toHaveURL(/[?&]skip=50\b/);
+  await expect(page.getByText(/Showing 51 to 100 of 120/)).toBeVisible();
+  await expect
+    .poll(() => viewQueries.some((q) => /\bskip:50\b/.test(q)))
+    .toBe(true);
+
+  // Last -> final partial page: Next/Last disabled at the end.
+  await last.click();
+  await expect(page).toHaveURL(/[?&]skip=100\b/);
+  await expect(page.getByText(/Showing 101 to 120 of 120/)).toBeVisible();
+  await expect(next).toBeDisabled();
+  await expect(last).toBeDisabled();
+
+  // First -> back to page 1: skip drops out of the URL entirely.
+  await first.click();
+  await expect(page).toHaveURL((u) => !/skip=/.test(u.href));
+  await expect(page.getByText(/Showing 1 to 50 of 120/)).toBeVisible();
+});
+
+test("View pagination resets to the first page when filters change", async ({
+  page,
+}) => {
+  // Deep-linking to a later page and then adding a filter must snap
+  // back to skip=0 -- otherwise a narrower result set would leave
+  // the user stranded on an out-of-range (empty) page.
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view/count") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "120",
+      });
+    }
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      const skip = Number(q.match(/(?:^|\s)skip:(\d+)/)?.[1] ?? "0");
+      const rows = Array.from({ length: Math.min(50, 120 - skip) }, (_, i) =>
+        JSON.stringify({ addr: `10.0.0.${skip + i}`, ports: [] }),
+      );
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: rows.join("\n") + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view?skip=50&limit=50");
+  await expect(page.getByText(/Showing 51 to 100 of 120/)).toBeVisible();
+
+  // Adding a filter via the filter bar clears skip.
+  await page
+    .getByRole("textbox", { name: /filter query/i })
+    .first()
+    .fill("country:FR");
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL((u) => !/skip=/.test(u.href));
+  await expect(page).toHaveURL(/country/);
+  await expect(page.getByText(/Showing 1 to 50 of 120/)).toBeVisible();
+});
+
+test("Active section does not expose pagination controls", async ({ page }) => {
+  // Pagination is scoped to View for now; Active keeps its existing
+  // single-window behaviour and must not render the controls.
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/scans") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: JSON.stringify({ addr: "10.0.0.1", ports: [] }) + "\n",
+      });
+    }
+    if (url.pathname === "/cgi/scans/count") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "1",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/active");
+  await expect(page.getByRole("heading", { name: "10.0.0.1" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Pagination" }),
+  ).toHaveCount(0);
+});

@@ -29,6 +29,7 @@ import {
   type Filter,
 } from "@/lib/filter";
 import { formatResultsCount } from "@/lib/format";
+import { buildPagedQuery, computePagination } from "@/lib/paging";
 import { getSection, type SectionId } from "@/lib/sections";
 import { formatTimelineRange, type TimelineRecord } from "@/lib/timeline";
 
@@ -122,7 +123,7 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
 
   const sequential = isSequentialLoading();
   const pagedQuery = paginationEnabled
-    ? withListPaging(query, limit, skip)
+    ? buildPagedQuery(query, limit, skip)
     : query;
 
   const hostsQuery = useHosts(section.listEndpoint, {
@@ -411,18 +412,18 @@ function HostPagination({
   total?: number;
   onSkipChange: (skip: number) => void;
 }) {
-  const first = skip + 1;
-  const last = skip + loaded;
-  const atStart = skip === 0;
-  const atEnd =
-    total !== undefined ? last >= total : loaded < limit || loaded === 0;
-  const lastSkip =
-    total === undefined || total === 0
-      ? 0
-      : Math.floor((total - 1) / limit) * limit;
+  const { first, last, atStart, atEnd, lastSkip } = computePagination({
+    loaded,
+    limit,
+    skip,
+    total,
+  });
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground">
+    <nav
+      aria-label="Pagination"
+      className="flex flex-wrap items-center justify-between gap-3 pt-1 text-sm text-muted-foreground"
+    >
       <span>
         {loaded === 0 ? (
           <>
@@ -478,14 +479,8 @@ function HostPagination({
           <ChevronsRight className="size-4" aria-hidden />
         </Button>
       </div>
-    </div>
+    </nav>
   );
-}
-
-function withListPaging(query: string, limit: number, skip: number): string {
-  return [query, `limit:${limit}`, skip > 0 ? `skip:${skip}` : ""]
-    .filter(Boolean)
-    .join(" ");
 }
 
 /** A :type:`TimelineRecord`-shaped projection of a
