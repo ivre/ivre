@@ -1,0 +1,9 @@
+# Normalize line endings. Treat files as text and store/check out
+# with LF endings; binary files are auto-detected and left untouched.
+# This prevents CRLF from leaking in (e.g. from editors / git
+# core.autocrlf on Windows) regardless of the contributor's platform.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
