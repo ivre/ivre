@@ -1689,3 +1689,43 @@ test("Active section does not expose pagination controls", async ({ page }) => {
     page.getByRole("navigation", { name: "Pagination" }),
   ).toHaveCount(0);
 });
+
+test("View ignores an invalid (negative) limit and uses the default", async ({
+  page,
+}) => {
+  // A hand-edited ``?limit=-10`` must not leak a negative limit into
+  // the q= meta-token (it would invert the pagination math and reach
+  // the backend); the route falls back to the default page size (10).
+  const viewQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view/count") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "120",
+      });
+    }
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      viewQueries.push(q);
+      const limit = Number(q.match(/(?:^|\s)limit:(-?\d+)/)?.[1] ?? "10");
+      const n = Math.max(0, Math.min(limit, 120));
+      const rows = Array.from({ length: n }, (_, i) =>
+        JSON.stringify({ addr: `10.0.0.${i}`, ports: [] }),
+      );
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: rows.join("\n") + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view?limit=-10");
+
+  await expect(page.getByText(/Showing 1 to 10 of 120/)).toBeVisible();
+  expect(viewQueries[0]).toBe("limit:10");
+  expect(viewQueries.every((q) => !q.includes("-"))).toBe(true);
+});

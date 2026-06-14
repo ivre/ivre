@@ -112,10 +112,13 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     [filters, setFilters],
   );
 
-  const limit =
-    Number.parseInt(searchParams.get("limit") ?? "", 10) ||
-    config.dflt_limit ||
-    50;
+  // Treat any non-positive / non-numeric ``limit`` (e.g. ``?limit=0``,
+  // ``?limit=-10``, ``?limit=abc``) as invalid and fall back to the
+  // default. A negative value is otherwise truthy and would corrupt
+  // both the ``limit:N`` meta-token sent to the backend and the
+  // pagination math (inverted Next/Previous, bogus last-page jump).
+  const rawLimit = Number.parseInt(searchParams.get("limit") ?? "", 10);
+  const limit = rawLimit > 0 ? rawLimit : config.dflt_limit || 50;
   const paginationEnabled = sectionId === "view";
   const skip = paginationEnabled
     ? Math.max(0, Number.parseInt(searchParams.get("skip") ?? "", 10) || 0)
