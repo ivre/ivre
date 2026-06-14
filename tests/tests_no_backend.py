@@ -12529,6 +12529,54 @@ class PassiveFltFromQueryTests(unittest.TestCase):
         )
 
 
+class FltFromQuerySkipLimitTests(unittest.TestCase):
+    """``flt_from_query`` must sanitise the pagination meta-params.
+
+    ``q=`` is user-/API-controlled, so a hand-crafted negative
+    ``skip`` (which would index from the end of the result set on
+    the SQL / slice paths) or a negative ``limit`` (which would
+    corrupt the result window and the React pagination math) must
+    not reach the database layer. ``skip`` is clamped to ``>= 0``
+    and a negative ``limit`` falls back to the default (``None``);
+    ``limit:0`` keeps its existing "no explicit limit" semantics.
+    """
+
+    @staticmethod
+    def _parse(q):
+        from ivre.web import utils as webutils
+
+        class _StubDB:
+            flt_empty: dict = {}
+
+            @staticmethod
+            def flt_and(*args):
+                return args[-1] if args else _StubDB.flt_empty
+
+        # ``base_flt`` short-circuits ``get_init_flt`` so the parser
+        # needs no configured backend (this runs in the no-backend
+        # matrix).
+        query = webutils.query_from_params({"q": q})
+        _flt, _sortby, _unused, skip, limit, _fields = webutils.flt_from_query(
+            _StubDB, query, base_flt=_StubDB.flt_empty
+        )
+        return skip, limit
+
+    def test_defaults_when_unset(self):
+        self.assertEqual(self._parse(""), (0, None))
+
+    def test_positive_values_pass_through(self):
+        self.assertEqual(self._parse("skip:50 limit:25"), (50, 25))
+
+    def test_negative_skip_clamps_to_zero(self):
+        self.assertEqual(self._parse("skip:-10 limit:25"), (0, 25))
+
+    def test_negative_limit_falls_back_to_default(self):
+        self.assertEqual(self._parse("skip:50 limit:-10"), (50, None))
+
+    def test_zero_limit_is_preserved(self):
+        self.assertEqual(self._parse("limit:0"), (0, 0))
+
+
 # ---------------------------------------------------------------------
 # MongoDBSearchFieldTests -- the shared ``MongoDB._search_field``
 # helper and a sample of the search methods refactored to use it.
