@@ -26,6 +26,7 @@ import {
   buildQueryFromFilters,
   parseFiltersFromQuery,
   quoteValue,
+  stripMetaFilters,
   type Filter,
 } from "@/lib/filter";
 import { formatResultsCount } from "@/lib/format";
@@ -74,8 +75,13 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
   // react-router keeps when navigating between sibling routes).
   const { addr: routeAddr } = useParams<{ addr?: string }>();
 
+  // Strip pagination meta-tokens (``skip:`` / ``limit:``) that may
+  // ride inside ``q=`` from a legacy/shared URL: paging is owned by
+  // the ``?skip=`` / ``?limit=`` params, so such a token must not
+  // become a filter chip or leak into the fetched query (which would
+  // offset the result window out of sync with the UI's page state).
   const filters: Filter[] = useMemo(
-    () => parseFiltersFromQuery(searchParams.get("q") ?? ""),
+    () => stripMetaFilters(parseFiltersFromQuery(searchParams.get("q") ?? "")),
     [searchParams],
   );
   const query = useMemo(() => buildQueryFromFilters(filters), [filters]);

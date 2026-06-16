@@ -66,14 +66,18 @@ export function computePagination({
   skip,
   total,
 }: PaginationInput): PaginationBounds {
+  // Guard the division below against a non-positive limit (which would
+  // yield Infinity/NaN for lastSkip). Callers sanitise limit, but this
+  // is an exported helper and must stay well-defined on its own.
+  const safeLimit = limit > 0 ? Math.floor(limit) : 1;
   const first = skip + 1;
   const last = skip + loaded;
   const atStart = skip === 0;
   const atEnd =
-    total !== undefined ? last >= total : loaded < limit || loaded === 0;
+    total !== undefined ? last >= total : loaded < safeLimit || loaded === 0;
   const lastSkip =
     total === undefined || total === 0
       ? 0
-      : Math.floor((total - 1) / limit) * limit;
+      : Math.floor((total - 1) / safeLimit) * safeLimit;
   return { first, last, atStart, atEnd, lastSkip };
 }

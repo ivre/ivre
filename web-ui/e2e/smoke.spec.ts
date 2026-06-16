@@ -1729,3 +1729,49 @@ test("View ignores an invalid (negative) limit and uses the default", async ({
   expect(viewQueries[0]).toBe("limit:10");
   expect(viewQueries.every((q) => !q.includes("-"))).toBe(true);
 });
+
+test("View strips a skip: meta-token riding inside q= (legacy URL)", async ({
+  page,
+}) => {
+  // A legacy/shared URL can carry the offset inside ``q=`` (e.g.
+  // ``?q=skip:100``). Paging is owned by the ``?skip=`` param, so the
+  // token must be dropped: it must not become a filter chip nor leak
+  // into the fetched query (which would offset results out of sync
+  // with the page-1 bounds/buttons the UI renders).
+  const viewQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/view/count") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "120",
+      });
+    }
+    if (url.pathname === "/cgi/view") {
+      const q = url.searchParams.get("q") ?? "";
+      viewQueries.push(q);
+      const skip = Number(q.match(/(?:^|\s)skip:(\d+)/)?.[1] ?? "0");
+      const rows = Array.from({ length: Math.min(50, 120 - skip) }, (_, i) =>
+        JSON.stringify({ addr: `10.0.0.${skip + i}`, ports: [] }),
+      );
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: rows.join("\n") + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view?q=skip%3A100&limit=50");
+
+  // Renders page 1, not offset by the stray skip:100.
+  await expect(page.getByText(/Showing 1 to 50 of 120/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "First page" })).toBeDisabled();
+  // The stray token never reached the backend ...
+  expect(viewQueries[0]).toBe("limit:50");
+  expect(viewQueries.every((q) => !q.includes("skip:"))).toBe(true);
+  // ... and is not rendered as a filter chip.
+  await expect(page.getByText("skip:100")).toHaveCount(0);
+});

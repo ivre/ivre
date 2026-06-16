@@ -100,4 +100,16 @@ describe("computePagination", () => {
       computePagination({ loaded: 0, limit: 50, skip: 0, total: 0 }).lastSkip,
     ).toBe(0);
   });
+
+  it("stays finite for a non-positive limit (defensive clamp)", () => {
+    // Callers sanitise limit, but this exported helper must not emit
+    // Infinity/NaN from the lastSkip division if reused with limit<=0.
+    for (const limit of [0, -10]) {
+      const bounds = computePagination({ loaded: 20, limit, skip: 0, total: 120 });
+      expect(Number.isFinite(bounds.lastSkip)).toBe(true);
+      expect(Number.isNaN(bounds.lastSkip)).toBe(false);
+      // Falls back to a limit of 1: lastSkip == total - 1.
+      expect(bounds.lastSkip).toBe(119);
+    }
+  });
 });

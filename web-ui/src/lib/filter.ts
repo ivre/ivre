@@ -126,6 +126,28 @@ export function parseFiltersFromQuery(query: string): Filter[] {
 }
 
 /**
+ * Query meta-tokens that are *not* content filters. The host-list
+ * route owns result paging via the ``?skip=`` / ``?limit=`` URL
+ * params (folding them back into ``q=`` only at fetch time), so a
+ * ``skip:`` / ``limit:`` token arriving inside ``q=`` — e.g. a legacy
+ * shared URL like ``?q=country:FR skip:100`` — must not be treated as
+ * a filter: it would render as a bogus chip and, worse, silently
+ * offset the fetched result window while the UI's pagination state
+ * (bounds, First/Prev/Next) still assumes ``skip = 0``.
+ */
+export const QUERY_META_TYPES: ReadonlySet<string> = new Set(["skip", "limit"]);
+
+/**
+ * Drop query meta-tokens (see :data:`QUERY_META_TYPES`) from a parsed
+ * filter list, leaving only genuine content filters.
+ */
+export function stripMetaFilters(filters: readonly Filter[]): Filter[] {
+  return filters.filter(
+    (f) => f.type === undefined || !QUERY_META_TYPES.has(f.type),
+  );
+}
+
+/**
  * Highlight map keyed by filter type. Each value is the lowercased
  * raw value so a case-insensitive comparison works at render time.
  *
