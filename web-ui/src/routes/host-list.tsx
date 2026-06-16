@@ -76,14 +76,17 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
   const { addr: routeAddr } = useParams<{ addr?: string }>();
 
   // Strip pagination meta-tokens (``skip:`` / ``limit:``) that may
-  // ride inside ``q=`` from a legacy/shared URL: paging is owned by
-  // the ``?skip=`` / ``?limit=`` params, so such a token must not
-  // become a filter chip or leak into the fetched query (which would
-  // offset the result window out of sync with the UI's page state).
-  const filters: Filter[] = useMemo(
-    () => stripMetaFilters(parseFiltersFromQuery(searchParams.get("q") ?? "")),
-    [searchParams],
-  );
+  // ride inside ``q=`` from a legacy/shared URL, but only for the
+  // paginated section (View): there, paging is owned by the
+  // ``?skip=`` / ``?limit=`` params, so such a token must not become
+  // a filter chip or leak into the fetched query (which would offset
+  // the result window out of sync with the UI's page state). Active
+  // has no pagination UI and keeps honouring legacy
+  // ``q=…skip:N limit:N`` URLs unchanged.
+  const filters: Filter[] = useMemo(() => {
+    const parsed = parseFiltersFromQuery(searchParams.get("q") ?? "");
+    return sectionId === "view" ? stripMetaFilters(parsed) : parsed;
+  }, [searchParams, sectionId]);
   const query = useMemo(() => buildQueryFromFilters(filters), [filters]);
   const highlights = useMemo(() => buildHighlightMap(filters), [filters]);
 

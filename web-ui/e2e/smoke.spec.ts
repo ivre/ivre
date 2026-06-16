@@ -1775,3 +1775,39 @@ test("View strips a skip: meta-token riding inside q= (legacy URL)", async ({
   // ... and is not rendered as a filter chip.
   await expect(page.getByText("skip:100")).toHaveCount(0);
 });
+
+test("Active forwards legacy skip:/limit: meta-tokens in q= unchanged", async ({
+  page,
+}) => {
+  // Active has no pagination UI; meta-token stripping is scoped to
+  // View, so a legacy/shared ``/#/active?q=…skip:N limit:N`` URL must
+  // keep forwarding those tokens to /cgi/scans (preserving the
+  // documented "Active unaffected" behaviour).
+  const scansQueries: string[] = [];
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/scans") {
+      scansQueries.push(url.searchParams.get("q") ?? "");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: JSON.stringify({ addr: "10.0.0.1", ports: [] }) + "\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/active?q=category%3Atest%20skip%3A10%20limit%3A5");
+
+  await expect(page.getByRole("heading", { name: "10.0.0.1" })).toBeVisible();
+  // The meta-tokens survive into the fetched query (not stripped).
+  await expect
+    .poll(() =>
+      scansQueries.some((q) => q.includes("skip:10") && q.includes("limit:5")),
+    )
+    .toBe(true);
+  // No pagination controls on Active.
+  await expect(
+    page.getByRole("navigation", { name: "Pagination" }),
+  ).toHaveCount(0);
+});
