@@ -124,8 +124,10 @@ Filters (apply to ``--query`` and ``--count``):
     timestamp, or an ISO-8601 datetime (naive values are read as
     UTC). ``--since`` is inclusive, ``--until`` exclusive.
 
-The duration shorthand matches the ``timeago:`` syntax of the web
-query parser, so the same expression works on both sides.
+``WHEN`` is parsed by the same helper as the web API's ``since`` /
+``until`` query parameters (and the duration shorthand matches the
+``timeago:`` syntax of the web query parser), so an expression that
+works on one side works identically on the other.
 
 Examples::
 
@@ -147,6 +149,11 @@ reads their own trail, an admin reads everyone's, and an
 anonymous caller gets ``401``. A non-admin who asks for another
 user's events with ``user_email=`` gets ``403``. When no audit
 backend is configured the routes return ``501``.
+
+The ``since`` / ``until`` query parameters accept the exact same
+``WHEN`` syntax as ``ivre auditcli`` (duration shorthand, Unix
+timestamp, or ISO 8601), so a bookmarked Explorer URL can be
+replayed verbatim as a CLI invocation, and vice versa.
 
 The full request / response reference (query parameters, status
 codes, response shapes) is generated from the route docstrings on

@@ -1640,43 +1640,26 @@ def _audit_read_gate() -> tuple[str, bool]:
 def _parse_audit_datetime(raw: str | None) -> datetime.datetime | None:
     """Parse ``since`` / ``until`` query parameters.
 
-    Accepts:
+    Delegates to :func:`ivre.utils.parse_when`, so the accepted syntax
+    is identical to ``ivre auditcli --since`` / ``--until``: a duration
+    shorthand (``"30d"`` / ``"2h"`` -- that long before now, in UTC), a
+    Unix timestamp (``"1716595200"`` / ``"1716595200.0"``, UTC), or an
+    ISO 8601 string with or without timezone (a naive value is treated
+    as UTC). This 1:1 mapping lets a bookmarked Explorer URL be replayed
+    as a CLI invocation.
 
-    * Unix timestamps (``"1716595200"`` or ``"1716595200.0"``)
-      -- parsed via :func:`datetime.datetime.fromtimestamp` in
-      UTC so the comparison aligns with the storage layer's
-      UTC-aware ``created_at``.
-    * ISO 8601 strings, with or without timezone
-      (``"2026-05-25T00:00:00Z"`` /
-      ``"2026-05-25T00:00:00+00:00"`` / ``"2026-05-25"``) --
-      naive strings are interpreted as UTC.
-
-    Returns ``None`` when ``raw`` is unset / empty (the
-    underlying :meth:`DBAudit.query` accepts ``None`` to mean
-    "no lower / upper bound").  Aborts with 400 on a malformed
-    value.
+    Returns ``None`` when ``raw`` is unset / empty (the underlying
+    :meth:`DBAudit.query` accepts ``None`` to mean "no lower / upper
+    bound"). Aborts with 400 on a malformed value.
     """
-    if not raw:
-        return None
     try:
-        return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
-    except (TypeError, ValueError):
-        # Not a numeric value at all -- fall through to the ISO
-        # branch.  Range errors (``OverflowError`` / ``OSError``)
-        # mean it *was* numeric but the platform can't represent
-        # it; bounce those out as 400 below rather than trying
-        # the ISO parser (which would also fail, with a less
-        # useful message).
-        pass
-    except (OverflowError, OSError) as exc:
-        abort(400, f"invalid datetime {raw!r}: {exc}")
-    try:
-        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return utils.parse_when(raw)
     except ValueError as exc:
-        abort(400, f"invalid datetime {raw!r}: {exc}")
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-    return parsed
+        abort(400, str(exc))
+    # Unreachable: bottle's ``abort`` raises. Kept so every code path
+    # of this typed function returns explicitly (``abort`` is not
+    # annotated ``NoReturn``, unlike ``sys.exit``).
+    return None
 
 
 def _parse_audit_filters() -> dict[str, Any]:
@@ -1715,8 +1698,11 @@ def list_audit_events():
     :query str user_email: narrow to one user's events.
         Non-admins may only supply their own email (any other
         value returns 403); admins may filter by any user.
-    :query str since: lower bound on ``created_at`` (inclusive);
-        Unix timestamp or ISO 8601 string.
+    :query str since: lower bound on ``created_at`` (inclusive).
+        Accepts a duration shorthand relative to now (``30d``,
+        ``2h``, ...), a Unix timestamp, or an ISO 8601 string
+        (naive values are read as UTC) -- the same syntax as
+        ``ivre auditcli --since``.
     :query str until: upper bound on ``created_at`` (exclusive);
         same format as ``since``.
     :query int limit: cap on returned entries (default
@@ -1765,7 +1751,8 @@ def count_audit_events():
     :query str event_type: narrow to one event type.
     :query str user_email: narrow to one user's events.
         Non-admins may only supply their own email.
-    :query str since: lower bound on ``created_at``.
+    :query str since: lower bound on ``created_at`` (same
+        ``WHEN`` syntax as :func:`list_audit_events`).
     :query str until: upper bound on ``created_at``.
     :status 200: integer count.
     :status 400: invalid parameters.

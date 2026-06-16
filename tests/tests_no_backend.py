@@ -12577,6 +12577,107 @@ class FltFromQuerySkipLimitTests(unittest.TestCase):
         self.assertEqual(self._parse("limit:0"), (0, 0))
 
 
+class ParseDurationTests(unittest.TestCase):
+    """``ivre.utils.parse_duration`` -- the shared ``--purge-older-than``
+    / ``--since`` / ``--until`` duration shorthand parser."""
+
+    def test_unit_shorthands(self):
+        self.assertEqual(ivre.utils.parse_duration("30d"), timedelta(days=30))
+        self.assertEqual(ivre.utils.parse_duration("2h"), timedelta(hours=2))
+        self.assertEqual(ivre.utils.parse_duration("45m"), timedelta(minutes=45))
+        self.assertEqual(ivre.utils.parse_duration("10s"), timedelta(seconds=10))
+        # Julian year (365.25 days).
+        self.assertEqual(ivre.utils.parse_duration("1y"), timedelta(seconds=31_557_600))
+
+    def test_bare_integer_is_seconds(self):
+        self.assertEqual(ivre.utils.parse_duration("3600"), timedelta(seconds=3600))
+
+    def test_malformed_raises_value_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            ivre.utils.parse_duration("thirty-days")
+        self.assertIn("invalid duration", str(ctx.exception))
+
+    def test_overflow_raises_value_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            ivre.utils.parse_duration("999999999999y")
+        self.assertIn("too large", str(ctx.exception))
+
+
+class ParseWhenTests(unittest.TestCase):
+    """``ivre.utils.parse_when`` -- the shared ``since`` / ``until``
+    bound parser used by both ``ivre auditcli`` and the
+    ``/cgi/audit/*`` web API, so a bookmarked Explorer URL maps 1:1
+    to a CLI invocation."""
+
+    def test_empty_is_none(self):
+        self.assertIsNone(ivre.utils.parse_when(None))
+        self.assertIsNone(ivre.utils.parse_when(""))
+
+    def test_unix_timestamp_is_utc(self):
+        self.assertEqual(
+            ivre.utils.parse_when("1716595200"),
+            datetime(2024, 5, 25, 0, 0, 0, tzinfo=timezone.utc),
+        )
+        # Fractional timestamps are accepted too.
+        self.assertEqual(
+            ivre.utils.parse_when("1716595200.0"),
+            datetime(2024, 5, 25, 0, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_iso_with_and_without_timezone(self):
+        self.assertEqual(
+            ivre.utils.parse_when("2026-05-25T00:00:00Z"),
+            datetime(2026, 5, 25, 0, 0, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            ivre.utils.parse_when("2026-05-25T00:00:00+02:00"),
+            datetime(2026, 5, 25, 0, 0, 0, tzinfo=timezone(timedelta(hours=2))),
+        )
+        # Naive ISO is interpreted as UTC.
+        self.assertEqual(
+            ivre.utils.parse_when("2026-05-25"),
+            datetime(2026, 5, 25, 0, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_duration_shorthand_is_relative_to_now(self):
+        before = datetime.now(timezone.utc)
+        parsed = ivre.utils.parse_when("30d")
+        after = datetime.now(timezone.utc)
+        self.assertEqual(parsed.tzinfo, timezone.utc)
+        # ``parsed`` is ~30 days before "now"; bound it by the now()
+        # readings taken either side of the call.
+        self.assertGreaterEqual(parsed, before - timedelta(days=30))
+        self.assertLessEqual(parsed, after - timedelta(days=30))
+
+    def test_bare_integer_is_a_timestamp_not_a_duration(self):
+        # A bare integer is a Unix timestamp here (unlike
+        # ``parse_duration``, where it is a count of seconds).
+        self.assertEqual(
+            ivre.utils.parse_when("3600"),
+            datetime(1970, 1, 1, 1, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_malformed_raises_value_error(self):
+        for bad in ["not-a-date", "2026-13-99", "thirty-days"]:
+            with self.assertRaises(ValueError) as ctx:
+                ivre.utils.parse_when(bad)
+            self.assertIn("invalid datetime", str(ctx.exception))
+
+    def test_overflowing_duration_propagates_value_error(self):
+        with self.assertRaises(ValueError) as ctx:
+            ivre.utils.parse_when("999999999999y")
+        self.assertIn("invalid duration", str(ctx.exception))
+
+    def test_cli_and_helper_agree(self):
+        # The auditcli wrapper must be a 1:1 pass-through of the shared
+        # helper for valid inputs (the parity contract); pin an exact,
+        # now-independent value.
+        from ivre.tools import auditcli
+
+        for raw in ["1716595200", "2026-05-25T00:00:00Z", "2026-05-25"]:
+            self.assertEqual(auditcli._parse_datetime(raw), ivre.utils.parse_when(raw))
+
+
 # ---------------------------------------------------------------------
 # MongoDBSearchFieldTests -- the shared ``MongoDB._search_field``
 # helper and a sample of the search methods refactored to use it.

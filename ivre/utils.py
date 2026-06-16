@@ -582,6 +582,97 @@ def all2datetime(arg: int | float | str | datetime.datetime) -> datetime.datetim
     raise TypeError(f"{arg!r} is of unknown type.")
 
 
+# Duration shorthand shared by ``ivre auditcli`` (``--since`` /
+# ``--until`` / ``--purge-older-than``) and the ``/cgi/audit/*`` web
+# API: ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny`` (seconds, minutes,
+# hours, days, Julian years) or a bare integer count of seconds.
+_DURATION_UNITS = {
+    "s": 1,
+    "m": 60,
+    "h": 3600,
+    "d": 86400,
+    "y": 31_557_600,
+}
+
+_DURATION_RE = re.compile(r"^(\d+)([smhdy])$")
+
+
+def parse_duration(raw: str) -> datetime.timedelta:
+    """Translate a duration shorthand into a :class:`datetime.timedelta`.
+
+    Accepts ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny`` (seconds,
+    minutes, hours, days, Julian years of 365.25 days) or a bare
+    integer count of seconds.
+
+    Raises :class:`ValueError` on a malformed value, or one too large
+    to fit in a :class:`datetime.timedelta` (which caps out around 2.7
+    million years), so that e.g. ``"999999999999y"`` surfaces as a
+    clean error rather than an :class:`OverflowError`.
+    """
+    match = _DURATION_RE.match(raw)
+    if match is None:
+        try:
+            return datetime.timedelta(seconds=int(raw))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(
+                f"invalid duration {raw!r} (expected Ns / Nm / Nh / Nd / Ny "
+                "or a bare integer count of seconds, small enough to fit in "
+                "datetime.timedelta)"
+            ) from exc
+    try:
+        return datetime.timedelta(
+            seconds=int(match.group(1)) * _DURATION_UNITS[match.group(2)]
+        )
+    except OverflowError as exc:
+        raise ValueError(
+            f"invalid duration {raw!r} (too large to fit in datetime.timedelta)"
+        ) from exc
+
+
+def parse_when(raw: str | None) -> datetime.datetime | None:
+    """Parse a ``since`` / ``until``-style time bound into a
+    timezone-aware (UTC) :class:`datetime.datetime`.
+
+    Shared by ``ivre auditcli --since`` / ``--until`` and the
+    ``/cgi/audit/*`` web API ``since`` / ``until`` query parameters so
+    a bookmarked Explorer URL maps 1:1 to a CLI invocation. Accepted
+    forms:
+
+    * ``None`` / empty string -- returns ``None`` (no bound).
+    * Duration shorthand (``"30d"`` / ``"2h"`` / ...) -- interpreted
+      as that long *before now*, in UTC.
+    * Unix timestamp (``"1716595200"`` / ``"1716595200.0"``) -- UTC.
+    * ISO 8601 (``"2026-05-25T00:00:00Z"`` / ``"...+00:00"`` /
+      ``"2026-05-25"``) -- a naive value is interpreted as UTC.
+
+    A bare integer is a Unix timestamp here (e.g. ``"3600"`` is
+    1970-01-01T01:00Z), not a relative duration; use the explicit
+    ``Ns`` shorthand for "N seconds ago".
+
+    Raises :class:`ValueError` on a malformed value.
+    """
+    if not raw:
+        return None
+    if _DURATION_RE.match(raw) is not None:
+        return datetime.datetime.now(tz=datetime.timezone.utc) - parse_duration(raw)
+    try:
+        return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        # Not numeric at all -- fall through to the ISO branch.
+        pass
+    except (OverflowError, OSError) as exc:
+        # Numeric, but the platform can't represent it; surface a clean
+        # error rather than falling into the ISO parser.
+        raise ValueError(f"invalid datetime {raw!r}: {exc}") from exc
+    try:
+        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"invalid datetime {raw!r}: {exc}") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
 def makedirs(dirname: AnyStr) -> None:
     """Makes directories like mkdir -p, raising no exception when
     dirname already exists.

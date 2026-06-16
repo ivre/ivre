@@ -762,8 +762,11 @@ ascending then <code class="docutils literal notranslate"><span class="pre">star
 <li><p><strong>user_email</strong> (<em>str</em>) – narrow to one user’s events.
 Non-admins may only supply their own email (any other
 value returns 403); admins may filter by any user.</p></li>
-<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (inclusive);
-Unix timestamp or ISO 8601 string.</p></li>
+<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (inclusive).
+Accepts a duration shorthand relative to now (<code class="docutils literal notranslate"><span class="pre">30d</span></code>,
+<code class="docutils literal notranslate"><span class="pre">2h</span></code>, …), a Unix timestamp, or an ISO 8601 string
+(naive values are read as UTC) – the same syntax as
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditcli</span> <span class="pre">--since</span></code>.</p></li>
 <li><p><strong>until</strong> (<em>str</em>) – upper bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (exclusive);
 same format as <code class="docutils literal notranslate"><span class="pre">since</span></code>.</p></li>
 <li><p><strong>limit</strong> (<em>int</em>) – cap on returned entries (default
@@ -794,7 +797,8 @@ semantics as <code class="xref py py-func docutils literal notranslate"><span cl
 <li><p><strong>event_type</strong> (<em>str</em>) – narrow to one event type.</p></li>
 <li><p><strong>user_email</strong> (<em>str</em>) – narrow to one user’s events.
 Non-admins may only supply their own email.</p></li>
-<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code>.</p></li>
+<li><p><strong>since</strong> (<em>str</em>) – lower bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code> (same
+<code class="docutils literal notranslate"><span class="pre">WHEN</span></code> syntax as <code class="xref py py-func docutils literal notranslate"><span class="pre">list_audit_events()</span></code>).</p></li>
 <li><p><strong>until</strong> (<em>str</em>) – upper bound on <code class="docutils literal notranslate"><span class="pre">created_at</span></code>.</p></li>
 </ul>
 </dd>
