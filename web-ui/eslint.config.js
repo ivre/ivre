@@ -25,6 +25,10 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+      // Enforce LF line endings: the whole tree is LF and the
+      // repository .gitattributes pins it, so reject CRLF here too
+      // (lint runs in CI, catching it before it lands).
+      "linebreak-style": ["error", "unix"],
     },
   },
   {

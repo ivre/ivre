@@ -590,9 +590,18 @@ def flt_from_query(dbase, query, base_flt=None):
 
     for neg, param, value in query:
         if not neg and param == "skip":
-            skip = int(value)
+            # Clamp to a non-negative offset: a negative skip would
+            # corrupt the result window (and, on the SQL/slice paths,
+            # silently index from the end of the set).
+            skip = max(0, int(value))
         elif not neg and param == "limit":
             limit = int(value)
+            if limit < 0:
+                # A negative limit is meaningless; fall back to the
+                # default by leaving it unset rather than propagating
+                # a negative value to the database layer. ``limit == 0``
+                # is preserved (callers treat it as "no limit").
+                limit = None
         elif not neg and param == "fields":
             fields = value.split(",")
         elif param == "id":

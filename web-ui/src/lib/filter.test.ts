@@ -6,6 +6,7 @@ import {
   parseFiltersFromQuery,
   quoteValue,
   renderFilter,
+  stripMetaFilters,
   type Filter,
 } from "./filter";
 
@@ -184,5 +185,44 @@ describe("round-trip", () => {
       const filters = parseFiltersFromQuery(q);
       expect(buildQueryFromFilters(filters)).toBe(q);
     }
+  });
+});
+
+describe("stripMetaFilters", () => {
+  it("drops skip: and limit: meta-tokens", () => {
+    const filters = parseFiltersFromQuery("country:FR skip:100 limit:25");
+    expect(stripMetaFilters(filters)).toEqual([
+      { type: "country", value: "FR", neg: false },
+    ]);
+  });
+
+  it("strips negated meta-tokens too", () => {
+    const filters = parseFiltersFromQuery("!skip:10 country:FR");
+    expect(stripMetaFilters(filters)).toEqual([
+      { type: "country", value: "FR", neg: false },
+    ]);
+  });
+
+  it("keeps anonymous (untyped) and ordinary filters", () => {
+    const filters = parseFiltersFromQuery("tcp/443 port:open limit:50");
+    expect(stripMetaFilters(filters)).toEqual([
+      { value: "tcp/443", neg: false },
+      { type: "port", value: "open", neg: false },
+    ]);
+  });
+
+  it("does not strip a quoted value that merely contains skip:", () => {
+    // ``name:"skip:1"`` is a content filter whose value happens to
+    // contain the substring; only the ``skip`` / ``limit`` *types*
+    // are meta-tokens.
+    const filters = parseFiltersFromQuery('name:"skip:1"');
+    expect(stripMetaFilters(filters)).toEqual([
+      { type: "name", value: "skip:1", neg: false },
+    ]);
+  });
+
+  it("returns the list unchanged when there are no meta-tokens", () => {
+    const filters = parseFiltersFromQuery("country:FR port:open");
+    expect(stripMetaFilters(filters)).toEqual(filters);
   });
 });
