@@ -103,6 +103,34 @@ FilterParams = namedtuple(
 )
 
 
+def _resolve_limit(limit: int | None) -> int:
+    """Resolve the effective result limit for the list / distinct
+    routes.
+
+    * ``None`` (no ``limit:`` token) -> ``WEB_LIMIT``, the default page
+      size.
+    * ``0`` means "no client-imposed limit" -- the historical escape
+      hatch for dumping a full result set on the main data-plane
+      routes (where the limit is otherwise applied by a streaming
+      ``break`` / ``or subdb.no_limit``).
+
+    ``WEB_MAXRESULTS``, when configured, is the operator's *hard* cap
+    and applies to every request, including ``limit:0`` and any value
+    above it -- otherwise ``q=limit:0`` would stream the entire
+    collection straight past the cap. When ``WEB_MAXRESULTS`` is unset
+    (the default), ``limit:0`` stays unlimited.
+    """
+    if limit is None:
+        limit = config.WEB_LIMIT
+    # ``not limit`` is the ``limit:0`` ("unlimited") sentinel -- it is a
+    # non-negative int here (``flt_from_query`` clamps negatives away).
+    if config.WEB_MAXRESULTS is not None and (
+        not limit or limit > config.WEB_MAXRESULTS
+    ):
+        return config.WEB_MAXRESULTS
+    return limit
+
+
 def get_base(dbase):
     # we can get filters from either q= (web interface) or f= (API);
     # both are used (logical and)
@@ -111,10 +139,7 @@ def get_base(dbase):
     flt = dbase.flt_and(
         flt, webutils.parse_filter(dbase, json.loads(request.params.pop("f", "{}")))
     )
-    if limit is None:
-        limit = config.WEB_LIMIT
-    if config.WEB_MAXRESULTS is not None:
-        limit = min(limit, config.WEB_MAXRESULTS)
+    limit = _resolve_limit(limit)
     # type of result
     ipsasnumbers = request.params.get("ipsasnumbers")
     fmt = request.params.get("format") or "json"

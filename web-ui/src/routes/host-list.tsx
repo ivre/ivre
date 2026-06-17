@@ -30,7 +30,7 @@ import {
   type Filter,
 } from "@/lib/filter";
 import { formatResultsCount } from "@/lib/format";
-import { buildPagedQuery, computePagination } from "@/lib/paging";
+import { buildPagedQuery, computePagination, parseUrlInt } from "@/lib/paging";
 import { getSection, type SectionId } from "@/lib/sections";
 import { formatTimelineRange, type TimelineRecord } from "@/lib/timeline";
 
@@ -121,16 +121,18 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     [filters, setFilters],
   );
 
-  // Treat any non-positive / non-numeric ``limit`` (e.g. ``?limit=0``,
-  // ``?limit=-10``, ``?limit=abc``) as invalid and fall back to the
-  // default. A negative value is otherwise truthy and would corrupt
-  // both the ``limit:N`` meta-token sent to the backend and the
-  // pagination math (inverted Next/Previous, bogus last-page jump).
-  const rawLimit = Number.parseInt(searchParams.get("limit") ?? "", 10);
-  const limit = rawLimit > 0 ? rawLimit : config.dflt_limit || 50;
+  // ``limit`` (min 1): any non-positive / non-numeric value
+  // (``?limit=0``, ``?limit=-10``, ``?limit=abc``) falls back to the
+  // default page size -- a negative would otherwise be truthy and
+  // corrupt both the ``limit:N`` meta-token and the pagination math.
+  const limit = parseUrlInt(searchParams, "limit", {
+    min: 1,
+    fallback: config.dflt_limit || 50,
+  });
   const paginationEnabled = sectionId === "view";
+  // ``skip`` (min 0): a negative / non-numeric offset clamps to 0.
   const skip = paginationEnabled
-    ? Math.max(0, Number.parseInt(searchParams.get("skip") ?? "", 10) || 0)
+    ? parseUrlInt(searchParams, "skip", { fallback: 0 })
     : 0;
 
   const sequential = isSequentialLoading();

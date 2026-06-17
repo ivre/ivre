@@ -12678,6 +12678,45 @@ class ParseWhenTests(unittest.TestCase):
             self.assertEqual(auditcli._parse_datetime(raw), ivre.utils.parse_when(raw))
 
 
+class ResolveLimitTests(unittest.TestCase):
+    """``ivre.web.app._resolve_limit`` -- ``WEB_MAXRESULTS`` must be a
+    hard cap that ``q=limit:0`` cannot bypass, while ``limit:0`` stays
+    unlimited when no cap is configured."""
+
+    @staticmethod
+    def _resolve(limit, *, web_limit=10, max_results=None):
+        from ivre import config
+        from ivre.web import app
+
+        with (
+            mock.patch.object(config, "WEB_LIMIT", web_limit),
+            mock.patch.object(config, "WEB_MAXRESULTS", max_results),
+        ):
+            return app._resolve_limit(limit)
+
+    def test_none_uses_web_limit(self):
+        self.assertEqual(self._resolve(None, web_limit=10), 10)
+        self.assertEqual(self._resolve(None, web_limit=25, max_results=50), 25)
+
+    def test_zero_is_unlimited_without_cap(self):
+        self.assertEqual(self._resolve(0), 0)
+
+    def test_zero_is_capped_to_max_results(self):
+        # The bug this guards against: ``limit:0`` must not stream the
+        # whole collection past the operator's hard cap.
+        self.assertEqual(self._resolve(0, max_results=50), 50)
+
+    def test_value_above_cap_is_clamped(self):
+        self.assertEqual(self._resolve(99999, max_results=50), 50)
+
+    def test_value_within_cap_passes_through(self):
+        self.assertEqual(self._resolve(25, max_results=50), 25)
+        self.assertEqual(self._resolve(50, max_results=50), 50)
+
+    def test_value_passes_through_without_cap(self):
+        self.assertEqual(self._resolve(99999), 99999)
+
+
 # ---------------------------------------------------------------------
 # MongoDBSearchFieldTests -- the shared ``MongoDB._search_field``
 # helper and a sample of the search methods refactored to use it.
