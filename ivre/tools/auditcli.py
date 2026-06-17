@@ -55,102 +55,38 @@ import argparse
 import datetime
 import json
 import os
-import re
 import sys
 
 from ivre import utils
 from ivre.db import db
 
-# Duration shorthand for ``--purge-older-than`` and ``--since`` /
-# ``--until``: ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny``.  Mirrors
-# the ``timeago:`` syntax already supported by the web query
-# parser in ``ivre/web/utils.py``; aligned so an operator who
-# knows one knows the other.
-_DURATION_UNITS = {
-    "s": 1,
-    "m": 60,
-    "h": 3600,
-    "d": 86400,
-    "y": 31_557_600,
-}
-
-_DURATION_RE = re.compile(r"^(\d+)([smhdy])$")
-
 
 def _parse_duration(raw: str) -> datetime.timedelta:
-    """Translate ``"30d"`` / ``"180d"`` / ``"2y"`` (or a bare
-    integer count of seconds) into a :class:`timedelta`.
+    """Translate ``--purge-older-than`` duration shorthand (``"30d"``
+    / ``"2y"`` / a bare integer count of seconds) into a
+    :class:`datetime.timedelta`.
 
-    Raises :class:`SystemExit` (via :func:`sys.exit`) on a
-    malformed value, or one too large to fit in a
-    :class:`datetime.timedelta` (``timedelta`` caps out at
-    ``timedelta.max`` -- roughly 2.7 million years -- so
-    syntactically valid shorthand like ``999999999999y``
-    overflows the constructor), so an operator typo or
-    finger-slip surfaces as a clean CLI error rather than a
-    stack trace.
+    Thin wrapper over :func:`ivre.utils.parse_duration` that turns the
+    :class:`ValueError` it raises on a malformed / overflowing value
+    into a clean CLI error (:func:`sys.exit`) rather than a stack
+    trace.
     """
-    match = _DURATION_RE.match(raw)
-    if match is None:
-        try:
-            return datetime.timedelta(seconds=int(raw))
-        except (TypeError, ValueError, OverflowError):
-            sys.exit(
-                f"Error: invalid duration {raw!r} "
-                "(expected ``Ns`` / ``Nm`` / ``Nh`` / ``Nd`` / ``Ny`` "
-                "or a bare integer count of seconds, "
-                "small enough to fit in datetime.timedelta)"
-            )
     try:
-        return datetime.timedelta(
-            seconds=int(match.group(1)) * _DURATION_UNITS[match.group(2)]
-        )
-    except OverflowError:
-        sys.exit(
-            f"Error: invalid duration {raw!r} "
-            "(too large to fit in datetime.timedelta)"
-        )
+        return utils.parse_duration(raw)
+    except ValueError as exc:
+        sys.exit(f"Error: {exc}")
 
 
 def _parse_datetime(raw: str | None) -> datetime.datetime | None:
-    """Translate ``--since`` / ``--until`` arguments.
-
-    Accepted forms:
-
-    * ``None`` / empty -- returns ``None`` (no bound).
-    * ``"30d"`` / ``"2h"`` / ... -- duration shorthand;
-      interpreted as "this many seconds ago" relative to
-      :func:`datetime.datetime.now` in UTC.
-    * Unix timestamp (``"1716595200"``).
-    * ISO 8601 (``"2026-05-25T00:00:00Z"``, ``"2026-05-25"``).
-
-    Naive ISO strings are interpreted as UTC.
+    """Translate ``--since`` / ``--until`` arguments via the shared
+    :func:`ivre.utils.parse_when` parser (duration shorthand, Unix
+    timestamp, or ISO 8601 -- identical to the ``/cgi/audit/*`` web
+    API), mapping a malformed value to a clean CLI error.
     """
-    if not raw:
-        return None
-    match = _DURATION_RE.match(raw)
-    if match is not None:
-        delta = _parse_duration(raw)
-        return datetime.datetime.now(tz=datetime.timezone.utc) - delta
     try:
-        return datetime.datetime.fromtimestamp(float(raw), tz=datetime.timezone.utc)
-    except (TypeError, ValueError):
-        # Not numeric -- fall through to the ISO branch.  Range
-        # errors (``OverflowError`` / ``OSError``) mean it *was*
-        # numeric but the platform can't represent it; surface
-        # those as a clean CLI error rather than falling into
-        # the ISO parser (which would also fail, with a less
-        # useful message).
-        pass
-    except (OverflowError, OSError) as exc:
-        sys.exit(f"Error: invalid datetime {raw!r}: {exc}")
-    try:
-        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        sys.exit(f"Error: invalid datetime {raw!r}")
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-    return parsed
+        return utils.parse_when(raw)
+    except ValueError as exc:
+        sys.exit(f"Error: {exc}")
 
 
 def main() -> None:

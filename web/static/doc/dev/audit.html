@@ -213,8 +213,10 @@ timestamp, or an ISO-8601 datetime (naive values are read as
 UTC). <code class="docutils literal notranslate"><span class="pre">--since</span></code> is inclusive, <code class="docutils literal notranslate"><span class="pre">--until</span></code> exclusive.</p>
 </dd>
 </dl>
-<p>The duration shorthand matches the <code class="docutils literal notranslate"><span class="pre">timeago:</span></code> syntax of the web
-query parser, so the same expression works on both sides.</p>
+<p><code class="docutils literal notranslate"><span class="pre">WHEN</span></code> is parsed by the same helper as the web API’s <code class="docutils literal notranslate"><span class="pre">since</span></code> /
+<code class="docutils literal notranslate"><span class="pre">until</span></code> query parameters (and the duration shorthand matches the
+<code class="docutils literal notranslate"><span class="pre">timeago:</span></code> syntax of the web query parser), so an expression that
+works on one side works identically on the other.</p>
 <p>Examples:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span># Everything alice did in the last week:
 $ ivre auditcli --user-email alice@example.org --since 7d
@@ -235,6 +237,10 @@ reads their own trail, an admin reads everyone’s, and an
 anonymous caller gets <code class="docutils literal notranslate"><span class="pre">401</span></code>. A non-admin who asks for another
 user’s events with <code class="docutils literal notranslate"><span class="pre">user_email=</span></code> gets <code class="docutils literal notranslate"><span class="pre">403</span></code>. When no audit
 backend is configured the routes return <code class="docutils literal notranslate"><span class="pre">501</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">since</span></code> / <code class="docutils literal notranslate"><span class="pre">until</span></code> query parameters accept the exact same
+<code class="docutils literal notranslate"><span class="pre">WHEN</span></code> syntax as <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">auditcli</span></code> (duration shorthand, Unix
+timestamp, or ISO 8601), so a bookmarked Explorer URL can be
+replayed verbatim as a CLI invocation, and vice versa.</p>
 <p>The full request / response reference (query parameters, status
 codes, response shapes) is generated from the route docstrings on
 the <a class="reference internal" href="web-api.html#web-api"><span class="std std-ref">Web API</span></a> page; see the <em>List audit events</em>,
