@@ -1,6 +1,40 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPagedQuery, computePagination } from "./paging";
+import { buildPagedQuery, computePagination, parseUrlInt } from "./paging";
+
+describe("parseUrlInt", () => {
+  const params = (q: string) => new URLSearchParams(q);
+
+  it("returns the parsed value when valid and >= min", () => {
+    expect(parseUrlInt(params("limit=50"), "limit", { min: 1, fallback: 10 })).toBe(
+      50,
+    );
+    expect(parseUrlInt(params("skip=100"), "skip", { fallback: 0 })).toBe(100);
+  });
+
+  it("falls back when the param is absent or non-numeric", () => {
+    expect(parseUrlInt(params(""), "limit", { min: 1, fallback: 10 })).toBe(10);
+    expect(parseUrlInt(params("limit=abc"), "limit", { min: 1, fallback: 10 })).toBe(
+      10,
+    );
+  });
+
+  it("falls back when the value is below min", () => {
+    // limit (min 1): 0 / negative -> fallback.
+    expect(parseUrlInt(params("limit=0"), "limit", { min: 1, fallback: 10 })).toBe(
+      10,
+    );
+    expect(parseUrlInt(params("limit=-10"), "limit", { min: 1, fallback: 10 })).toBe(
+      10,
+    );
+  });
+
+  it("clamps with min 0 by default (skip semantics)", () => {
+    // skip (min defaults to 0): 0 is valid, negatives fall back.
+    expect(parseUrlInt(params("skip=0"), "skip", { fallback: 0 })).toBe(0);
+    expect(parseUrlInt(params("skip=-5"), "skip", { fallback: 0 })).toBe(0);
+  });
+});
 
 describe("buildPagedQuery", () => {
   it("appends limit and omits skip on the first page", () => {

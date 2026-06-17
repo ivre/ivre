@@ -10,6 +10,22 @@
  * rather than passing them alongside it.
  */
 
+/** Parse an integer URL search param, falling back to ``fallback``
+ *  when it is absent, non-numeric, or below ``min`` (default ``0``).
+ *  A value ``>= min`` is returned unchanged.
+ *
+ *  Unifies the "sanitise a URL-supplied int" idiom used for ``limit``
+ *  (``min: 1`` -- a non-positive page size falls back to the default)
+ *  and ``skip`` (``min: 0`` -- a negative offset clamps to 0). */
+export function parseUrlInt(
+  params: URLSearchParams,
+  key: string,
+  { min = 0, fallback }: { min?: number; fallback: number },
+): number {
+  const raw = Number.parseInt(params.get(key) ?? "", 10);
+  return Number.isNaN(raw) || raw < min ? fallback : raw;
+}
+
 /** Append the ``limit:N`` / ``skip:N`` meta-tokens to a filter query
  *  so the backend returns the requested result window.
  *

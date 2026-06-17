@@ -255,6 +255,11 @@ WEB_NOTES_BASE = "/dokuwiki/#IP#"
 # requires either ``db.nmap`` or ``db.passive``; the others
 # require their like-named backend.
 WEB_MODULES: list[str] | None = None
+# Hard cap on the number of results any web query may return. When
+# set, it bounds *every* request, including the ``limit:0`` ("no
+# limit") escape hatch -- it cannot be bypassed via ``q=limit:0``.
+# ``None`` (default) means no cap (``limit:0`` then truly returns
+# everything).
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT = 20000
 WEB_GET_NOTEPAD_PAGES = None
