@@ -3,10 +3,12 @@ Audit log
 
 IVRE keeps an **append-only audit log** of the security-relevant
 actions performed through its web layer: data uploads, admin
-actions, and queries large enough to be truncated. It is a
-security control first and a debugging aid second -- the storage
-layer is *fail-loud*, so an event that cannot be written aborts
-the request rather than silently dropping the record.
+actions, queries large enough to be truncated, and login attempts.
+It is a security control first and a debugging aid second -- the
+storage layer is *fail-loud*, so an event that cannot be written
+aborts the request rather than silently dropping the record (a
+login whose ``auth`` event cannot be persisted therefore fails
+closed: the audit trail is never allowed to lose an event).
 
 The audit purpose (``db.audit``, :class:`ivre.db.DBAudit`) is
 independent from the data purposes (``nmap`` / ``view`` /
@@ -58,6 +60,20 @@ Three categories are recorded (the closed set in
     exceeded ``WEB_MAXRESULTS``. The event is recorded before the
     truncated response is streamed, so the trail captures queries
     that saw only part of the matching set.
+
+``auth``
+    An interactive login attempt -- success *or* failure -- via
+    OAuth or magic-link. ``details`` carries ``result``
+    (``"success"`` / ``"failure"``), ``method`` (``"oauth"`` /
+    ``"magic_link"``), the OAuth ``provider`` when applicable
+    (``"google"`` / ``"github"`` / ...), and a short ``reason`` on
+    failure (invalid OAuth state, expired magic link, account
+    pending approval, ...). **No credential material is recorded**
+    -- not the password-equivalent OAuth ``code`` / ``access_token``
+    nor the magic-link token, only the method, provider, e-mail,
+    remote address and outcome. Per-request session-cookie and
+    API-key validation are deliberately *not* audited (they would
+    swamp the log); only the credential-establishment events are.
 
 Each event carries the actor (user e-mail, API-key hash and
 remote address, any of which may be empty for anonymous traffic),

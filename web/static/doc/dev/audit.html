@@ -109,10 +109,12 @@
 <h1>Audit log<a class="headerlink" href="#audit-log" title="Link to this heading"></a></h1>
 <p>IVRE keeps an <strong>append-only audit log</strong> of the security-relevant
 actions performed through its web layer: data uploads, admin
-actions, and queries large enough to be truncated. It is a
-security control first and a debugging aid second – the storage
-layer is <em>fail-loud</em>, so an event that cannot be written aborts
-the request rather than silently dropping the record.</p>
+actions, queries large enough to be truncated, and login attempts.
+It is a security control first and a debugging aid second – the
+storage layer is <em>fail-loud</em>, so an event that cannot be written
+aborts the request rather than silently dropping the record (a
+login whose <code class="docutils literal notranslate"><span class="pre">auth</span></code> event cannot be persisted therefore fails
+closed: the audit trail is never allowed to lose an event).</p>
 <p>The audit purpose (<code class="docutils literal notranslate"><span class="pre">db.audit</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ivre.db.DBAudit</span></code>) is
 independent from the data purposes (<code class="docutils literal notranslate"><span class="pre">nmap</span></code> / <code class="docutils literal notranslate"><span class="pre">view</span></code> /
 <code class="docutils literal notranslate"><span class="pre">passive</span></code> / <code class="docutils literal notranslate"><span class="pre">flow</span></code>): it can point at a different,
@@ -157,6 +159,19 @@ updating a user, revoking another user’s API key, …).</p>
 exceeded <code class="docutils literal notranslate"><span class="pre">WEB_MAXRESULTS</span></code>. The event is recorded before the
 truncated response is streamed, so the trail captures queries
 that saw only part of the matching set.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">auth</span></code></dt><dd><p>An interactive login attempt – success <em>or</em> failure – via
+OAuth or magic-link. <code class="docutils literal notranslate"><span class="pre">details</span></code> carries <code class="docutils literal notranslate"><span class="pre">result</span></code>
+(<code class="docutils literal notranslate"><span class="pre">&quot;success&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;failure&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">method</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;oauth&quot;</span></code> /
+<code class="docutils literal notranslate"><span class="pre">&quot;magic_link&quot;</span></code>), the OAuth <code class="docutils literal notranslate"><span class="pre">provider</span></code> when applicable
+(<code class="docutils literal notranslate"><span class="pre">&quot;google&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;github&quot;</span></code> / …), and a short <code class="docutils literal notranslate"><span class="pre">reason</span></code> on
+failure (invalid OAuth state, expired magic link, account
+pending approval, …). <strong>No credential material is recorded</strong>
+– not the password-equivalent OAuth <code class="docutils literal notranslate"><span class="pre">code</span></code> / <code class="docutils literal notranslate"><span class="pre">access_token</span></code>
+nor the magic-link token, only the method, provider, e-mail,
+remote address and outcome. Per-request session-cookie and
+API-key validation are deliberately <em>not</em> audited (they would
+swamp the log); only the credential-establishment events are.</p>
 </dd>
 </dl>
 <p>Each event carries the actor (user e-mail, API-key hash and

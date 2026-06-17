@@ -186,6 +186,9 @@ def _handle_authenticated_user(
     email: str,
     display_name: str | None = None,
     next_url: str | None = None,
+    *,
+    method: str,
+    provider: str | None = None,
 ) -> str:
     """Handle a successfully authenticated user: create/check user record,
     create session, return the post-login redirect URL.
@@ -195,6 +198,13 @@ def _handle_authenticated_user(
     (defence-in-depth: callers may pass either pre-validated or
     raw values), then fall back to ``"/"`` when it is missing or
     rejected.
+
+    ``method`` (``"oauth"`` / ``"magic_link"``) and ``provider`` (the
+    OAuth provider, or ``None``) are recorded on the resulting
+    ``auth`` audit event.  This funnel records the *success* event and
+    the e-mail-bearing *pending-approval* failures; the pre-funnel
+    failures (invalid OAuth state, expired link, ...) are recorded by
+    the :func:`ivre.web.audit_hook.audit_auth` decorator on the route.
 
     Aborts on user-state errors (pending approval, missing
     backend).
@@ -211,14 +221,37 @@ def _handle_authenticated_user(
         )
         user = db.auth.get_user_by_email(email)
         if not is_active:
+            audit_hook.record_auth(
+                success=False,
+                method=method,
+                provider=provider,
+                email=email,
+                reason="account pending admin approval",
+                outcome=403,
+            )
             abort(403, "Account created but pending admin approval")
     if not user.get("is_active"):
+        audit_hook.record_auth(
+            success=False,
+            method=method,
+            provider=provider,
+            email=email,
+            reason="account pending admin approval",
+            outcome=403,
+        )
         abort(403, "Account is pending admin approval")
     # Update display name if we have a better one
     if display_name and user.get("display_name") == user["email"]:
         db.auth.update_user(email, display_name=display_name)
     token = db.auth.create_session(email)
     _set_session_cookie(token)
+    audit_hook.record_auth(
+        success=True,
+        method=method,
+        provider=provider,
+        email=email,
+        outcome=200,
+    )
     return _validate_next_url(next_url) or "/"
 
 
@@ -265,6 +298,7 @@ def login_provider(provider: str) -> None:
 
 
 @application.get("/auth/callback/<provider>")
+@audit_hook.audit_auth("oauth")
 def callback_provider(provider: str) -> None:
     if provider not in get_enabled_providers():
         abort(404, "Provider not available")
@@ -306,7 +340,9 @@ def callback_provider(provider: str) -> None:
     email, display_name = get_user_email(provider, tokens)
     if not email:
         abort(400, "Could not retrieve email from provider")
-    redir = _handle_authenticated_user(email, display_name, next_url=next_url)
+    redir = _handle_authenticated_user(
+        email, display_name, next_url=next_url, method="oauth", provider=provider
+    )
     redirect(redir)
 
 
@@ -387,6 +423,7 @@ def send_magic_link() -> str:
 
 
 @application.get("/auth/magic-link/verify")
+@audit_hook.audit_auth("magic_link")
 def verify_magic_link() -> None:
     if not config.WEB_AUTH_MAGIC_LINK_ENABLED:
         abort(404, "Magic link authentication is not enabled")
@@ -401,7 +438,7 @@ def verify_magic_link() -> None:
     # tampered with in transit; the validator drops any payload
     # that is not a same-origin relative path.
     next_url = _validate_next_url(request.params.get("next"))
-    redir = _handle_authenticated_user(email, next_url=next_url)
+    redir = _handle_authenticated_user(email, next_url=next_url, method="magic_link")
     redirect(redir)
 
 
