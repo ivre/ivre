@@ -370,7 +370,8 @@ node or edge instead of a graph.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">skip</span></code>    pagination offset; defaults to <code class="docutils literal notranslate"><span class="pre">0</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>    <code class="docutils literal notranslate"><span class="pre">default</span></code> / <code class="docutils literal notranslate"><span class="pre">flow_map</span></code> / <code class="docutils literal notranslate"><span class="pre">talk_map</span></code></p></li>
 <li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">count</span></code>   <code class="docutils literal notranslate"><span class="pre">true</span></code> returns <a href="#id1"><span class="problematic" id="id2">``</span></a>{clients, servers,</dt><dd><p>flows}`` instead of the graph</p>
+<dt><code class="docutils literal notranslate"><span class="pre">count</span></code>   <code class="docutils literal notranslate"><span class="pre">true</span></code> returns</dt><dd><p><code class="docutils literal notranslate"><span class="pre">{clients,</span> <span class="pre">servers,</span> <span class="pre">flows}</span></code> instead of
+the graph</p>
 </dd>
 </dl>
 </li>
@@ -952,8 +953,8 @@ create-only collision</p></li>
 </dd>
 <dt class="field-even">Status Codes<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array of <code class="docutils literal notranslate"><span class="pre">{revision,</span> <span class="pre">body,</span> <span class="pre">created_at,</span>
-<span class="pre">created_by}</span></code> entries</p></li>
+<li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200">200 OK</a></span> – JSON array of
+<code class="docutils literal notranslate"><span class="pre">{revision,</span> <span class="pre">body,</span> <span class="pre">created_at,</span> <span class="pre">created_by}</span></code> entries</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400">400 Bad Request</a></span> – invalid entity_type / entity_key</p></li>
 <li><p><span><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404">404 Not Found</a></span> – <code class="docutils literal notranslate"><span class="pre">notes</span></code> module is not exposed by
 <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code></p></li>
