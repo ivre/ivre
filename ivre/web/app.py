@@ -828,8 +828,9 @@ def get_flow():
                        ``config.WEB_GRAPH_LIMIT`` (1000)
          - ``skip``    pagination offset; defaults to ``0``
          - ``mode``    ``default`` / ``flow_map`` / ``talk_map``
-         - ``count``   ``true`` returns ``{clients, servers,
-                       flows}`` instead of the graph
+         - ``count``   ``true`` returns
+                       ``{clients, servers, flows}`` instead of
+                       the graph
          - ``orderby`` ``src`` / ``dst`` / ``flow`` (or unset)
          - ``timeline`` ``true`` embeds ``data.meta.times`` per edge
          - ``before`` / ``after``  ``"YYYY-MM-DD HH:MM"`` time bounds
@@ -2177,8 +2178,8 @@ def get_note_revisions(entity_type: str, entity_key: str):
 
     :param str entity_type: entity type
     :param str entity_key: caller-facing entity key
-    :status 200: JSON array of ``{revision, body, created_at,
-        created_by}`` entries
+    :status 200: JSON array of
+        ``{revision, body, created_at, created_by}`` entries
     :status 400: invalid entity_type / entity_key
     :status 404: ``notes`` module is not exposed by
         ``WEB_MODULES``
