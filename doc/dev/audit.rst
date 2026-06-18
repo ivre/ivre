@@ -43,7 +43,7 @@ after upgrading IVRE on an existing deployment.
 Event types
 ===========
 
-Three categories are recorded (the closed set in
+The following categories are recorded (the closed set in
 :attr:`ivre.db.DBAudit.EVENT_TYPES`):
 
 ``upload``
