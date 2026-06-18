@@ -260,7 +260,18 @@ def _handle_authenticated_user(
             outcome=303,
         )
     except Exception:
-        db.auth.delete_session(token)
+        # Best-effort rollback: log (but swallow) a delete failure so
+        # it does not mask the original audit error -- the bare
+        # ``raise`` below then re-raises that audit exception, keeping
+        # the "fail-closed because the audit write failed" cause
+        # diagnosable.
+        try:
+            db.auth.delete_session(token)
+        except Exception:
+            utils.LOGGER.error(
+                "Failed to roll back session after audit failure",
+                exc_info=True,
+            )
         raise
     _set_session_cookie(token)
     return _validate_next_url(next_url) or "/"

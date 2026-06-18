@@ -12958,6 +12958,9 @@ class HandleAuthenticatedUserAuditTests(unittest.TestCase):
         def __init__(self):
             self.created: list[str] = []
             self.deleted: list[str] = []
+            # When set, ``delete_session`` raises it (to exercise the
+            # best-effort rollback path).
+            self.delete_session_error: Exception | None = None
 
         @staticmethod
         def get_user_by_email(email):
@@ -12969,6 +12972,8 @@ class HandleAuthenticatedUserAuditTests(unittest.TestCase):
             return token
 
         def delete_session(self, token):
+            if self.delete_session_error is not None:
+                raise self.delete_session_error
             self.deleted.append(token)
 
         @staticmethod
@@ -13022,6 +13027,25 @@ class HandleAuthenticatedUserAuditTests(unittest.TestCase):
         # login persists without a matching audit record.
         self.assertEqual(self._auth_stub.created, ["tok-alice@example.org"])
         self.assertEqual(self._auth_stub.deleted, ["tok-alice@example.org"])
+
+    def test_rollback_failure_does_not_mask_the_audit_error(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import AuditWriteError, db
+
+        class _RaisingAudit:
+            @staticmethod
+            def record(*_args, **_kwargs):
+                raise AuditWriteError("audit store down")
+
+        # ``delete_session`` also fails: the rollback is best-effort, so
+        # the original audit exception must still propagate (not the
+        # delete error), keeping the root cause diagnosable.
+        self._auth_stub.delete_session_error = RuntimeError("session store down")
+        with mock.patch.object(db, "_audit", _RaisingAudit(), create=True):
+            with self.assertRaises(AuditWriteError):
+                web_auth._handle_authenticated_user(
+                    "alice@example.org", method="oauth", provider="google"
+                )
 
     def test_successful_login_records_303_and_keeps_session(self):
         import ivre.web.auth as web_auth
