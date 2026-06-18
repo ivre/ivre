@@ -1828,6 +1828,17 @@ class McpConsentRouteTests(unittest.TestCase):
             web_auth.db, "_auth", self.stub, create=True
         )
         self._patcher_web.start()
+        # A successful login now records an ``auth`` audit event via
+        # ``_handle_authenticated_user``; isolate the audit backend
+        # (the no-backend suite has no reachable store, and the
+        # fail-loud writer would otherwise abort the login) so this
+        # consent-flow test does not depend on ``db.audit``.  The
+        # ``record_auth`` behaviour itself is covered by
+        # ``AuthAuditEventTests``.
+        self._patcher_audit = mock.patch.object(
+            web_auth.db, "_audit", None, create=True
+        )
+        self._patcher_audit.start()
         self._patcher_enabled = mock.patch.object(
             ivre.config, "MCP_OAUTH_AS_ENABLED", True
         )
@@ -1862,6 +1873,7 @@ class McpConsentRouteTests(unittest.TestCase):
 
     def tearDown(self):
         self._patcher_enabled.stop()
+        self._patcher_audit.stop()
         self._patcher_web.stop()
         self._patcher_provider.stop()
 
