@@ -12770,15 +12770,28 @@ class AuthAuditEventTests(unittest.TestCase):
         )
 
     def setUp(self):
+        import bottle
+
         from ivre.db import db
 
         self._stub = self._StubAudit()
         self._patcher = mock.patch.object(db, "_audit", self._stub, create=True)
         self._patcher.start()
+        # ``bottle.request`` is a process-global; snapshot its environ
+        # so the synthetic one we bind does not leak into later tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                bottle.request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
         self._bind_request()
 
     def tearDown(self):
+        import bottle
+
         self._patcher.stop()
+        bottle.request.bind(self._saved_request_environ or {})
 
     def test_auth_is_a_registered_event_type(self):
         from ivre.db import DBAudit
@@ -12997,6 +13010,8 @@ class HandleAuthenticatedUserAuditTests(unittest.TestCase):
         )
 
     def setUp(self):
+        import bottle
+
         import ivre.web.auth as web_auth
 
         self._auth_stub = self._AuthStub()
@@ -13004,10 +13019,21 @@ class HandleAuthenticatedUserAuditTests(unittest.TestCase):
             web_auth.db, "_auth", self._auth_stub, create=True
         )
         self._p_auth.start()
+        # Snapshot the process-global ``bottle.request`` environ so the
+        # synthetic one we bind does not leak into later tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                bottle.request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
         self._bind_request()
 
     def tearDown(self):
+        import bottle
+
         self._p_auth.stop()
+        bottle.request.bind(self._saved_request_environ or {})
 
     def test_audit_write_failure_rolls_back_session(self):
         import ivre.web.auth as web_auth
