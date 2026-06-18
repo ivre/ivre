@@ -12795,7 +12795,7 @@ class AuthAuditEventTests(unittest.TestCase):
             method="oauth",
             provider="google",
             email="alice@example.org",
-            outcome=200,
+            outcome=303,
         )
         self.assertEqual(len(self._stub.events), 1)
         event = self._stub.events[0]
@@ -12807,7 +12807,25 @@ class AuthAuditEventTests(unittest.TestCase):
             event["details"],
             {"result": "success", "method": "oauth", "provider": "google"},
         )
-        self.assertEqual(event["outcome"], 200)
+        self.assertEqual(event["outcome"], 303)
+
+    def test_reason_is_decoded_and_length_capped(self):
+        # The OAuth ``error`` parameter folds an adversary-influenced
+        # string into the abort body; ``record_auth`` must decode bytes
+        # and bound the stored ``reason``.
+        from ivre.web import audit_hook
+
+        audit_hook.record_auth(
+            success=False,
+            method="oauth",
+            provider="google",
+            reason=("OAuth error: " + "A" * 1000).encode(),
+            outcome=400,
+        )
+        reason = self._stub.events[0]["details"]["reason"]
+        self.assertIsInstance(reason, str)
+        self.assertEqual(len(reason), audit_hook._REASON_MAX_LEN)
+        self.assertTrue(reason.startswith("OAuth error: A"))
 
     def test_record_auth_failure_with_reason_and_no_provider(self):
         from ivre.web import audit_hook
@@ -12913,6 +12931,124 @@ class AuthAuditEventTests(unittest.TestCase):
         with self.assertRaises(HTTPError):
             handler(provider="google")
         self.assertEqual(self._stub.events, [])
+
+
+class HandleAuthenticatedUserAuditTests(unittest.TestCase):
+    """``_handle_authenticated_user`` keeps the session <-> audit-record
+    invariant: it records the ``auth`` success event with the redirect
+    outcome (303), and if the fail-loud audit write fails it rolls the
+    just-created session back so no login is ever established without a
+    matching audit record."""
+
+    @classmethod
+    def setUpClass(cls):
+        # ``ivre.web.auth`` validates ``WEB_SECRET`` at import time.
+        cls._saved_secret = ivre.config.WEB_SECRET
+        cls._saved_enabled = ivre.config.WEB_AUTH_ENABLED
+        ivre.config.WEB_SECRET = "test-secret-" + "x" * 50
+        ivre.config.WEB_AUTH_ENABLED = True
+        from ivre.web import auth as _auth  # noqa: F401
+
+    @classmethod
+    def tearDownClass(cls):
+        ivre.config.WEB_SECRET = cls._saved_secret
+        ivre.config.WEB_AUTH_ENABLED = cls._saved_enabled
+
+    class _AuthStub:
+        def __init__(self):
+            self.created: list[str] = []
+            self.deleted: list[str] = []
+
+        @staticmethod
+        def get_user_by_email(email):
+            return {"email": email, "display_name": email, "is_active": True}
+
+        def create_session(self, email):
+            token = f"tok-{email}"
+            self.created.append(token)
+            return token
+
+        def delete_session(self, token):
+            self.deleted.append(token)
+
+        @staticmethod
+        def update_user(*_args, **_kwargs):
+            pass
+
+    def _bind_request(self):
+        import io as _io
+
+        import bottle
+
+        fake_route = type("_FakeRoute", (), {"rule": "/auth/callback/<provider>"})()
+        bottle.request.bind(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/auth/callback/google",
+                "REMOTE_ADDR": "203.0.113.7",
+                "wsgi.input": _io.BytesIO(b""),
+                "bottle.route": fake_route,
+            }
+        )
+
+    def setUp(self):
+        import ivre.web.auth as web_auth
+
+        self._auth_stub = self._AuthStub()
+        self._p_auth = mock.patch.object(
+            web_auth.db, "_auth", self._auth_stub, create=True
+        )
+        self._p_auth.start()
+        self._bind_request()
+
+    def tearDown(self):
+        self._p_auth.stop()
+
+    def test_audit_write_failure_rolls_back_session(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import AuditWriteError, db
+
+        class _RaisingAudit:
+            @staticmethod
+            def record(*_args, **_kwargs):
+                raise AuditWriteError("audit store down")
+
+        with mock.patch.object(db, "_audit", _RaisingAudit(), create=True):
+            with self.assertRaises(AuditWriteError):
+                web_auth._handle_authenticated_user(
+                    "alice@example.org", method="oauth", provider="google"
+                )
+        # The session created during the attempt was rolled back, so no
+        # login persists without a matching audit record.
+        self.assertEqual(self._auth_stub.created, ["tok-alice@example.org"])
+        self.assertEqual(self._auth_stub.deleted, ["tok-alice@example.org"])
+
+    def test_successful_login_records_303_and_keeps_session(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import db
+
+        events: list[dict] = []
+
+        class _CapturingAudit:
+            @staticmethod
+            def record(event_type, *, actor, resource, details, outcome):
+                events.append(
+                    {"event_type": event_type, "details": details, "outcome": outcome}
+                )
+                return "id"
+
+        with mock.patch.object(db, "_audit", _CapturingAudit(), create=True):
+            redir = web_auth._handle_authenticated_user(
+                "alice@example.org", method="oauth", provider="google", next_url=None
+            )
+        self.assertEqual(redir, "/")
+        # Session kept (not rolled back) and exactly one success event.
+        self.assertEqual(self._auth_stub.deleted, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_type"], "auth")
+        self.assertEqual(events[0]["details"]["result"], "success")
+        self.assertEqual(events[0]["details"]["provider"], "google")
+        self.assertEqual(events[0]["outcome"], 303)
 
 
 # ---------------------------------------------------------------------

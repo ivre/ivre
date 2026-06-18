@@ -69,6 +69,12 @@ from ivre.web.base import extract_api_key
 # e-mail-less event for the same request.
 _AUTH_RECORDED_ENVIRON_KEY = "ivre.audit.auth_recorded"
 
+# Cap on the stored ``auth`` failure ``reason``. Failure reasons are
+# derived from abort messages, one of which (``OAuth error: <error>``)
+# folds in a provider-/query-supplied string: bound it so a long or
+# junk value cannot bloat the audit store.
+_REASON_MAX_LEN = 200
+
 
 def _capture_actor() -> dict[str, Any]:
     """Build the ``actor`` sub-dict for the current Bottle request.
@@ -290,7 +296,7 @@ def record_auth(
     method: str,
     provider: str | None = None,
     email: str | None = None,
-    reason: str | None = None,
+    reason: str | bytes | None = None,
     outcome: int | None = None,
 ) -> None:
     """Record an ``auth`` audit event for an interactive login attempt.
@@ -300,7 +306,10 @@ def record_auth(
     (``"google"`` / ``"github"`` / ...) and is ``None`` for the
     magic-link flow.  ``email`` is the address that authenticated (on
     success) or was targeted (on failure, when the route knows it).
-    ``reason`` is a short failure cause.
+    ``reason`` is a short failure cause; ``bytes`` are decoded and the
+    value is truncated to :data:`_REASON_MAX_LEN` so an adversary-
+    influenced abort message (e.g. the OAuth ``error`` parameter)
+    cannot bloat the store. Non-text values are dropped.
 
     **No credential material is ever recorded** -- only the method,
     provider, e-mail, the caller's remote address (via the actor
@@ -326,8 +335,10 @@ def record_auth(
     }
     if provider is not None:
         details["provider"] = provider
-    if reason is not None:
-        details["reason"] = reason
+    if isinstance(reason, bytes):
+        reason = reason.decode("utf-8", "replace")
+    if isinstance(reason, str) and reason:
+        details["reason"] = reason[:_REASON_MAX_LEN]
     db.audit.record(
         "auth",
         actor={
@@ -374,12 +385,14 @@ def audit_auth(method: str) -> Callable[[Callable[..., Any]], Callable[..., Any]
                     and status >= 400
                     and not request.environ.get(_AUTH_RECORDED_ENVIRON_KEY)
                 ):
-                    body = resp.body
+                    # ``record_auth`` normalises the abort body into a
+                    # bounded ``reason`` (decode bytes, truncate, drop
+                    # non-text).
                     record_auth(
                         success=False,
                         method=method,
                         provider=kwargs.get("provider"),
-                        reason=body if isinstance(body, str) and body else None,
+                        reason=resp.body,
                         outcome=status,
                     )
                 raise

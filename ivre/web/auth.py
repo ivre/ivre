@@ -244,14 +244,25 @@ def _handle_authenticated_user(
     if display_name and user.get("display_name") == user["email"]:
         db.auth.update_user(email, display_name=display_name)
     token = db.auth.create_session(email)
+    # Record the login *before* issuing the session cookie, and roll
+    # the session back if the (fail-loud) audit write fails: a login
+    # must never be established without a matching audit record. This
+    # only bites when ``DB_AUDIT`` points at a separate store that is
+    # down while the session backend is up -- otherwise the session
+    # write would have failed first. ``outcome=303`` matches the
+    # redirect the caller issues on success.
+    try:
+        audit_hook.record_auth(
+            success=True,
+            method=method,
+            provider=provider,
+            email=email,
+            outcome=303,
+        )
+    except Exception:
+        db.auth.delete_session(token)
+        raise
     _set_session_cookie(token)
-    audit_hook.record_auth(
-        success=True,
-        method=method,
-        provider=provider,
-        email=email,
-        outcome=200,
-    )
     return _validate_next_url(next_url) or "/"
 
 
