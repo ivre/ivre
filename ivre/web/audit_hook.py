@@ -21,7 +21,7 @@ The storage layer (committed in PR #1885) defines what an audit
 event *is* and how it is persisted; this module is the per-route
 hook that actually populates the log from live HTTP traffic.
 
-Three event categories are wired today (matching
+The event categories are wired here (matching
 :attr:`ivre.db.DBAudit.EVENT_TYPES`):
 
 * ``upload`` -- the :func:`audit_event` decorator stamps an event
@@ -35,6 +35,14 @@ Three event categories are wired today (matching
   ``config.WEB_MAXRESULTS`` (and the operator has set that knob)
   an audit event is recorded before the truncated response is
   streamed.
+* ``auth`` -- :func:`record_auth` records interactive login
+  successes and failures (OAuth and magic-link). The
+  :func:`audit_auth` decorator on the login routes captures the
+  failure paths; the success event is recorded by the auth funnel
+  itself (it alone knows the authenticated e-mail). Only the
+  method, provider, e-mail, remote address and outcome are
+  stored -- never a credential (OAuth code / token, magic-link
+  token).
 
 Failure model: fail-loud on storage failure (the audit log is a
 security control, an unrecorded event is worse than a failed
@@ -49,11 +57,23 @@ import hashlib
 from functools import wraps
 from typing import Any, Callable
 
-from bottle import request, response
+from bottle import HTTPResponse, request, response
 
 from ivre import config, utils
 from ivre.db import db
 from ivre.web.base import extract_api_key
+
+# Request-environ key set by the auth routes once they have recorded
+# their own ``auth`` event (success, or an in-funnel failure that
+# knows the e-mail), so :func:`audit_auth` does not record a second,
+# e-mail-less event for the same request.
+_AUTH_RECORDED_ENVIRON_KEY = "ivre.audit.auth_recorded"
+
+# Cap on the stored ``auth`` failure ``reason``. Failure reasons are
+# derived from abort messages, one of which (``OAuth error: <error>``)
+# folds in a provider-/query-supplied string: bound it so a long or
+# junk value cannot bloat the audit store.
+_REASON_MAX_LEN = 200
 
 
 def _capture_actor() -> dict[str, Any]:
@@ -264,6 +284,118 @@ def audit_event(
                 details = {}
             _record(event_type, details=details, outcome=_response_status_code())
             return result
+
+        return _newfunc
+
+    return decorator
+
+
+def record_auth(
+    *,
+    success: bool,
+    method: str,
+    provider: str | None = None,
+    email: str | None = None,
+    reason: str | bytes | None = None,
+    outcome: int | None = None,
+) -> None:
+    """Record an ``auth`` audit event for an interactive login attempt.
+
+    ``method`` is the authentication method (``"oauth"`` /
+    ``"magic_link"``); ``provider`` names the OAuth provider
+    (``"google"`` / ``"github"`` / ...) and is ``None`` for the
+    magic-link flow.  ``email`` is the address that authenticated (on
+    success) or was targeted (on failure, when the route knows it).
+    ``reason`` is a short failure cause; ``bytes`` are decoded and the
+    value is truncated to :data:`_REASON_MAX_LEN` so an adversary-
+    influenced abort message (e.g. the OAuth ``error`` parameter)
+    cannot bloat the store. Non-text values are dropped.
+
+    **No credential material is ever recorded** -- only the method,
+    provider, e-mail, the caller's remote address (via the actor
+    sub-doc) and the outcome.  In particular OAuth ``code`` /
+    ``access_token`` values and magic-link tokens never reach the log.
+
+    The actor is built explicitly here rather than via
+    :func:`_capture_actor`: at the point an auth event fires the
+    session is not yet established (so ``get_user`` would resolve to
+    ``None`` on success), and the relevant identity is the ``email``
+    being authenticated, not a presented API key.
+
+    Fail-loud on a real storage failure (like every other event);
+    no-op when no audit backend is configured.  Marks the request so
+    :func:`audit_auth` will not also record an event for it.
+    """
+    request.environ[_AUTH_RECORDED_ENVIRON_KEY] = True
+    if db.audit is None:
+        return
+    details: dict[str, Any] = {
+        "result": "success" if success else "failure",
+        "method": method,
+    }
+    if provider is not None:
+        details["provider"] = provider
+    if isinstance(reason, bytes):
+        reason = reason.decode("utf-8", "replace")
+    if isinstance(reason, str) and reason:
+        details["reason"] = reason[:_REASON_MAX_LEN]
+    db.audit.record(
+        "auth",
+        actor={
+            "user_email": email,
+            "api_key_hash": None,
+            "remote_addr": request.remote_addr,
+        },
+        resource=_capture_resource(),
+        details=details,
+        outcome=outcome,
+    )
+
+
+def audit_auth(method: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator for the interactive-login routes: record a *failed*
+    ``auth`` event whenever the wrapped handler aborts (HTTP >= 400).
+
+    The *success* event is recorded inside
+    :func:`ivre.web.auth._handle_authenticated_user` -- it alone knows
+    the authenticated e-mail -- which signals success by raising
+    Bottle's ``redirect`` (HTTP 3xx); this decorator lets that through
+    unrecorded.  Bottle's ``abort`` and ``redirect`` both raise
+    :class:`bottle.HTTPResponse`, so a single ``except`` separates the
+    two by status code.
+
+    Failures that the funnel already recorded with the e-mail (e.g. a
+    pending-approval rejection) set ``_AUTH_RECORDED_ENVIRON_KEY`` and
+    are skipped here, so each login attempt yields exactly one event.
+    The OAuth provider, when the route has one, is read from the
+    ``provider`` keyword argument; the e-mail is unknown for the
+    pre-funnel failures this branch handles (invalid OAuth state,
+    missing code, expired magic link, ...), which is expected.
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def _newfunc(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except HTTPResponse as resp:
+                status = resp.status_code
+                if (
+                    isinstance(status, int)
+                    and status >= 400
+                    and not request.environ.get(_AUTH_RECORDED_ENVIRON_KEY)
+                ):
+                    # ``record_auth`` normalises the abort body into a
+                    # bounded ``reason`` (decode bytes, truncate, drop
+                    # non-text).
+                    record_auth(
+                        success=False,
+                        method=method,
+                        provider=kwargs.get("provider"),
+                        reason=resp.body,
+                        outcome=status,
+                    )
+                raise
 
         return _newfunc
 

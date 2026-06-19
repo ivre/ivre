@@ -1828,6 +1828,17 @@ class McpConsentRouteTests(unittest.TestCase):
             web_auth.db, "_auth", self.stub, create=True
         )
         self._patcher_web.start()
+        # A successful login now records an ``auth`` audit event via
+        # ``_handle_authenticated_user``; isolate the audit backend
+        # (the no-backend suite has no reachable store, and the
+        # fail-loud writer would otherwise abort the login) so this
+        # consent-flow test does not depend on ``db.audit``.  The
+        # ``record_auth`` behaviour itself is covered by
+        # ``AuthAuditEventTests``.
+        self._patcher_audit = mock.patch.object(
+            web_auth.db, "_audit", None, create=True
+        )
+        self._patcher_audit.start()
         self._patcher_enabled = mock.patch.object(
             ivre.config, "MCP_OAUTH_AS_ENABLED", True
         )
@@ -1862,6 +1873,7 @@ class McpConsentRouteTests(unittest.TestCase):
 
     def tearDown(self):
         self._patcher_enabled.stop()
+        self._patcher_audit.stop()
         self._patcher_web.stop()
         self._patcher_provider.stop()
 
@@ -12717,6 +12729,378 @@ class ResolveLimitTests(unittest.TestCase):
         self.assertEqual(self._resolve(99999), 99999)
 
 
+class AuthAuditEventTests(unittest.TestCase):
+    """The ``auth`` audit event: interactive login success / failure
+    recorded by ``record_auth`` and the ``audit_auth`` decorator, with
+    no credential material ever stored."""
+
+    class _StubAudit:
+        def __init__(self):
+            self.events: list[dict] = []
+
+        def record(self, event_type, *, actor, resource, details, outcome):
+            self.events.append(
+                {
+                    "event_type": event_type,
+                    "actor": actor,
+                    "resource": resource,
+                    "details": details,
+                    "outcome": outcome,
+                }
+            )
+            return "stub-event-id"
+
+    def _bind_request(self, remote_addr="203.0.113.7"):
+        import io as _io
+
+        import bottle
+
+        # A real route object is required by ``_capture_resource`` --
+        # bottle raises when ``request.route`` is accessed on an
+        # unrouted request -- so attach a minimal stand-in.
+        fake_route = type("_FakeRoute", (), {"rule": "/auth/callback/<provider>"})()
+        bottle.request.bind(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/auth/callback/google",
+                "REMOTE_ADDR": remote_addr,
+                "wsgi.input": _io.BytesIO(b""),
+                "bottle.route": fake_route,
+            }
+        )
+
+    def setUp(self):
+        import bottle
+
+        from ivre.db import db
+
+        self._stub = self._StubAudit()
+        self._patcher = mock.patch.object(db, "_audit", self._stub, create=True)
+        self._patcher.start()
+        # ``bottle.request`` is a process-global; snapshot its environ
+        # so the synthetic one we bind does not leak into later tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                bottle.request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+        self._bind_request()
+
+    def tearDown(self):
+        import bottle
+
+        self._patcher.stop()
+        bottle.request.bind(self._saved_request_environ or {})
+
+    def test_auth_is_a_registered_event_type(self):
+        from ivre.db import DBAudit
+
+        self.assertIn("auth", DBAudit.EVENT_TYPES)
+        # Must not raise.
+        DBAudit._validate_event_type("auth")
+
+    def test_record_auth_success(self):
+        from ivre.web import audit_hook
+
+        audit_hook.record_auth(
+            success=True,
+            method="oauth",
+            provider="google",
+            email="alice@example.org",
+            outcome=303,
+        )
+        self.assertEqual(len(self._stub.events), 1)
+        event = self._stub.events[0]
+        self.assertEqual(event["event_type"], "auth")
+        self.assertEqual(event["actor"]["user_email"], "alice@example.org")
+        self.assertIsNone(event["actor"]["api_key_hash"])
+        self.assertEqual(event["actor"]["remote_addr"], "203.0.113.7")
+        self.assertEqual(
+            event["details"],
+            {"result": "success", "method": "oauth", "provider": "google"},
+        )
+        self.assertEqual(event["outcome"], 303)
+
+    def test_reason_is_decoded_and_length_capped(self):
+        # The OAuth ``error`` parameter folds an adversary-influenced
+        # string into the abort body; ``record_auth`` must decode bytes
+        # and bound the stored ``reason``.
+        from ivre.web import audit_hook
+
+        audit_hook.record_auth(
+            success=False,
+            method="oauth",
+            provider="google",
+            reason=("OAuth error: " + "A" * 1000).encode(),
+            outcome=400,
+        )
+        reason = self._stub.events[0]["details"]["reason"]
+        self.assertIsInstance(reason, str)
+        self.assertEqual(len(reason), audit_hook._REASON_MAX_LEN)
+        self.assertTrue(reason.startswith("OAuth error: A"))
+
+    def test_record_auth_failure_with_reason_and_no_provider(self):
+        from ivre.web import audit_hook
+
+        audit_hook.record_auth(
+            success=False,
+            method="magic_link",
+            email="bob@example.org",
+            reason="account pending admin approval",
+            outcome=403,
+        )
+        event = self._stub.events[0]
+        self.assertEqual(
+            event["details"],
+            {
+                "result": "failure",
+                "method": "magic_link",
+                "reason": "account pending admin approval",
+            },
+        )
+        self.assertNotIn("provider", event["details"])
+        self.assertEqual(event["outcome"], 403)
+
+    def test_no_credential_material_in_details(self):
+        # Defensive: whatever the caller passes, ``details`` only ever
+        # carries result / method / provider / reason -- never a token,
+        # code or password key.
+        from ivre.web import audit_hook
+
+        audit_hook.record_auth(
+            success=True, method="oauth", provider="github", email="x@e.org"
+        )
+        details = self._stub.events[0]["details"]
+        self.assertEqual(set(details), {"result", "method", "provider"})
+
+    def test_record_auth_no_backend_is_noop_but_sets_dedup_flag(self):
+        import bottle
+
+        from ivre.db import db
+        from ivre.web import audit_hook
+
+        with mock.patch.object(db, "_audit", None, create=True):
+            audit_hook.record_auth(success=True, method="oauth", email="x@e.org")
+        self.assertEqual(self._stub.events, [])
+        self.assertTrue(
+            bottle.request.environ.get("ivre.audit.auth_recorded"),
+        )
+
+    def test_decorator_records_failure_on_abort(self):
+        from bottle import HTTPError
+
+        from ivre.web import audit_hook
+
+        @audit_hook.audit_auth("oauth")
+        def handler(provider):
+            raise HTTPError(401, "Could not retrieve email from provider")
+
+        with self.assertRaises(HTTPError):
+            handler(provider="github")
+        self.assertEqual(len(self._stub.events), 1)
+        event = self._stub.events[0]
+        self.assertEqual(
+            event["details"],
+            {
+                "result": "failure",
+                "method": "oauth",
+                "provider": "github",
+                "reason": "Could not retrieve email from provider",
+            },
+        )
+        self.assertEqual(event["outcome"], 401)
+        # No identity is known for a pre-funnel OAuth failure.
+        self.assertIsNone(event["actor"]["user_email"])
+
+    def test_decorator_skips_on_redirect(self):
+        from bottle import HTTPResponse
+
+        from ivre.web import audit_hook
+
+        @audit_hook.audit_auth("magic_link")
+        def handler():
+            # Success path: the handler raises a redirect (3xx).
+            raise HTTPResponse(status=303)
+
+        with self.assertRaises(HTTPResponse):
+            handler()
+        self.assertEqual(self._stub.events, [])
+
+    def test_decorator_skips_when_funnel_already_recorded(self):
+        import bottle
+        from bottle import HTTPError
+
+        from ivre.web import audit_hook
+
+        # Simulate ``_handle_authenticated_user`` having recorded an
+        # e-mail-bearing failure before aborting.
+        bottle.request.environ["ivre.audit.auth_recorded"] = True
+
+        @audit_hook.audit_auth("oauth")
+        def handler(provider):
+            raise HTTPError(403, "Account is pending admin approval")
+
+        with self.assertRaises(HTTPError):
+            handler(provider="google")
+        self.assertEqual(self._stub.events, [])
+
+
+class HandleAuthenticatedUserAuditTests(unittest.TestCase):
+    """``_handle_authenticated_user`` keeps the session <-> audit-record
+    invariant: it records the ``auth`` success event with the redirect
+    outcome (303), and if the fail-loud audit write fails it rolls the
+    just-created session back so no login is ever established without a
+    matching audit record."""
+
+    @classmethod
+    def setUpClass(cls):
+        # ``ivre.web.auth`` validates ``WEB_SECRET`` at import time.
+        cls._saved_secret = ivre.config.WEB_SECRET
+        cls._saved_enabled = ivre.config.WEB_AUTH_ENABLED
+        ivre.config.WEB_SECRET = "test-secret-" + "x" * 50
+        ivre.config.WEB_AUTH_ENABLED = True
+        from ivre.web import auth as _auth  # noqa: F401
+
+    @classmethod
+    def tearDownClass(cls):
+        ivre.config.WEB_SECRET = cls._saved_secret
+        ivre.config.WEB_AUTH_ENABLED = cls._saved_enabled
+
+    class _AuthStub:
+        def __init__(self):
+            self.created: list[str] = []
+            self.deleted: list[str] = []
+            # When set, ``delete_session`` raises it (to exercise the
+            # best-effort rollback path).
+            self.delete_session_error: Exception | None = None
+
+        @staticmethod
+        def get_user_by_email(email):
+            return {"email": email, "display_name": email, "is_active": True}
+
+        def create_session(self, email):
+            token = f"tok-{email}"
+            self.created.append(token)
+            return token
+
+        def delete_session(self, token):
+            if self.delete_session_error is not None:
+                raise self.delete_session_error
+            self.deleted.append(token)
+
+        @staticmethod
+        def update_user(*_args, **_kwargs):
+            pass
+
+    def _bind_request(self):
+        import io as _io
+
+        import bottle
+
+        fake_route = type("_FakeRoute", (), {"rule": "/auth/callback/<provider>"})()
+        bottle.request.bind(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/auth/callback/google",
+                "REMOTE_ADDR": "203.0.113.7",
+                "wsgi.input": _io.BytesIO(b""),
+                "bottle.route": fake_route,
+            }
+        )
+
+    def setUp(self):
+        import bottle
+
+        import ivre.web.auth as web_auth
+
+        self._auth_stub = self._AuthStub()
+        self._p_auth = mock.patch.object(
+            web_auth.db, "_auth", self._auth_stub, create=True
+        )
+        self._p_auth.start()
+        # Snapshot the process-global ``bottle.request`` environ so the
+        # synthetic one we bind does not leak into later tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                bottle.request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+        self._bind_request()
+
+    def tearDown(self):
+        import bottle
+
+        self._p_auth.stop()
+        bottle.request.bind(self._saved_request_environ or {})
+
+    def test_audit_write_failure_rolls_back_session(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import AuditWriteError, db
+
+        class _RaisingAudit:
+            @staticmethod
+            def record(*_args, **_kwargs):
+                raise AuditWriteError("audit store down")
+
+        with mock.patch.object(db, "_audit", _RaisingAudit(), create=True):
+            with self.assertRaises(AuditWriteError):
+                web_auth._handle_authenticated_user(
+                    "alice@example.org", method="oauth", provider="google"
+                )
+        # The session created during the attempt was rolled back, so no
+        # login persists without a matching audit record.
+        self.assertEqual(self._auth_stub.created, ["tok-alice@example.org"])
+        self.assertEqual(self._auth_stub.deleted, ["tok-alice@example.org"])
+
+    def test_rollback_failure_does_not_mask_the_audit_error(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import AuditWriteError, db
+
+        class _RaisingAudit:
+            @staticmethod
+            def record(*_args, **_kwargs):
+                raise AuditWriteError("audit store down")
+
+        # ``delete_session`` also fails: the rollback is best-effort, so
+        # the original audit exception must still propagate (not the
+        # delete error), keeping the root cause diagnosable.
+        self._auth_stub.delete_session_error = RuntimeError("session store down")
+        with mock.patch.object(db, "_audit", _RaisingAudit(), create=True):
+            with self.assertRaises(AuditWriteError):
+                web_auth._handle_authenticated_user(
+                    "alice@example.org", method="oauth", provider="google"
+                )
+
+    def test_successful_login_records_303_and_keeps_session(self):
+        import ivre.web.auth as web_auth
+        from ivre.db import db
+
+        events: list[dict] = []
+
+        class _CapturingAudit:
+            @staticmethod
+            def record(event_type, *, actor, resource, details, outcome):
+                events.append(
+                    {"event_type": event_type, "details": details, "outcome": outcome}
+                )
+                return "id"
+
+        with mock.patch.object(db, "_audit", _CapturingAudit(), create=True):
+            redir = web_auth._handle_authenticated_user(
+                "alice@example.org", method="oauth", provider="google", next_url=None
+            )
+        self.assertEqual(redir, "/")
+        # Session kept (not rolled back) and exactly one success event.
+        self.assertEqual(self._auth_stub.deleted, [])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_type"], "auth")
+        self.assertEqual(events[0]["details"]["result"], "success")
+        self.assertEqual(events[0]["details"]["provider"], "google")
+        self.assertEqual(events[0]["outcome"], 303)
+
+
 # ---------------------------------------------------------------------
 # MongoDBSearchFieldTests -- the shared ``MongoDB._search_field``
 # helper and a sample of the search methods refactored to use it.
@@ -16668,14 +17052,14 @@ class DBAuditAbstractSurfaceTests(unittest.TestCase):
         self.assertIsInstance(audit, DBAudit)
 
     def test_event_types_tuple_pinned(self) -> None:
-        # The ABC's enum must include exactly the three v1
+        # The ABC's enum must include exactly the recorded
         # categories.  A new category requires extending this
-        # tuple (and probably the consumers in PR 2+).
+        # tuple (and the producer hooks in ivre/web).
         from ivre.db import DBAudit
 
         self.assertEqual(
             DBAudit.EVENT_TYPES,
-            ("upload", "admin_action", "oversize_query"),
+            ("upload", "admin_action", "oversize_query", "auth"),
         )
 
     def test_validate_event_type_accepts_each(self) -> None:

@@ -6230,23 +6230,24 @@ class AuditWriteError(Exception):
 class DBAudit(DB):
     """Append-only audit log.
 
-    Captures three event categories surfaced by the web layer:
+    Captures the security-relevant event categories surfaced by the
+    web layer:
 
     * ``upload`` -- writes against ``post_nmap`` / ``post_flow`` /
       ``post_flow_cleanup`` (``ivre/web/app.py``).
     * ``admin_action`` -- mutations under ``/cgi/auth/admin/*``
       (`admin_update_user`, `admin_delete_api_key`, ...).
     * ``oversize_query`` -- reads whose underlying result count
-      exceeds the operator-set threshold (consumed by a future
-      decorator in PR 2; this storage layer only declares the
-      type).
+      exceeds the operator-set threshold.
+    * ``auth`` -- interactive login attempts (success and failure)
+      via OAuth or magic-link. ``details`` carries ``result``
+      (``"success"`` / ``"failure"``), ``method`` (``"oauth"`` /
+      ``"magic_link"``), the OAuth ``provider`` when applicable, and
+      a ``reason`` on failure. No credential material is recorded.
 
-    The hook decorator / route plumbing / read API / CLI / MCP
-    surfaces all land in follow-up PRs; this purpose ships the
-    storage contract first so the schema is reviewable in
-    isolation.  Retention is operator-driven: there is no
-    default TTL, and :meth:`purge_older_than` is the explicit
-    sweep verb the future CLI invokes.
+    Retention is operator-driven: there is no default TTL, and
+    :meth:`purge_older_than` is the explicit sweep verb the CLI
+    invokes.
 
     Insert-failure model: fail-loud.  See
     :class:`AuditWriteError`.
@@ -6256,6 +6257,7 @@ class DBAudit(DB):
         "upload",
         "admin_action",
         "oversize_query",
+        "auth",
     )
 
     backends = {
