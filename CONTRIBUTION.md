@@ -81,3 +81,51 @@ Manually verify by parsing a test XML file and checking that the resulting host 
 
 ### Branch
 https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
+
+## Implementation Notes
+
+### Implementation Progress
+- Modified `ivre/xmlnmap.py`: added 2 lines in the `startElement` method to parse
+  `tcpsequence` and `ipidsequence` XML tags and store them on the host object
+- Modified `ivre/activecli.py`: replaced the TODO comment with display logic that
+  outputs TCP Sequence and IP ID Sequence fields in host output
+- Modified `tests/tests_no_backend.py`: added `NmapSequenceParsingTests` class
+  with 3 unit tests covering the new functionality
+
+### Key Commits
+- `82d689dc` Store tcpsequence and ipidsequence from Nmap XML results
+- `4347cb6b` Display tcpsequence and ipidsequence in host output
+- `1b36d371` Add tests for tcpsequence and ipidsequence parsing
+- `024d7295` Apply Black formatting to tests
+
+---
+
+## Challenges Faced
+- **Git setup**: Git was not installed initially on Windows; resolved by installing
+  Git for Windows and switching to GitHub Codespaces
+- **Branch naming**: The repo uses `master` not `main` — learned this early when
+  `git checkout main` failed
+- **Test infrastructure**: Writing tests required subclassing `NmapHandler` without
+  a real database backend, which needed careful matching of internal attribute names
+  (e.g. `_needports` vs `needports`)
+- **Variable shadowing**: Named a parameter `xml` which shadowed the `xml` module
+  import — fixed by renaming the import to `xml_sax`
+- **Black formatting**: Had to run Black separately on the test file to meet the
+  project's required formatting standard
+
+---
+
+## Testing Strategy
+- Added `NmapSequenceParsingTests` in `tests/tests_no_backend.py` with 3 tests:
+  - `test_tcpsequence_stored`: verifies `tcpsequence` attributes are stored on host
+  - `test_ipidsequence_stored`: verifies `ipidsequence` attributes are stored on host
+  - `test_missing_sequence_tags_no_error`: verifies hosts without these tags parse cleanly
+- All 3 new tests pass
+- Full test suite: 366 existing tests still passing, 12 pre-existing failures
+  confirmed unrelated to this change (nmap not installed, screenshot handling)
+- Black formatting verified clean on all modified files
+
+---
+
+## Branch Link
+https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
