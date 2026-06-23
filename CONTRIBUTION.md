@@ -61,3 +61,23 @@ Evaluate
 Add a sample Nmap XML snippet containing <tcpsequence> and <ipidsequence> tags to the test samples
 Run python -m pytest tests/ or python tests/tests_no_backend.py to confirm no regressions
 Manually verify by parsing a test XML file and checking that the resulting host object contains tcpsequence and ipidsequence fields
+## Phase III — Implementation
+
+### Changes Made
+- `ivre/xmlnmap.py` — added `elif` block in `startElement` to parse and store
+  `tcpsequence` and `ipidsequence` XML tags from Nmap scan results
+- `ivre/activecli.py` — replaced TODO comment with display logic for both fields
+- `tests/tests_no_backend.py` — added `NmapSequenceParsingTests` class with 3 tests
+
+### Test Results
+- 3 new tests written and passing
+- 366 existing tests still passing
+- 12 pre-existing failures confirmed unrelated (nmap not installed in Codespace,
+  screenshot image handling, CLI utilities)
+
+### Linting
+- Black formatting applied and verified clean
+- flake8 E501 errors are all pre-existing in unchanged lines per CONTRIBUTING guidelines
+
+### Branch
+https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
