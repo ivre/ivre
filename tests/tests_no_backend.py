@@ -527,6 +527,7 @@ class _StubNmapHandler(xmlnmap.NmapHandler):
     def _to_binary(self, data: bytes) -> bytes:
         return data
 
+
 class NmapSequenceParsingTests(unittest.TestCase):
     """Tests that tcpsequence and ipidsequence tags from Nmap XML
     are stored on the host object."""
@@ -572,6 +573,7 @@ class NmapSequenceParsingTests(unittest.TestCase):
                 hosts.append(dict(self._curhost))
 
         import xml.sax as xml_sax  # pylint: disable=import-outside-toplevel
+
         handler = _Collector()
         xml_sax.parseString(xml.encode(), handler)
         return hosts
