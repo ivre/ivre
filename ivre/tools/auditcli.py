@@ -58,7 +58,7 @@ import os
 import sys
 
 from ivre import utils
-from ivre.db import db
+from ivre.db import DBAudit, db
 
 
 def _parse_duration(raw: str) -> datetime.timedelta:
@@ -139,7 +139,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--event-type",
-        choices=("upload", "admin_action", "oversize_query"),
+        # Derived from the storage layer's closed set so a new event
+        # type is offered here automatically (no drift).
+        choices=DBAudit.EVENT_TYPES,
         help="Narrow --query / --count to one event type.",
     )
     parser.add_argument(

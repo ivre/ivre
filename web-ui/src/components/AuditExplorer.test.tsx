@@ -232,6 +232,18 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     expect(currentSearch).toContain("type=oversize_query");
   });
 
+  it("offers the auth event type with a human label and writes ?type=auth", () => {
+    renderExplorer();
+    const select = screen.getByTestId(
+      "audit-explorer-type-select",
+    ) as HTMLSelectElement;
+    const authOption = [...select.options].find((o) => o.value === "auth");
+    expect(authOption).toBeDefined();
+    expect(authOption?.textContent).toBe("Authentication");
+    fireEvent.change(select, { target: { value: "auth" } });
+    expect(currentSearch).toContain("type=auth");
+  });
+
   it("removes ?type= when reset to 'all'", () => {
     renderExplorer("/audit/explorer?type=upload");
     fireEvent.change(screen.getByTestId("audit-explorer-type-select"), {
