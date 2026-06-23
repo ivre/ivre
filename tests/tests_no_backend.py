@@ -527,6 +527,85 @@ class _StubNmapHandler(xmlnmap.NmapHandler):
     def _to_binary(self, data: bytes) -> bytes:
         return data
 
+class NmapSequenceParsingTests(unittest.TestCase):
+    """Tests that tcpsequence and ipidsequence tags from Nmap XML
+    are stored on the host object."""
+
+    XML_TEMPLATE = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" start="1700000000" version="7.94">
+<host starttime="1700000000" endtime="1700000001">
+<status state="up" reason="echo-reply"/>
+<address addr="1.2.3.4" addrtype="ipv4"/>
+<tcpsequence index="254" difficulty="Good luck!" values="1,2,3,4,5,6"/>
+<ipidsequence class="Incremental" values="1,2,3,4,5,6"/>
+</host>
+</nmaprun>
+"""
+
+    def _parse_xml(self, xml: str) -> list:
+        """Parse an XML string and return the list of collected hosts."""
+        hosts: list = []
+
+        class _Collector(xmlnmap.NmapHandler):
+            def __init__(self) -> None:  # type: ignore[no-untyped-def]
+                # pylint: disable=super-init-not-called
+                self._fname = "<test>"
+                self._curhost = None
+                self._curport = None
+                self._curtable = {}
+                self._curtablepath = []
+                self._curscript = None
+                self._curdata = None
+                self._curtrace = None
+                self._curhostnames = None
+                self._curextraports = {}
+                self.callback = None
+                self.categories: list = []
+                self.tags: list = []
+                self.source = ""
+                self.scanner = "nmap"
+                self._needports = False
+                self._needopenports = False
+
+            def _addhost(self) -> None:
+                hosts.append(dict(self._curhost))
+
+        import xml.sax as xml_sax  # pylint: disable=import-outside-toplevel
+        handler = _Collector()
+        xml_sax.parseString(xml.encode(), handler)
+        return hosts
+
+    def test_tcpsequence_stored(self) -> None:
+        """tcpsequence attributes must be stored on the host object."""
+        hosts = self._parse_xml(self.XML_TEMPLATE)
+        self.assertEqual(len(hosts), 1)
+        self.assertIn("tcpsequence", hosts[0])
+        self.assertEqual(hosts[0]["tcpsequence"]["difficulty"], "Good luck!")
+
+    def test_ipidsequence_stored(self) -> None:
+        """ipidsequence attributes must be stored on the host object."""
+        hosts = self._parse_xml(self.XML_TEMPLATE)
+        self.assertEqual(len(hosts), 1)
+        self.assertIn("ipidsequence", hosts[0])
+        self.assertEqual(hosts[0]["ipidsequence"]["class"], "Incremental")
+
+    def test_missing_sequence_tags_no_error(self) -> None:
+        """Hosts without tcpsequence/ipidsequence tags should parse fine."""
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" start="1700000000" version="7.94">
+<host starttime="1700000000" endtime="1700000001">
+<status state="up" reason="echo-reply"/>
+<address addr="1.2.3.4" addrtype="ipv4"/>
+</host>
+</nmaprun>
+"""
+        hosts = self._parse_xml(xml)
+        self.assertEqual(len(hosts), 1)
+        self.assertNotIn("tcpsequence", hosts[0])
+        self.assertNotIn("ipidsequence", hosts[0])
+
 
 class ScreenshotContainmentTests(unittest.TestCase):
     """Regression tests for screenshots filename validation
