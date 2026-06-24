@@ -11,6 +11,7 @@ import {
   isoToLocalInput,
   localInputToIso,
   sanitizeWhen,
+  AUDIT_EVENT_TYPES,
   useAuditCount,
   useAuditEvent,
   useAuditEvents,
@@ -20,21 +21,29 @@ import {
 } from "@/lib/audit";
 import { formatQueryError, formatResultsCount } from "@/lib/format";
 
+// Human labels for the closed event-type set. Typed as a total
+// ``Record`` so adding a new ``AuditEventType`` (in lib/audit.ts)
+// without a label here is a compile error -- the dropdown and the
+// validator below both derive from this, so they cannot drift.
+const EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
+  upload: "Upload",
+  admin_action: "Admin action",
+  oversize_query: "Oversize query",
+  auth: "Authentication",
+};
+
 const EVENT_TYPE_CHOICES: ReadonlyArray<{
   value: string;
   label: string;
 }> = [
   { value: "all", label: "All event types" },
-  { value: "upload", label: "Upload" },
-  { value: "admin_action", label: "Admin action" },
-  { value: "oversize_query", label: "Oversize query" },
+  ...AUDIT_EVENT_TYPES.map((value) => ({
+    value,
+    label: EVENT_TYPE_LABELS[value],
+  })),
 ];
 
-const EVENT_TYPE_VALUES = new Set<string>([
-  "upload",
-  "admin_action",
-  "oversize_query",
-]);
+const EVENT_TYPE_VALUES = new Set<string>(AUDIT_EVENT_TYPES);
 
 /**
  * Full audit-log Explorer.  Mounted at ``/audit/explorer`` and

@@ -218,7 +218,8 @@ removed (see <a class="reference internal" href="#retention"><span class="std st
 </dl>
 <p>Filters (apply to <code class="docutils literal notranslate"><span class="pre">--query</span></code> and <code class="docutils literal notranslate"><span class="pre">--count</span></code>):</p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">--event-type</span> <span class="pre">{upload,admin_action,oversize_query}</span></code></dt><dd><p>Narrow to one category.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">--event-type</span> <span class="pre">{upload,admin_action,oversize_query,auth}</span></code></dt><dd><p>Narrow to one category (the choices are the storage layer’s
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">ivre.db.DBAudit.EVENT_TYPES</span></code>).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">--user-email</span> <span class="pre">EMAIL</span></code></dt><dd><p>Narrow to one user’s events.</p>
 </dd>

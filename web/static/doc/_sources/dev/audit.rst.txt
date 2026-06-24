@@ -128,8 +128,9 @@ Actions (mutually exclusive; ``--query`` is the default):
 
 Filters (apply to ``--query`` and ``--count``):
 
-``--event-type {upload,admin_action,oversize_query}``
-    Narrow to one category.
+``--event-type {upload,admin_action,oversize_query,auth}``
+    Narrow to one category (the choices are the storage layer's
+    :attr:`ivre.db.DBAudit.EVENT_TYPES`).
 
 ``--user-email EMAIL``
     Narrow to one user's events.

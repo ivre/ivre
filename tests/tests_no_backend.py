@@ -18677,6 +18677,31 @@ class DBAuditCliTests(unittest.TestCase):
             until=None,
         )
 
+    def test_event_type_choices_track_backend_event_types(self) -> None:
+        # ``--event-type`` choices are derived from
+        # ``DBAudit.EVENT_TYPES`` (no hardcoded list), so every
+        # storage-layer type -- including ``auth`` -- is accepted and
+        # forwarded, and an unknown type is rejected by argparse.
+        from ivre.db import DBAudit
+
+        audit = mock.Mock()
+        audit.count.return_value = 0
+        for event_type in DBAudit.EVENT_TYPES:
+            with self.subTest(event_type=event_type):
+                audit.reset_mock()
+                code, _stdout, _stderr = self._run_cli(
+                    ["--count", "--event-type", event_type], audit=audit
+                )
+                self.assertEqual(code, 0)
+                audit.count.assert_called_once_with(
+                    event_type=event_type, user_email=None, since=None, until=None
+                )
+        code, _stdout, stderr = self._run_cli(
+            ["--count", "--event-type", "bogus"], audit=audit
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("invalid choice", stderr)
+
     def test_get_prints_json_event(self) -> None:
         # ``--get`` returns either the JSON event or
         # ``null`` (when no event matches).  Pin the
