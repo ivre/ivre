@@ -37,22 +37,21 @@ import { CGI_ROOT } from "@/lib/api";
 /* ------------------------------------------------------------------ */
 
 /** The canonical audit event types
- *  (:attr:`ivre.db.DBAudit.EVENT_TYPES`).  Pinned as a union so
- *  the admin filter UI can render a ``<select>`` against a
- *  closed set instead of free-form text. Keep in sync with the
- *  backend's ``EVENT_TYPES`` (TypeScript cannot import it). */
-export type AuditEventType =
-  | "upload"
-  | "admin_action"
-  | "oversize_query"
-  | "auth";
-
-export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
+ *  (:attr:`ivre.db.DBAudit.EVENT_TYPES`).  The admin filter UI renders
+ *  a ``<select>`` against this closed set instead of free-form text.
+ *  Keep in sync with the backend's ``EVENT_TYPES`` (TypeScript cannot
+ *  import it). */
+export const AUDIT_EVENT_TYPES = [
   "upload",
   "admin_action",
   "oversize_query",
   "auth",
 ] as const;
+
+/** Single source: the union is derived from :data:`AUDIT_EVENT_TYPES`,
+ *  so a type is added/removed in exactly one place and stays type-safe
+ *  everywhere it is used. */
+export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 
 /** Audit event as returned by ``GET /cgi/audit/`` and
  *  ``GET /cgi/audit/<event_id>``.  Mirrors the shape the storage
