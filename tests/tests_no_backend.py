@@ -18789,6 +18789,132 @@ class DBAuditCliTests(unittest.TestCase):
         audit.count.assert_not_called()
 
 
+class BenchToolTests(unittest.TestCase):
+    """Pin :mod:`ivre.tools.bench` (the ``ivre bench`` harness):
+    metric maths, scenario registry, argument handling and the JSON
+    report shape -- all backend-free (the timed callables are stubbed)."""
+
+    def _run(self, argv: list[str]) -> tuple[int, str, str]:
+        from ivre.tools import bench
+
+        stdout, stderr = io.StringIO(), io.StringIO()
+        code = 0
+        with (
+            mock.patch.object(sys, "argv", ["ivre-bench"] + argv),
+            mock.patch("sys.stdout", stdout),
+            mock.patch("sys.stderr", stderr),
+        ):
+            try:
+                bench.main()
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1 if exc.code else 0
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_percentile_nearest_rank(self) -> None:
+        from ivre.tools import bench
+
+        data = [float(i) for i in range(1, 21)]  # 1..20, already sorted
+        self.assertEqual(bench._percentile(data, 0.50), 10.0)
+        self.assertEqual(bench._percentile(data, 0.95), 19.0)
+        self.assertEqual(bench._percentile(data, 1.0), 20.0)
+        # Degenerate single-sample case.
+        self.assertEqual(bench._percentile([4.2], 0.95), 4.2)
+        with self.assertRaises(ValueError):
+            bench._percentile([], 0.5)
+
+    def test_time_callable_runs_warmup_plus_iterations(self) -> None:
+        from ivre.tools import bench
+
+        counter = {"n": 0}
+
+        def _fn() -> None:
+            counter["n"] += 1
+
+        record = bench._time_callable(_fn, iterations=5, warmup=2)
+        self.assertEqual(counter["n"], 7)  # 2 warmup + 5 timed
+        self.assertEqual(record["iterations"], 5)
+        self.assertEqual(record["warmup"], 2)
+        for key in ("min", "p50", "p95", "max", "mean"):
+            self.assertIn(key, record["latency_ms"])
+            self.assertGreaterEqual(record["latency_ms"][key], 0.0)
+
+    def test_top_service_scenario_materialises_topvalues(self) -> None:
+        from ivre.tools import bench
+
+        calls: list[tuple] = []
+
+        class _View:
+            flt_empty = {"_marker": "empty"}
+
+            @staticmethod
+            def topvalues(flt, fields, **kwargs):
+                calls.append((flt, fields, kwargs))
+                return iter([{"count": 1}])
+
+        with mock.patch.object(bench.db, "_view", _View(), create=True):
+            bench.SCENARIOS["bench_top_service"][1]()
+        self.assertEqual(calls, [({"_marker": "empty"}, "service", {"topnbr": 15})])
+
+    def test_detect_backend_normalises_scheme(self) -> None:
+        from ivre.tools import bench
+
+        for url, expected in [
+            ("mongodb://localhost/ivre", "mongodb"),
+            ("mongodb+srv://host/ivre", "mongodb"),
+            ("postgresql://h/db", "postgresql"),
+            ("duckdb:///x.duckdb", "duckdb"),
+            ("https://remote/", "http"),
+        ]:
+            with (
+                mock.patch.object(bench.db, "url", url),
+                mock.patch.object(bench.db, "urls", {}),
+            ):
+                self.assertEqual(bench._detect_backend(), expected)
+
+    def test_list_prints_scenarios(self) -> None:
+        code, stdout, _stderr = self._run(["--list"])
+        self.assertEqual(code, 0)
+        self.assertIn("bench_top_service", stdout)
+        self.assertIn("bench_top_port", stdout)
+
+    def test_unknown_scenario_is_rejected(self) -> None:
+        code, _stdout, stderr = self._run(["--scenario", "bench_bogus"])
+        self.assertNotEqual(code, 0)
+        self.assertIn("unknown scenario", stderr)
+
+    def test_non_positive_iterations_rejected(self) -> None:
+        code, _stdout, stderr = self._run(["--iterations", "0"])
+        self.assertNotEqual(code, 0)
+        self.assertIn("--iterations", stderr)
+
+    def test_main_emits_json_report(self) -> None:
+        from ivre.tools import bench
+
+        with mock.patch.dict(
+            bench.SCENARIOS, {"bench_noop": ("a no-op", lambda: None)}
+        ):
+            code, stdout, _stderr = self._run(
+                [
+                    "--scenario",
+                    "bench_noop",
+                    "--iterations",
+                    "2",
+                    "--warmup",
+                    "0",
+                    "--backend",
+                    "demo",
+                ]
+            )
+        self.assertEqual(code, 0)
+        report = json.loads(stdout)
+        self.assertEqual(report["backend"], "demo")
+        self.assertEqual(len(report["results"]), 1)
+        result = report["results"][0]
+        self.assertEqual(result["scenario"], "bench_noop")
+        self.assertEqual(result["iterations"], 2)
+        self.assertIn("p95", result["latency_ms"])
+
+
 class PostNmapAuditDetailsTests(unittest.TestCase):
     """Pin :func:`ivre.web.app._post_nmap_audit_details`.
 

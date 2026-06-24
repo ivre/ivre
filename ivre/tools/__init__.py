@@ -31,6 +31,7 @@ __all__ = [
     "auditcli",
     "auditdom",
     "authcli",
+    "bench",
     "db2view",
     "flow2db",
     "flowcli",
