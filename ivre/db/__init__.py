@@ -1160,6 +1160,32 @@ class DBActive(DB):
 
         """
 
+    def topvalues(
+        self,
+        field,
+        flt=None,
+        topnbr=10,
+        sort=None,
+        limit=None,
+        skip=None,
+        least=False,
+    ):
+        """Return the most common (or least common, when ``least`` is
+        true) values of ``field`` -- or a pseudo-field such as
+        ``port``, ``service``, ``cpe`` -- among the records matching
+        ``flt`` (default: all records), as ``{"_id": value, "count":
+        n}`` entries, most-common first, capped at ``topnbr`` results.
+
+        Note the argument order: ``field`` is first and ``flt`` is an
+        optional keyword. This differs from :meth:`DBFlow.topvalues`,
+        whose aggregation contract takes ``flt`` first and ``fields``
+        second; the two purposes intentionally keep different shapes.
+        Concrete backends may accept extra backend-specific keyword
+        arguments.
+
+        """
+        raise NotImplementedError
+
     @staticmethod
     def getscreenshot(port):
         """Returns the content of a port's screenshot."""
@@ -5810,6 +5836,12 @@ class DBFlow(DB):
         each original entry in aggregated records as a list.
         By default, the aggregated records are sorted by their number of
         occurrences.
+
+        Note the argument order is specific to the flow purpose: `flt`
+        first, then `fields` (plus the `collect_fields` / `sum_fields`
+        aggregation knobs). The active/view/passive family uses the
+        different :meth:`DBActive.topvalues` shape (`field` first, `flt`
+        optional); the two are intentionally distinct.
         Return format:
             {
                 fields: (field_1_value, field_2_value, ...),
