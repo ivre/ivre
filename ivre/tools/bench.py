@@ -103,7 +103,17 @@ def _time_callable(
 ) -> dict[str, Any]:
     """Time ``func`` over ``iterations`` runs (after ``warmup`` untimed
     runs) and return the latency summary (all values in milliseconds).
+
+    ``iterations`` must be a positive integer and ``warmup`` a
+    non-negative one: the summary indexes the sorted samples, so an
+    empty sample (``iterations == 0``) has no meaning. ``main`` already
+    enforces this for the CLI; the guard here keeps the helper safe for
+    direct/programmatic callers.
     """
+    if iterations < 1:
+        raise ValueError("iterations must be a positive integer")
+    if warmup < 0:
+        raise ValueError("warmup must be a non-negative integer")
     for _ in range(warmup):
         func()
     samples_ms: list[float] = []

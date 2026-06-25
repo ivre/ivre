@@ -18838,6 +18838,18 @@ class BenchToolTests(unittest.TestCase):
             self.assertIn(key, record["latency_ms"])
             self.assertGreaterEqual(record["latency_ms"][key], 0.0)
 
+    def test_time_callable_rejects_out_of_range_counts(self) -> None:
+        # The summary indexes the sorted samples, so an empty sample
+        # (``iterations == 0``) would raise an opaque ``IndexError``.
+        # The helper guards both counts for direct/programmatic callers
+        # (``main`` enforces the same for the CLI).
+        from ivre.tools import bench
+
+        with self.assertRaises(ValueError):
+            bench._time_callable(lambda: None, iterations=0, warmup=1)
+        with self.assertRaises(ValueError):
+            bench._time_callable(lambda: None, iterations=1, warmup=-1)
+
     def test_top_service_scenario_materialises_topvalues(self) -> None:
         from ivre.tools import bench
 
