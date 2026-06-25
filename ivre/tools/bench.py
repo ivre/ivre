@@ -31,13 +31,14 @@ meaningful -- the figures from an empty database are not comparable.
 """
 
 import argparse
+import collections
 import json
 import math
 import platform
 import statistics
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 from urllib.parse import urlparse
 
@@ -45,28 +46,38 @@ from ivre import VERSION
 from ivre.db import db
 
 
-def _scenario_top_service() -> None:
-    """One ``ivre view --top service --limit 15`` query."""
-    list(db.view.topvalues(db.view.flt_empty, "service", topnbr=15))
+def _drain(iterable: Iterable[Any]) -> None:
+    """Consume an iterable fully without retaining it, so a scenario
+    measures the backend's query cost (the cursor is forced to run)
+    rather than the cost of building a Python list of a potentially
+    large result set."""
+    collections.deque(iterable, maxlen=0)
 
 
-def _scenario_top_port() -> None:
-    """One ``ivre view --top port --limit 15`` query."""
-    list(db.view.topvalues(db.view.flt_empty, "port", topnbr=15))
+def _top(field: str) -> Callable[[], None]:
+    """Build a scenario fetching the top 15 values of ``field`` over the
+    whole view -- ``ivre view --top <field> --limit 15``.
+
+    Note the call order: ``DBActive.topvalues`` (which ``db.view`` uses)
+    takes ``field`` first and ``flt`` as an optional keyword (unlike
+    ``DBFlow.topvalues``, whose aggregation contract is ``flt`` first).
+    """
+
+    def _run() -> None:
+        _drain(db.view.topvalues(field, flt=db.view.flt_empty, topnbr=15))
+
+    return _run
 
 
 # Scenario registry: name -> (one-line description, timed callable).
-# Each callable performs exactly one unit of work and materialises any
-# cursor (``list(...)``) so the whole query cost is measured, not just
-# the time to obtain a lazy iterator.
 SCENARIOS: dict[str, tuple[str, Callable[[], None]]] = {
     "bench_top_service": (
         "Top 15 service values across the whole view.",
-        _scenario_top_service,
+        _top("service"),
     ),
     "bench_top_port": (
         "Top 15 ports across the whole view.",
-        _scenario_top_port,
+        _top("port"),
     ),
 }
 
@@ -81,6 +92,8 @@ def _percentile(sorted_values: list[float], quantile: float) -> float:
     """
     if not sorted_values:
         raise ValueError("cannot take a percentile of an empty sample")
+    if not 0.0 <= quantile <= 1.0:
+        raise ValueError("quantile must be in [0, 1]")
     rank = max(1, math.ceil(quantile * len(sorted_values)))
     return sorted_values[min(rank, len(sorted_values)) - 1]
 

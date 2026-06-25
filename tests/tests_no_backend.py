@@ -18847,13 +18847,13 @@ class BenchToolTests(unittest.TestCase):
             flt_empty = {"_marker": "empty"}
 
             @staticmethod
-            def topvalues(flt, fields, **kwargs):
-                calls.append((flt, fields, kwargs))
+            def topvalues(field, flt=None, **kwargs):
+                calls.append((field, flt, kwargs))
                 return iter([{"count": 1}])
 
         with mock.patch.object(bench.db, "_view", _View(), create=True):
             bench.SCENARIOS["bench_top_service"][1]()
-        self.assertEqual(calls, [({"_marker": "empty"}, "service", {"topnbr": 15})])
+        self.assertEqual(calls, [("service", {"_marker": "empty"}, {"topnbr": 15})])
 
     def test_detect_backend_normalises_scheme(self) -> None:
         from ivre.tools import bench
