@@ -2134,6 +2134,8 @@ class NmapHandler(ContentHandler):
             self._curhost["os"].setdefault(name, []).append(dict(attrs))
         elif name == "osfingerprint" and "os" in self._curhost:
             self._curhost["os"]["fingerprint"] = attrs["fingerprint"]
+        elif name in ["tcpsequence", "ipidsequence"]:
+            self._curhost[name] = dict(attrs)
         elif name == "trace":
             if self._curtrace is not None:
                 utils.LOGGER.warning(
