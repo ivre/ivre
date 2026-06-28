@@ -3,6 +3,23 @@
 ## Issue
 [Store more data from Nmap scan results · Issue #655](https://github.com/ivre/ivre/issues/655)
 
+## Pull Request
+[Fix issue ivre · Pull Request #1911 · ivre/ivre](https://github.com/ivre/ivre/pull/1911)
+
+## Summary
+IVRE was silently dropping `<tcpsequence>` and `<ipidsequence>` data from Nmap XML scan results. A `# TODO` comment in `ivre/activecli.py` at line 439 acknowledged the gap. These fields contain host fingerprinting data useful for OS detection and network analysis. This contribution adds parsing, storage, and display of both fields, along with 3 new unit tests.
+
+### Changes Made
+- `ivre/xmlnmap.py` — added `elif` block in `startElement` to parse and store `tcpsequence` and `ipidsequence` XML tags from Nmap scan results
+- `ivre/activecli.py` — replaced TODO comment with display logic for both fields
+- `tests/tests_no_backend.py` — added `NmapSequenceParsingTests` class with 3 tests
+
+### Key Commits
+- `82d689dc` Store tcpsequence and ipidsequence from Nmap XML results
+- `4347cb6b` Display tcpsequence and ipidsequence in host output
+- `1b36d371` Add tests for tcpsequence and ipidsequence parsing
+- `024d7295` Apply Black formatting to tests
+
 ## Steps to Reproduce
 
 ### Reproduction Process
@@ -15,105 +32,44 @@
 **Expected:** IVRE stores `tcpsequence` and `ipidsequence` values from Nmap XML scan results  
 **Actual:** Both fields are silently dropped — only a TODO comment marks the gap
 
-### Reproduction Evidence
-Branch: https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
-
 ## Implementation Plan
+
 - Locate where IVRE parses Nmap XML input (near `activecli.py` and the XML ingestion pipeline)
 - Add logic to extract `tcpsequence` and `ipidsequence` attributes from Nmap XML output
 - Update the data schema/model to store these new fields
 - Replace the TODO comment in `activecli.py` with actual display logic for those values
 - Test using a sample Nmap XML file that contains these tags
 
-UMPIRE Plan
-Understand
-When IVRE parses Nmap XML scan results, it extracts and stores many fields (OS matches, hostnames, ports, traces, etc.) but completely ignores two XML tags: <tcpsequence> and <ipidsequence>. These tags contain useful fingerprinting data about how a host generates TCP sequence numbers and IP IDs — useful for OS detection and network analysis. The data is silently dropped during parsing. There is a # TODO comment in ivre/activecli.py at line 439 acknowledging this gap.
+### UMPIRE Plan
 
-Match
-The existing pattern for osclass and osmatch in ivre/xmlnmap.py around line 2133 is the model to follow:
-pythonelif name in ["osclass", "osmatch"] and "os" in self._curhost:
+**Understand**  
+When IVRE parses Nmap XML scan results, it extracts and stores many fields (OS matches, hostnames, ports, traces, etc.) but completely ignores two XML tags: `<tcpsequence>` and `<ipidsequence>`. These tags contain useful fingerprinting data about how a host generates TCP sequence numbers and IP IDs — useful for OS detection and network analysis. The data is silently dropped during parsing. There is a `# TODO` comment in `ivre/activecli.py` at line 439 acknowledging this gap.
+
+**Match**  
+The existing pattern for `osclass` and `osmatch` in `ivre/xmlnmap.py` around line 2133 is the model to follow:
+```python
+elif name in ["osclass", "osmatch"] and "os" in self._curhost:
     self._curhost["os"].setdefault(name, []).append(dict(attrs))
-The same startElement method already handles os, portused, osfingerprint, and trace the same way — read the tag name, extract attributes, store them on self._curhost. The tcpsequence and ipidsequence tags follow the exact same pattern.
+```
+The same `startElement` method already handles `os`, `portused`, `osfingerprint`, and `trace` the same way — read the tag name, extract attributes, store them on `self._curhost`. The `tcpsequence` and `ipidsequence` tags follow the exact same pattern.
 
-Plan
-
-In ivre/xmlnmap.py, inside the startElement method, add a new elif block after the osfingerprint handler (around line 2137) to capture tcpsequence and ipidsequence:
-
-pythonelif name in ["tcpsequence", "ipidsequence"]:
+**Plan**  
+In `ivre/xmlnmap.py`, inside the `startElement` method, add a new `elif` block after the `osfingerprint` handler (around line 2137):
+```python
+elif name in ["tcpsequence", "ipidsequence"]:
     self._curhost[name] = dict(attrs)
+```
+In `ivre/activecli.py`, replace the `# TODO` comment at line 439 with logic that reads and displays those fields from the host object.
 
-In ivre/activecli.py, replace the # TODO comment at line 439 with logic that reads and displays those fields from the host object
-Optionally update any type hint files (check ivre/types.py) if the host schema is formally defined there
+**Review**  
+- No `CONTRIBUTING.md` exists in the repo — followed conventions observed in the codebase (type hints, docstrings, existing code style)
+- Linting workflow confirmed via `.github/workflows/linting.yml`
+- Commit messages follow the pattern seen in the project history: short imperative summary
 
-
-Implement
-(Phase III — branch link: https://github.com/chjohn5577/ivre/tree/fix-issue-ivre)
-
-Review
-
-No CONTRIBUTING.md exists in the repo — will follow conventions observed in the codebase (type hints, docstrings, existing code style)
-Will run the linting workflow locally: grep confirms the project uses flake8/pylint via .github/workflows/linting.yml
-Commit message will follow the pattern seen in the project history: short imperative summary, e.g. Store tcpsequence and ipidsequence from Nmap XML results
-
-
-Evaluate
-
-Add a sample Nmap XML snippet containing <tcpsequence> and <ipidsequence> tags to the test samples
-Run python -m pytest tests/ or python tests/tests_no_backend.py to confirm no regressions
-Manually verify by parsing a test XML file and checking that the resulting host object contains tcpsequence and ipidsequence fields
-## Phase III — Implementation
-
-### Changes Made
-- `ivre/xmlnmap.py` — added `elif` block in `startElement` to parse and store
-  `tcpsequence` and `ipidsequence` XML tags from Nmap scan results
-- `ivre/activecli.py` — replaced TODO comment with display logic for both fields
-- `tests/tests_no_backend.py` — added `NmapSequenceParsingTests` class with 3 tests
-
-### Test Results
-- 3 new tests written and passing
-- 366 existing tests still passing
-- 12 pre-existing failures confirmed unrelated (nmap not installed in Codespace,
-  screenshot image handling, CLI utilities)
-
-### Linting
-- Black formatting applied and verified clean
-- flake8 E501 errors are all pre-existing in unchanged lines per CONTRIBUTING guidelines
-
-### Branch
-https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
-
-## Implementation Notes
-
-### Implementation Progress
-- Modified `ivre/xmlnmap.py`: added 2 lines in the `startElement` method to parse
-  `tcpsequence` and `ipidsequence` XML tags and store them on the host object
-- Modified `ivre/activecli.py`: replaced the TODO comment with display logic that
-  outputs TCP Sequence and IP ID Sequence fields in host output
-- Modified `tests/tests_no_backend.py`: added `NmapSequenceParsingTests` class
-  with 3 unit tests covering the new functionality
-
-### Key Commits
-- `82d689dc` Store tcpsequence and ipidsequence from Nmap XML results
-- `4347cb6b` Display tcpsequence and ipidsequence in host output
-- `1b36d371` Add tests for tcpsequence and ipidsequence parsing
-- `024d7295` Apply Black formatting to tests
-
----
-
-## Challenges Faced
-- **Git setup**: Git was not installed initially on Windows; resolved by installing
-  Git for Windows and switching to GitHub Codespaces
-- **Branch naming**: The repo uses `master` not `main` — learned this early when
-  `git checkout main` failed
-- **Test infrastructure**: Writing tests required subclassing `NmapHandler` without
-  a real database backend, which needed careful matching of internal attribute names
-  (e.g. `_needports` vs `needports`)
-- **Variable shadowing**: Named a parameter `xml` which shadowed the `xml` module
-  import — fixed by renaming the import to `xml_sax`
-- **Black formatting**: Had to run Black separately on the test file to meet the
-  project's required formatting standard
-
----
+**Evaluate**  
+- Added a sample Nmap XML snippet containing `<tcpsequence>` and `<ipidsequence>` tags to the test suite
+- Ran `python tests/tests_no_backend.py` to confirm no regressions
+- Manually verified the resulting host object contains both new fields
 
 ## Testing Strategy
 - Added `NmapSequenceParsingTests` in `tests/tests_no_backend.py` with 3 tests:
@@ -121,11 +77,27 @@ https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
   - `test_ipidsequence_stored`: verifies `ipidsequence` attributes are stored on host
   - `test_missing_sequence_tags_no_error`: verifies hosts without these tags parse cleanly
 - All 3 new tests pass
-- Full test suite: 366 existing tests still passing, 12 pre-existing failures
-  confirmed unrelated to this change (nmap not installed, screenshot handling)
+- Full test suite: 366 existing tests still passing, 12 pre-existing failures confirmed unrelated (nmap not installed, screenshot handling)
 - Black formatting verified clean on all modified files
 
----
+## Linting
+- Black formatting applied and verified clean
+- flake8 E501 errors are all pre-existing in unchanged lines per project conventions
 
-## Branch Link
+## Challenges Faced
+- **Git setup**: Git was not installed initially on Windows; resolved by installing Git for Windows and switching to GitHub Codespaces
+- **Branch naming**: The repo uses `master` not `main` — learned this early when `git checkout main` failed
+- **Test infrastructure**: Writing tests required subclassing `NmapHandler` without a real database backend, which needed careful matching of internal attribute names (e.g. `_needports` vs `needports`)
+- **Variable shadowing**: Named a parameter `xml` which shadowed the `xml` module import — fixed by renaming the import to `xml_sax`
+- **Black formatting**: Had to run Black separately on the test file to meet the project's required formatting standard
+- **Branch visibility**: The `fix-issue-ivre` branch wasn't appearing in GitHub's upstream compare dropdown; resolved by navigating directly to the fork's `/branches` page and opening the PR from there
+
+## Feedback Received / Next Steps
+- PR #1911 is open and awaiting maintainer review
+- Will respond to any requested changes promptly and iterate on the branch
+
+## Status
+🟡 **Awaiting Review**
+
+## Branch
 https://github.com/chjohn5577/ivre/tree/fix-issue-ivre
