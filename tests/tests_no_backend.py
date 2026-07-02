@@ -12589,6 +12589,86 @@ class FltFromQuerySkipLimitTests(unittest.TestCase):
         self.assertEqual(self._parse("limit:0"), (0, 0))
 
 
+class QueryFromParamsTokenizerTests(unittest.TestCase):
+    """``query_from_params`` tokenisation of the ``q=`` parameter.
+
+    Backslashes are ordinary characters: a regex-heavy value such as
+    ``cert.subject:/.*\\.example\\.com/`` must reach the filter (and
+    ultimately the regex engine) unmodified, with quotes remaining
+    the only grouping mechanism (spaces) and ``ValueError`` still
+    raised on unbalanced quotes.
+    """
+
+    @staticmethod
+    def _parse(q):
+        from ivre.web import utils as webutils
+
+        return webutils.query_from_params({"q": q})
+
+    def test_backslash_preserved_unquoted(self):
+        self.assertEqual(
+            self._parse(r"cert.subject:/.*\.EXAMPLE\.COM/"),
+            [[False, "cert.subject", r"/.*\.EXAMPLE\.COM/"]],
+        )
+
+    def test_backslash_preserved_in_double_quotes(self):
+        self.assertEqual(
+            self._parse('"cert.subject:/.* \\.EXAMPLE\\.COM/"'),
+            [[False, "cert.subject", r"/.* \.EXAMPLE\.COM/"]],
+        )
+
+    def test_backslash_preserved_in_single_quotes(self):
+        self.assertEqual(
+            self._parse(r"'cert.subject:/.*\.EXAMPLE\.COM/'"),
+            [[False, "cert.subject", r"/.*\.EXAMPLE\.COM/"]],
+        )
+
+    def test_double_backslash_preserved(self):
+        # A regex matching a literal backslash (e.g. a Windows path)
+        # needs ``\\`` to reach the regex engine as-is.
+        self.assertEqual(
+            self._parse(r"script:http-title:/C:\\Windows/"),
+            [[False, "script", r"http-title:/C:\\Windows/"]],
+        )
+
+    def test_negation_with_backslash(self):
+        self.assertEqual(
+            self._parse(r"!hostname:/\.example\.com$/"),
+            [[True, "hostname", r"/\.example\.com$/"]],
+        )
+
+    def test_hash_is_not_a_comment(self):
+        self.assertEqual(
+            self._parse("banner:#test"),
+            [[False, "banner", "#test"]],
+        )
+
+    def test_quote_in_value_via_other_quote_type(self):
+        self.assertEqual(
+            self._parse("banner:'say \"hi\"'"),
+            [[False, "banner", 'say "hi"']],
+        )
+        self.assertEqual(
+            self._parse('banner:"it\'s"'),
+            [[False, "banner", "it's"]],
+        )
+
+    def test_backslash_does_not_escape_quotes(self):
+        # Since backslashes are literal, they cannot protect a quote
+        # character: each ``"`` toggles quoting and the backslashes
+        # stay in the value.
+        self.assertEqual(
+            self._parse('banner:"say \\"hi\\""'),
+            [[False, "banner", "say \\hi\\"]],
+        )
+
+    def test_unbalanced_quote_raises(self):
+        with self.assertRaises(ValueError):
+            self._parse('"')
+        with self.assertRaises(ValueError):
+            self._parse("banner:'oops")
+
+
 class ParseDurationTests(unittest.TestCase):
     """``ivre.utils.parse_duration`` -- the shared ``--purge-older-than``
     / ``--since`` / ``--until`` duration shorthand parser."""

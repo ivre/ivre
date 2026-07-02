@@ -102,94 +102,22 @@ function regexp2pattern(str) {
 }
 
 function protect(value) {
-    var state = 1;
-    var result = [];
-    var curtoken = "";
-    var needs_protection = false;
-    function end_token() {
-	if(needs_protection)
-	    curtoken = '"' + curtoken + '"';
-	result.push(curtoken);
-	curtoken = "";
-	needs_protection = false;
-    }
-    for(var i in value) {
-	var c = value[i];
-	switch(state) {
-	case 1:
-	    // not protected
-	    switch(c) {
-	    case " ":
-		needs_protection = true;
-		curtoken += c;
-		break;
-	    case "\\":
-		state = 3;
-		curtoken += c;
-		break;
-	    case '"':
-		state = 2;
-		end_token();
-		curtoken += c;
-		break;
-	    case "'":
-		state = 5;
-		curtoken += c;
-		break;
-	    case ':':
-		end_token();
-		curtoken += c;
-		end_token();
-		break;
-	    default:
-		curtoken += c;
-	    }
-	    break;
-	case 2:
-	    // inside double quotes
-	    curtoken += c;
-	    switch(c) {
-	    case "\\":
-		state = 4;
-		break;
-	    case '"':
-		state = 1;
-		end_token();
-		break;
-	    }
-	    break;
-	case 3:
-	    // protected backslash
-	    curtoken += c;
-	    state = 1;
-	    break;
-	case 4:
-	    // protected by double quotes and backslash
-	    curtoken += c;
-	    state = 2;
-	    break;
-	case 5:
-	    // inside simple quotes
-	    curtoken += c;
-	    switch(c) {
-	    case "\\":
-		state = 6;
-		break;
-	    case "'":
-		state = 1;
-		end_token();
-		break;
-	    }
-	    break;
-	case 6:
-	    // protected by simple quotes and backslash
-	    curtoken += c;
-	    state = 5;
-	    break;
-	}
-    }
-    end_token();
-    return result.join('');
+    // Quote a value for the filter language (the inverse of
+    // parse_params' tokenizer): values containing whitespace or a
+    // quote character are quoted, double quotes preferred, single
+    // quotes when the value contains double quotes, adjacent quoted
+    // segments (concatenated by the tokenizer) when it contains
+    // both. Backslashes are ordinary characters and need no
+    // protection.
+    if(!/[\s"']/.test(value))
+	return value;
+    if(value.indexOf('"') === -1)
+	return '"' + value + '"';
+    if(value.indexOf("'") === -1)
+	return "'" + value + "'";
+    return value.split('"').map(function(part) {
+	return part ? '"' + part + '"' : "";
+    }).join('\'"\'');
 }
 
 function changefav(href) {

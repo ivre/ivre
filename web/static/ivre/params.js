@@ -34,9 +34,12 @@ function params2query(filter) {
 }
 
 function parse_params(filter) {
-    // this is more or less an equivalent to shlex.split() and builds
-    // parameters array and the query string from
-    // document.location.hash
+    // this is more or less an equivalent to the server-side
+    // tokenizer in ivre/web/utils.py and builds parameters array
+    // and the query string from document.location.hash. Whitespace
+    // separates tokens, single or double quotes group values;
+    // backslashes are ordinary characters, so regex values keep
+    // their backslashes.
     var state = 0;
     var curtoken, curtokenprotected, curchar;
     filter.parameters = [];
@@ -51,17 +54,15 @@ function parse_params(filter) {
 	    switch(curchar) {
 	    case " ":
 		break;
-	    case "\\":
-		state = 3;
-		curtokenprotected += curchar;
-		break;
 	    case '"':
 		state = 2;
-		curtokenprotected += curchar;
+		curtoken = "";
+		curtokenprotected = curchar;
 		break;
 	    case "'":
 		state = 5;
-		curtokenprotected += curchar;
+		curtoken = "";
+		curtokenprotected = curchar;
 		break;
 	    default:
 		curtoken = curchar;
@@ -79,10 +80,6 @@ function parse_params(filter) {
 		curtoken = undefined;
 		curtokenprotected = undefined;
 		break;
-	    case "\\":
-		state = 3;
-		curtokenprotected += curchar;
-		break;
 	    case '"':
 		state = 2;
 		curtokenprotected += curchar;
@@ -99,9 +96,6 @@ function parse_params(filter) {
 	case 2:
 	    // in token, protected by double quotes
 	    switch (curchar) {
-	    case "\\":
-		state = 4;
-		break;
 	    case '"':
 		state = 1;
 		break;
@@ -110,39 +104,17 @@ function parse_params(filter) {
 	    }
 	    curtokenprotected += curchar;
 	    break;
-	case 3:
-	    // in token, protected by backslash
-	    curtoken += curchar;
-	    curtokenprotected += curchar;
-	    state = 1;
-	    break;
-	case 4:
-	    // in token, protected by double quotes and backslash
-	    curtoken += curchar;
-	    curtokenprotected += curchar;
-	    state = 2;
-	    break;
 	case 5:
 	    // in token, protected by simple quotes
 	    switch (curchar) {
-	    case "\\":
-		state = 6;
-		curtokenprotected += curchar;
-		break;
 	    case "'":
-		state=1;
+		state = 1;
 		curtokenprotected += curchar;
 		break;
 	    default:
 		curtoken += curchar;
 		curtokenprotected += curchar;
 	    }
-	    break;
-	case 6:
-	    // in token, protected by simple quotes *and* backslash
-	    curtoken += curchar;
-	    curtokenprotected += curchar;
-	    state = 5;
 	    break;
 	}
     }
