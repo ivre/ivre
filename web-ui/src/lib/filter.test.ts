@@ -25,8 +25,23 @@ describe("quoteValue", () => {
     expect(quoteValue("CDN:Cloudflare")).toBe('"CDN:Cloudflare"');
   });
 
-  it("escapes embedded double quotes", () => {
-    expect(quoteValue('say "hi"')).toBe('"say \\"hi\\""');
+  it("leaves backslashes alone (regex values travel unmodified)", () => {
+    expect(quoteValue("/.*\\.example\\.com/")).toBe("/.*\\.example\\.com/");
+    expect(quoteValue("/C:\\\\Windows/")).toBe('"/C:\\\\Windows/"');
+  });
+
+  it("single-quotes values containing double quotes", () => {
+    expect(quoteValue('say "hi"')).toBe("'say \"hi\"'");
+  });
+
+  it("double-quotes values containing single quotes", () => {
+    expect(quoteValue("it's")).toBe("\"it's\"");
+  });
+
+  it("concatenates quoted segments when both quote types appear", () => {
+    expect(quoteValue("say \"hi\" y'all")).toBe(
+      "\"say \"'\"'\"hi\"'\"'\" y'all\"",
+    );
   });
 });
 
@@ -107,10 +122,22 @@ describe("parseFiltersFromQuery", () => {
     ]);
   });
 
-  it("parses backslash-escaped quotes inside a quoted value", () => {
-    expect(parseFiltersFromQuery('banner:"say \\"hi\\""')).toEqual([
+  it("parses single-quoted values with embedded double quotes", () => {
+    expect(parseFiltersFromQuery("banner:'say \"hi\"'")).toEqual([
       { type: "banner", value: 'say "hi"', neg: false },
     ]);
+  });
+
+  it("keeps backslashes in unquoted values", () => {
+    expect(parseFiltersFromQuery("cert.subject:/.*\\.EXAMPLE\\.COM/")).toEqual([
+      { type: "cert.subject", value: "/.*\\.EXAMPLE\\.COM/", neg: false },
+    ]);
+  });
+
+  it("keeps backslashes inside quoted values", () => {
+    expect(parseFiltersFromQuery('script:"http-title:/C:\\\\Windows/"')).toEqual(
+      [{ type: "script", value: "http-title:/C:\\\\Windows/", neg: false }],
+    );
   });
 
   it("parses multiple mixed filters", () => {
@@ -180,10 +207,31 @@ describe("round-trip", () => {
       'tag:"CDN:Cloudflare"',
       '!country:FR port:tcp/443 tag:"CDN:Cloudflare"',
       "tcp/443 1.2.3.4/24",
+      "cert.subject:/.*\\.EXAMPLE\\.COM/",
+      "!hostname:/\\.example\\.com$/",
+      'script:"http-title:/C:\\\\Windows/"',
+      "banner:'say \"hi\"'",
     ];
     for (const q of queries) {
       const filters = parseFiltersFromQuery(q);
       expect(buildQueryFromFilters(filters)).toBe(q);
+    }
+  });
+
+  it("build then parse preserves any value", () => {
+    const values = [
+      "/.*\\.example\\.com/",
+      "/C:\\\\Windows/",
+      'say "hi"',
+      "it's",
+      "say \"hi\" y'all",
+      "spaces and : colon",
+    ];
+    for (const value of values) {
+      const filters: Filter[] = [{ type: "banner", value }];
+      expect(parseFiltersFromQuery(buildQueryFromFilters(filters))).toEqual([
+        { type: "banner", value, neg: false },
+      ]);
     }
   });
 });

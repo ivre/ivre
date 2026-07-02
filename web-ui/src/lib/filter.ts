@@ -9,8 +9,11 @@
  *
  * The grammar is intentionally simple: each whitespace-separated
  * token is either ``type:value`` or a bare ``value`` (anonymous
- * filter, e.g. ``tcp/80``, ``1.2.3.4/24``). Values that contain
- * spaces, colons, or quotes are double-quoted with backslash escape.
+ * filter, e.g. ``tcp/80``, ``1.2.3.4/24``). Single or double quotes
+ * group values that contain spaces; backslashes are ordinary
+ * characters, so regex values (``hostname:/\.example\.com/``) travel
+ * unmodified. A literal quote character is expressed by quoting it
+ * with the other quote character.
  */
 
 export interface Filter {
@@ -24,17 +27,31 @@ export interface Filter {
   neg?: boolean;
 }
 
-const NEEDS_QUOTING = /[\s":]/;
+const NEEDS_QUOTING = /[\s":']/;
 
 /**
  * Quote a value if it contains whitespace, a colon, or a quote.
- * Embedded double quotes are backslash-escaped.
+ *
+ * Double quotes are preferred; a value containing double quotes is
+ * single-quoted, and a value containing both quote characters is
+ * emitted as adjacent quoted segments (which the tokenizer
+ * concatenates, shlex-style). Backslashes never need quoting: they
+ * are ordinary characters in the filter language.
  */
 export function quoteValue(value: string): string {
   if (!NEEDS_QUOTING.test(value)) {
     return value;
   }
-  return `"${value.replace(/"/g, '\\"')}"`;
+  if (!value.includes('"')) {
+    return `"${value}"`;
+  }
+  if (!value.includes("'")) {
+    return `'${value}'`;
+  }
+  return value
+    .split('"')
+    .map((part) => (part ? `"${part}"` : ""))
+    .join(`'"'`);
 }
 
 /**
@@ -58,9 +75,14 @@ export function buildQueryFromFilters(filters: readonly Filter[]): string {
 /**
  * Parse a ``q=`` query string back into a list of filters.
  *
- * Tokenisation respects double-quoted values with backslash escapes.
- * Whitespace outside quotes is the token separator. Negation is the
- * leading ``!`` or ``-`` (kept consistent with the legacy UI).
+ * Tokenisation matches the server side (``ivre/web/utils.py``):
+ * single or double quotes group values, backslashes are ordinary
+ * characters (no escape processing, so regex values keep their
+ * backslashes), and whitespace outside quotes is the token
+ * separator. Negation is the leading ``!`` or ``-`` (kept
+ * consistent with the legacy UI). Unlike the server, an unbalanced
+ * quote is tolerated: the token simply extends to the end of the
+ * string.
  */
 export function parseFiltersFromQuery(query: string): Filter[] {
   const filters: Filter[] = [];
@@ -78,17 +100,12 @@ export function parseFiltersFromQuery(query: string): Filter[] {
     }
 
     let token = "";
-    let inQuotes = false;
+    let quote: '"' | "'" | undefined;
     while (i < n) {
       const c = query[i];
-      if (inQuotes) {
-        if (c === "\\" && i + 1 < n) {
-          token += query[i + 1];
-          i += 2;
-          continue;
-        }
-        if (c === '"') {
-          inQuotes = false;
+      if (quote !== undefined) {
+        if (c === quote) {
+          quote = undefined;
           i++;
           continue;
         }
@@ -96,8 +113,8 @@ export function parseFiltersFromQuery(query: string): Filter[] {
         i++;
         continue;
       }
-      if (c === '"') {
-        inQuotes = true;
+      if (c === '"' || c === "'") {
+        quote = c;
         i++;
         continue;
       }

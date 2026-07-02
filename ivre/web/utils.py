@@ -236,14 +236,34 @@ def _split_param(pval: str) -> list[str | None]:
     return [pval, None]
 
 
+def _split_query(query: str) -> list[str]:
+    """Split a query string into whitespace-separated tokens, with
+    single or double quotes grouping values that contain whitespace.
+
+    This is a `shlex.split()` variant with escape processing
+    disabled: backslashes are ordinary characters, so regex-heavy
+    values such as ``cert.subject:/.*\\.example\\.com/`` reach the
+    filter (and ultimately the regex engine) unmodified. To include
+    a literal quote character in a value, quote it with the other
+    quote character.
+
+    Raises ``ValueError`` on unbalanced quotes.
+    """
+    lex = shlex.shlex(query, posix=True)
+    lex.whitespace_split = True
+    lex.commenters = ""
+    lex.escape = ""
+    return list(lex)
+
+
 def query_from_params(params):
     """This function *consumes* the 'q' parameter (if it exists) and
     returns the query as a list of three elements list: [boolean
     `neg`, `param`, `value`].
 
-    Raises ``ValueError`` if `shlex.split()` fails on the query string;
-    the caller is expected to surface the error via Bottle (typically
-    as HTTP 400).
+    Raises ``ValueError`` if `_split_query()` fails on the query
+    string; the caller is expected to surface the error via Bottle
+    (typically as HTTP 400).
 
     """
     try:
@@ -255,7 +275,7 @@ def query_from_params(params):
             [neg] + _split_param(pval)
             for neg, pval in (
                 (True, x[1:]) if x[:1] in "!-" else (False, x)
-                for x in shlex.split(query)
+                for x in _split_query(query)
             )
         ]
     except ValueError as exc:
