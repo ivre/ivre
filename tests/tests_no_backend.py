@@ -2964,6 +2964,69 @@ class DBViewMergeHostTests(unittest.TestCase):
         self.assertEqual(view.removed, [])
 
 
+class XmlnmapFingerprintStringsNormalizationTests(unittest.TestCase):
+    """Regression coverage for ``xmlnmap.change_fingerprint_strings``
+    (issue #1886): the "fingerprint-strings" NSE script's structured
+    output is keyed by whichever service-fingerprinting probe(s)
+    matched (``GetRequest``, ``HTTPOptions``, ``Kerberos``...), which
+    varies per host. That dynamic key set (and, depending on nmap's
+    raw XML shape for a given invocation, dict-vs-list ambiguity) is
+    exactly the kind of drift that made
+    ``ports.scripts.fingerprint-strings`` mapping-drift prone on the
+    Elasticsearch backend. This is normalized at parse time to a
+    stable list-of-``{"name": ..., "value": ...}`` shape, mirroring
+    the existing "avoid data in field names" convention already used
+    for e.g. ``http-headers``, ``fcrdns``, ``vulns``.
+    """
+
+    def test_registered_in_change_table_elems(self):
+        self.assertIn("fingerprint-strings", xmlnmap.CHANGE_TABLE_ELEMS)
+        self.assertIs(
+            xmlnmap.CHANGE_TABLE_ELEMS["fingerprint-strings"],
+            xmlnmap.change_fingerprint_strings,
+        )
+
+    def test_single_probe_match(self):
+        self.assertEqual(
+            xmlnmap.change_fingerprint_strings({"GetRequest": "text-a"}),
+            [{"name": "GetRequest", "value": "text-a"}],
+        )
+
+    def test_multiple_probe_matches_preserve_all_entries(self):
+        result = xmlnmap.change_fingerprint_strings(
+            {"GetRequest": "text-a", "HTTPOptions": "text-b"}
+        )
+        self.assertEqual(
+            {(elt["name"], elt["value"]) for elt in result},
+            {("GetRequest", "text-a"), ("HTTPOptions", "text-b")},
+        )
+
+    def test_two_hosts_with_different_probe_names_produce_same_shape(self):
+        # The actual issue #1886 regression: two hosts reporting
+        # *different* NSE probe names for the same script id must now
+        # produce the exact same JSON shape (a list of
+        # ``{"name": ..., "value": ...}`` dicts each), not a dict
+        # whose key set varies per host -- which is what Elasticsearch
+        # dynamic mapping cannot absorb.
+        host_one = xmlnmap.change_fingerprint_strings({"GetRequest": "text-a"})
+        host_two = xmlnmap.change_fingerprint_strings({"Kerberos": "text-b"})
+        self.assertTrue(all(isinstance(elt, dict) for elt in host_one + host_two))
+        self.assertEqual(
+            {frozenset(elt) for elt in host_one + host_two},
+            {frozenset({"name", "value"})},
+        )
+
+    def test_non_dict_input_passed_through_unchanged(self):
+        # Defensive fallback for the (unobserved in practice) case
+        # where nmap emits fingerprint-strings without a `key`
+        # attribute on the first XML child, producing a list rather
+        # than a dict in xmlnmap's SAX handler -- mirrors the same
+        # ``isinstance(table, dict)`` guard used by the sibling
+        # ``change_http_server_header`` / ``change_http_default_accounts``
+        # handlers.
+        self.assertEqual(xmlnmap.change_fingerprint_strings(["a", "b"]), ["a", "b"])
+
+
 # ---------------------------------------------------------------------
 # ElasticDBSearchTextTests -- pin the wire shape of the
 # Elasticsearch ``searchtext()`` helper added alongside the
