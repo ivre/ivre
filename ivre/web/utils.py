@@ -1136,7 +1136,9 @@ def flt_from_query(dbase, query, base_flt=None):
                 elif params[1].isdigit():
                     flt = dbase.flt_and(
                         flt,
-                        dbase.searchscreenshot(port=int(value), neg=neg, words=words),
+                        dbase.searchscreenshot(
+                            port=int(params[1]), neg=neg, words=words
+                        ),
                     )
                 elif params[1].startswith("tcp/") or params[1].startswith("udp/"):
                     params[1] = params[1].split("/", 1)
@@ -1151,7 +1153,8 @@ def flt_from_query(dbase, query, base_flt=None):
                     )
                 else:
                     flt = dbase.flt_and(
-                        flt, dbase.searchscreenshot(service=value, neg=neg, words=words)
+                        flt,
+                        dbase.searchscreenshot(service=params[1], neg=neg, words=words),
                     )
         elif not neg and param == "cpe":
             if value:

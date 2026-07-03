@@ -12541,6 +12541,115 @@ class PassiveFltFromQueryTests(unittest.TestCase):
         )
 
 
+class ScreenwordsFltFromQueryTests(unittest.TestCase):
+    """Regression tests for the ``screenwords:<words>[:<port-or-
+    protocol/port-or-service>]`` Web API filter token.
+
+    Background: the ``elif params[1].isdigit()`` branch called
+    ``int(value)`` — the *whole* ``<words>:<port>`` string — instead
+    of ``int(params[1])`` — the already-split, already-validated
+    port component. Any ``screenwords:foo:80``-style query raised
+    an uncaught ``ValueError`` from ``flt_from_query`` (reached from
+    ``ivre/web/app.py``'s ``get_nmap_base`` and the MCP server),
+    surfacing as an HTTP 500. The trailing ``else`` branch had the
+    same copy-paste defect for the service-name case
+    (``service=value`` instead of ``service=params[1]``): it never
+    raised, but silently filtered on the full ``"<words>:<service>"``
+    string, which never matches a real service name. This class pins
+    the correct dispatch for all four ``screenwords`` sub-forms.
+    """
+
+    @staticmethod
+    def _stub_dbase():
+        class _StubDB:
+            calls: list = []
+            flt_empty = {"_marker": "empty"}
+
+            @staticmethod
+            def flt_and(*args):
+                non_empty = [a for a in args if a and a != _StubDB.flt_empty]
+                return non_empty[-1] if non_empty else _StubDB.flt_empty
+
+            @staticmethod
+            def searchscreenshot(
+                port=None, protocol="tcp", service=None, words=None, neg=False
+            ):
+                _StubDB.calls.append(
+                    ("searchscreenshot", port, protocol, service, words, neg)
+                )
+                return {
+                    "port": port,
+                    "protocol": protocol,
+                    "service": service,
+                    "words": words,
+                    "neg": neg,
+                }
+
+        _StubDB.calls = []
+        return _StubDB
+
+    def _parse(self, q, dbase):
+        from ivre.web import utils as webutils
+
+        with mock.patch.object(webutils, "get_init_flt", return_value=dbase.flt_empty):
+            query = webutils.query_from_params({"q": q})
+            return webutils.flt_from_query(dbase, query, base_flt=dbase.flt_empty)
+
+    def test_words_and_numeric_port_does_not_raise(self):
+        # This is the reported crash: ``int(value)`` on
+        # ``"foo:80"`` used to raise ``ValueError``.
+        dbase = self._stub_dbase()
+        self._parse("screenwords:foo:80", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", 80, "tcp", None, "foo", False)],
+        )
+
+    def test_words_and_protocol_port(self):
+        # The ``tcp/``/``udp/`` branch was already correct; pin it
+        # alongside the fix so a future refactor cannot regress it.
+        dbase = self._stub_dbase()
+        self._parse("screenwords:foo:udp/53", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", 53, "udp", None, "foo", False)],
+        )
+
+    def test_words_and_service_name(self):
+        # Second bug: the service name must be the split
+        # component, not the full ``"<words>:<service>"`` value.
+        dbase = self._stub_dbase()
+        self._parse("screenwords:foo:http", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", None, "tcp", "http", "foo", False)],
+        )
+
+    def test_words_only(self):
+        dbase = self._stub_dbase()
+        self._parse("screenwords:foo", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", None, "tcp", None, "foo", False)],
+        )
+
+    def test_words_list_and_numeric_port(self):
+        dbase = self._stub_dbase()
+        self._parse("screenwords:foo,bar:80", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", 80, "tcp", None, ["foo", "bar"], False)],
+        )
+
+    def test_negated_words_and_numeric_port(self):
+        dbase = self._stub_dbase()
+        self._parse("-screenwords:foo:80", dbase)
+        self.assertEqual(
+            dbase.calls,
+            [("searchscreenshot", 80, "tcp", None, "foo", True)],
+        )
+
+
 class FltFromQuerySkipLimitTests(unittest.TestCase):
     """``flt_from_query`` must sanitise the pagination meta-params.
 
