@@ -4492,7 +4492,16 @@ class DBView(DBActive):
             # "Merge" mode but no record for that host, let's add
             # the result normally
             return False
-        self.store_host(self.merge_host_docs(rec, host))
+        if self.store_host(self.merge_host_docs(rec, host)) is None:
+            # store_host() logs a warning and returns None (rather
+            # than raising) when it cannot insert the document (e.g.
+            # an Elasticsearch mapper_parsing_exception, see issue
+            # #1886). Keep the pre-existing `rec` in that case --
+            # removing it here would silently lose data, since the
+            # merged replacement was never actually stored. Returning
+            # `False` lets the caller fall back to storing `host`
+            # (unmerged) instead.
+            return False
         self.remove(rec)
         return True
 

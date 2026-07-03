@@ -406,7 +406,18 @@ class ElasticDBActive(ElasticDB, DBActive):
     def store_host(self, host):
         if "coordinates" in host.get("infos", {}):
             host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
-        self.db_client.index(index=self.indexes[0], body=host)
+        try:
+            result = self.db_client.index(index=self.indexes[0], body=host)
+        except Exception:
+            # A single malformed document (e.g. an NSE script output
+            # whose object shape conflicts with what Elasticsearch
+            # inferred from an earlier host for the same field, see
+            # issue #1886) must not abort a whole ``db2view`` batch.
+            # Mirrors MongoDBActive.store_host's log-and-skip
+            # behaviour.
+            utils.LOGGER.warning("Cannot insert host %r", host, exc_info=True)
+            return None
+        return result.get("_id")
 
     def count(self, flt):
         return self.db_client.count(

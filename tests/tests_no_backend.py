@@ -2821,6 +2821,150 @@ class ElasticDBSearchFieldTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# ElasticDBStoreHostResilienceTests / DBViewMergeHostTests -- regression
+# coverage for GitHub issue #1886: pushing nmap ``view`` records to
+# Elasticsearch could abort partway through a ``db2view`` batch with an
+# uncaught ``mapper_parsing_exception``, because (a) unregistered NSE
+# script outputs (no entry in ``xmlnmap.CHANGE_TABLE_ELEMS`` /
+# ``ADD_TABLE_ELEMS`` / ``CHANGE_OUTPUT_TABLE_ELEMS``) can be
+# object-shaped with unbounded/varying sub-keys across hosts (e.g.
+# ``fingerprint-strings`` keyed by whichever NSE probe matched:
+# ``GetRequest``, ``Help``, ``Kerberos``...), which plain Elasticsearch
+# dynamic mapping types from the first document it sees and then
+# rejects on shape drift, and (b) ``ElasticDBActive.store_host`` had no
+# exception handling at all, so a single bad document killed the whole
+# ``pool.imap`` iteration in ``ivre/tools/db2view.py``.
+#
+# An earlier version of this fix also added a "flattened" dynamic
+# template on ``ports.scripts.*`` to absorb the shape drift at the
+# mapping level. That template made Elasticsearch reject *every*
+# ``regexp`` query against a keyed sub-field of any object-shaped
+# script output (not just the drift-prone ones) -- including
+# ``ssh2-enum-algos.hassh.*``, which ``searchhassh`` queries with
+# ``regexp`` for pattern inputs (see ``ElasticDBActive.searchhassh``,
+# ``ivre/db/elastic.py``) -- because Elasticsearch does not support
+# ``regexp``/wildcard queries on keyed ``flattened`` fields in any
+# version (confirmed on 7.17). That regression was caught by
+# ``tests.py::test_50_view``'s ``_test_hassh`` in CI and reverted;
+# the fix here is resilience-only (log-and-skip), with shape
+# normalization handled at the source in ``ivre/xmlnmap.py`` instead
+# (see the ``fingerprint-strings`` handling added separately).
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBStoreHostResilienceTests(unittest.TestCase):
+    """Pin the log-and-skip behaviour of
+    :meth:`ElasticDBActive.store_host`.
+    """
+
+    class _StubEsClient:
+        def __init__(self, index_exception=None):
+            self.indexed: list = []
+            self._index_exception = index_exception
+
+        def index(self, index=None, body=None):
+            if self._index_exception is not None:
+                raise self._index_exception
+            self.indexed.append((index, body))
+            return {"_id": "stub-doc-id", "result": "created"}
+
+    @staticmethod
+    def _view(index_exception=None):
+        from urllib.parse import urlparse
+
+        from ivre.db.elastic import ElasticDBView
+
+        view = ElasticDBView(urlparse("elastic://localhost:9200/ivre"))
+        # Bypass the lazy ``db_client`` property (which would try to
+        # build a real ``Elasticsearch(...)`` client) by pre-setting
+        # the cached attribute directly.
+        view._db_client = (  # pylint: disable=protected-access
+            ElasticDBStoreHostResilienceTests._StubEsClient(index_exception)
+        )
+        return view
+
+    def test_store_host_returns_truthy_id_on_success(self):
+        view = self._view()
+        result = view.store_host({"addr": "1.2.3.4", "ports": []})
+        self.assertEqual(result, "stub-doc-id")
+        self.assertEqual(len(view.db_client.indexed), 1)
+
+    def test_store_host_logs_and_returns_none_on_mapper_parsing_exception(self):
+        view = self._view(index_exception=RuntimeError("mapper_parsing_exception"))
+        with self.assertLogs(ivre.utils.LOGGER, level="WARNING") as cm:
+            result = view.store_host({"addr": "1.2.3.4", "ports": []})
+        self.assertIsNone(result)
+        self.assertTrue(any("Cannot insert host" in line for line in cm.output))
+
+
+class DBViewMergeHostTests(unittest.TestCase):
+    """Pin :meth:`ivre.db.DBView.merge_host`'s data-safety contract:
+    the pre-existing record must only be removed once the merged
+    replacement has actually been stored. Hardening
+    ``ElasticDBActive.store_host`` to log-and-skip instead of raising
+    (see :class:`ElasticDBStoreHostResilienceTests`) would otherwise
+    turn a crash into silent data loss here, since ``merge_host``
+    used to call ``self.remove(rec)`` unconditionally right after
+    ``store_host``.
+    """
+
+    @staticmethod
+    def _stub_view(store_result):
+        from ivre.db import DBView
+
+        class _StubView(DBView):
+            def __init__(self):  # pylint: disable=super-init-not-called
+                # Deliberately skip DB.__init__: it only wires up an
+                # argparse parser this test does not need.
+                self.stored: list = []
+                self.removed: list = []
+                self.store_result = store_result
+
+            def searchhost(self, addr, neg=False):
+                return {"addr": addr}
+
+            def get(self, flt, **kwargs):
+                return iter([{"addr": flt["addr"], "existing": True}])
+
+            @staticmethod
+            def merge_host_docs(rec1, rec2):
+                return {**rec1, **rec2, "merged": True}
+
+            def store_host(self, host):
+                self.stored.append(host)
+                return self.store_result
+
+            def remove(self, host):
+                self.removed.append(host)
+
+        return _StubView()
+
+    def test_merge_host_removes_old_record_on_successful_store(self):
+        view = self._stub_view(store_result="new-id")
+        result = view.merge_host({"addr": "1.2.3.4", "new": True})
+        self.assertTrue(result)
+        self.assertEqual(len(view.stored), 1)
+        self.assertEqual(view.removed, [{"addr": "1.2.3.4", "existing": True}])
+
+    def test_merge_host_keeps_old_record_when_store_fails(self):
+        # ``store_host`` returning ``None`` signals a logged,
+        # swallowed failure (e.g. an Elasticsearch
+        # mapper_parsing_exception). The pre-existing record must
+        # survive so the caller's ``store_or_merge_host`` fallback
+        # (storing the unmerged ``host``) is the only data at risk,
+        # not a silent deletion of ``rec``.
+        view = self._stub_view(store_result=None)
+        result = view.merge_host({"addr": "1.2.3.4", "new": True})
+        self.assertFalse(result)
+        self.assertEqual(len(view.stored), 1)
+        self.assertEqual(view.removed, [])
+
+
+# ---------------------------------------------------------------------
 # ElasticDBSearchTextTests -- pin the wire shape of the
 # Elasticsearch ``searchtext()`` helper added alongside the
 # PostgreSQL and DuckDB sibling implementations.  Closes the

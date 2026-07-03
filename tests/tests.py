@@ -838,6 +838,86 @@ class IvreTests(unittest.TestCase):
             )
             os.unlink(fdesc.name)
 
+        # Regression for GitHub issue #1886: NSE scripts with no
+        # dedicated handler in ivre.xmlnmap (no entry in
+        # CHANGE_TABLE_ELEMS / ADD_TABLE_ELEMS /
+        # CHANGE_OUTPUT_TABLE_ELEMS) are stored as whatever object
+        # shape that particular nmap invocation produced -- e.g. the
+        # real "fingerprint-strings" script is keyed by whichever NSE
+        # probe matched (GetRequest, Help, Kerberos...), which varies
+        # per host. Under Elasticsearch's dynamic mapping, this used
+        # to make ``ivre db2view ... nmap`` abort with an uncaught
+        # ``mapper_parsing_exception`` the moment a second host sent
+        # a differently-keyed object for the *same* script id. The
+        # mitigations: drift-prone script outputs get parse-time
+        # shape normalization via ``xmlnmap.CHANGE_TABLE_ELEMS``
+        # handlers, and ``ElasticDBActive.store_host`` logs-and-skips
+        # per-document rejections instead of aborting the whole
+        # batch. This pins, with ``--test`` mode so nothing is
+        # written to any database
+        # (this must not perturb the pinned counts in
+        # ``tests/samples/results``), that the parser genuinely
+        # produces two differently-shaped objects for the same
+        # never-registered, synthetic script id.
+        shape_drift_script_id = "ivre-test-1886-catchall"
+        shape_drift_samples = [
+            (
+                "probeA",
+                b"""<nmaprun scanner="nmap">
+<host><address addr="203.0.113.10" addrtype="ipv4"/><ports>
+<port protocol="tcp" portid="80"><state state="open"/>
+<service name="http"/>
+<script id="ivre-test-1886-catchall" output="probeA: value-one">
+<elem key="probeA">value-one</elem>
+</script>
+</port>
+</ports></host>
+</nmaprun>
+""",
+            ),
+            (
+                "probeB",
+                b"""<nmaprun scanner="nmap">
+<host><address addr="203.0.113.11" addrtype="ipv4"/><ports>
+<port protocol="tcp" portid="80"><state state="open"/>
+<service name="http"/>
+<script id="ivre-test-1886-catchall" output="probeB: value-two">
+<elem key="probeB">value-two</elem>
+</script>
+</port>
+</ports></host>
+</nmaprun>
+""",
+            ),
+        ]
+        shape_drift_shapes = []
+        for expected_key, sample in shape_drift_samples:
+            fdesc = tempfile.NamedTemporaryFile(delete=False)
+            fdesc.write(sample)
+            fdesc.close()
+            res, out, _ = RUN(["ivre", "scan2db", "--test", fdesc.name])
+            self.assertEqual(res, 0)
+            os.unlink(fdesc.name)
+            (host_json,) = (
+                json.loads(line.decode())
+                for line in out.splitlines()
+                if host_stored_test(line)
+            )
+            script = next(
+                s
+                for s in host_json["ports"][0]["scripts"]
+                if s["id"] == shape_drift_script_id
+            )
+            shape = script[shape_drift_script_id]
+            self.assertEqual(set(shape), {expected_key})
+            shape_drift_shapes.append(shape)
+        # The two hosts must produce genuinely different object
+        # shapes (different sub-keys) for the exact same script id --
+        # this is the drift plain Elasticsearch dynamic mapping
+        # cannot absorb, and the reason ``ElasticDBActive.store_host``
+        # must tolerate per-document rejections.
+        self.assertNotEqual(set(shape_drift_shapes[0]), set(shape_drift_shapes[1]))
+
         samples = [
             b"""<?xml version="1.0"?>
 <!-- masscan v1.0 scan -->
