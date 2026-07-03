@@ -416,8 +416,8 @@ class ElasticDBActive(ElasticDB, DBActive):
             # ``RequestError`` (a 400-class ``ApiError`` on the 8.x/9.x
             # client, native on 7.x) covers exactly this kind of
             # per-document, content-dependent rejection --
-            # mapper_parsing_exception, strict_dynamic_mapping,
-            # illegal_argument, and the like. Connectivity/auth/server
+            # mapper_parsing_exception, strict_dynamic_mapping_exception,
+            # illegal_argument_exception, and the like. Connectivity/auth/server
             # errors (``ConnectionError``, ``TransportError``, 401/403,
             # 5xx) are not caught here and propagate, so an outage or
             # misconfiguration still fails the batch loudly instead of
