@@ -43,7 +43,9 @@ from pymongo.errors import (
     BulkWriteError,
     CursorNotFound,
     DuplicateKeyError,
+    InvalidDocument,
     PyMongoError,
+    WriteError,
 )
 
 try:
@@ -2412,7 +2414,19 @@ class MongoDBActive(MongoDB, DBActive):
             ident = (
                 self.db[self.columns[self.column_hosts]].insert_one(host).inserted_id
             )
-        except Exception:
+        except (WriteError, InvalidDocument):
+            # A single malformed/rejected document (e.g. a server-side
+            # schema validation failure -- WriteError, including its
+            # DuplicateKeyError subclass -- or a client-side BSON
+            # encoding failure such as a document exceeding the 16 MB
+            # limit -- InvalidDocument / its DocumentTooLarge subclass)
+            # must not abort a whole ``db2view`` batch. Connectivity /
+            # authentication / topology errors (ConnectionFailure,
+            # AutoReconnect, NotPrimaryError, ConfigurationError, the
+            # broader OperationFailure) are not caught here and
+            # propagate, so an outage or misconfiguration still fails
+            # the batch loudly instead of silently logging a warning
+            # per host.
             utils.LOGGER.warning("Cannot insert host %r", host, exc_info=True)
             return None
         utils.LOGGER.debug(

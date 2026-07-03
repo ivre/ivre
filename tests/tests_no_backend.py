@@ -2942,6 +2942,86 @@ class ElasticDBStoreHostResilienceTests(unittest.TestCase):
             view.store_host({"addr": "1.2.3.4", "ports": []})
 
 
+class MongoDBStoreHostResilienceTests(unittest.TestCase):
+    """Mongo-side counterpart of
+    :class:`ElasticDBStoreHostResilienceTests`: pin the
+    log-and-skip-on-``(WriteError, InvalidDocument)``-only behaviour
+    of :meth:`MongoDBActive.store_host`. It originally caught bare
+    ``Exception``, which also swallowed connectivity/authentication/
+    topology errors (``ConnectionFailure``, ``AutoReconnect``,
+    ``NotPrimaryError``, ``ConfigurationError``) instead of letting
+    them fail the batch loudly.
+    """
+
+    class _StubCollection:
+        def __init__(self, insert_exception=None):
+            self.inserted: list = []
+            self._insert_exception = insert_exception
+
+        def insert_one(self, host):
+            import types
+
+            if self._insert_exception is not None:
+                raise self._insert_exception
+            self.inserted.append(host)
+            return types.SimpleNamespace(inserted_id="stub-object-id")
+
+    @staticmethod
+    def _view(insert_exception=None):
+        from ivre.db.mongo import MongoDBView
+
+        class _StubView(MongoDBView):
+            def __init__(self):  # pylint: disable=super-init-not-called
+                # Deliberately skip DB.__init__: store_host() only
+                # touches self.columns / self.column_hosts / self.db.
+                # ``MongoDB.db`` is a ``@property`` returning
+                # ``self._db.db`` (``self._db`` is a
+                # ``MongoDBConnection`` wrapper, not the raw
+                # dict-like database), so it is overridden directly
+                # here rather than faked via ``self._db``.
+                self.columns = ["hosts"]
+                self._collection = MongoDBStoreHostResilienceTests._StubCollection(
+                    insert_exception
+                )
+
+            @property
+            def db(self):
+                return {"hosts": self._collection}
+
+        return _StubView()
+
+    def test_store_host_returns_ident_on_success(self):
+        view = self._view()
+        result = view.store_host({"addr": "1.2.3.4", "ports": []})
+        self.assertEqual(result, "stub-object-id")
+        self.assertEqual(len(view.db["hosts"].inserted), 1)
+
+    def test_store_host_logs_and_returns_none_on_write_error(self):
+        from pymongo.errors import WriteError
+
+        view = self._view(insert_exception=WriteError("Document failed validation"))
+        with self.assertLogs(ivre.utils.LOGGER, level="WARNING") as cm:
+            result = view.store_host({"addr": "1.2.3.4", "ports": []})
+        self.assertIsNone(result)
+        self.assertTrue(any("Cannot insert host" in line for line in cm.output))
+
+    def test_store_host_logs_and_returns_none_on_invalid_document(self):
+        from pymongo.errors import InvalidDocument
+
+        view = self._view(insert_exception=InvalidDocument("cannot encode object"))
+        with self.assertLogs(ivre.utils.LOGGER, level="WARNING") as cm:
+            result = view.store_host({"addr": "1.2.3.4", "ports": []})
+        self.assertIsNone(result)
+        self.assertTrue(any("Cannot insert host" in line for line in cm.output))
+
+    def test_store_host_propagates_connection_errors(self):
+        from pymongo.errors import AutoReconnect
+
+        view = self._view(insert_exception=AutoReconnect("no primary available"))
+        with self.assertRaises(AutoReconnect):
+            view.store_host({"addr": "1.2.3.4", "ports": []})
+
+
 class DBViewMergeHostTests(unittest.TestCase):
     """Pin :meth:`ivre.db.DBView.merge_host`'s data-safety contract:
     the pre-existing record must only be removed once the merged
