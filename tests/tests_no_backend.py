@@ -2849,6 +2849,22 @@ class ElasticDBSearchFieldTests(unittest.TestCase):
 # the fix here is resilience-only (log-and-skip), with shape
 # normalization handled at the source in ``ivre/xmlnmap.py`` instead
 # (see the ``fingerprint-strings`` handling added separately).
+#
+# ``store_host`` originally caught bare ``Exception``, which also
+# swallowed connectivity/authentication/topology errors -- an outage
+# mid-batch would silently log one warning per host and "succeed"
+# with an empty index instead of failing the run. It now only
+# catches ``RequestError`` (the 400-class, per-document,
+# content-dependent rejection -- mapper_parsing_exception,
+# strict_dynamic_mapping_exception, illegal_argument_exception...);
+# everything else propagates. ``MongoDBActive.store_host`` had the
+# same over-broad catch and is tightened the same way, to
+# ``(WriteError, InvalidDocument)`` (server-side per-document
+# validation failures, including the ``DuplicateKeyError`` subclass,
+# and client-side BSON encoding failures such as
+# ``DocumentTooLarge``); connectivity/topology errors
+# (``ConnectionFailure``, ``AutoReconnect``, ``NotPrimaryError``,
+# ``ConfigurationError``) propagate there too.
 # ---------------------------------------------------------------------
 
 
@@ -2857,7 +2873,7 @@ class ElasticDBSearchFieldTests(unittest.TestCase):
     "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
 )
 class ElasticDBStoreHostResilienceTests(unittest.TestCase):
-    """Pin the log-and-skip behaviour of
+    """Pin the log-and-skip-on-``RequestError``-only behaviour of
     :meth:`ElasticDBActive.store_host`.
     """
 
@@ -2887,18 +2903,43 @@ class ElasticDBStoreHostResilienceTests(unittest.TestCase):
         )
         return view
 
+    @staticmethod
+    def _request_error():
+        # A minimal, but fully-functional, ``RequestError`` instance:
+        # its ``__str__``/``__repr__`` only need ``.meta.status`` and
+        # ``.body``, so a bare namespace stands in for the real
+        # ``elastic_transport.ApiResponseMeta`` without coupling this
+        # test to that class's own constructor.
+        import types
+
+        from elasticsearch import RequestError
+
+        return RequestError(
+            "mapper_parsing_exception",
+            types.SimpleNamespace(status=400),
+            "failed to parse",
+        )
+
     def test_store_host_returns_truthy_id_on_success(self):
         view = self._view()
         result = view.store_host({"addr": "1.2.3.4", "ports": []})
         self.assertEqual(result, "stub-doc-id")
         self.assertEqual(len(view.db_client.indexed), 1)
 
-    def test_store_host_logs_and_returns_none_on_mapper_parsing_exception(self):
-        view = self._view(index_exception=RuntimeError("mapper_parsing_exception"))
+    def test_store_host_logs_and_returns_none_on_request_error(self):
+        view = self._view(index_exception=self._request_error())
         with self.assertLogs(ivre.utils.LOGGER, level="WARNING") as cm:
             result = view.store_host({"addr": "1.2.3.4", "ports": []})
         self.assertIsNone(result)
         self.assertTrue(any("Cannot insert host" in line for line in cm.output))
+
+    def test_store_host_propagates_non_request_errors(self):
+        # A connectivity/outage/misconfiguration error (anything that
+        # is not a ``RequestError``) must abort the batch instead of
+        # being silently logged and skipped.
+        view = self._view(index_exception=ConnectionError("no route to host"))
+        with self.assertRaises(ConnectionError):
+            view.store_host({"addr": "1.2.3.4", "ports": []})
 
 
 class DBViewMergeHostTests(unittest.TestCase):

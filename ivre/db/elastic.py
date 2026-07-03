@@ -25,7 +25,7 @@ import json
 import re
 from urllib.parse import unquote
 
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import Elasticsearch, RequestError, helpers
 from elasticsearch_dsl import Q  # pylint: disable=no-name-in-module
 from elasticsearch_dsl.query import Query  # pylint: disable=no-name-in-module
 
@@ -408,13 +408,20 @@ class ElasticDBActive(ElasticDB, DBActive):
             host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
         try:
             result = self.db_client.index(index=self.indexes[0], body=host)
-        except Exception:
+        except RequestError:
             # A single malformed document (e.g. an NSE script output
             # whose object shape conflicts with what Elasticsearch
             # inferred from an earlier host for the same field, see
             # issue #1886) must not abort a whole ``db2view`` batch.
-            # Mirrors MongoDBActive.store_host's log-and-skip
-            # behaviour.
+            # ``RequestError`` (a 400-class ``ApiError`` on the 8.x/9.x
+            # client, native on 7.x) covers exactly this kind of
+            # per-document, content-dependent rejection --
+            # mapper_parsing_exception, strict_dynamic_mapping,
+            # illegal_argument, and the like. Connectivity/auth/server
+            # errors (``ConnectionError``, ``TransportError``, 401/403,
+            # 5xx) are not caught here and propagate, so an outage or
+            # misconfiguration still fails the batch loudly instead of
+            # silently logging a warning per host.
             utils.LOGGER.warning("Cannot insert host %r", host, exc_info=True)
             return None
         return result.get("_id")
