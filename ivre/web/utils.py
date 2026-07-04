@@ -119,8 +119,9 @@ def validate_regex_complexity(
     try:
         parsed = SreOpParser().parse_sre(pattern)
     except re.error as exc:
-        # Surface the same error class Python's ``re.compile``
-        # would have raised; it converts to a 400 in Bottle.
+        # Re-raise as ``ValueError``, the codebase-wide "malformed
+        # user input" signal; the web application maps it to HTTP
+        # 400 (``bad_input_plugin`` in :mod:`ivre.web.base`).
         raise ValueError(f"Invalid regex pattern: {exc}") from exc
 
     if parsed is None:
@@ -147,9 +148,11 @@ def _validate_user_regex(value: object) -> None:
     regex (``"/.../[flags]"`` syntax) are checked. Plain string
     values, the special ``"-"`` sentinel honoured by
     ``str2regexpnone``, and non-string inputs pass through
-    unchanged. ``ValueError`` is raised on overflow; callers in
-    this module rely on Bottle's default 400-on-ValueError
-    behaviour to surface the rejection to the client.
+    unchanged. ``ValueError`` is raised on overflow; the Bottle
+    application converts it into an HTTP 400 JSON response (via
+    ``bad_input_plugin``, registered application-wide in
+    :mod:`ivre.web.base`), and the MCP server surfaces it as a
+    tool error.
     """
     if not isinstance(value, str):
         return
@@ -262,8 +265,9 @@ def query_from_params(params):
     `neg`, `param`, `value`].
 
     Raises ``ValueError`` if `_split_query()` fails on the query
-    string; the caller is expected to surface the error via Bottle
-    (typically as HTTP 400).
+    string; the web application surfaces the error as HTTP 400 via
+    ``bad_input_plugin`` (:mod:`ivre.web.base`), and the MCP server
+    reports it as a tool error.
 
     """
     try:
@@ -427,9 +431,11 @@ def _parse_query(dbase, query):
 # :func:`apply_filter_injectors` therefore logs the failure
 # via :data:`ivre.utils.LOGGER` at ``ERROR`` level with
 # ``exc_info=True`` and the failing injector's identity, then
-# re-raises so the request is aborted -- Bottle turns the
-# unhandled exception into ``500`` and the MCP server surfaces
-# it as a tool error. A plugin that wants graceful degradation
+# re-raises so the request is aborted -- the web layer turns the
+# unhandled exception into an HTTP error (``500``, or ``400`` for
+# ``ValueError`` via ``bad_input_plugin`` in
+# :mod:`ivre.web.base`) and the MCP server surfaces it as a tool
+# error. A plugin that wants graceful degradation
 # (e.g. fall back to a deny-all clause on a transient IAM
 # outage) catches the failure itself and returns a backend
 # deny clause -- ``dbase.searchnonexistent()`` on every
@@ -479,8 +485,10 @@ def apply_filter_injectors(dbase: Any, base_flt: Filter, user: str | None) -> Fi
     failing injector and the original exception are logged via
     :data:`ivre.utils.LOGGER` at ``ERROR`` level with
     ``exc_info=True``, then the exception is re-raised; later
-    injectors are *not* invoked. Bottle turns the unhandled
-    exception into ``500`` and the MCP server surfaces it as a
+    injectors are *not* invoked. The web layer turns the unhandled
+    exception into an HTTP error (``500``, or ``400`` for
+    ``ValueError`` via ``bad_input_plugin`` in
+    :mod:`ivre.web.base`) and the MCP server surfaces it as a
     tool error. A plugin that wants graceful degradation (e.g.
     fall back to a deny-all clause on a transient IAM outage)
     catches the failure itself and returns a backend deny
@@ -723,7 +731,12 @@ def flt_from_query(dbase, query, base_flt=None):
                     "h": 3600,
                     "d": 86400,
                     "y": 31557600,
-                }[value[-1]]
+                }.get(value[-1])
+                if unit is None:
+                    # Surface malformed input as ``ValueError``
+                    # (HTTP 400 via the web app's bad-input
+                    # plugin) rather than ``KeyError`` (500).
+                    raise ValueError(f"invalid timeago unit {value[-1]!r}")
                 timeago = int(value[:-1]) * unit
             else:
                 timeago = int(value)
@@ -1299,7 +1312,13 @@ def parse_filter(dbase, data):
         raise ValueError("Unsupported filter")
     if not data:
         return dbase.flt_empty
-    func = data.pop("f")
+    try:
+        func = data.pop("f")
+    except KeyError as exc:
+        # Missing ``f`` key: surface the same ``ValueError`` as
+        # the other malformed-filter shapes (HTTP 400 via the web
+        # app's bad-input plugin) rather than a ``KeyError`` (500).
+        raise ValueError("Unsupported filter") from exc
     if not isinstance(func, str):
         raise ValueError("Unsupported filter")
     args = data.pop("a", [])

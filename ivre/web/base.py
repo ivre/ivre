@@ -25,9 +25,13 @@ so they live here where neither module is imported.
 
 import hashlib
 import json
+import re
+from collections.abc import Callable, Iterator
 from functools import wraps
+from types import GeneratorType
+from typing import Any
 
-from bottle import Bottle, abort, request, response
+from bottle import Bottle, HTTPResponse, abort, request, response
 
 from ivre import config, utils
 from ivre.db import db
@@ -40,6 +44,116 @@ def add_security_headers():
     response.set_header("X-Frame-Options", "DENY")
     response.set_header("Content-Security-Policy", "frame-ancestors 'none'")
     response.set_header("X-Content-Type-Options", "nosniff")
+
+
+# Exceptions the parsing helpers raise on malformed user-supplied
+# input (``q=`` tokens, ``f=`` JSON filters, regex literals, IP /
+# CIDR strings, numeric fields, ...):
+#
+# * ``ValueError`` is the codebase-wide "bad input" signal: the
+#   ``q=`` tokenizer (:func:`ivre.web.utils.query_from_params`), the
+#   ``WEB_REGEX_*`` complexity budget, the ``int()`` / ``float()``
+#   conversions in :func:`ivre.web.utils.flt_from_query`, the ``f=``
+#   JSON decoding (``json.JSONDecodeError`` is a ``ValueError``
+#   subclass) and :func:`ivre.web.utils.parse_filter` all raise it.
+# * ``re.error`` covers user-supplied ``/.../`` regex literals
+#   reaching ``re.compile`` unvalidated: the complexity budget
+#   normally converts pattern-syntax errors to ``ValueError`` first,
+#   but an operator can disable it (``WEB_REGEX_STARRINESS_LIMIT =
+#   None``), in which case ``utils.str2regexp`` raises ``re.error``
+#   directly.
+#
+# ``KeyError`` / ``TypeError`` / ``AttributeError`` are deliberately
+# *not* mapped: they are the usual signal of a server-side bug, and
+# reporting them as client errors would hide real defects.
+_BAD_INPUT_EXCEPTIONS = (ValueError, re.error)
+
+
+def _bad_input_response(exc: BaseException) -> HTTPResponse:
+    """Build the HTTP 400 response for rejected user input.
+
+    The body is JSON (same ``{"error": ...}`` shape as the
+    ``check_referer`` rejection) so programmatic clients get a
+    parseable error instead of Bottle's HTML error page.
+    """
+    return HTTPResponse(
+        body=json.dumps({"error": str(exc) or "Invalid user input"}),
+        status=400,
+        headers={"Content-Type": "application/json"},
+    )
+
+
+def _guard_stream(stream: Iterator[Any]) -> Iterator[Any]:
+    """Convert bad-input exceptions from a streaming route into
+    HTTP 400 while that is still possible.
+
+    Bottle materialises a generator route's first chunk inside
+    ``Bottle._cast`` -- before the status line is sent -- and
+    honours an :class:`bottle.HTTPResponse` raised there. A parsing
+    failure that fires before anything was yielded (e.g.
+    ``get_base`` at the top of the ``/scans`` generator) is
+    therefore converted into a clean 400. Once at least one chunk
+    has been yielded the status line is already on the wire, so the
+    exception is re-raised unchanged and the stream aborts -- the
+    best HTTP can do mid-response.
+    """
+    started = False
+    try:
+        for chunk in stream:
+            started = True
+            yield chunk
+    except _BAD_INPUT_EXCEPTIONS as exc:
+        if started:
+            raise
+        utils.LOGGER.warning(
+            "Invalid user input on %s [%s]", request.path, exc, exc_info=True
+        )
+        raise _bad_input_response(exc) from exc
+
+
+def bad_input_plugin(callback: Callable[..., Any]) -> Callable[..., Any]:
+    """Bottle plugin mapping malformed user input to HTTP 400.
+
+    Installed application-wide (``application.install`` below), so
+    every route callback -- current and future, including the auth
+    routes registered by :mod:`ivre.web.auth` -- is wrapped: an
+    escaping :data:`_BAD_INPUT_EXCEPTIONS` member becomes ``400 Bad
+    Request`` with a JSON ``{"error": ...}`` body instead of
+    Bottle's catch-all 500. The parsing helpers raising those
+    exceptions on purpose (:func:`ivre.web.utils.query_from_params`,
+    the ``WEB_REGEX_*`` budget checks,
+    :func:`ivre.web.utils.parse_filter`, ...) rely on this
+    conversion; routes that want a more precise status (404 / 409 /
+    413, a tailored message, ...) keep catching the exception
+    themselves first, as the notes / audit / iprange routes do.
+
+    The exception is logged with its traceback at WARNING level so
+    a genuine server-side bug raising ``ValueError`` remains
+    diagnosable even though the client sees a 400.
+
+    Generator callbacks (the streaming data-plane routes) do not
+    run any code at call time; their failures surface while Bottle
+    iterates the returned generator, so the returned generator is
+    wrapped in :func:`_guard_stream` instead.
+    """
+
+    @wraps(callback)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            result = callback(*args, **kwargs)
+        except _BAD_INPUT_EXCEPTIONS as exc:
+            utils.LOGGER.warning(
+                "Invalid user input on %s [%s]", request.path, exc, exc_info=True
+            )
+            raise _bad_input_response(exc) from exc
+        if isinstance(result, GeneratorType):
+            return _guard_stream(result)
+        return result
+
+    return wrapper
+
+
+application.install(bad_input_plugin)
 
 
 def _parse_bearer(auth_header: str) -> str | None:

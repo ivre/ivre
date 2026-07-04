@@ -2609,8 +2609,9 @@ class RegexComplexityTests(unittest.TestCase):
         validate("(?<!foo)bar")
 
     def test_invalid_regex_raises_value_error(self):
-        # Malformed patterns surface as ``ValueError`` (which
-        # Bottle turns into 400) rather than ``re.error``.
+        # Malformed patterns surface as ``ValueError`` (which the
+        # web application's bad-input plugin turns into HTTP 400)
+        # rather than ``re.error``.
         validate = self._validator()
         for bad in ["[abc", "foo(", "(?P<bad)", "*invalid"]:
             with self.subTest(pattern=bad):
@@ -16130,6 +16131,152 @@ class IPRangeTests(unittest.TestCase):
     def test_web_malformed_region_rejected(self) -> None:
         status, _ = self._wsgi_call("region=FR")
         self.assertTrue(status.startswith("400"), status)
+
+
+# ---------------------------------------------------------------------
+# WebBadInputTests -- pin the application-wide bad-input plugin
+# (``ivre.web.base.bad_input_plugin``): malformed user input on the
+# data-plane routes (unbalanced ``q=`` quotes, non-numeric numeric
+# tokens, malformed ``f=`` JSON, over-budget regexes, ...) must
+# surface as HTTP 400 with a JSON ``{"error": ...}`` body, not as
+# Bottle's catch-all 500.
+# ---------------------------------------------------------------------
+
+
+class WebBadInputTests(unittest.TestCase):
+    """WSGI-level pins for the ``ValueError`` -> HTTP 400 mapping
+    on the ``q=`` / ``f=`` parsing funnel (``get_base`` in
+    :mod:`ivre.web.app` and the helpers in
+    :mod:`ivre.web.utils`)."""
+
+    def _wsgi_call(self, path: str, query: str) -> tuple[str, bytes]:
+        # Make sure routes are registered on the bottle application.
+        import ivre.web.app  # noqa: F401 -- side-effecting import
+        import ivre.web.modules
+        from ivre.web.base import application
+
+        # ``require_module("active")`` needs ``db.nmap`` wired and
+        # the routes consult it for filters / counts; substitute a
+        # stub so no backend is required.  ``flt_empty`` /
+        # ``flt_and`` / ``search*`` come for free as ``MagicMock``
+        # attributes -- the malformed inputs under test fail during
+        # *parsing*, before any backend method matters.
+        dbase = mock.MagicMock()
+        dbase.count.return_value = 42
+        db_stub = mock.MagicMock()
+        db_stub.nmap = dbase
+        env = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "localhost",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "localhost",
+            "HTTP_REFERER": "http://localhost/",
+            "wsgi.url_scheme": "http",
+            "PATH_INFO": path,
+            "QUERY_STRING": query,
+        }
+        status: dict[str, str] = {}
+
+        def start_response(s: str, _headers, _exc=None):
+            status["s"] = s
+
+        with (
+            mock.patch.object(ivre.web.app, "db", db_stub),
+            mock.patch.object(ivre.web.modules, "db", db_stub),
+        ):
+            body = b"".join(application(env, start_response))
+        return status["s"], body
+
+    def _assert_bad_request(self, path: str, query: str) -> None:
+        status, body = self._wsgi_call(path, query)
+        self.assertTrue(status.startswith("400"), status)
+        payload = json.loads(body)
+        self.assertIn("error", payload)
+
+    def test_valid_query_still_served(self) -> None:
+        # Control: the stubbed backend serves a well-formed
+        # request normally.
+        status, body = self._wsgi_call("/scans/count", "")
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(body, b"42\n")
+
+    def test_unbalanced_quotes_rejected(self) -> None:
+        # ``_split_query`` (shlex) raises ``ValueError`` on
+        # unbalanced quotes; ``query_from_params`` re-raises it.
+        self._assert_bad_request("/scans/count", 'q="oops')
+
+    def test_non_numeric_int_token_rejected(self) -> None:
+        # ``skip:`` values go through ``int()``.
+        self._assert_bad_request("/scans/count", "q=skip:zzz")
+
+    def test_malformed_filter_json_rejected(self) -> None:
+        # ``f=`` must be valid JSON (``json.JSONDecodeError`` is
+        # a ``ValueError`` subclass).
+        self._assert_bad_request("/scans/count", "f={bad")
+
+    def test_filter_without_f_key_rejected(self) -> None:
+        # A JSON object without the ``f`` key used to raise
+        # ``KeyError`` (-> 500); ``parse_filter`` now raises the
+        # same ``ValueError`` as the other malformed shapes.
+        self._assert_bad_request("/scans/count", 'f={"a":[]}')
+
+    def test_over_budget_regex_rejected(self) -> None:
+        # ReDoS complexity-budget rejection
+        # (:func:`ivre.web.utils.validate_regex_complexity`).
+        # ``%2B`` is ``+``: a literal ``+`` in a query string
+        # would be decoded as a space.
+        self._assert_bad_request("/scans/count", "q=hostname:/(a%2B)%2Bx/")
+
+    def test_invalid_timeago_unit_rejected(self) -> None:
+        # Unknown ``timeago`` unit used to raise ``KeyError``
+        # (-> 500).
+        self._assert_bad_request("/scans/count", "q=timeago:3w")
+
+    def test_streaming_route_rejected_before_first_chunk(self) -> None:
+        # ``/scans`` is a generator route: the parsing failure
+        # fires at Bottle's first ``next()`` and must still be
+        # converted into a 400 (``_guard_stream``).
+        self._assert_bad_request("/scans", "q=skip:zzz")
+
+    def test_guard_stream_converts_pre_stream_failure(self) -> None:
+        # Direct pin of the stream guard: a bad-input exception
+        # raised before anything was yielded becomes an
+        # ``HTTPResponse`` (status 400, JSON body) that Bottle's
+        # ``_cast`` honours.
+        import bottle
+
+        from ivre.web import base as web_base
+
+        bottle.request.bind({"PATH_INFO": "/test"})
+
+        def stream():
+            raise ValueError("boom")
+            yield "never"  # makes this function a generator
+
+        guarded = web_base._guard_stream(stream())
+        with self.assertRaises(bottle.HTTPResponse) as ctx:
+            next(guarded)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(json.loads(ctx.exception.body), {"error": "boom"})
+
+    def test_guard_stream_reraises_mid_stream_failure(self) -> None:
+        # Once a chunk has been yielded the status line is on the
+        # wire; the guard must *not* swallow the exception into a
+        # 400 (it re-raises and the stream aborts).
+        import bottle
+
+        from ivre.web import base as web_base
+
+        bottle.request.bind({"PATH_INFO": "/test"})
+
+        def stream():
+            yield "chunk"
+            raise ValueError("too late")
+
+        guarded = web_base._guard_stream(stream())
+        self.assertEqual(next(guarded), "chunk")
+        with self.assertRaises(ValueError):
+            list(guarded)
 
 
 # ---------------------------------------------------------------------

@@ -201,7 +201,7 @@ def get_nmap_action(subdb, action):
                                timestamps
     :query str format: "json" (the default), "ndjson" or "txt"
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
     :>jsonarr object: results
 
@@ -370,7 +370,7 @@ def get_nmap_count(subdb):
     :query str q: query (including limit/skip and sort)
     :query str f: filter
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
     :>json int: count
 
@@ -399,7 +399,7 @@ def get_top(subdb, field):
                                timestamps
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
     :>jsonarr str label: field value
     :>jsonarr int value: count for this value
@@ -468,7 +468,7 @@ def get_distinct(subdb, field):
                                timestamps
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
     :>jsonarr str label: field value
     :>jsonarr int value: count for this value
@@ -568,7 +568,7 @@ def get_nmap(subdb):
                                timestamps
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
     :>jsonarr object: results
 
@@ -864,7 +864,7 @@ def get_flow():
                        node or edge id supplied in ``q.id``;
                        ``q.type`` is ``"node"`` or ``"edge"``.
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query
     :status 404: module is not exposed by this server, or
                  ``action=details`` and the entity does not exist
     :>json object: results
@@ -1088,7 +1088,7 @@ def get_ipdata(addr):
 
     :param str addr: IP address to query
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed address
     :>json object: the result values
 
     """
@@ -1254,7 +1254,7 @@ def get_passivedns(query):
     :query bool reverse: use a reverse query (domain name only)
     :query str type: specify the DNS query type
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query
     :status 404: passive module is not exposed by this server
     :>json object: the result values (JSONL format: one JSON result per line)
 
@@ -1315,7 +1315,7 @@ def get_passive():
                                timestamps
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: passive module is not exposed by this server
     :>jsonarr object: results
 
@@ -1377,7 +1377,7 @@ def get_passive_count():
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: passive module is not exposed by this server
     :>json int: count
 
@@ -1451,7 +1451,7 @@ def get_dns():
     :query bool datesasstrings: emit ISO-ish date strings rather than Unix timestamps
     :query str format: ``"json"`` (default) or ``"ndjson"``
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query
     :status 404: dns module is not exposed by this server
     :>jsonarr object: pseudo-records as ``{name, addr, count, firstseen, lastseen, types, sources}``
     """
@@ -1549,7 +1549,7 @@ def get_rir():
                        ascending then ``start`` descending then
                        ``stop`` ascending (narrowest range first)
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: rir module is not exposed by this server
     :>jsonarr object: results
 
@@ -1599,7 +1599,7 @@ def get_rir_count():
     :query str q: query (only used for limit/skip and sort)
     :query str f: filter
     :status 200: no error
-    :status 400: invalid referer
+    :status 400: invalid referer or malformed query / filter
     :status 404: rir module is not exposed by this server
     :>json int: count
 
