@@ -16149,6 +16149,26 @@ class WebBadInputTests(unittest.TestCase):
     :mod:`ivre.web.app` and the helpers in
     :mod:`ivre.web.utils`)."""
 
+    def setUp(self) -> None:
+        import bottle
+
+        # ``bottle.request`` is a process-global; snapshot its
+        # environ so the synthetic ones this class binds (the
+        # stream-guard tests bind directly, and every WSGI
+        # dispatch in ``_wsgi_call`` re-binds it as a side
+        # effect) do not leak into later tests.
+        try:
+            self._saved_request_environ: dict[str, Any] | None = dict(
+                bottle.request.environ
+            )
+        except (AttributeError, RuntimeError):
+            self._saved_request_environ = None
+
+    def tearDown(self) -> None:
+        import bottle
+
+        bottle.request.bind(self._saved_request_environ or {})
+
     def _wsgi_call(self, path: str, query: str) -> tuple[str, bytes]:
         # Make sure routes are registered on the bottle application.
         import ivre.web.app  # noqa: F401 -- side-effecting import
