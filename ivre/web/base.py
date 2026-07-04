@@ -26,7 +26,7 @@ so they live here where neither module is imported.
 import hashlib
 import json
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from functools import wraps
 from types import GeneratorType
 from typing import Any
@@ -83,7 +83,7 @@ def _bad_input_response(exc: BaseException) -> HTTPResponse:
     )
 
 
-def _guard_stream(stream: Iterator[Any]) -> Iterator[Any]:
+def _guard_stream(stream: Generator[Any, None, None]) -> Iterator[Any]:
     """Convert bad-input exceptions from a streaming route into
     HTTP 400 while that is still possible.
 
@@ -96,6 +96,17 @@ def _guard_stream(stream: Iterator[Any]) -> Iterator[Any]:
     has been yielded the status line is already on the wire, so the
     exception is re-raised unchanged and the stream aborts -- the
     best HTTP can do mid-response.
+
+    The ``finally`` clause forwards closure to the wrapped
+    generator: a ``for`` loop does not proxy ``close()``, so
+    without it a client disconnect (the WSGI server calls
+    ``close()`` on the response iterable per PEP 3333, whatever
+    the guard's suspension point) would leave the route
+    generator's cleanup (``finally`` blocks, DB cursor closes) to
+    garbage-collection finalisation instead of running it
+    deterministically. ``close()`` on an already-finished
+    generator is a no-op, so the exhaustion / conversion /
+    mid-stream-failure exits are unaffected.
     """
     started = False
     try:
@@ -109,6 +120,8 @@ def _guard_stream(stream: Iterator[Any]) -> Iterator[Any]:
             "Invalid user input on %s [%s]", request.path, exc, exc_info=True
         )
         raise _bad_input_response(exc) from exc
+    finally:
+        stream.close()
 
 
 def bad_input_plugin(callback: Callable[..., Any]) -> Callable[..., Any]:

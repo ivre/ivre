@@ -16298,6 +16298,33 @@ class WebBadInputTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list(guarded)
 
+    def test_guard_stream_forwards_close_to_inner_generator(self) -> None:
+        # PEP 3333: the WSGI server calls ``close()`` on the
+        # response iterable (e.g. on client disconnect).  A bare
+        # ``for`` loop does not proxy ``close()``, so the guard
+        # forwards it explicitly (``finally``) -- the wrapped
+        # route generator's cleanup (``finally`` blocks, DB
+        # cursor closes) must run deterministically rather than
+        # wait for garbage-collection finalisation.  The test
+        # keeps its own reference to the inner generator so
+        # CPython's refcounting cannot mask a missing forward.
+        from ivre.web import base as web_base
+
+        closed: list[bool] = []
+
+        def stream():
+            try:
+                yield "chunk1"
+                yield "chunk2"
+            finally:
+                closed.append(True)
+
+        inner = stream()
+        guarded = web_base._guard_stream(inner)
+        self.assertEqual(next(guarded), "chunk1")
+        guarded.close()
+        self.assertEqual(closed, [True])
+
 
 # ---------------------------------------------------------------------
 # MongoDBNotesIndexTests -- pin the structural definitions
