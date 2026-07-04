@@ -736,7 +736,7 @@ def flt_from_query(dbase, query, base_flt=None):
                     # Surface malformed input as ``ValueError``
                     # (HTTP 400 via the web app's bad-input
                     # plugin) rather than ``KeyError`` (500).
-                    raise ValueError(f"invalid timeago unit {value[-1]!r}")
+                    raise ValueError(f"Invalid timeago unit {value[-1]!r}")
                 timeago = int(value[:-1]) * unit
             else:
                 timeago = int(value)

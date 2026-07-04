@@ -16170,6 +16170,8 @@ class WebBadInputTests(unittest.TestCase):
         bottle.request.bind(self._saved_request_environ or {})
 
     def _wsgi_call(self, path: str, query: str) -> tuple[str, bytes]:
+        import io as _io
+
         # Make sure routes are registered on the bottle application.
         import ivre.web.app  # noqa: F401 -- side-effecting import
         import ivre.web.modules
@@ -16185,6 +16187,7 @@ class WebBadInputTests(unittest.TestCase):
         dbase.count.return_value = 42
         db_stub = mock.MagicMock()
         db_stub.nmap = dbase
+        wsgi_errors = _io.StringIO()
         env = {
             "REQUEST_METHOD": "GET",
             "SERVER_NAME": "localhost",
@@ -16194,6 +16197,12 @@ class WebBadInputTests(unittest.TestCase):
             "wsgi.url_scheme": "http",
             "PATH_INFO": path,
             "QUERY_STRING": query,
+            "wsgi.input": _io.BytesIO(b""),
+            "CONTENT_LENGTH": "0",
+            # Bottle's WSGI machinery writes to ``wsgi.errors`` on
+            # uncaught exceptions; provide a sink so a 500 surfaces
+            # cleanly through the test instead of a KeyError.
+            "wsgi.errors": wsgi_errors,
         }
         status: dict[str, str] = {}
 
@@ -16205,11 +16214,15 @@ class WebBadInputTests(unittest.TestCase):
             mock.patch.object(ivre.web.modules, "db", db_stub),
         ):
             body = b"".join(application(env, start_response))
+        self._wsgi_errors = wsgi_errors.getvalue()
         return status["s"], body
 
     def _assert_bad_request(self, path: str, query: str) -> None:
         status, body = self._wsgi_call(path, query)
-        self.assertTrue(status.startswith("400"), status)
+        self.assertTrue(
+            status.startswith("400"),
+            f"status={status}\nerrors={self._wsgi_errors[-1500:]}",
+        )
         payload = json.loads(body)
         self.assertIn("error", payload)
 
@@ -16217,7 +16230,10 @@ class WebBadInputTests(unittest.TestCase):
         # Control: the stubbed backend serves a well-formed
         # request normally.
         status, body = self._wsgi_call("/scans/count", "")
-        self.assertTrue(status.startswith("200"), status)
+        self.assertTrue(
+            status.startswith("200"),
+            f"status={status}\nerrors={self._wsgi_errors[-1500:]}",
+        )
         self.assertEqual(body, b"42\n")
 
     def test_unbalanced_quotes_rejected(self) -> None:
