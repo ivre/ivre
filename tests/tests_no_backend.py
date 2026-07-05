@@ -878,6 +878,12 @@ class RirBackendTests(unittest.TestCase):
         flt_or = hdb.flt_or(hdb.searchhost("1.1.1.1"), hdb.searchhost("8.8.8.8"))
         self.assertEqual(flt_or["f"], "or")
         self.assertEqual(len(flt_or["a"]), 2)
+        # The zero-argument combinators are not resolved locally:
+        # the HTTP backend is a pure proxy and forwards the empty
+        # conjunction / disjunction for the remote backend to
+        # resolve (match-everything / match-nothing respectively).
+        self.assertEqual(hdb.flt_and(), {"f": "and", "a": []})
+        self.assertEqual(hdb.flt_or(), {"f": "or", "a": []})
 
     def test_filter_round_trips_through_parse_filter(self):
         """A filter built by `HttpDBRir` is JSON-serialised on the
@@ -928,6 +934,40 @@ class RirBackendTests(unittest.TestCase):
         self.assertEqual(country_call[1], ("FR",))
         text_call = next(c for c in calls if c[0] == "searchtext")
         self.assertEqual(text_call[1], ("orange",))
+
+    def test_empty_flt_or_round_trips_to_remote_flt_or(self):
+        """A zero-argument ``flt_or()`` is not resolved locally:
+        the HTTP backend forwards ``{"f": "or", "a": []}`` over
+        the wire and the server-side ``parse_filter`` calls the
+        target backend's ``flt_or()`` with no argument, which
+        matches nothing there."""
+        from urllib.parse import urlparse
+
+        from ivre.db.http import HttpDBRir
+        from ivre.web.utils import parse_filter
+
+        hdb = HttpDBRir(urlparse("http://x"))
+        wire = json.loads(json.dumps(hdb.flt_or()))
+        self.assertEqual(wire, {"f": "or", "a": []})
+
+        calls = []
+
+        class _StubDBRir:
+            flt_empty = {}
+
+            @staticmethod
+            def flt_and(*args):
+                calls.append(("flt_and", args))
+                return ("EVERYTHING",)
+
+            @staticmethod
+            def flt_or(*args):
+                calls.append(("flt_or", args))
+                return ("NOTHING",)
+
+        result = parse_filter(_StubDBRir(), wire)
+        self.assertEqual(calls, [("flt_or", ())])
+        self.assertEqual(result, ("NOTHING",))
 
     def test_get_best_inherits_from_dbrir(self):
         """`HttpDBRir.get_best` must be inherited unchanged from
@@ -14275,18 +14315,60 @@ class MongoDBSearchFieldTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
-# MongoDBFltCombineTests -- the ``flt_or`` / ``flt_and`` filter
-# combinators on the MongoDB backend.
+# DBFltCombineContractTests / MongoDBFltCombineTests /
+# ElasticDBFltCombineTests / SQLDBRirFltCombineTests -- the
+# ``flt_or`` / ``flt_and`` filter combinators and their
+# vacuous-case contract: an empty conjunction matches everything
+# (``flt_empty``), an empty disjunction matches nothing
+# (``searchnonexistent()``).
 # ---------------------------------------------------------------------
 
 
+class DBFltCombineContractTests(unittest.TestCase):
+    """Pin the backend-independent ``DB.flt_and`` / ``DB.flt_or``
+    vacuous-case contract on a minimal stub backend: ``flt_and()``
+    is vacuously true (``flt_empty``), ``flt_or()`` is vacuously
+    false (``searchnonexistent()``)."""
+
+    @staticmethod
+    def _Stub():
+        from ivre.db import DB
+
+        class _StubDB(DB):
+            flt_empty = "EMPTY"
+
+            @staticmethod
+            def _flt_and(cond1, cond2):
+                return ("AND", cond1, cond2)
+
+            @staticmethod
+            def _flt_or(cond1, cond2):
+                return ("OR", cond1, cond2)
+
+            @classmethod
+            def searchnonexistent(cls):
+                return "NOTHING"
+
+        return _StubDB
+
+    def test_flt_and_zero_args_matches_everything(self):
+        self.assertEqual(self._Stub().flt_and(), "EMPTY")
+
+    def test_flt_or_zero_args_matches_nothing(self):
+        self.assertEqual(self._Stub().flt_or(), "NOTHING")
+
+    def test_flt_or_non_empty_args_reduce_unchanged(self):
+        Stub = self._Stub()
+        self.assertEqual(Stub.flt_or("a"), "a")
+        self.assertEqual(Stub.flt_or("a", "b"), ("OR", "a", "b"))
+
+
 class MongoDBFltCombineTests(unittest.TestCase):
-    """Pin the ``MongoDB.flt_or`` combinator contract.  The
-    base-class contract (``DB.flt_or`` / ``DB.flt_and``) returns
-    ``flt_empty`` when called without arguments; the MongoDB
-    ``flt_or`` override must honor it too (it used to raise
-    ``IndexError`` on zero arguments, unlike ``flt_and``, which
-    inherits the base-class implementation)."""
+    """Pin the ``MongoDB.flt_or`` combinator contract: without
+    arguments it matches nothing (``searchnonexistent()``, i.e.
+    ``{"_id": 0}``), following the base-class vacuous-case
+    contract, while ``flt_and()`` keeps matching everything
+    (``flt_empty``)."""
 
     @staticmethod
     def _M():
@@ -14294,13 +14376,13 @@ class MongoDBFltCombineTests(unittest.TestCase):
 
         return MongoDB
 
-    def test_flt_or_zero_args_returns_flt_empty(self):
+    def test_flt_or_zero_args_matches_nothing(self):
         M = self._M()
-        self.assertEqual(M.flt_or(), M.flt_empty)
+        self.assertEqual(M.flt_or(), M.searchnonexistent())
+        self.assertEqual(M.flt_or(), {"_id": 0})
 
-    def test_flt_and_zero_args_returns_flt_empty(self):
-        # Symmetry pin: ``flt_and`` gets this behaviour from the
-        # base class; ``flt_or`` must not diverge.
+    def test_flt_and_zero_args_matches_everything(self):
+        # Asymmetry pin: the vacuous conjunction stays true.
         M = self._M()
         self.assertEqual(M.flt_and(), M.flt_empty)
 
@@ -14315,6 +14397,57 @@ class MongoDBFltCombineTests(unittest.TestCase):
             M.flt_or({"addr": 1}, {"addr": 2}),
             {"$or": [{"addr": 1}, {"addr": 2}]},
         )
+
+
+@unittest.skipUnless(
+    _HAVE_ELASTICSEARCH_DSL,
+    "elasticsearch_dsl is required (install with the ``elasticsearch`` extras)",
+)
+class ElasticDBFltCombineTests(unittest.TestCase):
+    """The Elastic backend inherits the base-class ``flt_or`` (it
+    only defines ``_flt_or``), so the zero-argument case must
+    resolve to its ``searchnonexistent()`` query."""
+
+    def test_flt_or_zero_args_matches_nothing(self):
+        from ivre.db.elastic import ElasticDB
+
+        self.assertEqual(ElasticDB.flt_or(), ElasticDB.searchnonexistent())
+
+    def test_flt_and_zero_args_matches_everything(self):
+        from ivre.db.elastic import ElasticDB
+
+        self.assertEqual(ElasticDB.flt_and(), ElasticDB.flt_empty)
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBRirFltCombineTests(unittest.TestCase):
+    """``SQLDBRir`` overrides ``flt_or`` with ``None``-dropping
+    clause combination (its ``flt_empty`` is ``None``): the
+    zero-argument case must match nothing (``WHERE false``),
+    while explicitly passed ``None`` arguments keep meaning
+    "absent optional filter" (dropped, no constraint added)."""
+
+    def test_flt_or_zero_args_matches_nothing(self):
+        from ivre.db.sql import SQLDBRir
+
+        clause = SQLDBRir.flt_or()
+        self.assertTrue(clause.compare(_sqlalchemy.false()))
+        self.assertTrue(SQLDBRir.searchnonexistent().compare(_sqlalchemy.false()))
+
+    def test_flt_or_none_args_add_no_constraint(self):
+        from ivre.db.sql import SQLDBRir
+
+        self.assertIsNone(SQLDBRir.flt_or(None))
+        self.assertIsNone(SQLDBRir.flt_or(None, None))
+
+    def test_flt_or_single_clause_passthrough(self):
+        from ivre.db.sql import SQLDBRir
+
+        clause = _sqlalchemy.column("x") == 1
+        self.assertIs(SQLDBRir.flt_or(clause, None), clause)
 
 
 # ---------------------------------------------------------------------

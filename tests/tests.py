@@ -1108,6 +1108,16 @@ class IvreTests(unittest.TestCase):
             0, ivre.db.db.nmap.searchnonexistent(), database=ivre.db.db.nmap
         )
 
+        # An empty disjunction is vacuously false: zero-argument
+        # flt_or() matches nothing, while zero-argument flt_and()
+        # (vacuously true) keeps matching everything.
+        self.check_count_value_api(
+            0, ivre.db.db.nmap.flt_or(), database=ivre.db.db.nmap
+        )
+        self.check_count_value_api(
+            hosts_count, ivre.db.db.nmap.flt_and(), database=ivre.db.db.nmap
+        )
+
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
 
@@ -1979,6 +1989,8 @@ class IvreTests(unittest.TestCase):
         total_count = ivre.db.db.passive.count(ivre.db.db.passive.flt_empty)
         self.assertGreater(total_count, 0)
         self.check_value("passive_count", total_count)
+        # Zero-argument flt_or() (empty disjunction) matches nothing.
+        self.assertEqual(ivre.db.db.passive.count(ivre.db.db.passive.flt_or()), 0)
 
         # MAC addresses
         ret, out, err = RUN(["ivre", "macinfo", "--count"])
@@ -4182,6 +4194,8 @@ class IvreTests(unittest.TestCase):
         view_count = self.check_view_count_value(
             "view_count_total", ivre.db.db.view.flt_empty, [], None
         )
+        # Zero-argument flt_or() (empty disjunction) matches nothing.
+        self.assertEqual(ivre.db.db.view.count(ivre.db.db.view.flt_or()), 0)
         ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
         self.assertFalse(err)

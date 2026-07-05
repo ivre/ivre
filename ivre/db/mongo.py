@@ -643,8 +643,10 @@ class MongoDB(DB):
 
     @classmethod
     def flt_or(cls, *args):
+        # Zero-argument contract from the base class: an empty
+        # disjunction is vacuously false, so match nothing.
         if not args:
-            return cls.flt_empty
+            return cls.searchnonexistent()
         return {"$or": list(args)} if len(args) > 1 else args[0]
 
     @staticmethod

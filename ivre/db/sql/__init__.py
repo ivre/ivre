@@ -43,6 +43,7 @@ from sqlalchemy import (
     delete,
     desc,
     exists,
+    false,
     func,
     insert,
     join,
@@ -6129,6 +6130,12 @@ class SQLDBRir(SQLDB, DBRir):
             return not_(flt)
         return flt
 
+    @classmethod
+    def searchnonexistent(cls):
+        """A filter that matches nothing (``WHERE false``); the
+        zero-argument :meth:`flt_or` result."""
+        return false()
+
     @staticmethod
     def flt_and(*args):
         """Combine filter expressions via SQL ``AND``.
@@ -6144,9 +6151,20 @@ class SQLDBRir(SQLDB, DBRir):
             return clauses[0]
         return and_(*clauses)
 
-    @staticmethod
-    def flt_or(*args):
-        """Combine filter expressions via SQL ``OR``."""
+    @classmethod
+    def flt_or(cls, *args):
+        """Combine filter expressions via SQL ``OR``.
+
+        Without any argument, matches nothing (an empty
+        disjunction is vacuously false), like the base-class
+        :meth:`DB.flt_or`. ``None`` arguments are otherwise
+        dropped -- as in :meth:`flt_and`, a ``None`` stands for
+        an *absent* optional filter -- so ``flt_or(None)`` (some
+        arguments given, none of them actual filters) keeps
+        returning ``None`` (no constraint).
+        """
+        if not args:
+            return cls.searchnonexistent()
         clauses = [a for a in args if a is not None]
         if not clauses:
             return None

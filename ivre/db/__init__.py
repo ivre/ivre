@@ -462,6 +462,10 @@ class DB:
         """Returns a condition that is true iff all of the given
         conditions is true.
 
+        Without any argument, returns `flt_empty` (matches
+        everything): a conjunction over an empty set of conditions
+        is vacuously true.
+
         """
         if args:
             return reduce(cls._flt_and, args)
@@ -483,10 +487,18 @@ class DB:
         """Returns a condition that is true iff any of the given
         conditions is true.
 
+        Without any argument, returns `searchnonexistent()`
+        (matches nothing): a disjunction over an empty set of
+        conditions is vacuously false. This mirrors `flt_and()`,
+        which returns `flt_empty` (vacuously true), and keeps
+        callers building `flt_or(*alternatives)` from an empty
+        list of alternatives fail-closed instead of matching the
+        whole database.
+
         """
         if args:
             return reduce(cls._flt_or, args)
-        return cls.flt_empty
+        return cls.searchnonexistent()
 
     @staticmethod
     def _flt_or(cond1, cond2):
