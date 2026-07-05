@@ -884,6 +884,12 @@ class RirBackendTests(unittest.TestCase):
         # resolve (match-everything / match-nothing respectively).
         self.assertEqual(hdb.flt_and(), {"f": "and", "a": []})
         self.assertEqual(hdb.flt_or(), {"f": "or", "a": []})
+        # ``searchnonexistent`` needs no explicit HTTP override:
+        # ``HttpDB.__getattribute__`` synthesizes every ``search*``
+        # method as a sealed dict, so the base-class
+        # ``NotImplementedError`` declaration is shadowed and the
+        # primitive is forwarded to the remote like any other.
+        self.assertEqual(hdb.searchnonexistent(), {"f": "nonexistent"})
 
     def test_filter_round_trips_through_parse_filter(self):
         """A filter built by `HttpDBRir` is JSON-serialised on the
@@ -14361,6 +14367,26 @@ class DBFltCombineContractTests(unittest.TestCase):
         Stub = self._Stub()
         self.assertEqual(Stub.flt_or("a"), "a")
         self.assertEqual(Stub.flt_or("a", "b"), ("OR", "a", "b"))
+
+    def test_flt_or_zero_args_without_searchnonexistent_raises(self):
+        # ``searchnonexistent`` is declared on the base ``DB``
+        # with ``raise NotImplementedError`` (like ``_flt_or``):
+        # a backend missing the match-nothing primitive fails
+        # loudly and explicitly on ``flt_or()`` instead of with
+        # an obscure ``AttributeError``.
+        from ivre.db import DB
+
+        class _NoNonexistentDB(DB):
+            flt_empty = "EMPTY"
+
+            @staticmethod
+            def _flt_or(cond1, cond2):
+                return ("OR", cond1, cond2)
+
+        with self.assertRaises(NotImplementedError):
+            _NoNonexistentDB.flt_or()
+        with self.assertRaises(NotImplementedError):
+            DB.searchnonexistent()
 
 
 class MongoDBFltCombineTests(unittest.TestCase):

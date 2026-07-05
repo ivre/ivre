@@ -511,6 +511,18 @@ class DB:
         """
         raise NotImplementedError
 
+    @classmethod
+    def searchnonexistent(cls):
+        """Returns a filter that matches no record: the dual of
+        `flt_empty`, and the zero-argument :meth:`flt_or` result
+        (an empty disjunction is vacuously false).
+
+        This is typically implemented in the backend-specific
+        subclass.
+
+        """
+        raise NotImplementedError
+
     @staticmethod
     def ip2internal(addr):
         """Converts an IP address (given as either an integer or a string) to
