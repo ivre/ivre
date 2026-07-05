@@ -5,8 +5,8 @@ import { isModuleEnabled, isUploadOk } from "@/lib/config";
 
 /**
  * Scan-result upload route. Operator tool (not a data section):
- * reachable from the header when ``WEB_UPLOAD_OK`` is enabled.
- *
+ * reachable from the header when ``WEB_UPLOAD_OK`` is enabled
+ * and the ``view`` module is exposed.
  * Posts to ``POST /cgi/view``; the server audit-logs successful
  * imports as ``event_type: "upload"`` when an audit backend is
  * configured. No client-side audit call is required.

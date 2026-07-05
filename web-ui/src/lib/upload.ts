@@ -8,8 +8,8 @@
  * ``db.view``; a successful write is audit-logged server-side as
  * ``event_type: "upload"`` when an audit backend is configured.
  *
- * Same-origin ``fetch`` with ``credentials: "same-origin"``
- * satisfies ``@check_referer`` and carries the session cookie.
+ * Same-origin ``fetch`` sends a same-origin ``Referer`` header (satisfying ``@check_referer``);
+ * ``credentials: "same-origin"`` carries the session cookie.
  * Do **not** set ``Content-Type`` — the browser must supply the
  * multipart boundary.
  */
