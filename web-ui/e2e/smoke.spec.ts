@@ -1811,3 +1811,127 @@ test("Active forwards legacy skip:/limit: meta-tokens in q= unchanged", async ({
     page.getByRole("navigation", { name: "Pagination" }),
   ).toHaveCount(0);
 });
+
+test("Upload page shows disabled gate when uploadok is false", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.uploadok = false;\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/upload");
+  await expect(page.getByRole("heading", { name: /uploads are disabled/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Upload$/ })).toHaveCount(0);
+});
+
+test("Upload nav link and form render when uploadok is true", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.uploadok = true;\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /^Upload$/ })).toBeVisible();
+  await page.getByRole("link", { name: /^Upload$/ }).click();
+  await expect(page).toHaveURL(/#\/upload/);
+  await expect(
+    page.getByRole("heading", { name: /upload scan results/i }),
+  ).toBeVisible();
+  await expect(page.getByLabel(/^Source/)).toBeVisible();
+});
+
+test("Upload form submits to /cgi/view and shows success", async ({
+  page,
+}) => {
+  let uploadPosts = 0;
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.uploadok = true;\n",
+      });
+    }
+    if (url.pathname === "/cgi/view" && route.request().method() === "POST") {
+      uploadPosts += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ count: 1 }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/upload");
+  await page.getByLabel(/^Source/).fill("lab-scanner");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "scan.xml",
+    mimeType: "application/xml",
+    buffer: Buffer.from("<nmaprun></nmaprun>"),
+  });
+  await page.getByRole("button", { name: /^Upload$/ }).click();
+  await expect.poll(() => uploadPosts).toBe(1);
+  await expect(page.getByText(/1 result uploaded/i)).toBeVisible();
+});
+
+test("Upload form keeps submit disabled without source", async ({ page }) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.uploadok = true;\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/upload");
+  await expect(
+    page.getByRole("heading", { name: /upload scan results/i }),
+  ).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "scan.xml",
+    mimeType: "application/xml",
+    buffer: Buffer.from("<nmaprun></nmaprun>"),
+  });
+  await expect(page.getByRole("button", { name: /^Upload$/ })).toBeDisabled();
+});
+
+test("Upload route gated when view module is disabled", async ({ page }) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: 'config.uploadok = true;\nconfig.modules = ["active"];\n',
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/upload");
+  await expect(page.getByText(/view module is not exposed/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Upload$/ })).toHaveCount(0);
+});

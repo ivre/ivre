@@ -6,6 +6,7 @@ import {
   isAuthEnabled,
   isModuleEnabled,
   isSequentialLoading,
+  isUploadOk,
 } from "./config";
 
 const ORIGINAL_WINDOW_CONFIG = (window as unknown as { config?: unknown })
@@ -68,6 +69,20 @@ describe("isAuthEnabled", () => {
     // Strict truthiness check — non-boolean truthy values do not
     // count.
     expect(isAuthEnabled()).toBe(false);
+  });
+});
+
+describe("isUploadOk", () => {
+  it("returns false when uploadok is missing", () => {
+    setWindowConfig({});
+    expect(isUploadOk()).toBe(false);
+  });
+
+  it("returns true only when uploadok === true (strict)", () => {
+    setWindowConfig({ uploadok: true });
+    expect(isUploadOk()).toBe(true);
+    setWindowConfig({ uploadok: 1 as unknown as boolean });
+    expect(isUploadOk()).toBe(false);
   });
 });
 

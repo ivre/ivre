@@ -46,6 +46,13 @@ export function isAuthEnabled(): boolean {
   return getConfig().auth_enabled === true;
 }
 
+/** Return ``true`` when the operator enabled web uploads
+ *  (``WEB_UPLOAD_OK = True`` in ``ivre.conf``). Defaults to
+ *  ``false`` when the server does not emit ``uploadok``. */
+export function isUploadOk(): boolean {
+  return getConfig().uploadok === true;
+}
+
 /** Whether the per-page requests should be issued sequentially
  *  rather than all in parallel. The order is: results → map
  *  (only on sections that declare a ``mapEndpoint``) → facets,

@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Upload } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
-import { isModuleEnabled } from "@/lib/config";
+import { isModuleEnabled, isUploadOk } from "@/lib/config";
 import { SECTIONS, type SectionConfig } from "@/lib/sections";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
  */
 export function AppShell() {
   const visibleSections = SECTIONS.filter((s) => isModuleEnabled(s.id));
+  const showUpload = isUploadOk() && isModuleEnabled("view");
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -36,6 +38,7 @@ export function AppShell() {
             ))}
           </nav>
           <div className="flex items-center gap-1">
+            {showUpload ? <UploadNavLink /> : null}
             <UserMenu />
             <ThemeToggle />
           </div>
@@ -81,6 +84,27 @@ function SectionLink({ section }: { section: SectionConfig }) {
       )}
     >
       {section.label}
+    </NavLink>
+  );
+}
+
+function UploadNavLink() {
+  const { pathname } = useLocation();
+  const active = pathname === "/upload";
+
+  return (
+    <NavLink
+      to="/upload"
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+    >
+      <Upload className="size-4" aria-hidden />
+      Upload
     </NavLink>
   );
 }

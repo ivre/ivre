@@ -19,6 +19,7 @@ import { FlowRoute } from "./flow";
 import { NotesRoute } from "./notes";
 import { PassiveRoute } from "./passive-list";
 import { RirRoute } from "./rir";
+import { UploadRoute } from "./upload";
 import { ViewRoute } from "./view";
 
 /** Wrap a section's route element so visiting it via a direct
@@ -108,6 +109,9 @@ const router = createHashRouter([
       // from the Admin "Audit log" tab; open to any
       // authenticated user (backend scopes non-admins to self).
       { path: "audit/explorer", element: <AuditExplorerRoute /> },
+      // Scan upload: operator tool gated on ``WEB_UPLOAD_OK`` and
+      // the view module; header link when enabled (see AppShell).
+      { path: "upload", element: <UploadRoute /> },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],
