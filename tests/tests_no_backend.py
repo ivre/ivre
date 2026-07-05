@@ -14450,6 +14450,66 @@ class SQLDBRirFltCombineTests(unittest.TestCase):
         self.assertIs(SQLDBRir.flt_or(clause, None), clause)
 
 
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLDBFltEmptyClassAccessTests(unittest.TestCase):
+    """``SQLDB.flt_empty`` builds a fresh ``Filter`` and must do
+    so from *class* access too: the classmethod-based filter
+    builders (zero-argument ``flt_and()``, degenerate ``search*``
+    calls) reach it through ``cls``, where a plain ``@property``
+    used to return the raw descriptor object -- ``count()`` then
+    crashed with ``AttributeError: 'property' object has no
+    attribute 'query'`` on the PostgreSQL / DuckDB backends."""
+
+    def test_flt_and_zero_args_builds_filter(self):
+        # Direct regression pin for the zero-argument flt_and()
+        # crash: DB.flt_and is a classmethod, so its flt_empty
+        # fallback resolves on the class.
+        from ivre.db.sql import NmapFilter, PassiveFilter, SQLDBNmap, SQLDBPassive
+
+        self.assertIsInstance(SQLDBNmap.flt_and(), NmapFilter)
+        self.assertIsInstance(SQLDBPassive.flt_and(), PassiveFilter)
+
+    def test_flt_empty_class_access_builds_fresh_filters(self):
+        from ivre.db.sql import Filter, SQLDBNmap
+
+        first = SQLDBNmap.flt_empty
+        second = SQLDBNmap.flt_empty
+        self.assertIsInstance(first, Filter)
+        self.assertIsInstance(second, Filter)
+        # A fresh Filter per access: the objects are combined /
+        # mutated by callers, so no shared class-level state.
+        self.assertIsNot(first, second)
+
+    def test_flt_empty_instance_access_unchanged(self):
+        from urllib.parse import urlparse
+
+        from ivre.db.sql import NmapFilter, SQLDBNmap
+
+        # Instantiation only stores the URL; no connection is
+        # opened until ``.db`` is accessed.
+        inst = SQLDBNmap(urlparse("postgresql://ivre:ivre@localhost/ivre"))
+        self.assertIsInstance(inst.flt_empty, NmapFilter)
+
+    def test_degenerate_searchrecontype_builds_filter(self):
+        # ``searchrecontype()`` without arguments returns the
+        # match-all filter via ``cls.flt_empty`` -- another member
+        # of the class-access family.
+        from ivre.db.sql import PassiveFilter, SQLDBPassive
+
+        self.assertIsInstance(SQLDBPassive.searchrecontype(), PassiveFilter)
+
+    def test_rir_flt_empty_override_untouched(self):
+        # ``SQLDBRir`` shadows the descriptor with a plain
+        # ``flt_empty = None`` class attribute (raw-clause
+        # filters); the descriptor change must not affect it.
+        from ivre.db.sql import SQLDBRir
+
+        self.assertIsNone(SQLDBRir.flt_empty)
+
+
 # ---------------------------------------------------------------------
 # DnsMergeTests -- the cross-backend ``(name, addr)`` pseudo-record
 # merge helper used by both the ``ivre iphost`` CLI and the
