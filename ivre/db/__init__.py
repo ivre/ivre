@@ -6771,7 +6771,13 @@ class MetaDB:
         self.urls = urls or {}
 
     def close(self):
-        for attr in ["nmap", "passive", "data", "flow", "view", "notes", "audit"]:
+        # Iterate over the purposes declared in `db_types` (rather
+        # than a hand-maintained list that could miss some of them)
+        # so every cached `_<purpose>` connection is released.  The
+        # `AttributeError` guard covers purposes never accessed (no
+        # cached attribute), purposes without a backend (the cached
+        # value is None), and backends without a close() method.
+        for attr in self.db_types:
             try:
                 getattr(self, f"_{attr}").close()
             except AttributeError:

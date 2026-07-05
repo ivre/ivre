@@ -14275,6 +14275,49 @@ class MongoDBSearchFieldTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
+# MongoDBFltCombineTests -- the ``flt_or`` / ``flt_and`` filter
+# combinators on the MongoDB backend.
+# ---------------------------------------------------------------------
+
+
+class MongoDBFltCombineTests(unittest.TestCase):
+    """Pin the ``MongoDB.flt_or`` combinator contract.  The
+    base-class contract (``DB.flt_or`` / ``DB.flt_and``) returns
+    ``flt_empty`` when called without arguments; the MongoDB
+    ``flt_or`` override must honor it too (it used to raise
+    ``IndexError`` on zero arguments, unlike ``flt_and``, which
+    inherits the base-class implementation)."""
+
+    @staticmethod
+    def _M():
+        from ivre.db.mongo import MongoDB
+
+        return MongoDB
+
+    def test_flt_or_zero_args_returns_flt_empty(self):
+        M = self._M()
+        self.assertEqual(M.flt_or(), M.flt_empty)
+
+    def test_flt_and_zero_args_returns_flt_empty(self):
+        # Symmetry pin: ``flt_and`` gets this behaviour from the
+        # base class; ``flt_or`` must not diverge.
+        M = self._M()
+        self.assertEqual(M.flt_and(), M.flt_empty)
+
+    def test_flt_or_single_arg_returned_unchanged(self):
+        M = self._M()
+        flt = {"addr": 3232235777}
+        self.assertIs(M.flt_or(flt), flt)
+
+    def test_flt_or_many_args_wrapped_in_or(self):
+        M = self._M()
+        self.assertEqual(
+            M.flt_or({"addr": 1}, {"addr": 2}),
+            {"$or": [{"addr": 1}, {"addr": 2}]},
+        )
+
+
+# ---------------------------------------------------------------------
 # DnsMergeTests -- the cross-backend ``(name, addr)`` pseudo-record
 # merge helper used by both the ``ivre iphost`` CLI and the
 # ``/cgi/dns`` web endpoint.
@@ -17756,16 +17799,41 @@ class DBAuditAbstractSurfaceTests(unittest.TestCase):
         self.assertIn("audit", MetaDB.db_types)
         self.assertIs(MetaDB.db_types["audit"], DBAudit)
 
-    def test_audit_in_metadb_close_iteration(self) -> None:
-        # ``MetaDB.close()`` enumerates the purpose attributes it
-        # owns so the cached connection is released; missing the
-        # ``audit`` entry would leak the audit-store handle.
-        import inspect
-
+    def test_metadb_close_releases_every_cached_purpose(self) -> None:
+        # ``MetaDB.close()`` iterates ``db_types`` so the cached
+        # ``_<purpose>`` connection of *every* purpose (audit
+        # included) is released; a hand-maintained attribute list
+        # there previously drifted from ``db_types`` and leaked
+        # the ``rir`` / ``auth`` connections.
         from ivre.db import MetaDB
 
-        src = inspect.getsource(MetaDB.close)
-        self.assertIn('"audit"', src, "MetaDB.close() must iterate the audit attr")
+        closed: list[str] = []
+
+        class _FakeConn:
+            def __init__(self, purpose: str) -> None:
+                self._purpose = purpose
+
+            def close(self) -> None:
+                closed.append(self._purpose)
+
+        meta = MetaDB()
+        for purpose in MetaDB.db_types:
+            setattr(meta, f"_{purpose}", _FakeConn(purpose))
+        meta.close()
+        self.assertEqual(sorted(closed), sorted(MetaDB.db_types))
+
+    def test_metadb_close_tolerates_none_and_uncached_purposes(self) -> None:
+        # The ``auth`` property caches ``None`` when
+        # WEB_AUTH_ENABLED is off, ``get_class()`` returns
+        # ``None`` for unconfigured purposes, and purposes never
+        # accessed have no cached attribute at all: ``close()``
+        # must swallow all three shapes instead of raising.
+        from ivre.db import MetaDB
+
+        meta = MetaDB()
+        meta._auth = None
+        meta._data = None
+        meta.close()  # must not raise
 
     def test_metadb_has_audit_property(self) -> None:
         from ivre.db import DBAudit, MetaDB
