@@ -1187,8 +1187,8 @@ def _is_loopback(addr: str) -> bool:
         return False
 
 
-def main() -> None:
-    """Entry point for ``ivre mcp-server``."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for ``ivre mcp-server``."""
     parser = argparse.ArgumentParser(
         description=(
             "Start the IVRE MCP (Model Context Protocol) server. By "
@@ -1235,7 +1235,12 @@ def main() -> None:
             "will have full unauthenticated access to the database)."
         ),
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    """Entry point for ``ivre mcp-server``."""
+    args = build_parser().parse_args()
     if _MCP_IMPORT_ERROR is not None:
         raise SystemExit(
             "The 'mcp' Python package is required. Install IVRE with the "

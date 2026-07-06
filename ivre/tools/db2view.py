@@ -66,19 +66,9 @@ def worker_destroyer(_: None) -> None:
     w_outdb.stop_store_hosts()  # type: ignore
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     default_processes = max(1, cpu_count())
     parser = argparse.ArgumentParser(description=__doc__, parents=[DB().argparser])
-    if db.nmap is None:
-        fltnmap = None
-    else:
-        fltnmap = db.nmap.flt_empty
-    if db.passive is None:
-        fltpass = None
-    else:
-        fltpass = db.passive.flt_empty
-    _from: list[Generator[Record, None, None]] = []
-
     parser.add_argument(
         "--view-category",
         metavar="CATEGORY",
@@ -124,6 +114,20 @@ def main() -> None:
     if db.passive is not None:
         subparsers.add_parser("passive", parents=[db.passive.argparser])
     subparsers.add_parser("all")
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    if db.nmap is None:
+        fltnmap = None
+    else:
+        fltnmap = db.nmap.flt_empty
+    if db.passive is None:
+        fltpass = None
+    else:
+        fltpass = db.passive.flt_empty
+    _from: list[Generator[Record, None, None]] = []
 
     args = parser.parse_args()
 

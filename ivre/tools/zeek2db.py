@@ -129,8 +129,8 @@ def any2flow(name: str) -> Callable[[Bulk, Record], None]:
     return inserter
 
 
-def main() -> None:
-    """Update the flow database from Zeek logs"""
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*", metavar="FILE", help="Zeek log files")
     parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
@@ -143,7 +143,12 @@ def main() -> None:
         action="store_true",
         help="Import all files from given directories.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    """Update the flow database from Zeek logs"""
+    args = build_parser().parse_args()
 
     if args.verbose:
         config.DEBUG = True

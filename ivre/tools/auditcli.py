@@ -89,7 +89,8 @@ def _parse_datetime(raw: str | None) -> datetime.datetime | None:
         sys.exit(f"Error: {exc}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     action = parser.add_mutually_exclusive_group()
     action.add_argument(
@@ -180,7 +181,11 @@ def main() -> None:
         default=None,
         help="Pretty-print JSON output with this indent width.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     if db.audit is None:
         sys.exit(

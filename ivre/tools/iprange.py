@@ -340,7 +340,7 @@ def _print_value(value: Any, stream: TextIO) -> None:
             print(item, file=stream)
 
 
-def _build_argparser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:
     """Construct the ``ivre iprange`` argparser.
 
     Selectors and output formats use mutually-exclusive groups so
@@ -460,7 +460,7 @@ def _build_argparser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = _build_argparser().parse_args()
+    args = build_parser().parse_args()
     try:
         ranges = select_ipranges(
             country=args.country,

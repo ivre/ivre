@@ -186,7 +186,8 @@ def _import_from_dokuwiki(pagesdir: str) -> int:
     return 1 if errors else 0
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Administer the per-entity notes database.",
     )
@@ -235,6 +236,11 @@ def main() -> None:
             "via the storage layer's create-only mode."
         ),
     )
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
     # Bail out early when no notes backend is wired so we

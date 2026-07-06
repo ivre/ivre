@@ -158,8 +158,8 @@ def _detect_backend() -> str:
     }.get(scheme, scheme) or "unknown"
 
 
-def main() -> None:
-    """Benchmark IVRE backends."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--list",
@@ -197,6 +197,12 @@ def main() -> None:
         metavar="FILE",
         help="Write the JSON report to FILE (default: stdout).",
     )
+    return parser
+
+
+def main() -> None:
+    """Benchmark IVRE backends."""
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.list:

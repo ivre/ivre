@@ -22,7 +22,8 @@ import argparse
 from ivre import utils
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Tool for ip addresses manipulation.",
     )
@@ -31,7 +32,11 @@ def main() -> None:
         nargs="*",
         help="Display results for specified IP addresses or ranges.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     while "-" in args.ips:
         idx = args.ips.index("-")
         args.ips = (

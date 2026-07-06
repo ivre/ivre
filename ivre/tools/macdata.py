@@ -26,7 +26,8 @@ from sys import stdout
 from ivre import utils
 
 
-def main() -> None:
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--json", "-j", action="store_true", help="Output JSON data.")
     parser.add_argument(
@@ -35,7 +36,11 @@ def main() -> None:
         metavar="MAC",
         help="Display manufacturers for specified MAC addresses.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     for addr in args.mac:
         info = utils.mac2manuf(addr)
         if args.json:

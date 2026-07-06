@@ -32,7 +32,8 @@ MAC_ADDR = re.compile(
 )
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "ips_or_macs",
@@ -47,7 +48,11 @@ def main() -> None:
     parser.add_argument(
         "-r", "--resolve", action="store_true", help="Resolve MAC manufacturer"
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     flts: tuple[list[str], list[str]] = ([], [])  # MAC & IP filters
     for arg in args.ips_or_macs:
         if arg[:1] in "-!~":

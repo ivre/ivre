@@ -44,8 +44,8 @@ PARSERS_MAGIC = {
 }
 
 
-def main() -> None:
-    """Update the flow database from log files"""
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         "files", nargs="*", metavar="FILE", help="Files to import in the flow database"
@@ -58,7 +58,12 @@ def main() -> None:
     parser.add_argument(
         "-C", "--no-cleanup", help="avoid port cleanup heuristics", action="store_true"
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    """Update the flow database from log files"""
+    args = build_parser().parse_args()
 
     if args.verbose:
         config.DEBUG = True

@@ -75,6 +75,10 @@ mediawiki = ["mysqlclient"]
 plots = ["matplotlib"]
 ja3 = ["scapy"]
 mcp = ["mcp"]
+# Build-time only: pkg/buildcompletion regenerates the shell
+# completion script shipped in bash_completion/ from the argparse
+# parsers (ivre.cli:get_parser).
+completion = ["shtab"]
 linting = ["bandit", "black", "codespell", "flake8", "mypy", "pylint", "rstcheck[sphinx]", "sphinx-lint"]
 doc = ["Sphinx", "docutils!=0.18", "sphinx_rtd_theme", "sphinxcontrib-httpdomain"]
 

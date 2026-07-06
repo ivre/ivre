@@ -24,14 +24,19 @@ from sys import stdin
 from ivre.utils import key_sort_dom_addr
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description="Sort IP addresses and domain names.")
     parser.add_argument(
         "-u",
         "--unique",
         action="store_true",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     data: Iterable[str] = (line.strip() for line in stdin)
     if args.unique:
         data = set(data)

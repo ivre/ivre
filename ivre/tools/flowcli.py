@@ -71,7 +71,8 @@ def print_fields() -> None:
         )
 
 
-def main() -> None:
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         "--init",
@@ -245,7 +246,11 @@ def main() -> None:
     parser.add_argument(
         "--sport", type=int, metavar="SPORT", help="Filter on source port."
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     out = sys.stdout
 

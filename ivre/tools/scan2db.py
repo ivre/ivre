@@ -31,7 +31,8 @@ from ivre.types import Record
 from ivre.view import nmap_record_to_view
 
 
-def main() -> None:
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("scan", nargs="*", metavar="SCAN", help="Scan results")
     parser.add_argument("-c", "--categories", default="", help="Scan categories.")
@@ -86,7 +87,11 @@ def main() -> None:
         action="store_true",
         help="Do not merge hosts in current view (default)",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     database = ivre.db.db.nmap
     categories = sorted(set(args.categories.split(","))) if args.categories else []
     tags = [

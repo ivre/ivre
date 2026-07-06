@@ -16,9 +16,9 @@
 
 # Regenerates the trees that ship as generated artefacts and fails if
 # the result differs from what is committed. AGENTS.md states that
-# generated trees (web/static/doc/, web/static/ui/) must be
-# regenerated and committed in the same change as their source; this
-# workflow enforces it.
+# generated trees (web/static/doc/, web/static/ui/, bash_completion/)
+# must be regenerated and committed in the same change as their
+# source; this workflow enforces it.
 
 name: Regenerated trees in sync
 
@@ -79,6 +79,38 @@ jobs:
               exit 1
           fi
           echo "web/static/doc/ matches doc/."
+
+  completion:
+    name: bash_completion/ matches the argparse parsers
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install IVRE with completion extras
+        # [plots] is needed because ivre.cli:get_parser imports every
+        # tool module and ivre.tools.plotdb requires matplotlib.
+        run: pip install -e '.[completion,plots]'
+
+      - name: Run pkg/buildcompletion
+        run: ./pkg/buildcompletion
+
+      - name: Verify bash_completion/ is in sync
+        # The completion script is generated from the argparse
+        # parsers (ivre.cli:get_parser); if it changed, a parser was
+        # modified without regenerating the script.
+        run: |
+          if ! git diff --quiet -- bash_completion/; then
+              echo "::error::bash_completion/ is out of sync with the argparse parsers. Run ./pkg/buildcompletion and commit the result in the same change as the source edit."
+              git diff -- bash_completion/
+              exit 1
+          fi
+          echo "bash_completion/ matches the argparse parsers."
 
   web-ui:
     name: web/static/ui/ matches web-ui/

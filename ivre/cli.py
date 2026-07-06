@@ -19,6 +19,8 @@
 
 """IVRE command line"""
 
+import argparse
+import importlib
 import logging
 import os
 import sys
@@ -40,9 +42,89 @@ from ivre.tools.version import main as version  # noqa: E402
 
 # pylint: enable=wrong-import-position,cyclic-import
 
+try:
+    # Only used at shell-completion generation time
+    # (pkg/buildcompletion); optional [completion] extra.
+    import shtab
+except ImportError:
+    shtab = None
+
 
 HELP_COMMANDS = ["-h", "--help", "h", "help"]
 VERSION_COMMANDS = ["-v", "--version"]
+
+
+def _first_doc_line(text: str | None) -> str | None:
+    """First non-empty line of a docstring / description, or None."""
+    for line in (text or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return None
+
+
+def get_parser() -> argparse.ArgumentParser:
+    """Build a single argparse parser covering every built-in ``ivre``
+    subcommand (one subparser per entry in :data:`ivre.tools.__all__`,
+    with its aliases, plus the ``help`` pseudo-command).
+
+    The runtime dispatcher (:func:`main`) does not use it -- each tool
+    parses its own arguments -- but shell-completion generation
+    (``pkg/buildcompletion``, based on ``shtab``) walks this parser to
+    produce the completion script shipped in ``bash_completion/``.
+
+    Building it imports every tool module and instantiates the
+    configured DB backends (several tool parsers inherit filter
+    options from ``db.<purpose>.argparser``), so the parser shape can
+    reflect the local configuration and installed extras; no network
+    connection is made.
+    """
+    parser = argparse.ArgumentParser(prog="ivre", description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    rev_aliases: dict[str, list[str]] = {}
+    for alias, target in tools.ALIASES.items():
+        rev_aliases.setdefault(target, []).append(alias)
+    for name in tools.__all__:
+        module = importlib.import_module(f"ivre.tools.{name}")
+        build = getattr(module, "build_parser", None)
+        if build is None:
+            # Tools without an argparse parser (e.g. getopt- or
+            # stdin-based): complete the command name only.
+            subparsers.add_parser(
+                name,
+                aliases=sorted(rev_aliases.get(name, [])),
+                description=module.__doc__,
+                help=_first_doc_line(module.__doc__),
+            )
+            continue
+        tool_parser = build()
+        if shtab is not None and name.endswith("2db"):
+            # The ingestion tools take scan / log files as
+            # positional arguments: complete them as paths.
+            for action in tool_parser._get_positional_actions():
+                if action.choices is None:
+                    action.complete = shtab.FILE
+        subparsers.add_parser(
+            name,
+            aliases=sorted(rev_aliases.get(name, [])),
+            # The tool parser already carries its own --help action.
+            parents=[tool_parser],
+            add_help=False,
+            description=tool_parser.description,
+            help=_first_doc_line(module.__doc__)
+            or _first_doc_line(tool_parser.description),
+        )
+    help_parser = subparsers.add_parser(
+        "help",
+        description="Display the help of another command.",
+        help="Display the help of another command.",
+    )
+    help_parser.add_argument(
+        "command",
+        nargs="?",
+        choices=sorted(list(tools.__all__) + list(tools.ALIASES)),
+        help="Command to display the help of.",
+    )
+    return parser
 
 
 def main():

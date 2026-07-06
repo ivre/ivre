@@ -40,7 +40,8 @@ def serialize_sets(obj: Any) -> Any:
     return serialize(obj)
 
 
-def main() -> None:
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--sub", action="store_true", help="Include subdomains.")
     parser.add_argument("--json", action="store_true", help="Output JSON data.")
@@ -69,7 +70,11 @@ def main() -> None:
         metavar="VALUES",
         help="Names or addresses to resolve",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     resolvers: list[Callable[[str | Pattern[str]], dict[tuple[str, str], Any]]] = []
     if args.passive:
         args.passive_direct = True

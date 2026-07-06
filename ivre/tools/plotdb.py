@@ -95,7 +95,8 @@ def graph2d(
     matplotlib.pyplot.show()
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Plot scan results.",
         parents=[db.db.view.argparser],
@@ -117,5 +118,9 @@ def main() -> None:
         dest="alertflt",
         const=db.db.view.searchnfs(),
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     args.graph(mainflt=db.db.view.parse_args(args), alertflt=args.alertflt)

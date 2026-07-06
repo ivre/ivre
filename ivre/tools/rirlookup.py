@@ -94,7 +94,8 @@ def printrec_short(rec: Dict[str, str]) -> None:
     print(f"{obj}: {info}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Lookup & manage RIR databases.",
         parents=[CLI_ARGPARSER],
@@ -119,7 +120,11 @@ def main() -> None:
     parser.add_argument("--http-urls-names", help=argparse.SUPPRESS)
     parser.add_argument("--http-urls-full", help=argparse.SUPPRESS)
     parser.add_argument("--delete", help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     if args.from_db:
         dbase = DBRir.from_url(args.from_db)
         dbase.globaldb = db

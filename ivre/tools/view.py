@@ -44,8 +44,8 @@ from ivre.types import DBCursor
 from ivre.utils import CLI_ARGPARSER, LOGGER, InvalidIPAddress, InvalidPort
 
 
-def main() -> None:
-    displayfunction: Callable[[DBCursor], None]
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Print out views.",
         # We use db.view rather than DBView here because we need an instance...
@@ -125,8 +125,12 @@ def main() -> None:
         default="NA",
         help='String to use for "Not Applicable" value (defaults to "NA")',
     )
+    return parser
 
-    args = parser.parse_args()
+
+def main() -> None:
+    displayfunction: Callable[[DBCursor], None]
+    args = build_parser().parse_args()
     if args.from_db:
         dbase = DBView.from_url(args.from_db)
         dbase.globaldb = db

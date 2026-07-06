@@ -27,7 +27,7 @@ tested with both Apache and Nginx).
 """
 
 import os
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 
 from bottle import HTTPResponse, default_app, get, redirect, run, static_file
 
@@ -101,11 +101,8 @@ def server_static(filepath: str) -> HTTPResponse:
     return static_file(filepath, root=WEB_STATIC_PATH)
 
 
-def parse_args() -> Namespace:
-    """Imports the available module to parse the arguments and return
-    the parsed arguments.
-
-    """
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         "--bind-address",
@@ -116,12 +113,12 @@ def parse_args() -> Namespace:
     parser.add_argument(
         "--port", "-p", type=int, default=80, help="(TCP) Port to use (defaults to 80)"
     )
-    return parser.parse_args()
+    return parser
 
 
 def main() -> None:
     """Function run when the tool is called."""
-    args = parse_args()
+    args = build_parser().parse_args()
     print(__doc__)
     application = default_app()
     try:  # workaround broken app mount with Bottle 0.13

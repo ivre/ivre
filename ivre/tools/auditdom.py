@@ -35,7 +35,8 @@ from ivre.types import Record
 from ivre.utils import LOGGER, serialize
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--json", action="store_true", help="Output as JSON rather than XML."
@@ -43,7 +44,11 @@ def main() -> None:
     parser.add_argument("--ipv4", "-4", action="store_true", help="Use only IPv4.")
     parser.add_argument("--ipv6", "-6", action="store_true", help="Use only IPv6.")
     parser.add_argument("domains", metavar="DOMAIN", nargs="+", help="domains to check")
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     if args.json:
 
         def displayfunction(cur: Iterable[Record], scan: Any | None = None) -> None:

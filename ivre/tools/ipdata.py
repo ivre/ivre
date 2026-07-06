@@ -33,9 +33,9 @@ from ivre.db import DBData, db
 from ivre.tags import add_tags, gen_addr_tags
 
 
-def main() -> None:
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__)
-    torun: list[tuple[Callable, list, dict]] = []
     parser.add_argument("--download", action="store_true", help="Fetch all data files.")
     parser.add_argument(
         "--import-all",
@@ -55,7 +55,12 @@ def main() -> None:
         metavar="DB_URL",
         help="Get data from the provided URL instead of using IVRE's configuration.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    torun: list[tuple[Callable, list, dict]] = []
+    args = build_parser().parse_args()
     if args.from_db:
         dbase = DBData.from_url(args.from_db)
         dbase.globaldb = db

@@ -150,9 +150,14 @@ URLS: list[tuple[str, str, Callable[[BinaryIO, BinaryIO], None]]] = [
 ]
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    build_parser().parse_args()
     # Remove the legacy executable-Python tables that earlier IVRE
     # versions wrote next to the JSON ones.
     assert config.DATA_PATH is not None

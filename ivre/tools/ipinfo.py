@@ -265,13 +265,13 @@ def disp_recs_todb(to_db: DBPassive) -> Displayer:
     return disp_recs
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         # We use db.passive rather than DBPassive here because we need an instance...
         parents=[db.passive.argparser, utils.CLI_ARGPARSER],
     )
-    disp_recs: Displayer = disp_recs_std
     # display modes
     parser.add_argument(
         "--tail", metavar="COUNT", type=int, help="Output latest COUNT results."
@@ -297,7 +297,12 @@ def main() -> None:
         action="store_true",
         help="Update the current database with DNS Blacklist",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    disp_recs: Displayer = disp_recs_std
+    args = build_parser().parse_args()
     if args.from_db:
         dbase = DBPassive.from_url(args.from_db)
         dbase.globaldb = db

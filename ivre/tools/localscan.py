@@ -96,12 +96,17 @@ class LocalPorts:
             yield rec
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--json", action="store_true", help="Output as JSON rather than XML."
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     if args.json:
 
         def displayfunction(cur: DBCursor) -> None:

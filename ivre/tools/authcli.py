@@ -24,7 +24,8 @@ from ivre import config
 from ivre.db import db
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command")
 
@@ -69,6 +70,11 @@ def main() -> None:
     p_key.add_argument("email")
     p_key.add_argument("name", help="Label for the API key")
 
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
     if not config.WEB_AUTH_ENABLED:

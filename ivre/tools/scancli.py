@@ -41,8 +41,8 @@ from ivre.types import DBCursor
 from ivre.utils import CLI_ARGPARSER, LOGGER, InvalidIPAddress, InvalidPort
 
 
-def main() -> None:
-    displayfunction: Callable[[DBCursor], None]
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = argparse.ArgumentParser(
         description="Access and query the active scans database.",
         # We use db.nmap rather than DBNmap here because we need an instance...
@@ -118,7 +118,12 @@ def main() -> None:
         default="NA",
         help='String to use for "Not Applicable" value (defaults to "NA")',
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    displayfunction: Callable[[DBCursor], None]
+    args = build_parser().parse_args()
     if args.from_db:
         dbase = DBNmap.from_url(args.from_db)
         dbase.globaldb = db

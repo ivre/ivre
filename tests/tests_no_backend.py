@@ -21509,6 +21509,135 @@ class CheckRefererBearerTests(unittest.TestCase):
         self.assertIn("Invalid Referer header", body)
 
 
+# ---------------------------------------------------------------------
+# BashCompletionTests / CliParserTests -- the bash completion script
+# shipped in bash_completion/ is generated from the argparse parsers
+# (``ivre.cli:get_parser``) by ``pkg/buildcompletion`` (shtab); these
+# tests drive the committed script under bash and pin the aggregate
+# parser surface. Freshness (generated file matching the parsers) is
+# enforced by the regen CI workflow, not here.
+# ---------------------------------------------------------------------
+
+
+_BASH_COMPLETION_SCRIPT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    os.pardir,
+    "bash_completion",
+    "ivre",
+)
+
+
+@unittest.skipUnless(shutil.which("bash"), "bash is required")
+class BashCompletionTests(unittest.TestCase):
+    """Drive the committed completion script the way readline would
+    (``COMP_WORDS`` / ``COMP_CWORD`` in, ``COMPREPLY`` out). The
+    script is a static generated artifact, so no ``ivre``
+    executable, DB backend, or Python environment is involved."""
+
+    @staticmethod
+    def _complete(words):
+        # ``$0`` carries the script path, the remaining arguments
+        # the command line under completion; the last word is the
+        # one being completed.
+        script = (
+            '. "$0" && COMP_WORDS=("$@") && COMP_CWORD=$(($# - 1)) && '
+            'COMP_LINE="$*" && COMP_POINT=${#COMP_LINE} && COMPREPLY=(); '
+            '_shtab_ivre; printf "%s\\n" "${COMPREPLY[@]}"'
+        )
+        ret, out, err = run_cmd(["bash", "-c", script, _BASH_COMPLETION_SCRIPT, *words])
+        assert ret == 0, err
+        return out.decode().split()
+
+    def test_subcommand_completion(self):
+        self.assertEqual(
+            sorted(self._complete(["ivre", "ipi"])), ["ipinfo", "ipinfohost"]
+        )
+
+    def test_alias_completion(self):
+        self.assertIn("nmap2db", self._complete(["ivre", "nmap2"]))
+        self.assertIn("bro2db", self._complete(["ivre", "bro2"]))
+
+    def test_option_completion_inherited_from_db_parser(self):
+        # --sensor comes from db.passive.argparser, i.e. the parser
+        # aggregation walks the DB-provided parent parsers too.
+        self.assertEqual(self._complete(["ivre", "ipinfo", "--sen"]), ["--sensor"])
+
+    def test_nested_subcommand_completion(self):
+        self.assertEqual(
+            sorted(self._complete(["ivre", "authcli", "add-"])),
+            ["add-group", "add-user"],
+        )
+
+    def test_help_command_completion(self):
+        self.assertEqual(self._complete(["ivre", "help", "zeek"]), ["zeek2db"])
+
+    def test_ingestion_positionals_complete_files(self):
+        # The *2db ingestion tools take scan / log files as
+        # positional arguments; ivre.cli:get_parser marks them with
+        # shtab's file completer at generation time.
+        with open(_BASH_COMPLETION_SCRIPT, encoding="utf-8") as fdesc:
+            script = fdesc.read()
+        self.assertIn("_shtab_ivre_scan2db_pos_0_COMPGEN=_shtab_compgen_files", script)
+        self.assertIn("_shtab_ivre_zeek2db_pos_0_COMPGEN=_shtab_compgen_files", script)
+
+
+try:
+    import matplotlib as _matplotlib_for_cli_parser_tests  # type: ignore[import-untyped]  # noqa: F401
+
+    _HAVE_MATPLOTLIB = True
+except ImportError:
+    _HAVE_MATPLOTLIB = False
+
+
+@unittest.skipUnless(
+    _HAVE_MATPLOTLIB,
+    "matplotlib is required (ivre.cli.get_parser imports every tool, "
+    "including ivre.tools.plotdb)",
+)
+class CliParserTests(unittest.TestCase):
+    """Pin the aggregate parser (``ivre.cli:get_parser``) that
+    shell-completion generation walks: every built-in command, every
+    alias, and the ``help`` pseudo-command must be present, and the
+    per-tool ``build_parser()`` surfaces must be reachable through
+    it."""
+
+    @staticmethod
+    def _subparsers_action():
+        import argparse
+
+        from ivre.cli import get_parser
+
+        parser = get_parser()
+        actions = [
+            action
+            for action in parser._actions
+            if isinstance(action, argparse._SubParsersAction)
+        ]
+        assert len(actions) == 1
+        return actions[0]
+
+    def test_get_parser_covers_all_commands_and_aliases(self):
+        from ivre import tools
+
+        choices = set(self._subparsers_action().choices)
+        expected = set(tools.__all__) | set(tools.ALIASES) | {"help"}
+        self.assertEqual(expected - choices, set())
+
+    def test_get_parser_exposes_tool_options(self):
+        subs = self._subparsers_action().choices
+        scan2db_opts = {
+            opt for action in subs["scan2db"]._actions for opt in action.option_strings
+        }
+        self.assertIn("--categories", scan2db_opts)
+        recon_opts = {
+            opt
+            for action in subs["passiverecon2db"]._actions
+            for opt in action.option_strings
+        }
+        # Inherited from db.passive.argparser_insert.
+        self.assertIn("--sensor", recon_opts)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""

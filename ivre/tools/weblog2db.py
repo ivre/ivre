@@ -72,13 +72,18 @@ def rec_iter(
                         )
 
 
-def main() -> None:
-    """Update the flow database from http server log files"""
+def build_parser() -> ArgumentParser:
+    """Build the argument parser for this tool."""
     parser = ArgumentParser(description=__doc__, parents=[db.passive.argparser_insert])
     parser.add_argument(
         "files", nargs="*", metavar="FILE", help="http server log files"
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    """Update the flow database from http server log files"""
+    args = build_parser().parse_args()
     ignore_rules = get_ignore_rules(args.ignore_spec)
     if args.test:
         function = DBPassive().insert_or_update_local_bulk
