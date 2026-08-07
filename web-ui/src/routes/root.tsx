@@ -19,6 +19,8 @@ import { FlowRoute } from "./flow";
 import { NotesRoute } from "./notes";
 import { PassiveRoute } from "./passive-list";
 import { RirRoute } from "./rir";
+import { CompareRoute } from "./compare";
+import { ReportRoute } from "./report";
 import { UploadRoute } from "./upload";
 import { ViewRoute } from "./view";
 
@@ -112,6 +114,11 @@ const router = createHashRouter([
       // Scan upload: operator tool gated on ``WEB_UPLOAD_OK`` and
       // the view module; header link when enabled (see AppShell).
       { path: "upload", element: <UploadRoute /> },
+      // Report / Compare: view-only analysis pages (legacy
+      // ``report.html`` / ``compare.html``). Reachable from the
+      // Share menu on View and via direct hash URLs.
+      { path: "report", element: gateModule("view", <ReportRoute />) },
+      { path: "compare", element: gateModule("view", <CompareRoute />) },
       { path: ":sectionId", element: <SectionStub /> },
       { path: ":sectionId/*", element: <SectionStub /> },
     ],

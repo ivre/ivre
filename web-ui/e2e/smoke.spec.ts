@@ -1935,3 +1935,113 @@ test("Upload route gated when view module is disabled", async ({ page }) => {
   await expect(page.getByText(/view module is not exposed/i)).toBeVisible();
   await expect(page.getByRole("link", { name: /^Upload$/ })).toHaveCount(0);
 });
+
+test("Report page builds top-value charts from mocked CGI", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.modules = ['view'];\n",
+      });
+    }
+    if (url.pathname.startsWith("/cgi/view/top/")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { label: "tcp/80", value: 42 },
+          { label: "tcp/443", value: 7 },
+        ]),
+      });
+    }
+    if (url.pathname === "/cgi/view/coordinates") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ type: "GeometryCollection", geometries: [] }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/report?q=country%3AFR");
+  await expect(page.getByRole("heading", { name: /^IVRE Report$/i })).toBeVisible();
+  await page.getByRole("button", { name: /^Build$/ }).click();
+  await expect(page.getByLabel(/top values for port:open/i)).toBeVisible();
+});
+
+test("Compare page renders side-by-side maps", async ({ page }) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.modules = ['view'];\n",
+      });
+    }
+    if (url.pathname === "/cgi/view/count") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "10",
+      });
+    }
+    if (url.pathname === "/cgi/view/coordinates") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ type: "GeometryCollection", geometries: [] }),
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/compare?q=country%3AFR&set1=port%3Atcp%2F80&set2=port%3Atcp%2F443");
+  await expect(page.getByText(/result counters/i)).toBeVisible();
+  await page.getByRole("button", { name: /^Map$/ }).click();
+  await expect(page.getByText(/Set 1 — Map/i)).toBeVisible();
+  await expect(page.getByText(/Set 2 — Map/i)).toBeVisible();
+});
+
+test("View Share menu links to Report with current filter", async ({
+  page,
+}) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: "config.modules = ['view'];\n",
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/view?q=country%3AFR");
+  await page.getByRole("button", { name: /^Share$/ }).click();
+  await page.getByRole("menuitem", { name: /^Report$/ }).click();
+  await expect(page).toHaveURL(/#\/report\?q=country%3AFR/);
+});
+
+test("Report route gated when view module is disabled", async ({ page }) => {
+  await page.route("**/cgi/**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/cgi/config") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: 'config.modules = ["active"];\n',
+      });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/#/report");
+  await expect(page.getByText(/view module is not exposed/i)).toBeVisible();
+});

@@ -9,6 +9,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
+import { ShareMenu } from "@/components/ShareMenu";
 import { HostCardList } from "@/components/HostCardList";
 import { HostDetailSheet } from "@/components/HostDetailSheet";
 import { Timeline } from "@/components/Timeline";
@@ -352,7 +353,7 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
        */}
       <div className="flex flex-1 justify-center">
         <div className="w-full max-w-4xl space-y-4">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-xl font-semibold">
               Results
               {!isLoading && !error ? (
@@ -361,6 +362,7 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
                 </span>
               ) : null}
             </h2>
+            {sectionId === "view" ? <ShareMenu query={query} /> : null}
           </div>
           <div className="lg:hidden">
             <FilterBar filters={filters} onFiltersChange={setFilters} />

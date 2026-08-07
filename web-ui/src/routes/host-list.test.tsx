@@ -39,6 +39,10 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
+vi.mock("@/components/ShareMenu", () => ({
+  ShareMenu: () => null,
+}));
+
 vi.mock("@/lib/config", () => ({
   getConfig: () => ({ dflt_limit: 10 }),
   isSequentialLoading: () => false,
