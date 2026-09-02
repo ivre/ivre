@@ -143,14 +143,14 @@ $ sudo pip3 install . --break-system-packages
 # for m in rewrite.load wsgi.conf wsgi.load ; do
 &gt;   [ -L $m ] || ln -s ../mods-available/$m ; done
 # cd ../
-# echo &#39;Alias /cgi &quot;/usr/local/share/ivre/web/wsgi/app.wsgi&quot;&#39; &gt; conf-enabled/ivre.conf
-# echo &#39;&lt;Location /cgi&gt;&#39; &gt;&gt; conf-enabled/ivre.conf
-# echo &#39;SetHandler wsgi-script&#39; &gt;&gt; conf-enabled/ivre.conf
-# echo &#39;Options +ExecCGI&#39; &gt;&gt; conf-enabled/ivre.conf
-# echo &#39;Require all granted&#39; &gt;&gt; conf-enabled/ivre.conf
-# echo &#39;&lt;/Location&gt;&#39; &gt;&gt; conf-enabled/ivre.conf
-# sed -i &#39;s/^\(\s*\)#Rewrite/\1Rewrite/&#39; /etc/dokuwiki/apache.conf
-# echo &#39;WEB_GET_NOTEPAD_PAGES = &quot;localdokuwiki&quot;&#39; &gt;&gt; /etc/ivre.conf
+# echo 'Alias /cgi "/usr/local/share/ivre/web/wsgi/app.wsgi"' &gt; conf-enabled/ivre.conf
+# echo '&lt;Location /cgi&gt;' &gt;&gt; conf-enabled/ivre.conf
+# echo 'SetHandler wsgi-script' &gt;&gt; conf-enabled/ivre.conf
+# echo 'Options +ExecCGI' &gt;&gt; conf-enabled/ivre.conf
+# echo 'Require all granted' &gt;&gt; conf-enabled/ivre.conf
+# echo '&lt;/Location&gt;' &gt;&gt; conf-enabled/ivre.conf
+# sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' /etc/dokuwiki/apache.conf
+# echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' &gt;&gt; /etc/ivre.conf
 # service apache2 reload  ## or start
 # exit
 </pre></div>

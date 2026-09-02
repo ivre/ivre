@@ -207,7 +207,7 @@ $ vagrant up --no-parallel
 also can build the images from the provided <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code>s. For
 that, from the <code class="docutils literal notranslate"><span class="pre">docker/</span></code> directory, run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ for img in base client web web-doku web-mcp web-uwsgi ; do
-&gt; docker build -t &quot;ivre/$img&quot; &quot;$img&quot;
+&gt; docker build -t "ivre/$img" "$img"
 &gt; done
 </pre></div>
 </div>
@@ -221,7 +221,7 @@ the <em>tarball</em> from GitHub, by creating it locally and using the
 <code class="docutils literal notranslate"><span class="pre">base-local</span></code> directory instead of <code class="docutils literal notranslate"><span class="pre">base</span></code>. From the repository root,
 run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
-$ tar --owner=root:0 --group=root:0 --transform=&#39;s#^#ivre/#&#39; -rf docker/base-local/ivre.tar ivre/_version.py
+$ tar --owner=root:0 --group=root:0 --transform='s#^#ivre/#' -rf docker/base-local/ivre.tar ivre/_version.py
 $ docker build -t ivre/base docker/base-local
 </pre></div>
 </div>

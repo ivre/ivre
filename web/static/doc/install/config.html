@@ -152,10 +152,10 @@ names”.</p>
 which has the special meaning
 <code class="docutils literal notranslate"><span class="pre">&quot;maxmind:///&lt;ivre_share_path&gt;/geoip&quot;</span></code>.</p>
 <p>Here are some examples:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_PASSIVE</span> <span class="o">=</span> <span class="s2">&quot;postgresql://ivre@localhost/ivre&quot;</span>
-<span class="n">DB_NMAP</span> <span class="o">=</span> <span class="s2">&quot;mongodb:///ivre&quot;</span>
-<span class="n">DB_VIEW</span> <span class="o">=</span> <span class="s2">&quot;elastic://192.168.0.1:9200/ivre&quot;</span>
-<span class="n">DB_DATA</span> <span class="o">=</span> <span class="s2">&quot;maxmind:///share/data/ivre/geoip&quot;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_PASSIVE</span> <span class="o">=</span> <span class="s2">"postgresql://ivre@localhost/ivre"</span>
+<span class="n">DB_NMAP</span> <span class="o">=</span> <span class="s2">"mongodb:///ivre"</span>
+<span class="n">DB_VIEW</span> <span class="o">=</span> <span class="s2">"elastic://192.168.0.1:9200/ivre"</span>
+<span class="n">DB_DATA</span> <span class="o">=</span> <span class="s2">"maxmind:///share/data/ivre/geoip"</span>
 </pre></div>
 </div>
 <p>Batch insert or upsert operations can be tuned using backend-specific variables:</p>
@@ -182,8 +182,8 @@ path based on IVRE installation”.</p>
 <code class="docutils literal notranslate"><span class="pre">&quot;/usr/local/share/nmap&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;/opt/nmap/share/nmap&quot;</span></code>, then
 <code class="docutils literal notranslate"><span class="pre">&quot;/usr/share/nmap&quot;</span></code>.</p>
 <p>IVRE may need some executables:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TESSERACT_CMD</span> <span class="o">=</span> <span class="s2">&quot;tesseract&quot;</span>
-<span class="n">OPENSSL_CMD</span> <span class="o">=</span> <span class="s2">&quot;openssl&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TESSERACT_CMD</span> <span class="o">=</span> <span class="s2">"tesseract"</span>
+<span class="n">OPENSSL_CMD</span> <span class="o">=</span> <span class="s2">"openssl"</span>
 </pre></div>
 </div>
 </section>
@@ -198,76 +198,76 @@ globally (from the command-line option).</p>
 <p>The default configuration value is based on the Masscan fork of the
 IVRE project.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
-<span class="c1"># Based on IVRE&#39;s fork source code --- you may want to adapt these</span>
+<span class="c1"># Based on IVRE's fork source code --- you may want to adapt these</span>
 <span class="c1"># settings if you use another version of Masscan.</span>
 <span class="n">MASSCAN_PROBES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;tcp&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="mi">53</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
-        <span class="mi">88</span><span class="p">:</span> <span class="s2">&quot;Kerberos&quot;</span><span class="p">,</span>
-        <span class="mi">104</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">111</span><span class="p">:</span> <span class="s2">&quot;RPCCheck&quot;</span><span class="p">,</span>
-        <span class="mi">130</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">135</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
-        <span class="mi">256</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">257</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">389</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">390</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">406</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
-        <span class="mi">427</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">548</span><span class="p">:</span> <span class="s2">&quot;afp&quot;</span><span class="p">,</span>
-        <span class="mi">554</span><span class="p">:</span> <span class="s2">&quot;RTSPRequest&quot;</span><span class="p">,</span>
-        <span class="mi">1098</span><span class="p">:</span> <span class="s2">&quot;JavaRMI&quot;</span><span class="p">,</span>
-        <span class="mi">1099</span><span class="p">:</span> <span class="s2">&quot;JavaRMI&quot;</span><span class="p">,</span>
-        <span class="mi">1352</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">1433</span><span class="p">:</span> <span class="s2">&quot;ms-sql-s&quot;</span><span class="p">,</span>
-        <span class="mi">1702</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">1972</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">2049</span><span class="p">:</span> <span class="s2">&quot;RPCCheck&quot;</span><span class="p">,</span>
-        <span class="mi">2345</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">2375</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
-        <span class="mi">2379</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
-        <span class="mi">2380</span><span class="p">:</span> <span class="s2">&quot;docker&quot;</span><span class="p">,</span>
-        <span class="mi">2761</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">2762</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">3268</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">3892</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">4242</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">5060</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
-        <span class="mi">6000</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6001</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6002</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6003</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6004</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6005</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6006</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6007</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6008</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6009</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6010</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6011</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6012</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6013</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6014</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6015</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6016</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6017</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6018</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6019</span><span class="p">:</span> <span class="s2">&quot;X11Probe&quot;</span><span class="p">,</span>
-        <span class="mi">6379</span><span class="p">:</span> <span class="s2">&quot;redis-server&quot;</span><span class="p">,</span>
-        <span class="mi">7171</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">8081</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
-        <span class="mi">8554</span><span class="p">:</span> <span class="s2">&quot;RTSPRequest&quot;</span><span class="p">,</span>
-        <span class="mi">8728</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">9001</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
-        <span class="mi">11112</span><span class="p">:</span> <span class="s2">&quot;dicom&quot;</span><span class="p">,</span>
-        <span class="mi">11711</span><span class="p">:</span> <span class="s2">&quot;LDAPSearchReq&quot;</span><span class="p">,</span>
-        <span class="mi">22001</span><span class="p">:</span> <span class="s2">&quot;NotesRPC&quot;</span><span class="p">,</span>
-        <span class="mi">27017</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
-        <span class="mi">31337</span><span class="p">:</span> <span class="s2">&quot;SIPOptions&quot;</span><span class="p">,</span>
-        <span class="mi">49153</span><span class="p">:</span> <span class="s2">&quot;mongodb&quot;</span><span class="p">,</span>
-        <span class="mi">50000</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
-        <span class="mi">50001</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
-        <span class="mi">50002</span><span class="p">:</span> <span class="s2">&quot;DNSVersionBindReqTCP&quot;</span><span class="p">,</span>
+    <span class="s2">"tcp"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="mi">53</span><span class="p">:</span> <span class="s2">"DNSVersionBindReqTCP"</span><span class="p">,</span>
+        <span class="mi">88</span><span class="p">:</span> <span class="s2">"Kerberos"</span><span class="p">,</span>
+        <span class="mi">104</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">111</span><span class="p">:</span> <span class="s2">"RPCCheck"</span><span class="p">,</span>
+        <span class="mi">130</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">135</span><span class="p">:</span> <span class="s2">"DNSVersionBindReqTCP"</span><span class="p">,</span>
+        <span class="mi">256</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">257</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">389</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">390</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">406</span><span class="p">:</span> <span class="s2">"SIPOptions"</span><span class="p">,</span>
+        <span class="mi">427</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">548</span><span class="p">:</span> <span class="s2">"afp"</span><span class="p">,</span>
+        <span class="mi">554</span><span class="p">:</span> <span class="s2">"RTSPRequest"</span><span class="p">,</span>
+        <span class="mi">1098</span><span class="p">:</span> <span class="s2">"JavaRMI"</span><span class="p">,</span>
+        <span class="mi">1099</span><span class="p">:</span> <span class="s2">"JavaRMI"</span><span class="p">,</span>
+        <span class="mi">1352</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">1433</span><span class="p">:</span> <span class="s2">"ms-sql-s"</span><span class="p">,</span>
+        <span class="mi">1702</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">1972</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">2049</span><span class="p">:</span> <span class="s2">"RPCCheck"</span><span class="p">,</span>
+        <span class="mi">2345</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">2375</span><span class="p">:</span> <span class="s2">"docker"</span><span class="p">,</span>
+        <span class="mi">2379</span><span class="p">:</span> <span class="s2">"docker"</span><span class="p">,</span>
+        <span class="mi">2380</span><span class="p">:</span> <span class="s2">"docker"</span><span class="p">,</span>
+        <span class="mi">2761</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">2762</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">3268</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">3892</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">4242</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">5060</span><span class="p">:</span> <span class="s2">"SIPOptions"</span><span class="p">,</span>
+        <span class="mi">6000</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6001</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6002</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6003</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6004</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6005</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6006</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6007</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6008</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6009</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6010</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6011</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6012</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6013</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6014</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6015</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6016</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6017</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6018</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6019</span><span class="p">:</span> <span class="s2">"X11Probe"</span><span class="p">,</span>
+        <span class="mi">6379</span><span class="p">:</span> <span class="s2">"redis-server"</span><span class="p">,</span>
+        <span class="mi">7171</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">8081</span><span class="p">:</span> <span class="s2">"SIPOptions"</span><span class="p">,</span>
+        <span class="mi">8554</span><span class="p">:</span> <span class="s2">"RTSPRequest"</span><span class="p">,</span>
+        <span class="mi">8728</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">9001</span><span class="p">:</span> <span class="s2">"mongodb"</span><span class="p">,</span>
+        <span class="mi">11112</span><span class="p">:</span> <span class="s2">"dicom"</span><span class="p">,</span>
+        <span class="mi">11711</span><span class="p">:</span> <span class="s2">"LDAPSearchReq"</span><span class="p">,</span>
+        <span class="mi">22001</span><span class="p">:</span> <span class="s2">"NotesRPC"</span><span class="p">,</span>
+        <span class="mi">27017</span><span class="p">:</span> <span class="s2">"mongodb"</span><span class="p">,</span>
+        <span class="mi">31337</span><span class="p">:</span> <span class="s2">"SIPOptions"</span><span class="p">,</span>
+        <span class="mi">49153</span><span class="p">:</span> <span class="s2">"mongodb"</span><span class="p">,</span>
+        <span class="mi">50000</span><span class="p">:</span> <span class="s2">"DNSVersionBindReqTCP"</span><span class="p">,</span>
+        <span class="mi">50001</span><span class="p">:</span> <span class="s2">"DNSVersionBindReqTCP"</span><span class="p">,</span>
+        <span class="mi">50002</span><span class="p">:</span> <span class="s2">"DNSVersionBindReqTCP"</span><span class="p">,</span>
     <span class="p">},</span>
 <span class="p">}</span>
 </pre></div>
@@ -286,11 +286,11 @@ their default values:</p>
 <span class="c1"># KNOWN_PORTS entries have the highest priority.</span>
 <span class="c1"># Example:</span>
 <span class="c1">#  KNOWN_PORTS = {</span>
-<span class="c1">#      &quot;udp&quot;: {</span>
+<span class="c1">#      "udp": {</span>
 <span class="c1">#          9999: 1.0,</span>
 <span class="c1">#          12345: 0.5,</span>
 <span class="c1">#      },</span>
-<span class="c1">#      &quot;tcp&quot;: {</span>
+<span class="c1">#      "tcp": {</span>
 <span class="c1">#          20202: 0.8,</span>
 <span class="c1">#      },</span>
 <span class="c1">#  }</span>
@@ -324,19 +324,19 @@ their default values:</p>
     <span class="c1"># MAXMIND_LICENSE_KEY below) to download files from MaxMind</span>
     <span class="c1"># instead of ivre.rocks directly. Maxmind license keys are free</span>
     <span class="c1"># and can be obtained from &lt;https://www.maxmind.com/&gt;</span>
-    <span class="s2">&quot;GeoLite2-City.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GeoLite2-City-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GeoLite2-Country.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GeoLite2-Country-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GeoLite2-ASN.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GeoLite2-ASN-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip&quot;</span><span class="p">,</span>
-    <span class="c1"># For other files, None has a special meaning &quot;do not</span>
-    <span class="c1"># download&quot;. The following file can be computed based the</span>
+    <span class="s2">"GeoLite2-City.tar.gz"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz"</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-City-CSV.zip"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip"</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-Country.tar.gz"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz"</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-Country-CSV.zip"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip"</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-ASN.tar.gz"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz"</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-ASN-CSV.zip"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip"</span><span class="p">,</span>
+    <span class="c1"># For other files, None has a special meaning "do not</span>
+    <span class="c1"># download". The following file can be computed based the</span>
     <span class="c1"># GeoLite2-* files using `ivre ipdata --import-all`. You should do</span>
     <span class="c1"># that if you get your files from Maxmind.</span>
-    <span class="s2">&quot;GeoLite2-dumps.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz&quot;</span><span class="p">,</span>
+    <span class="s2">"GeoLite2-dumps.tar.gz"</span><span class="p">:</span> <span class="s2">"https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz"</span><span class="p">,</span>
     <span class="c1"># This one is not from maxmind -- see https://thyme.apnic.net/</span>
-    <span class="s2">&quot;BGP.raw&quot;</span><span class="p">:</span> <span class="s2">&quot;https://thyme.apnic.net/current/data-raw-table&quot;</span><span class="p">,</span>
+    <span class="s2">"BGP.raw"</span><span class="p">:</span> <span class="s2">"https://thyme.apnic.net/current/data-raw-table"</span><span class="p">,</span>
 <span class="p">}</span>
 <span class="n">MAXMIND_LICENSE_KEY</span> <span class="o">=</span> <span class="kc">None</span>
 </pre></div>
@@ -365,7 +365,7 @@ example, hide <code class="docutils literal notranslate"><span class="pre">flow<
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Expose only the View and RIR sections; the others are</span>
 <span class="c1"># hidden from the nav and their routes return 404 even if</span>
 <span class="c1"># their backends are configured.</span>
-<span class="n">WEB_MODULES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;view&quot;</span><span class="p">,</span> <span class="s2">&quot;rir&quot;</span><span class="p">]</span>
+<span class="n">WEB_MODULES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"view"</span><span class="p">,</span> <span class="s2">"rir"</span><span class="p">]</span>
 </pre></div>
 </div>
 <p>Leaving <code class="docutils literal notranslate"><span class="pre">WEB_MODULES</span></code> at its default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) is equivalent
@@ -385,18 +385,18 @@ variable <code class="docutils literal notranslate"><span class="pre">WEB_NOTES_
 the notes (<code class="docutils literal notranslate"><span class="pre">#IP#</span></code> will be replaced with the IP address). This
 variable defaults to <code class="docutils literal notranslate"><span class="pre">/dokuwiki/#IP#</span></code>.</p>
 <p>If you use Dokuwiki, you also want to set:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="s2">&quot;localdokuwiki&quot;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="s2">"localdokuwiki"</span>
 </pre></div>
 </div>
 <p>Or:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;localdokuwiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;/path/to/dokuwiki/data/pages&quot;</span><span class="p">,))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"localdokuwiki"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"/path/to/dokuwiki/data/pages"</span><span class="p">,))</span>
 </pre></div>
 </div>
 <p>The second option is needed if the path to Dokuwiki pages is different
 from the default <code class="docutils literal notranslate"><span class="pre">&quot;/var/lib/dokuwiki/data/pages&quot;</span></code>.</p>
 <p>If you use Mediawiki, you need to set</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;mediawiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;server&quot;</span><span class="p">,</span> <span class="s2">&quot;username&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span>
-                                       <span class="s2">&quot;dbname&quot;</span><span class="p">,</span> <span class="s2">&quot;base&quot;</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"mediawiki"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"server"</span><span class="p">,</span> <span class="s2">"username"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">,</span>
+                                       <span class="s2">"dbname"</span><span class="p">,</span> <span class="s2">"base"</span><span class="p">))</span>
 </pre></div>
 </div>
 </section>
@@ -412,13 +412,13 @@ possible. In this case, the variable <code class="docutils literal notranslate">
 be set to a list or URLs that are allowed to trigger Web accesses to
 the IVRE application; for example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_ALLOWED_REFERERS</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/index.html&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/report.html&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/upload.html&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/compare.html&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;http://reverse-proxy.local/ivre/flow.html&#39;</span>
+    <span class="s1">'http://reverse-proxy.local/ivre'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/index.html'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/report.html'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/upload.html'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/compare.html'</span><span class="p">,</span>
+    <span class="s1">'http://reverse-proxy.local/ivre/flow.html'</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -460,11 +460,11 @@ will apply when the current user does not match any user in
 <code class="docutils literal notranslate"><span class="pre">admin-site-a</span></code> has access to all results in category <code class="docutils literal notranslate"><span class="pre">site-a</span></code>, and
 user <code class="docutils literal notranslate"><span class="pre">admin-scanner-a</span></code> has access to all results with source
 <code class="docutils literal notranslate"><span class="pre">scanner-a</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">'noaccess'</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;admin&#39;</span><span class="p">:</span> <span class="s1">&#39;full&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;admin-site-a&#39;</span><span class="p">:</span> <span class="s1">&#39;category:site-a&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;admin-scanner-a&#39;</span><span class="p">:</span> <span class="s1">&#39;source:scanner-a&#39;</span><span class="p">,</span>
+    <span class="s1">'admin'</span><span class="p">:</span> <span class="s1">'full'</span><span class="p">,</span>
+    <span class="s1">'admin-site-a'</span><span class="p">:</span> <span class="s1">'category:site-a'</span><span class="p">,</span>
+    <span class="s1">'admin-scanner-a'</span><span class="p">:</span> <span class="s1">'source:scanner-a'</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -472,9 +472,9 @@ user <code class="docutils literal notranslate"><span class="pre">admin-scanner-
 usernames that provide some kind of “realms”, you can use them; in the
 following example, any user in the <code class="docutils literal notranslate"><span class="pre">admin.sitea</span></code> realm has access to
 all results in category <code class="docutils literal notranslate"><span class="pre">site-a</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">'noaccess'</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;@admin.sitea&#39;</span><span class="p">:</span> <span class="s1">&#39;category:site-a&#39;</span><span class="p">,</span>
+    <span class="s1">'@admin.sitea'</span><span class="p">:</span> <span class="s1">'category:site-a'</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -487,20 +487,20 @@ in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLAC
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Domains used for DNS blacklists (RFC 5782)</span>
 <span class="n">DNS_BLACKLIST_DOMAINS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
     <span class="p">[</span>
-        <span class="s2">&quot;blacklist.woody.ch&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;zen.spamhaus.org&quot;</span><span class="p">,</span>
+        <span class="s2">"blacklist.woody.ch"</span><span class="p">,</span>
+        <span class="s2">"zen.spamhaus.org"</span><span class="p">,</span>
     <span class="p">]</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 <p>To add a domain, just add in your configuration file:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DNS_BLACKLIST_DOMAIN</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;dnsbl.example.com&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DNS_BLACKLIST_DOMAIN</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"dnsbl.example.com"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Or, to add several entries at once:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DNS_BLACKLIST_DOMAIN</span><span class="o">.</span><span class="n">update</span><span class="p">([</span>
-    <span class="s2">&quot;dnsbl1.example.com&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dnsbl2.example.com&quot;</span><span class="p">,</span>
+    <span class="s2">"dnsbl1.example.com"</span><span class="p">,</span>
+    <span class="s2">"dnsbl2.example.com"</span><span class="p">,</span>
 <span class="p">])</span>
 </pre></div>
 </div>

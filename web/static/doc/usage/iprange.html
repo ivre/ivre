@@ -152,11 +152,11 @@ removes the cap.</p>
 <section id="web-api">
 <h2>Web API<a class="headerlink" href="#web-api" title="Link to this heading"></a></h2>
 <p>The same selectors are exposed at <code class="docutils literal notranslate"><span class="pre">/cgi/iprange</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ curl &#39;http://localhost/cgi/iprange?network=192.0.2.0/30&amp;output=count&#39;
-{&quot;count&quot;: 4}
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ curl 'http://localhost/cgi/iprange?network=192.0.2.0/30&amp;output=count'
+{"count": 4}
 
-$ curl &#39;http://localhost/cgi/iprange?asnum=AS3215&amp;output=cidrs&amp;limit=3&#39;
-{&quot;count&quot;: 20035071, &quot;cidrs&quot;: [&quot;2.3.0.0/16&quot;, &quot;2.4.0.0/14&quot;, &quot;2.8.0.0/13&quot;]}
+$ curl 'http://localhost/cgi/iprange?asnum=AS3215&amp;output=cidrs&amp;limit=3'
+{"count": 20035071, "cidrs": ["2.3.0.0/16", "2.4.0.0/14", "2.8.0.0/13"]}
 </pre></div>
 </div>
 <p>The web route exposes <code class="docutils literal notranslate"><span class="pre">output=count</span></code> / <code class="docutils literal notranslate"><span class="pre">ranges</span></code> / <code class="docutils literal notranslate"><span class="pre">cidrs</span></code>

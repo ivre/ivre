@@ -149,7 +149,7 @@ results. Authentication is disabled by default.</p>
 <ol class="arabic">
 <li><p>Add to your <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">&quot;generate-with: openssl rand -base64 42&quot;</span>
+<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">"generate-with: openssl rand -base64 42"</span>
 </pre></div>
 </div>
 </li>
@@ -257,8 +257,8 @@ button for each enabled provider on the login page.</p>
 <li><p>Click <strong>Generate a new client secret</strong> and copy it</p></li>
 </ol>
 <p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;Iv1.xxxxxxxxxx&quot;</span>
-<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"Iv1.xxxxxxxxxx"</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</span>
 </pre></div>
 </div>
 </section>
@@ -281,8 +281,8 @@ button for each enabled provider on the login page.</p>
 <li><p>Add the <code class="docutils literal notranslate"><span class="pre">email</span></code>, <code class="docutils literal notranslate"><span class="pre">profile</span></code>, and <code class="docutils literal notranslate"><span class="pre">openid</span></code> scopes</p></li>
 </ul>
 <p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxx-xxx.apps.googleusercontent.com&quot;</span>
-<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"xxxxxxxxxxxx-xxx.apps.googleusercontent.com"</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"</span>
 </pre></div>
 </div>
 </section>
@@ -311,12 +311,12 @@ button for each enabled provider on the login page.</p>
 <li><p>Copy the secret <strong>Value</strong> (not the Secret ID)</p></li>
 </ol>
 <p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx&quot;</span>
-<span class="n">WEB_AUTH_MICROSOFT_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</span>
+<span class="n">WEB_AUTH_MICROSOFT_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</span>
 </pre></div>
 </div>
 <p>For single-tenant setups, also set the tenant ID:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_TENANT</span> <span class="o">=</span> <span class="s2">&quot;xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MICROSOFT_TENANT</span> <span class="o">=</span> <span class="s2">"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</span>
 </pre></div>
 </div>
 <p>The default is <code class="docutils literal notranslate"><span class="pre">&quot;common&quot;</span></code> which allows any Microsoft account.</p>
@@ -328,17 +328,17 @@ Authelia, Dex, Okta, etc.</p>
 <p>There are two configuration modes:</p>
 <p><strong>Discovery mode</strong> (recommended): provide the OIDC discovery URL
 and IVRE will auto-discover the endpoints:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-client-secret&quot;</span>
-<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/.well-known/openid-configuration&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"ivre"</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"your-client-secret"</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">"https://idp.example.com/.well-known/openid-configuration"</span>
 </pre></div>
 </div>
 <p><strong>Manual mode</strong>: provide each endpoint explicitly:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-client-secret&quot;</span>
-<span class="n">WEB_AUTH_OIDC_AUTHORIZE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/auth&quot;</span>
-<span class="n">WEB_AUTH_OIDC_TOKEN_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/token&quot;</span>
-<span class="n">WEB_AUTH_OIDC_USERINFO_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/userinfo&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"ivre"</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"your-client-secret"</span>
+<span class="n">WEB_AUTH_OIDC_AUTHORIZE_URL</span> <span class="o">=</span> <span class="s2">"https://idp.example.com/auth"</span>
+<span class="n">WEB_AUTH_OIDC_TOKEN_URL</span> <span class="o">=</span> <span class="s2">"https://idp.example.com/token"</span>
+<span class="n">WEB_AUTH_OIDC_USERINFO_URL</span> <span class="o">=</span> <span class="s2">"https://idp.example.com/userinfo"</span>
 </pre></div>
 </div>
 <p>The redirect URI to configure in your IdP is:
@@ -369,19 +369,19 @@ and IVRE will auto-discover the endpoints:</p>
 </table>
 <section id="keycloak-example">
 <h4>Keycloak example<a class="headerlink" href="#keycloak-example" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-keycloak-secret&quot;</span>
-<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration&quot;</span>
-<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Keycloak&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"ivre"</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"your-keycloak-secret"</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">"https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration"</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">"Keycloak"</span>
 </pre></div>
 </div>
 </section>
 <section id="authentik-example">
 <h4>Authentik example<a class="headerlink" href="#authentik-example" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-authentik-secret&quot;</span>
-<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://authentik.example.com/application/o/ivre/.well-known/openid-configuration&quot;</span>
-<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Authentik&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"ivre"</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"your-authentik-secret"</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">"https://authentik.example.com/application/o/ivre/.well-known/openid-configuration"</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">"Authentik"</span>
 </pre></div>
 </div>
 </section>
@@ -393,11 +393,11 @@ and IVRE will auto-discover the endpoints:</p>
 <li><p>You need an SMTP server for sending emails</p></li>
 <li><p>Add to <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_AUTH_MAGIC_LINK_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">&quot;smtp.example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">"smtp.example.com"</span>
 <span class="n">WEB_AUTH_SMTP_PORT</span> <span class="o">=</span> <span class="mi">587</span>
-<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
-<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">&quot;smtp-password&quot;</span>
-<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">"noreply@example.com"</span>
+<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">"smtp-password"</span>
+<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">"noreply@example.com"</span>
 <span class="n">WEB_AUTH_SMTP_USE_TLS</span> <span class="o">=</span> <span class="kc">True</span>
 </pre></div>
 </div>
@@ -478,7 +478,7 @@ handled by the proxy and WSGI server.</p>
 <h3>nginx + uwsgi<a class="headerlink" href="#nginx-uwsgi" title="Link to this heading"></a></h3>
 <p>In your nginx configuration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Trust the real client IP (adjust the set_real_ip_from</span>
-<span class="c1"># directive to match your proxy&#39;s address or range)</span>
+<span class="c1"># directive to match your proxy's address or range)</span>
 <span class="n">set_real_ip_from</span> <span class="mf">127.0.0.1</span><span class="p">;</span>       <span class="c1"># local uwsgi</span>
 <span class="n">set_real_ip_from</span> <span class="mf">172.16.0.0</span><span class="o">/</span><span class="mi">12</span><span class="p">;</span>   <span class="c1"># Docker network</span>
 <span class="n">set_real_ip_from</span> <span class="mf">10.0.0.0</span><span class="o">/</span><span class="mi">8</span><span class="p">;</span>      <span class="c1"># private range</span>
@@ -568,17 +568,17 @@ who created them.</p>
 </section>
 <section id="via-the-cli">
 <h3>Via the CLI<a class="headerlink" href="#via-the-cli" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli create-api-key user@example.com &quot;my-script&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre authcli create-api-key user@example.com "my-script"
 </pre></div>
 </div>
 </section>
 <section id="usage">
 <h3>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span># With X-API-Key header
-$ curl -H &quot;X-API-Key: ivre_xxxxxxxxxxxx&quot; https://ivre.example.com/cgi/view
+$ curl -H "X-API-Key: ivre_xxxxxxxxxxxx" https://ivre.example.com/cgi/view
 
 # With Authorization header
-$ curl -H &quot;Authorization: Bearer ivre_xxxxxxxxxxxx&quot; https://ivre.example.com/cgi/view
+$ curl -H "Authorization: Bearer ivre_xxxxxxxxxxxx" https://ivre.example.com/cgi/view
 </pre></div>
 </div>
 </section>
@@ -600,10 +600,10 @@ can access via <code class="docutils literal notranslate"><span class="pre">WEB_
 <p>In <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>, use the <code class="docutils literal notranslate"><span class="pre">group:</span></code> prefix in
 <code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;admin@example.com&quot;</span><span class="p">:</span> <span class="s2">&quot;full&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;group:analysts&quot;</span><span class="p">:</span> <span class="s2">&quot;category:production&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;group:interns&quot;</span><span class="p">:</span> <span class="s2">&quot;category:training&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;@example.com&quot;</span><span class="p">:</span> <span class="s2">&quot;category:shared&quot;</span><span class="p">,</span>
+    <span class="s2">"admin@example.com"</span><span class="p">:</span> <span class="s2">"full"</span><span class="p">,</span>
+    <span class="s2">"group:analysts"</span><span class="p">:</span> <span class="s2">"category:production"</span><span class="p">,</span>
+    <span class="s2">"group:interns"</span><span class="p">:</span> <span class="s2">"category:training"</span><span class="p">,</span>
+    <span class="s2">"@example.com"</span><span class="p">:</span> <span class="s2">"category:shared"</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -647,33 +647,33 @@ $ ivre authcli create-api-key EMAIL NAME     # Create an API key
 <h2>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Authentication</span>
 <span class="n">WEB_AUTH_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">&quot;your-random-secret-here&quot;</span>
-<span class="n">WEB_AUTH_REGISTRATION</span> <span class="o">=</span> <span class="s2">&quot;domain:example.com&quot;</span>
+<span class="n">WEB_SECRET</span> <span class="o">=</span> <span class="s2">"your-random-secret-here"</span>
+<span class="n">WEB_AUTH_REGISTRATION</span> <span class="o">=</span> <span class="s2">"domain:example.com"</span>
 
 <span class="c1"># Providers</span>
-<span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">&quot;ivre&quot;</span>
-<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">&quot;https://idp.example.com/.well-known/openid-configuration&quot;</span>
-<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">&quot;Company SSO&quot;</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_GITHUB_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_GOOGLE_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_ID</span> <span class="o">=</span> <span class="s2">"ivre"</span>
+<span class="n">WEB_AUTH_OIDC_CLIENT_SECRET</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_OIDC_DISCOVERY_URL</span> <span class="o">=</span> <span class="s2">"https://idp.example.com/.well-known/openid-configuration"</span>
+<span class="n">WEB_AUTH_OIDC_LABEL</span> <span class="o">=</span> <span class="s2">"Company SSO"</span>
 
 <span class="c1"># Magic link</span>
 <span class="n">WEB_AUTH_MAGIC_LINK_ENABLED</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">&quot;smtp.example.com&quot;</span>
+<span class="n">WEB_AUTH_SMTP_HOST</span> <span class="o">=</span> <span class="s2">"smtp.example.com"</span>
 <span class="n">WEB_AUTH_SMTP_PORT</span> <span class="o">=</span> <span class="mi">587</span>
-<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">&quot;noreply@example.com&quot;</span>
-<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
-<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">&quot;IVRE &lt;noreply@example.com&gt;&quot;</span>
+<span class="n">WEB_AUTH_SMTP_USER</span> <span class="o">=</span> <span class="s2">"noreply@example.com"</span>
+<span class="n">WEB_AUTH_SMTP_PASSWORD</span> <span class="o">=</span> <span class="s2">"..."</span>
+<span class="n">WEB_AUTH_SMTP_FROM</span> <span class="o">=</span> <span class="s2">"IVRE &lt;noreply@example.com&gt;"</span>
 
 <span class="c1"># Access control</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;group:admins&quot;</span><span class="p">:</span> <span class="s2">&quot;full&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;group:analysts&quot;</span><span class="p">:</span> <span class="s2">&quot;category:production&quot;</span><span class="p">,</span>
+    <span class="s2">"group:admins"</span><span class="p">:</span> <span class="s2">"full"</span><span class="p">,</span>
+    <span class="s2">"group:analysts"</span><span class="p">:</span> <span class="s2">"category:production"</span><span class="p">,</span>
 <span class="p">}</span>
-<span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s2">&quot;noaccess&quot;</span>
+<span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s2">"noaccess"</span>
 </pre></div>
 </div>
 </section>

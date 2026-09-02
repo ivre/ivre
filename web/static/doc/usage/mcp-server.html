@@ -149,7 +149,7 @@ the regular <code class="docutils literal notranslate"><span class="pre">ivre.co
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <p>The server depends on the <code class="docutils literal notranslate"><span class="pre">mcp</span></code> Python package, which is declared as
 an optional dependency. Install IVRE with the <code class="docutils literal notranslate"><span class="pre">[mcp]</span></code> extra:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s1">&#39;ivre[mcp]&#39;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s1">'ivre[mcp]'</span>
 </pre></div>
 </div>
 <p>The command can then be launched as:</p>
@@ -534,12 +534,12 @@ upstream <code class="docutils literal notranslate"><span class="pre">--path</sp
 connecting to remote MCP servers. Example Claude Code snippet for
 <code class="docutils literal notranslate"><span class="pre">~/.claude/settings.json</span></code> or a project-level <code class="docutils literal notranslate"><span class="pre">.mcp.json</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.example.com/mcp&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;Authorization&quot;</span><span class="p">:</span> <span class="s2">&quot;Bearer IVRE_API_KEY_HERE&quot;</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span>
+      <span class="s2">"url"</span><span class="p">:</span> <span class="s2">"https://ivre.example.com/mcp"</span><span class="p">,</span>
+      <span class="s2">"headers"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer IVRE_API_KEY_HERE"</span>
       <span class="p">}</span>
     <span class="p">}</span>
   <span class="p">}</span>
@@ -582,12 +582,12 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <p>Add to your workspace <code class="docutils literal notranslate"><span class="pre">opencode.json</span></code> (or global
 <code class="docutils literal notranslate"><span class="pre">~/.config/opencode/opencode.json</span></code>):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;$schema&quot;</span><span class="p">:</span> <span class="s2">&quot;https://opencode.ai/config.json&quot;</span><span class="p">,</span>
-  <span class="s2">&quot;mcp&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;ivre&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ivre&quot;</span><span class="p">,</span> <span class="s2">&quot;mcp-server&quot;</span><span class="p">],</span>
-      <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="n">true</span>
+  <span class="s2">"$schema"</span><span class="p">:</span> <span class="s2">"https://opencode.ai/config.json"</span><span class="p">,</span>
+  <span class="s2">"mcp"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"ivre"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"local"</span><span class="p">,</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"ivre"</span><span class="p">,</span> <span class="s2">"mcp-server"</span><span class="p">],</span>
+      <span class="s2">"enabled"</span><span class="p">:</span> <span class="n">true</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -598,10 +598,10 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <h3>Claude Code<a class="headerlink" href="#claude-code" title="Link to this heading"></a></h3>
 <p>Add to <code class="docutils literal notranslate"><span class="pre">~/.claude/settings.json</span></code> or to a project-level <code class="docutils literal notranslate"><span class="pre">.mcp.json</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -613,10 +613,10 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <p>Add to <code class="docutils literal notranslate"><span class="pre">claude_desktop_config.json</span></code> (accessible via
 <em>Settings &gt; Developer &gt; Edit Config</em>):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -629,10 +629,10 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 “command” type, and enter <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">mcp-server</span></code>. Alternatively, add to
 <code class="docutils literal notranslate"><span class="pre">~/.cursor/mcp.json</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -644,11 +644,11 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <p>Requires the GitHub Copilot Chat extension. Add to your workspace
 <code class="docutils literal notranslate"><span class="pre">.vscode/mcp.json</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;servers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stdio&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"servers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"stdio"</span><span class="p">,</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -659,10 +659,10 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <h3>Windsurf<a class="headerlink" href="#windsurf" title="Link to this heading"></a></h3>
 <p>Add to <code class="docutils literal notranslate"><span class="pre">~/.codeium/windsurf/mcp_config.json</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
@@ -674,10 +674,10 @@ below all call <code class="docutils literal notranslate"><span class="pre">ivre
 <p>Requires IntelliJ IDEA 2025.1+ (or equivalent). Go to
 <em>Settings &gt; Tools &gt; AI Assistant &gt; MCP Servers</em>, click <strong>+</strong>, and add:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-  <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="s2">&quot;IVRE&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="s2">&quot;command&quot;</span><span class="p">:</span> <span class="s2">&quot;ivre&quot;</span><span class="p">,</span>
-      <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcp-server&quot;</span><span class="p">]</span>
+  <span class="s2">"mcpServers"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">"IVRE"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s2">"command"</span><span class="p">:</span> <span class="s2">"ivre"</span><span class="p">,</span>
+      <span class="s2">"args"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcp-server"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>

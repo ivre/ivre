@@ -114,8 +114,8 @@ entry-point conventions (see <code class="xref py py-mod docutils literal notran
 <strong>must</strong> start with <code class="docutils literal notranslate"><span class="pre">_install_</span></code> (this is the convention enforced by
 <code class="xref py py-func docutils literal notranslate"><span class="pre">ivre.plugins.load_plugins()</span></code>).</p>
 <p>Example <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> snippet from the plugin distribution:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">&quot;ivre.plugins.mcp_server&quot;</span><span class="p">]</span>
-<span class="n">_install_myplugin</span> <span class="o">=</span> <span class="s2">&quot;mypkg.mcp:install&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">"ivre.plugins.mcp_server"</span><span class="p">]</span>
+<span class="n">_install_myplugin</span> <span class="o">=</span> <span class="s2">"mypkg.mcp:install"</span>
 </pre></div>
 </div>
 <p>The function referenced by the entry point is called with a single
@@ -159,22 +159,22 @@ port):</p>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">install</span><span class="p">(</span><span class="n">scope</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">mcp</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;mcp&quot;</span><span class="p">]</span>
-    <span class="n">seal</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;seal&quot;</span><span class="p">]</span>
-    <span class="n">HTTP_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;HTTP_DB&quot;</span><span class="p">]</span>
-    <span class="n">REAL_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;REAL_DB&quot;</span><span class="p">]</span>
-    <span class="n">_parse</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;_parse&quot;</span><span class="p">]</span>
-    <span class="n">ActivePurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;ActivePurpose&quot;</span><span class="p">]</span>
-    <span class="n">AllPurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">&quot;AllPurpose&quot;</span><span class="p">]</span>
+    <span class="n">mcp</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"mcp"</span><span class="p">]</span>
+    <span class="n">seal</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"seal"</span><span class="p">]</span>
+    <span class="n">HTTP_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"HTTP_DB"</span><span class="p">]</span>
+    <span class="n">REAL_DB</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"REAL_DB"</span><span class="p">]</span>
+    <span class="n">_parse</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"_parse"</span><span class="p">]</span>
+    <span class="n">ActivePurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"ActivePurpose"</span><span class="p">]</span>
+    <span class="n">AllPurpose</span> <span class="o">=</span> <span class="n">scope</span><span class="p">[</span><span class="s2">"AllPurpose"</span><span class="p">]</span>
 
     <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">searchbanner</span><span class="p">(</span><span class="n">purpose</span><span class="p">:</span> <span class="n">ActivePurpose</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Filter records whose service banner matches a regex.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Filter records whose service banner matches a regex."""</span>
         <span class="k">return</span> <span class="n">seal</span><span class="p">(</span><span class="n">HTTP_DB</span><span class="p">[</span><span class="n">purpose</span><span class="p">]</span><span class="o">.</span><span class="n">searchbanner</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">pattern</span><span class="p">)))</span>
 
     <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">exposed_count</span><span class="p">(</span><span class="n">purpose</span><span class="p">:</span> <span class="n">AllPurpose</span><span class="p">,</span> <span class="n">flt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Count matching hosts that have at least one open port.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Count matching hosts that have at least one open port."""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse</span><span class="p">(</span><span class="n">purpose</span><span class="p">,</span> <span class="n">flt</span><span class="p">)</span>
             <span class="n">real</span> <span class="o">=</span> <span class="n">REAL_DB</span><span class="p">[</span><span class="n">purpose</span><span class="p">]</span>
@@ -189,8 +189,8 @@ port):</p>
 </pre></div>
 </div>
 <p>The matching <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> entry:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">&quot;ivre.plugins.mcp_server&quot;</span><span class="p">]</span>
-<span class="n">_install_mypkg</span> <span class="o">=</span> <span class="s2">&quot;mypkg.mcp:install&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">project</span><span class="o">.</span><span class="n">entry</span><span class="o">-</span><span class="n">points</span><span class="o">.</span><span class="s2">"ivre.plugins.mcp_server"</span><span class="p">]</span>
+<span class="n">_install_mypkg</span> <span class="o">=</span> <span class="s2">"mypkg.mcp:install"</span>
 </pre></div>
 </div>
 </section>

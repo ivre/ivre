@@ -163,10 +163,10 @@ Kerberos, SAML, client certificates, etc.) and set the
 <p>Both options can be combined (see <a class="reference internal" href="../usage/web-auth.html"><span class="doc">Web Authentication</span></a>).</p>
 <p>To restrict access to the results based on the user login or domain,
 add the following lines to <code class="docutils literal notranslate"><span class="pre">/etc/ivre.conf</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">'noaccess'</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;admin@SUBNETWORK.NETWORK.AD&#39;</span><span class="p">:</span> <span class="s1">&#39;category:SubNetwork&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;@ADMIN.NETWORK.AD&#39;</span><span class="p">:</span> <span class="s1">&#39;full&#39;</span><span class="p">,</span>
+    <span class="s1">'admin@SUBNETWORK.NETWORK.AD'</span><span class="p">:</span> <span class="s1">'category:SubNetwork'</span><span class="p">,</span>
+    <span class="s1">'@ADMIN.NETWORK.AD'</span><span class="p">:</span> <span class="s1">'full'</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -239,16 +239,16 @@ via syslog.</p>
 <p>To be efficient, all the systems must have iptables activated and
 configured to send logs.</p>
 <p>For example</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">A</span> <span class="n">INPUT</span>   <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/INPUT: &quot;</span>
-<span class="o">-</span><span class="n">A</span> <span class="n">OUTPUT</span>  <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/OUTPUT: &quot;</span>
-<span class="o">-</span><span class="n">A</span> <span class="n">FORWARD</span> <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/FORWARD: &quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">A</span> <span class="n">INPUT</span>   <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">"IPTABLES/INPUT: "</span>
+<span class="o">-</span><span class="n">A</span> <span class="n">OUTPUT</span>  <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">"IPTABLES/OUTPUT: "</span>
+<span class="o">-</span><span class="n">A</span> <span class="n">FORWARD</span> <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">"IPTABLES/FORWARD: "</span>
 </pre></div>
 </div>
 <p>To log all traffic, the rules can be set at the top of all rules. Be
 careful with the OUTPUT rule if the logs are sent over the network!</p>
 <p>On the syslog server or on each host, just run grep to collect the
 data needed for the iptables flow2db parser:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>grep<span class="w"> </span>-l<span class="w"> </span><span class="s1">&#39;IPTABLES/&#39;</span><span class="w"> </span>/var/log/syslog<span class="w"> </span>/var/log/kernel.log<span class="w"> </span>...<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>grep<span class="w"> </span>-l<span class="w"> </span><span class="s1">'IPTABLES/'</span><span class="w"> </span>/var/log/syslog<span class="w"> </span>/var/log/kernel.log<span class="w"> </span>...<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>&gt;<span class="w"> </span>syslog-iptables.log
 </pre></div>
 </div>
