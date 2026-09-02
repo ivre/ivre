@@ -571,9 +571,17 @@ def _getinfos_cert(spec):
     try:
         cert = utils.decode_b64(spec["value"].encode())
     except Exception:
-        utils.LOGGER.info("Cannot parse certificate for record %r", spec, exc_info=True)
+        utils.LOGGER.info(
+            "Cannot decode certificate for record %r", spec, exc_info=True
+        )
         return {}
-    info = utils.get_cert_info(cert)
+    try:
+        info = utils.get_cert_info(cert)
+    except Exception:
+        utils.LOGGER.warning(
+            "Cannot parse certificate for record %r", spec, exc_info=True
+        )
+        return {}
     res = {}
     if info:
         res["infos"] = info

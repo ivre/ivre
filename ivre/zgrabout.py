@@ -117,7 +117,11 @@ def zgrap_parser_http(
         except KeyError:
             pass
         else:
-            output, info_cert = create_ssl_cert(cert.encode(), b64encoded=True)
+            try:
+                output, info_cert = create_ssl_cert(cert.encode(), b64encoded=True)
+            except Exception:
+                utils.LOGGER.warning("Cannot parse certificate %r", cert, exc_info=True)
+                output, info_cert = "", []
             if info_cert:
                 res.setdefault("scripts", []).append(
                     {

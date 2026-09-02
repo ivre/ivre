@@ -12374,6 +12374,9 @@ try:
         serialization as _cert_serialization,  # type: ignore[import-untyped]
     )
     from cryptography.hazmat.primitives.asymmetric import (
+        ec as _cert_ec,  # type: ignore[import-untyped]
+    )
+    from cryptography.hazmat.primitives.asymmetric import (
         rsa as _cert_rsa,  # type: ignore[import-untyped]
     )
     from cryptography.x509.oid import (
@@ -12541,8 +12544,15 @@ class CertExtensionFormatTests(unittest.TestCase):
         but pyOpenSSL-tolerated cert (real-world examples include
         ``InvalidVersion: 3 is not a valid X509 version``,
         ``ParseError ... Time::UtcTime``, ``BasicConstraints::ca``
-        ``EncodedDefault``) -- the SAN lookup must be skipped
-        without aborting the rest of ``get_cert_info``.
+        ``EncodedDefault``) -- this must not abort the rest of
+        ``get_cert_info``, and the SAN lookup must be recovered via
+        the ``_get_san_via_openssl_cli()`` fallback (OpenSSL's C
+        parser, which pyOpenSSL's own initial -- successful --
+        ``load_certificate()`` call already relied on, tolerates the
+        same real-world quirks ``cryptography``'s stricter parser
+        rejects). See
+        ``test_get_cert_info_omits_san_when_all_san_parsers_fail``
+        for the case where the fallback also fails.
 
         Critical invariant: ``result["pubkey"]["exponent"]`` and
         ``result["pubkey"]["modulus"]`` must still be populated
@@ -12570,8 +12580,8 @@ class CertExtensionFormatTests(unittest.TestCase):
             ),
         ):
             info = utils.get_cert_info(der)
-        # SAN absent (lookup failed and was skipped).
-        self.assertNotIn("san", info)
+        # SAN recovered through the OpenSSL-CLI fallback, not lost.
+        self.assertEqual(info.get("san"), ["DNS:example.com"])
         # Pubkey block fully populated -- this is the field
         # ``getmoduli`` requires.
         self.assertIn("pubkey", info)
@@ -12589,6 +12599,510 @@ class CertExtensionFormatTests(unittest.TestCase):
         self.assertEqual(info["issuer_text"], "commonName=test.example.com")
         self.assertIn("serial_number", info)
         self.assertIn("version", info)
+
+    def test_get_cert_info_omits_san_when_all_san_parsers_fail(self) -> None:
+        """If *both* ``X509.to_cryptography()`` and the
+        ``_get_san_via_openssl_cli()`` fallback fail to produce a SAN
+        (simulated here; in practice this would mean the certificate
+        is malformed enough that even the lenient OpenSSL CLI gives
+        up), ``get_cert_info`` must still not abort: ``"san"`` is
+        simply absent, and the rest of the fields (notably
+        ``pubkey``, required by ``ivre getmoduli``) stay populated.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert([_cert_x509.DNSName("example.com")])
+        with (
+            mock.patch.object(
+                _cert_osslc.X509,
+                "to_cryptography",
+                side_effect=ValueError("simulated cryptography parse error"),
+            ),
+            mock.patch.object(utils, "_get_san_via_openssl_cli", return_value=None),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertNotIn("san", info)
+        self.assertIn("pubkey", info)
+        self.assertIn("exponent", info["pubkey"])
+
+    def test_get_cert_info_falls_back_to_openssl_cli_when_san_rendering_fails(
+        self,
+    ) -> None:
+        """``X509.to_cryptography()`` succeeding is not the end of the
+        SAN story: rendering the parsed entries
+        (``_format_san_general_name()``) can itself fail on an exotic
+        ``GeneralName``. ``get_cert_info`` must then fall back to
+        ``_get_san_via_openssl_cli()`` -- whose rendering is done by
+        the ``openssl`` CLI itself, independently of the failing code
+        path -- instead of dropping the SAN, and the rest of the
+        result must be unaffected.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert(
+            [_cert_x509.DNSName("example.com"), _cert_x509.DNSName("www.example.com")]
+        )
+        with mock.patch.object(
+            utils,
+            "_format_san_general_name",
+            side_effect=ValueError("simulated GeneralName rendering failure"),
+        ):
+            info = utils.get_cert_info(der)
+        # SAN recovered through the OpenSSL-CLI fallback, not lost.
+        self.assertEqual(info.get("san"), ["DNS:example.com", "DNS:www.example.com"])
+        self.assertIn("pubkey", info)
+        self.assertIn("exponent", info["pubkey"])
+        self.assertIn("serial_number", info)
+
+    @staticmethod
+    def _build_cert_with_non_positive_serial(
+        general_names: "list", raw_serial_byte: int
+    ) -> bytes:
+        """Build a self-signed DER cert like ``_build_cert()``, then patch
+        its DER-encoded serial number -- built as ``1``, i.e. the
+        3-byte TLV ``02 01 01`` (INTEGER, length 1, value 1) -- to the
+        given single raw content byte: ``0x00`` for a serial of ``0``,
+        ``0xFF`` for a serial of ``-1``. This produces a certificate
+        that ``cryptography.x509.CertificateBuilder.serial_number()``
+        itself refuses to construct directly (it rejects non-positive
+        values with ``ValueError``), but that real-world -- and
+        adversarial -- scanners can and do produce.
+        """
+        key = _cert_rsa.generate_private_key(65537, 2048)
+        subject = issuer = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "test.example.com")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        builder = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(1)
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .add_extension(
+                _cert_x509.SubjectAlternativeName(general_names), critical=False
+            )
+        )
+        cert = builder.sign(key, _cert_hashes.SHA256())
+        der = bytearray(cert.public_bytes(_cert_serialization.Encoding.DER))
+        serial_tlv = bytes([0x02, 0x01, 0x01])
+        # Make sure the pattern is unambiguous in this certificate
+        # before patching it in place, so a future ``cryptography``
+        # encoding change fails loudly here instead of silently
+        # patching the wrong field.
+        assert der.count(serial_tlv) == 1
+        idx = der.index(serial_tlv)
+        der[idx + 2] = raw_serial_byte
+        return bytes(der)
+
+    def test_get_cert_info_san_survives_non_positive_serial(self) -> None:
+        """A certificate whose serial number is zero or negative is
+        invalid per RFC 5280, but real-world (and adversarial)
+        scanners produce them. ``cryptography`` currently only emits
+        a deprecation warning for this -- suppressed by the
+        ``warnings.filterwarnings()`` call next to the ``cryptography``
+        import in ``ivre.utils`` -- so SAN extraction must keep
+        working exactly as it would for a well-formed certificate.
+
+        If this test starts failing, ``cryptography`` has followed
+        through on its long-announced plan to turn this into a hard
+        exception; ``test_get_cert_info_falls_back_to_openssl_cli_for_san``
+        below pins the fallback that keeps SAN extraction correct even
+        then.
+        """
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        for raw_byte, expected_serial in ((0x00, "0"), (0xFF, "-1")):
+            with self.subTest(raw_byte=raw_byte):
+                der = self._build_cert_with_non_positive_serial(
+                    [_cert_x509.DNSName("example.com")], raw_byte
+                )
+                info = utils.get_cert_info(der)
+                self.assertEqual(info.get("serial_number"), expected_serial)
+                self.assertEqual(info.get("san"), ["DNS:example.com"])
+                self.assertIn("pubkey", info)
+                self.assertIn("exponent", info["pubkey"])
+
+    def test_get_cert_info_falls_back_to_openssl_cli_for_san(self) -> None:
+        """If ``cryptography`` ever turns the non-positive-serial-number
+        deprecation into a hard exception -- announced since its
+        36.0.0 changelog (2021), not yet true as of this writing --
+        ``X509.to_cryptography()`` will raise instead of warning.
+        ``get_cert_info()`` must then fall back to
+        ``_get_san_via_openssl_cli()`` and still return the correct
+        SAN, rather than silently losing it forever. Simulate that
+        future behaviour directly by making ``to_cryptography`` raise.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert_with_non_positive_serial(
+            [_cert_x509.DNSName("example.com"), _cert_x509.DNSName("www.example.com")],
+            0x00,
+        )
+        with mock.patch.object(
+            _cert_osslc.X509,
+            "to_cryptography",
+            side_effect=ValueError(
+                "simulated future cryptography hard-error on non-positive serial"
+            ),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertEqual(info.get("san"), ["DNS:example.com", "DNS:www.example.com"])
+        self.assertEqual(info.get("serial_number"), "0")
+        self.assertIn("pubkey", info)
+        self.assertIn("exponent", info["pubkey"])
+
+    def test_get_san_via_openssl_cli_returns_none_without_san(self) -> None:
+        """When a certificate has no SAN extension at all, the CLI
+        fallback must return ``None`` (not an empty list, and without
+        raising), so ``get_cert_info()`` correctly leaves ``"san"``
+        absent from the result either way (see
+        ``test_get_cert_info_san_missing``).
+        """
+        from ivre.utils import _get_san_via_openssl_cli
+
+        key = _cert_rsa.generate_private_key(65537, 2048)
+        subject = issuer = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "no-san.example")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        cert = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(_cert_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .sign(key, _cert_hashes.SHA256())
+        )
+        der = cert.public_bytes(_cert_serialization.Encoding.DER)
+        self.assertIsNone(_get_san_via_openssl_cli(der))
+
+    @staticmethod
+    def _build_ec_cert() -> bytes:
+        """Build a self-signed DER cert with an EC (P-256) public key,
+        no SAN, used to check that the ``to_cryptography_key()``
+        fallback correctly leaves ``exponent``/``modulus`` absent for
+        non-RSA keys instead of fabricating them.
+        """
+        key = _cert_ec.generate_private_key(_cert_ec.SECP256R1())
+        subject = issuer = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "ec-test.example.com")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        cert = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(_cert_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .sign(key, _cert_hashes.SHA256())
+        )
+        return cert.public_bytes(_cert_serialization.Encoding.DER)
+
+    def test_get_cert_info_pubkey_survives_to_cryptography_key_failure(self) -> None:
+        """``PKey.to_cryptography_key()`` has the same "two independent
+        parsers can diverge" risk as ``X509.to_cryptography()``: it
+        re-serializes the key pyOpenSSL already parsed back to DER,
+        then re-parses that DER through ``cryptography``'s own
+        key-loading code, which can reject an encoding OpenSSL
+        tolerates (``cryptography`` has, for example, announced
+        rejecting non-canonical ``BIT STRING`` unused-bits encodings
+        in a future release, having silently accepted them before).
+
+        When that bridge fails, ``get_cert_info()`` must recover the
+        exact same RSA ``exponent``/``modulus`` and pubkey
+        ``md5``/``sha1``/``sha256``/``raw`` values through the
+        ``openssl`` CLI fallback instead of losing them (or crashing).
+        Compare byte-for-byte / digit-for-digit against the
+        non-mocked ("ground truth") values for the same certificate.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert([_cert_x509.DNSName("example.com")])
+        ground_truth = utils.get_cert_info(der)
+        with mock.patch.object(
+            _cert_osslc.PKey,
+            "to_cryptography_key",
+            side_effect=ValueError("simulated cryptography key-loading failure"),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertEqual(info["pubkey"]["type"], "rsa")
+        self.assertEqual(info["pubkey"]["bits"], ground_truth["pubkey"]["bits"])
+        self.assertEqual(info["pubkey"]["exponent"], ground_truth["pubkey"]["exponent"])
+        self.assertEqual(info["pubkey"]["modulus"], ground_truth["pubkey"]["modulus"])
+        for hashtype in ["md5", "sha1", "sha256"]:
+            self.assertEqual(info["pubkey"][hashtype], ground_truth["pubkey"][hashtype])
+        self.assertEqual(info["pubkey"]["raw"], ground_truth["pubkey"]["raw"])
+        # Everything not touched by the pubkey bridge stayed intact.
+        self.assertEqual(info.get("san"), ["DNS:example.com"])
+        self.assertEqual(info["serial_number"], ground_truth["serial_number"])
+
+    def test_get_cert_info_ec_pubkey_survives_to_cryptography_key_failure(
+        self,
+    ) -> None:
+        """Same as
+        ``test_get_cert_info_pubkey_survives_to_cryptography_key_failure``,
+        for an EC key: the fallback must recover ``md5``/``sha1``/
+        ``sha256``/``raw``, and must NOT fabricate an
+        ``exponent``/``modulus`` (RSA-only fields) for a key type
+        that has none.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_ec_cert()
+        ground_truth = utils.get_cert_info(der)
+        self.assertNotIn("exponent", ground_truth["pubkey"])
+        self.assertNotIn("modulus", ground_truth["pubkey"])
+        with mock.patch.object(
+            _cert_osslc.PKey,
+            "to_cryptography_key",
+            side_effect=ValueError("simulated cryptography key-loading failure"),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertEqual(info["pubkey"]["type"], "ec")
+        self.assertEqual(info["pubkey"]["bits"], ground_truth["pubkey"]["bits"])
+        self.assertNotIn("exponent", info["pubkey"])
+        self.assertNotIn("modulus", info["pubkey"])
+        for hashtype in ["md5", "sha1", "sha256"]:
+            self.assertEqual(info["pubkey"][hashtype], ground_truth["pubkey"][hashtype])
+        self.assertEqual(info["pubkey"]["raw"], ground_truth["pubkey"]["raw"])
+
+    def test_get_cert_info_survives_san_and_pubkey_failing_together(self) -> None:
+        """Worst-case canary: if BOTH ``X509.to_cryptography()`` (SAN)
+        and ``PKey.to_cryptography_key()`` (pubkey) fail on the same
+        certificate, ``get_cert_info`` must still not raise, and must
+        still recover everything it can through the ``openssl`` CLI
+        fallbacks: SAN, RSA numbers, and pubkey hashes/raw.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert(
+            [_cert_x509.DNSName("example.com"), _cert_x509.DNSName("www.example.com")]
+        )
+        ground_truth = utils.get_cert_info(der)
+        with (
+            mock.patch.object(
+                _cert_osslc.X509,
+                "to_cryptography",
+                side_effect=ValueError("simulated cryptography cert parse error"),
+            ),
+            mock.patch.object(
+                _cert_osslc.PKey,
+                "to_cryptography_key",
+                side_effect=ValueError("simulated cryptography key-loading failure"),
+            ),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertEqual(info.get("san"), ["DNS:example.com", "DNS:www.example.com"])
+        self.assertEqual(info["pubkey"]["exponent"], ground_truth["pubkey"]["exponent"])
+        self.assertEqual(info["pubkey"]["modulus"], ground_truth["pubkey"]["modulus"])
+        self.assertEqual(info["pubkey"]["sha256"], ground_truth["pubkey"]["sha256"])
+        self.assertEqual(info["pubkey"]["raw"], ground_truth["pubkey"]["raw"])
+        self.assertEqual(info["serial_number"], ground_truth["serial_number"])
+
+    def test_get_cert_info_pubkey_omits_fields_when_cli_fallback_also_fails(
+        self,
+    ) -> None:
+        """If ``PKey.to_cryptography_key()`` fails AND the ``openssl``
+        CLI fallback also can't help (simulated here; in practice
+        this would mean ``openssl`` itself is unusable or missing),
+        ``get_cert_info`` must still not raise: the RSA-specific and
+        hash/raw pubkey sub-fields are simply absent, ``pubkey["type"]``
+        and ``pubkey["bits"]`` (always native, never bridged through
+        ``cryptography``) stay populated, and the rest of the result
+        is unaffected.
+        """
+        from unittest import mock
+
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert([_cert_x509.DNSName("example.com")])
+        with (
+            mock.patch.object(
+                _cert_osslc.PKey,
+                "to_cryptography_key",
+                side_effect=ValueError("simulated cryptography key-loading failure"),
+            ),
+            mock.patch.object(
+                utils, "_get_pubkey_pem_via_openssl_cli", return_value=None
+            ),
+        ):
+            info = utils.get_cert_info(der)
+        self.assertEqual(info["pubkey"], {"type": "rsa", "bits": 2048})
+        self.assertEqual(info.get("san"), ["DNS:example.com"])
+        self.assertIn("serial_number", info)
+
+    def test_get_pubkey_pem_and_der_and_rsa_numbers_via_openssl_cli(self) -> None:
+        """Direct unit test of the three new CLI-fallback helpers,
+        cross-checked against the values ``cryptography`` itself
+        produces for the same certificate (via ``PKey.to_cryptography_key()``,
+        which succeeds here -- this test is not about the fallback
+        being triggered, just about the helpers' own correctness).
+        """
+        from OpenSSL import crypto as osslc
+
+        from ivre.utils import (
+            _get_pubkey_der_from_pem,
+            _get_pubkey_pem_via_openssl_cli,
+            _get_rsa_numbers_via_openssl_cli,
+        )
+
+        der = self._build_cert([_cert_x509.DNSName("example.com")])
+        data = osslc.load_certificate(osslc.FILETYPE_ASN1, der)
+        pubkey = data.get_pubkey()
+        expected_numbers = pubkey.to_cryptography_key().public_numbers()
+        expected_der = pubkey.to_cryptography_key().public_bytes(
+            _cert_serialization.Encoding.DER,
+            _cert_serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+        pem = _get_pubkey_pem_via_openssl_cli(der)
+        self.assertIsNotNone(pem)
+        assert pem is not None  # for mypy/type-narrowing in this test
+        self.assertTrue(pem.startswith(b"-----BEGIN PUBLIC KEY-----"))
+
+        pubkey_der = _get_pubkey_der_from_pem(pem)
+        self.assertEqual(pubkey_der, expected_der)
+
+        numbers = _get_rsa_numbers_via_openssl_cli(pem)
+        self.assertEqual(numbers, (expected_numbers.e, expected_numbers.n))
+
+    def test_get_pubkey_pem_via_openssl_cli_returns_none_on_garbage_input(
+        self,
+    ) -> None:
+        """Feeding non-certificate bytes must not raise -- ``openssl
+        x509`` fails cleanly on garbage input, and the helper must
+        translate that into ``None``, not propagate a subprocess
+        error."""
+        from ivre.utils import _get_pubkey_pem_via_openssl_cli
+
+        self.assertIsNone(_get_pubkey_pem_via_openssl_cli(b"not a certificate"))
+
+    def test_get_rsa_numbers_via_openssl_cli_returns_none_for_ec_key(self) -> None:
+        """An EC public key's ``openssl pkey -text`` rendering has no
+        ``Modulus``/``Exponent`` fields, so the RSA-numbers helper
+        must return ``None`` rather than raising or matching garbage.
+        """
+        from OpenSSL import crypto as osslc
+
+        from ivre.utils import (
+            _get_pubkey_pem_via_openssl_cli,
+            _get_rsa_numbers_via_openssl_cli,
+        )
+
+        der = self._build_ec_cert()
+        pem = _get_pubkey_pem_via_openssl_cli(der)
+        self.assertIsNotNone(pem)
+        assert pem is not None  # for mypy/type-narrowing in this test
+        self.assertIsNone(_get_rsa_numbers_via_openssl_cli(pem))
+        # cross-check against the native pyOpenSSL/cryptography path
+        data = osslc.load_certificate(osslc.FILETYPE_ASN1, der)
+        self.assertEqual(data.get_pubkey().type(), 408)  # EC
+
+
+# ---------------------------------------------------------------------
+# CertParsingCallerGuardTests -- ``ivre.utils.get_cert_info()`` (and,
+# transitively, ``ivre.active.data.create_ssl_cert()``) is hardened
+# against malformed certificates by ``CertExtensionFormatTests``
+# above, but two ingestion call sites used to invoke it with no
+# try/except of their own at all: a single certificate that still
+# manages to raise (e.g. a genuine bug, not just the divergences
+# already guarded against) would abort an entire zgrab/masscan HTTP
+# record (``zgrap_parser_http``) or an entire passive_recon log file
+# (``ivre passiverecon2db`` only wraps the whole file, not each
+# record, in its own try/except). These tests pin the defense-in-depth
+# guards added at both call sites.
+# ---------------------------------------------------------------------
+
+
+class CertParsingCallerGuardTests(unittest.TestCase):
+    """Regression tests for the try/except guards around
+    ``get_cert_info()`` calls in ``ivre.passive._getinfos_cert`` and
+    ``ivre.zgrabout.zgrap_parser_http``.
+    """
+
+    def test_getinfos_cert_survives_get_cert_info_crash(self) -> None:
+        from unittest import mock
+
+        from ivre import passive, utils
+
+        with mock.patch.object(
+            utils, "get_cert_info", side_effect=RuntimeError("simulated crash")
+        ):
+            res = passive._getinfos_cert(  # pylint: disable=protected-access
+                {
+                    "value": utils.encode_b64(b"fake cert bytes").decode(),
+                    "source": "cert",
+                }
+            )
+        self.assertEqual(res, {})
+
+    def test_zgrap_parser_http_survives_create_ssl_cert_crash(self) -> None:
+        from unittest import mock
+
+        from ivre import zgrabout
+
+        data = {
+            "response": {
+                "status_code": 200,
+                "status_line": "200 OK",
+                "request": {
+                    "url": None,
+                    "tls_log": {
+                        "handshake_log": {
+                            "server_certificates": {
+                                "certificate": {
+                                    "raw": "ZmFrZSBjZXJ0IGJ5dGVz",
+                                },
+                            }
+                        }
+                    },
+                },
+            }
+        }
+        with mock.patch.object(
+            zgrabout, "create_ssl_cert", side_effect=RuntimeError("simulated crash")
+        ):
+            port = zgrabout.zgrap_parser_http(data, {})
+        self.assertFalse(
+            any(s.get("id") == "ssl-cert" for s in port.get("scripts", []))
+        )
+        # the rest of the (non-cert) port info must still be produced
+        self.assertEqual(port.get("service_tunnel"), "ssl")
 
 
 # ---------------------------------------------------------------------

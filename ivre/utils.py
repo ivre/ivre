@@ -43,6 +43,7 @@ import struct
 import subprocess
 import sys
 import time
+import warnings
 from bisect import bisect_left
 from collections.abc import Callable, Generator, Iterable
 from io import BytesIO
@@ -55,11 +56,38 @@ from urllib.request import build_opener
 try:
     from cryptography import x509 as _x509
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from cryptography.utils import CryptographyDeprecationWarning
     from OpenSSL import crypto as osslc
 except ImportError:
     USE_PYOPENSSL = False
 else:
     USE_PYOPENSSL = True
+    # ``X509.to_cryptography()`` (used in ``get_cert_info()`` below to
+    # look up the SubjectAlternativeName extension; see the comment
+    # there) re-parses the certificate through ``cryptography``'s own
+    # strict ASN.1 parser, which emits this warning for *any*
+    # certificate whose ``serialNumber`` is zero or negative -- a
+    # violation of RFC 5280 that OpenSSL/pyOpenSSL, and real-world
+    # (occasionally adversarial) certificates we must still be able to
+    # ingest, do not enforce. ``cryptography`` has announced turning
+    # this into a hard exception "in a future release" since its
+    # 36.0.0 changelog (2021), reiterated for a 43.0.0 target in the
+    # 42.0.0 changelog, without following through as of 49.0/50.0(dev):
+    # as things stand this is only ever a warning. Depending on the
+    # installed ``cryptography``/pyOpenSSL versions this warning can be
+    # attributed to either library's own frame rather than to a fixed
+    # module, so match on the message text only, and scope by
+    # category so unrelated ``cryptography`` deprecations still
+    # surface normally. If ``cryptography`` does turn this into an
+    # exception one day, ``get_cert_info()``'s ``_get_san_via_openssl_cli()``
+    # fallback keeps subjectAltName extraction correct; see
+    # ``test_get_cert_info_san_survives_non_positive_serial`` in
+    # ``tests/tests_no_backend.py``.
+    warnings.filterwarnings(
+        "ignore",
+        message="^Parsed a serial number which wasn't positive",
+        category=CryptographyDeprecationWarning,
+    )
 try:
     import PIL.Image  # type: ignore
     import PIL.ImageChops  # type: ignore
@@ -2309,6 +2337,197 @@ def parse_cert_subject_string(subject: str) -> Generator[tuple[str, str], None, 
     yield "".join(curkey), "".join(curvalue)
 
 
+def _get_san_via_openssl_cli(cert: bytes) -> list[str] | None:
+    """Fallback subjectAltName extraction for a DER certificate, using the
+    ``openssl`` CLI's own text renderer instead of ``cryptography``'s
+    strict ASN.1 parser.
+
+    The pyOpenSSL-based ``get_cert_info()`` normally gets typed SAN
+    entries through ``X509.to_cryptography()``, which re-parses the
+    certificate with ``cryptography``'s stricter parser and can reject
+    certificates that OpenSSL -- and the ``openssl`` CLI, which links
+    the same C library -- tolerate (see the comment on that call);
+    rendering the parsed entries (``_format_san_general_name()``) can
+    also fail on an exotic ``GeneralName``. In both cases, this
+    function reuses the ``_CERTINFOS_EXT_SAN`` regexp (already used by
+    the openssl-CLI-only implementation of ``get_cert_info()`` below,
+    for when pyOpenSSL is not installed at all) against the CLI's own
+    rendering of the certificate, so neither a stricter
+    ``cryptography`` parser nor a rendering failure silently degrades
+    subjectAltName extraction. Returns ``None`` if the CLI cannot make
+    sense of the certificate either, or reports no SAN extension.
+
+    """
+    try:
+        with subprocess.Popen(
+            [config.OPENSSL_CMD, "x509", "-noout", "-text", "-inform", "DER"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        ) as proc:
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            proc.stdin.write(cert)
+            proc.stdin.close()
+            text = proc.stdout.read()
+    except Exception:
+        LOGGER.info(
+            "Cannot run %r to fall back on subjectAltName parsing",
+            config.OPENSSL_CMD,
+            exc_info=True,
+        )
+        return None
+    match = _CERTINFOS_EXT_SAN.search(text)
+    if match is None:
+        return None
+    try:
+        return match.group("san").decode().split(", ")
+    except Exception:
+        LOGGER.info(
+            "Cannot decode subjectAltName from %r output",
+            config.OPENSSL_CMD,
+            exc_info=True,
+        )
+        return None
+
+
+_PUBKEY_RSA_INFOS = re.compile(
+    # Unlike ``_CERTINFOS`` (matched against ``openssl x509 -text``
+    # output, which always has preceding Issuer/Subject/... lines),
+    # this is matched against ``openssl pkey -pubin -text`` output,
+    # where ``Public-Key:`` is the very first line -- hence ``^``
+    # rather than a leading ``\n``.
+    b"^ *"
+    b"(?:RSA )?Public-Key: \\([0-9]+ bit\\)"
+    b"\n *"
+    b"Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)"
+    b"\n *"
+    b"Exponent: (?P<exponent>[0-9]+) .*"
+    b"(?:\n|$)"
+)
+
+
+def _get_pubkey_pem_via_openssl_cli(cert: bytes) -> bytes | None:
+    """Fetch a certificate's public key as a PEM-encoded
+    SubjectPublicKeyInfo block, using the ``openssl`` CLI, bypassing
+    ``PKey.to_cryptography_key()`` (and, transitively,
+    ``cryptography``'s key-loading code) entirely.
+
+    ``get_cert_info()`` normally gets the raw public key bytes (used
+    for ``pubkey["raw"]`` and the ``pubkey["md5"/"sha1"/"sha256"]``
+    hashes, for every key type) and, for RSA keys, the
+    ``pubkey["exponent"/"modulus"]`` numbers, through
+    ``PKey.to_cryptography_key()``. That bridge re-serializes the key
+    pyOpenSSL already parsed back to DER, then re-parses *that* DER
+    through ``cryptography``'s own key-loading code -- a second,
+    independent parser that can reject an encoding OpenSSL itself
+    tolerates (``cryptography`` has, for example, announced rejecting
+    non-canonical ``BIT STRING`` unused-bits encodings in a future
+    release, having silently accepted them before). When that bridge
+    fails, this function re-derives the same SubjectPublicKeyInfo PEM
+    block directly via ``openssl x509 -pubkey``, which never touches
+    ``cryptography``; ``_get_pubkey_der_from_pem()`` and
+    ``_get_rsa_numbers_via_openssl_cli()`` below turn that PEM block
+    into the same shapes ``PKey.to_cryptography_key()`` would have
+    produced. Returns ``None`` if the CLI cannot make sense of the
+    certificate.
+
+    """
+    try:
+        with subprocess.Popen(
+            [config.OPENSSL_CMD, "x509", "-noout", "-pubkey", "-inform", "DER"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        ) as proc:
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            proc.stdin.write(cert)
+            proc.stdin.close()
+            # typeshed types ``Popen.stdout`` as ``IO[Any]``; pin the
+            # payload type so the ``return pem`` below is not ``Any``.
+            pem: bytes = proc.stdout.read()
+    except Exception:
+        LOGGER.info(
+            "Cannot run %r to fall back on public key extraction",
+            config.OPENSSL_CMD,
+            exc_info=True,
+        )
+        return None
+    if not pem.startswith(b"-----BEGIN PUBLIC KEY-----"):
+        LOGGER.info("Unexpected public key output from %r: %r", config.OPENSSL_CMD, pem)
+        return None
+    return pem
+
+
+def _get_pubkey_der_from_pem(pubkey_pem: bytes) -> bytes | None:
+    """Decode a PEM-encoded public key block (as produced by
+    ``_get_pubkey_pem_via_openssl_cli()``) to raw DER bytes, without
+    involving ``cryptography`` in any way. Returns ``None`` if the PEM
+    block cannot be decoded.
+
+    """
+    lines = pubkey_pem.splitlines()
+    if len(lines) < 3:
+        return None
+    try:
+        return decode_b64(b"".join(lines[1:-1]))
+    except Exception:
+        LOGGER.info("Cannot decode public key PEM block %r", pubkey_pem, exc_info=True)
+        return None
+
+
+def _get_rsa_numbers_via_openssl_cli(pubkey_pem: bytes) -> tuple[int, int] | None:
+    """Extract the ``(exponent, modulus)`` pair of a PEM-encoded RSA
+    public key (as produced by ``_get_pubkey_pem_via_openssl_cli()``)
+    using the ``openssl`` CLI, bypassing
+    ``PKey.to_cryptography_key().public_numbers()`` (and,
+    transitively, ``cryptography``'s key-loading code) entirely; see
+    ``_get_pubkey_pem_via_openssl_cli()`` for why that bridge can
+    fail. Returns ``None`` if the CLI cannot make sense of the key,
+    or if it is not an RSA key (its ``-text`` rendering then has no
+    ``Modulus``/``Exponent`` fields, e.g. for EC keys).
+
+    """
+    try:
+        with subprocess.Popen(
+            [config.OPENSSL_CMD, "pkey", "-pubin", "-noout", "-text"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        ) as proc:
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+            proc.stdin.write(pubkey_pem)
+            proc.stdin.close()
+            text = proc.stdout.read()
+    except Exception:
+        LOGGER.info(
+            "Cannot run %r to fall back on RSA key numbers extraction",
+            config.OPENSSL_CMD,
+            exc_info=True,
+        )
+        return None
+    match = _PUBKEY_RSA_INFOS.search(text)
+    if match is None:
+        return None
+    try:
+        exponent = int(match.group("exponent").decode())
+        modulus = int(
+            match.group("modulus")
+            .decode()
+            .replace(" ", "")
+            .replace(":", "")
+            .replace("\n", ""),
+            16,
+        )
+    except Exception:
+        LOGGER.info(
+            "Cannot parse RSA key numbers from %r output",
+            config.OPENSSL_CMD,
+            exc_info=True,
+        )
+        return None
+    return exponent, modulus
+
+
 if USE_PYOPENSSL:
 
     def _parse_subject(subject: osslc.X509Name) -> tuple[str, dict[str, str]]:
@@ -2351,6 +2570,21 @@ if USE_PYOPENSSL:
             return f"othername:{name.type_id.dotted_string}"
         return str(name)
 
+    def _modulus_to_str(modulus: int) -> str:
+        """Render an RSA modulus as a decimal string, raising the
+        interpreter's int<->str conversion digit limit (a CPython
+        3.11+ DoS mitigation, see ``sys.set_int_max_str_digits()``) on
+        demand for keys long enough to hit it.
+        """
+        try:
+            return str(modulus)
+        except ValueError as exc:
+            try:
+                sys.set_int_max_str_digits(0)
+            except AttributeError:
+                raise exc from exc
+            return str(modulus)
+
     def get_cert_info(cert: bytes) -> dict[str, Any]:
         """Extract info from a certificate (hash values, issuer, subject,
             algorithm) in an handy-to-index-and-query form.
@@ -2379,11 +2613,19 @@ if USE_PYOPENSSL:
         # ``InvalidVersion: 3 is not a valid X509 version``,
         # ``ValueError: error parsing asn1 value: ParseError ...
         # Time::UtcTime``, ``BasicConstraints::ca`` ``EncodedDefault``,
-        # ``DuplicateExtension``. Catch broadly here: a failure of
-        # SAN extraction must not skip the pubkey / serial / dates
-        # block below (downstream consumers, notably
+        # ``DuplicateExtension``, and (today only a suppressed
+        # deprecation warning -- see the ``warnings.filterwarnings()``
+        # call above) a non-positive serial number. Catch broadly
+        # here: a failure of SAN extraction must not skip the pubkey /
+        # serial / dates block below (downstream consumers, notably
         # ``ivre getmoduli``, rely on ``result["pubkey"]["exponent"]``
-        # being populated even for not-quite-spec-compliant certs).
+        # being populated even for not-quite-spec-compliant certs), and
+        # fall back to ``_get_san_via_openssl_cli()`` so that a
+        # stricter future ``cryptography`` release does not silently
+        # drop SAN extraction for these certificates (pinned by
+        # ``test_get_cert_info_san_survives_non_positive_serial`` and
+        # ``test_get_cert_info_falls_back_to_openssl_cli_for_san`` in
+        # ``tests/tests_no_backend.py``).
         san_ext = None
         try:
             san_ext = data.to_cryptography().extensions.get_extension_for_class(
@@ -2397,6 +2639,9 @@ if USE_PYOPENSSL:
                 result["subject_text"],
                 exc_info=True,
             )
+            san = _get_san_via_openssl_cli(cert)
+            if san is not None:
+                result["san"] = san
         if san_ext is not None:
             try:
                 result["san"] = [_format_san_general_name(gn) for gn in san_ext.value]
@@ -2407,6 +2652,15 @@ if USE_PYOPENSSL:
                     result["subject_text"],
                     exc_info=True,
                 )
+                # Rendering the entries ``cryptography`` parsed can
+                # fail independently of the parse itself; the CLI
+                # fallback renders the extension with ``openssl``'s
+                # own code, so try it here too (pinned by
+                # ``test_get_cert_info_falls_back_to_openssl_cli_when_san_rendering_fails``
+                # in ``tests/tests_no_backend.py``).
+                san = _get_san_via_openssl_cli(cert)
+                if san is not None:
+                    result["san"] = san
         result["self_signed"] = result["issuer_text"] == result["subject_text"]
         try:
             not_before = _parse_datetime(data.get_notBefore())
@@ -2432,25 +2686,73 @@ if USE_PYOPENSSL:
         pubkeytype = pubkey.type()
         result["pubkey"]["type"] = _CERTKEYTYPES.get(pubkeytype, pubkeytype)
         result["pubkey"]["bits"] = pubkey.bits()
+        # ``PKey.to_cryptography_key()`` (both call sites below) has
+        # the exact same "two independent parsers can diverge" issue
+        # as ``X509.to_cryptography()`` above: it re-serializes the
+        # key pyOpenSSL already parsed back to DER, then re-parses
+        # that DER through ``cryptography``'s own key-loading code,
+        # which can reject an encoding OpenSSL tolerates. Fall back to
+        # ``openssl pkey``/``openssl x509 -pubkey`` (never touching
+        # ``cryptography``) so ``result["pubkey"]`` -- notably
+        # ``exponent``/``modulus``, which ``ivre getmoduli`` requires,
+        # and the ``md5``/``sha1``/``sha256`` hashes used by
+        # ``searchcert()``'s pubkey-hash filters -- stays populated
+        # instead of aborting the whole function (see
+        # ``test_get_cert_info_pubkey_survives_to_cryptography_key_failure``
+        # in ``tests/tests_no_backend.py``).
+        pubkey_pem_via_cli: bytes | None = None
+        pubkey_pem_via_cli_fetched = False
         if pubkeytype == 6:
             # RSA
-            numbers = pubkey.to_cryptography_key().public_numbers()
-            result["pubkey"]["exponent"] = numbers.e
             try:
-                result["pubkey"]["modulus"] = str(numbers.n)
-            except ValueError as exc:
-                try:
-                    sys.set_int_max_str_digits(0)
-                except AttributeError:
-                    raise exc from exc
-                result["pubkey"]["modulus"] = str(numbers.n)
-        pubkey = pubkey.to_cryptography_key().public_bytes(
-            Encoding.DER,
-            PublicFormat.SubjectPublicKeyInfo,
-        )
-        for hashtype in ["md5", "sha1", "sha256"]:
-            result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
-        result["pubkey"]["raw"] = encode_b64(pubkey).decode()
+                numbers = pubkey.to_cryptography_key().public_numbers()
+                exponent: int | None = numbers.e
+                modulus: int | None = numbers.n
+            except Exception:
+                LOGGER.info(
+                    "Cannot parse RSA key numbers via cryptography for %r",
+                    result["subject_text"],
+                    exc_info=True,
+                )
+                pubkey_pem_via_cli = _get_pubkey_pem_via_openssl_cli(cert)
+                pubkey_pem_via_cli_fetched = True
+                rsa_numbers = (
+                    None
+                    if pubkey_pem_via_cli is None
+                    else _get_rsa_numbers_via_openssl_cli(pubkey_pem_via_cli)
+                )
+                if rsa_numbers is None:
+                    exponent = modulus = None
+                else:
+                    exponent, modulus = rsa_numbers
+            if exponent is not None:
+                result["pubkey"]["exponent"] = exponent
+            if modulus is not None:
+                result["pubkey"]["modulus"] = _modulus_to_str(modulus)
+        try:
+            pubkey_der: bytes | None = pubkey.to_cryptography_key().public_bytes(
+                Encoding.DER,
+                PublicFormat.SubjectPublicKeyInfo,
+            )
+        except Exception:
+            LOGGER.info(
+                "Cannot re-encode public key via cryptography for %r",
+                result["subject_text"],
+                exc_info=True,
+            )
+            if not pubkey_pem_via_cli_fetched:
+                pubkey_pem_via_cli = _get_pubkey_pem_via_openssl_cli(cert)
+            pubkey_der = (
+                None
+                if pubkey_pem_via_cli is None
+                else _get_pubkey_der_from_pem(pubkey_pem_via_cli)
+            )
+        if pubkey_der is not None:
+            for hashtype in ["md5", "sha1", "sha256"]:
+                result["pubkey"][hashtype] = hashlib.new(
+                    hashtype, pubkey_der
+                ).hexdigest()
+            result["pubkey"]["raw"] = encode_b64(pubkey_der).decode()
         return result
 
 else:
