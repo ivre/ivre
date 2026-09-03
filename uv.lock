@@ -830,7 +830,7 @@ requires-dist = [
     { name = "flake8", marker = "extra == 'linting'" },
     { name = "gssapi", marker = "extra == 'gssapi-mongo'" },
     { name = "matplotlib", marker = "extra == 'plots'" },
-    { name = "mcp", marker = "extra == 'mcp'" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = "<2" },
     { name = "mypy", marker = "extra == 'linting'" },
     { name = "mysqlclient", marker = "extra == 'mediawiki'" },
     { name = "pillow", marker = "extra == 'screenshots'" },

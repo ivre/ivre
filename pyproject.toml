@@ -74,7 +74,11 @@ mediawiki = ["mysqlclient"]
 3d-traceroute = ["dbus-python"]
 plots = ["matplotlib"]
 ja3 = ["scapy"]
-mcp = ["mcp"]
+# mcp 2.x renamed FastMCP to MCPServer (mcp.server.mcpserver) and
+# changed other APIs; ivre.tools.mcp_server targets the v1 API, so
+# keep the v1 series until it is ported (docker/web-mcp/Dockerfile
+# carries the same bound for its standalone pip install).
+mcp = ["mcp<2"]
 # Build-time only: pkg/buildcompletion regenerates the shell
 # completion script shipped in bash_completion/ from the argparse
 # parsers (ivre.cli:get_parser).

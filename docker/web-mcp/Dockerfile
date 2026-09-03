@@ -20,7 +20,11 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # The `mcp` Python package is an optional IVRE dependency (`[mcp]`
 # extra). The base image has already purged pip, so reinstall it just
-# long enough to fetch `mcp`, then clean up again.
+# long enough to fetch `mcp`, then clean up again. The `<2` bound
+# mirrors the `[mcp]` extra in pyproject.toml: mcp 2.x renamed
+# FastMCP to MCPServer and changed other APIs, so `ivre mcp-server`
+# would fail to start (nginx then answers 502 on /mcp) until it is
+# ported.
 #
 # `nmap-common` ships the Nmap data files under /usr/share/nmap/
 # (nmap-service-probes, nmap-services, scripts/*.nse, ...). The MCP
@@ -31,7 +35,7 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 # autoremoved).
 RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install python3-pip nmap-common && \
-    pip3 install --break-system-packages mcp && \
+    pip3 install --break-system-packages 'mcp<2' && \
     apt-get -qy --purge autoremove python3-pip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
