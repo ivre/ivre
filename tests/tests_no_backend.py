@@ -11153,15 +11153,16 @@ class DocumentDBRirTests(unittest.TestCase):
 
 
 try:
-    from ivre.db.sql.tables import AuthApiKey as _AuthApiKey_for_tests  # noqa: E402
-    from ivre.db.sql.tables import (  # noqa: E402
-        AuthMagicLink as _AuthMagicLink_for_tests,
-    )
-    from ivre.db.sql.tables import (  # noqa: E402
-        AuthRateLimit as _AuthRateLimit_for_tests,
-    )
-    from ivre.db.sql.tables import AuthSession as _AuthSession_for_tests  # noqa: E402
-    from ivre.db.sql.tables import AuthUser as _AuthUser_for_tests  # noqa: E402
+    # No ``noqa: E402`` here: the flake8 invocations for the test
+    # suite (CI linting workflow and pkg/runchecks) ignore E402
+    # globally, and the comments would push these lines past the
+    # line-length limit, making black and isort fight over the
+    # layout.
+    from ivre.db.sql.tables import AuthApiKey as _AuthApiKey_for_tests
+    from ivre.db.sql.tables import AuthMagicLink as _AuthMagicLink_for_tests
+    from ivre.db.sql.tables import AuthRateLimit as _AuthRateLimit_for_tests
+    from ivre.db.sql.tables import AuthSession as _AuthSession_for_tests
+    from ivre.db.sql.tables import AuthUser as _AuthUser_for_tests
 
     _HAVE_SQLDB_AUTH = True
 except ImportError:
@@ -12390,9 +12391,7 @@ except ImportError:
 try:
     # ``cryptography`` alone is not enough -- ``ivre.utils.get_cert_info``
     # is only defined when ``USE_PYOPENSSL`` is true.
-    from OpenSSL import (  # type: ignore[import-untyped] # noqa: F401
-        crypto as _cert_osslc,
-    )
+    from OpenSSL import crypto as _cert_osslc  # type: ignore[import-untyped] # noqa: F401
 
     _HAVE_PYOPENSSL = True
 except ImportError:
@@ -18978,9 +18977,13 @@ class MongoDBAuditIndexTests(unittest.TestCase):
 # SQLAlchemy -- so the test classes must be guarded behind an
 # ``ImportError`` guard.  Mirrors ``_HAVE_SQLDB_AUTH`` etc.
 try:
-    from ivre.db.sql.tables import (  # noqa: E402, F401
-        AuditEvent as _AuditEvent_for_tests,
-    )
+    # ``noqa: F401`` only (availability probe, the name is unused);
+    # E402 needs no suppression: the flake8 invocations for the test
+    # suite (CI linting workflow and pkg/runchecks) ignore it
+    # globally, and a longer comment would push this line past the
+    # line-length limit, making black and isort fight over the
+    # layout.
+    from ivre.db.sql.tables import AuditEvent as _AuditEvent_for_tests  # noqa: F401
 
     _HAVE_SQLDB_AUDIT = True
 except ImportError:

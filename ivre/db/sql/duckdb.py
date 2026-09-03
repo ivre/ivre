@@ -64,10 +64,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy import text as sa_text
-from sqlalchemy import (
-    true,
-    update,
-)
+from sqlalchemy import true, update
 from sqlalchemy.dialects import postgresql
 
 from ivre import utils

@@ -130,7 +130,10 @@ class SSLKey:
             assert proc.stdout is not None
             proc.stdin.write(raw_cert)
             proc.stdin.close()
-            return proc.stdout.read()
+            # typeshed types ``Popen.stdout`` as ``IO[Any]``; pin the
+            # payload type so this is not an ``Any`` return.
+            data: bytes = proc.stdout.read()
+            return data
 
     @classmethod
     def _pem2key(cls, pem: AnyStr) -> dict[str, bytes] | None:
@@ -150,7 +153,10 @@ class SSLKey:
             assert proc.stdout is not None
             proc.stdin.write(der)
             proc.stdin.close()
-            return proc.stdout.read()
+            # typeshed types ``Popen.stdout`` as ``IO[Any]``; pin the
+            # payload type so this is not an ``Any`` return.
+            data: bytes = proc.stdout.read()
+            return data
 
     def _der2key(self, der: bytes) -> dict[str, bytes] | None:
         assert self.keyincert is not None

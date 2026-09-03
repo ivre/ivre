@@ -54,10 +54,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy import text as sa_text
-from sqlalchemy import (
-    true,
-    update,
-)
+from sqlalchemy import true, update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
