@@ -2791,8 +2791,19 @@ class IvreTests(unittest.TestCase):
                 )
             )
 
-        # Test record updates
-        rec = next(iter(ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)))
+        # Test record updates. Use a DNS record rather than the first
+        # record in natural order: for some record types (e.g.
+        # SSL_SERVER certificates) the stored `value` is raw binary,
+        # returned base64-encoded by get(), so it cannot be fed back
+        # to searchval() to build a filter matching the record.
+        # Natural order depends on the insertion order of the
+        # Zeek-generated logs (Zeek version, log files walk order), so
+        # using the first record made this test environment-dependent.
+        rec = next(
+            iter(
+                ivre.db.db.passive.get(ivre.db.db.passive.searchrecontype("DNS_ANSWER"))
+            )
+        )
         count = rec.pop("count")
         firstseen = rec.pop("firstseen")
         lastseen = rec.pop("lastseen")
