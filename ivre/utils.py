@@ -2354,8 +2354,10 @@ def _get_san_via_openssl_cli(cert: bytes) -> list[str] | None:
     for when pyOpenSSL is not installed at all) against the CLI's own
     rendering of the certificate, so neither a stricter
     ``cryptography`` parser nor a rendering failure silently degrades
-    subjectAltName extraction. Returns ``None`` if the CLI cannot make
-    sense of the certificate either, or reports no SAN extension.
+    subjectAltName extraction. Returns an empty list if the CLI parses
+    the certificate but reports no SAN extension, and ``None`` if the
+    CLI cannot make sense of the certificate either -- the caller uses
+    the difference to pick the log severity.
 
     """
     try:
@@ -2376,9 +2378,11 @@ def _get_san_via_openssl_cli(cert: bytes) -> list[str] | None:
             exc_info=True,
         )
         return None
+    if proc.returncode:
+        return None
     match = _CERTINFOS_EXT_SAN.search(text)
     if match is None:
-        return None
+        return []
     try:
         return match.group("san").decode().split(", ")
     except Exception:
@@ -2633,15 +2637,34 @@ if USE_PYOPENSSL:
             )
         except _x509.ExtensionNotFound:
             pass
-        except Exception:
-            LOGGER.info(
-                "Cannot parse certificate via cryptography for SAN lookup: %r",
-                result["subject_text"],
-                exc_info=True,
-            )
+        except Exception as exc:
+            # This is an expected, handled condition on real-world
+            # (occasionally adversarial) certificates: run the CLI
+            # fallback first, then log a single line stating the
+            # outcome (the recovered subjectAltName value, an empty
+            # list meaning the certificate has none) -- reserving
+            # WARNING and the traceback for the case where the
+            # ``openssl`` CLI could not parse the certificate either.
             san = _get_san_via_openssl_cli(cert)
-            if san is not None:
-                result["san"] = san
+            if san is None:
+                LOGGER.warning(
+                    "Cannot parse certificate via cryptography for SAN "
+                    "lookup: %r, and the openssl CLI fallback failed too",
+                    result["subject_text"],
+                    exc_info=True,
+                )
+            else:
+                LOGGER.info(
+                    "Cannot parse certificate via cryptography for SAN "
+                    "lookup: %r (%s: %s); subjectAltName via the "
+                    "openssl CLI: %r",
+                    result["subject_text"],
+                    type(exc).__name__,
+                    exc,
+                    san,
+                )
+                if san:
+                    result["san"] = san
         if san_ext is not None:
             try:
                 result["san"] = [_format_san_general_name(gn) for gn in san_ext.value]
@@ -2659,7 +2682,7 @@ if USE_PYOPENSSL:
                 # ``test_get_cert_info_falls_back_to_openssl_cli_when_san_rendering_fails``
                 # in ``tests/tests_no_backend.py``).
                 san = _get_san_via_openssl_cli(cert)
-                if san is not None:
+                if san:
                     result["san"] = san
         result["self_signed"] = result["issuer_text"] == result["subject_text"]
         try:

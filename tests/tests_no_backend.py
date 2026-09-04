@@ -12767,12 +12767,14 @@ class CertExtensionFormatTests(unittest.TestCase):
         self.assertIn("pubkey", info)
         self.assertIn("exponent", info["pubkey"])
 
-    def test_get_san_via_openssl_cli_returns_none_without_san(self) -> None:
+    def test_get_san_via_openssl_cli_distinguishes_no_san_from_failure(self) -> None:
         """When a certificate has no SAN extension at all, the CLI
-        fallback must return ``None`` (not an empty list, and without
-        raising), so ``get_cert_info()`` correctly leaves ``"san"``
-        absent from the result either way (see
-        ``test_get_cert_info_san_missing``).
+        fallback must return an empty list (the CLI parsed the
+        certificate, there is just no SAN to report); ``None`` is
+        reserved for the CLI failing to parse the input. The caller
+        picks the log severity from that difference, and the falsy
+        empty list keeps ``"san"`` absent from ``get_cert_info()``'s
+        result (see ``test_get_cert_info_san_missing``).
         """
         from ivre.utils import _get_san_via_openssl_cli
 
@@ -12792,7 +12794,144 @@ class CertExtensionFormatTests(unittest.TestCase):
             .sign(key, _cert_hashes.SHA256())
         )
         der = cert.public_bytes(_cert_serialization.Encoding.DER)
-        self.assertIsNone(_get_san_via_openssl_cli(der))
+        self.assertEqual(_get_san_via_openssl_cli(der), [])
+        # Garbage input: the CLI fails to parse -> None, not [].
+        self.assertIsNone(_get_san_via_openssl_cli(b"not a certificate"))
+
+    @staticmethod
+    def _read_der_len(data: bytes, i: int) -> "tuple[int, int]":
+        """Parse a DER length field at offset ``i``; return
+        ``(length, offset_after_length)``."""
+        first = data[i]
+        if first < 0x80:
+            return first, i + 1
+        n = first & 0x7F
+        return int.from_bytes(data[i + 1 : i + 1 + n], "big"), i + 1 + n
+
+    @staticmethod
+    def _enc_der_len(length: int) -> bytes:
+        if length < 0x80:
+            return bytes([length])
+        body = length.to_bytes((length.bit_length() + 7) // 8, "big")
+        return bytes([0x80 | len(body)]) + body
+
+    @classmethod
+    def _rebuild_der_with_patch(
+        cls, data: bytes, target_off: int, new_tlv: bytes
+    ) -> bytes:
+        """Re-serialize the DER in ``data``, replacing the TLV whose tag
+        byte sits at absolute offset ``target_off`` with ``new_tlv``,
+        recomputing the length of every enclosing constructed TLV. The
+        signature over the TBS certificate becomes invalid, which does
+        not matter here: neither pyOpenSSL's ``load_certificate()`` nor
+        ``cryptography``'s parser verifies signatures at load time.
+        """
+
+        def rebuild(chunk: bytes, base: int) -> bytes:
+            out = bytearray()
+            i = 0
+            while i < len(chunk):
+                tlv_start = base + i
+                tag = chunk[i]
+                length, val_off = cls._read_der_len(chunk, i + 1)
+                val_end = val_off + length
+                if tlv_start == target_off:
+                    out += new_tlv
+                elif tag & 0x20 and tlv_start <= target_off < base + val_end:
+                    value = rebuild(chunk[val_off:val_end], base + val_off)
+                    out += bytes([tag]) + cls._enc_der_len(len(value)) + value
+                else:
+                    out += chunk[i:val_end]
+                i = val_end
+            return bytes(out)
+
+        return rebuild(data, 0)
+
+    @classmethod
+    def _build_cert_with_encoded_default_basic_constraints(cls) -> bytes:
+        """Build a self-signed DER cert (with a SAN) whose
+        BasicConstraints extension explicitly encodes ``cA FALSE`` --
+        the DEFAULT value, which DER requires to be omitted (the
+        correct encoding is an empty SEQUENCE). OpenSSL tolerates the
+        violation; ``cryptography``'s strict parser rejects it with
+        ``ParseError { kind: EncodedDefault, location:
+        ["BasicConstraints::ca"] }``, a divergence observed on
+        real-world certificates.
+        """
+        key = _cert_rsa.generate_private_key(65537, 2048)
+        name = _cert_x509.Name(
+            [_cert_x509.NameAttribute(_cert_NameOID.COMMON_NAME, "bc.example.com")]
+        )
+        now = _cert_datetime.datetime.now(_cert_datetime.timezone.utc)
+        cert = (
+            _cert_x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(key.public_key())
+            .serial_number(_cert_x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + _cert_datetime.timedelta(days=10))
+            .add_extension(
+                _cert_x509.SubjectAlternativeName(
+                    [
+                        _cert_x509.DNSName("bc.example.com"),
+                        _cert_x509.DNSName("www.bc.example.com"),
+                    ]
+                ),
+                critical=False,
+            )
+            .add_extension(
+                _cert_x509.BasicConstraints(ca=False, path_length=None),
+                critical=False,
+            )
+            .sign(key, _cert_hashes.SHA256())
+        )
+        der = cert.public_bytes(_cert_serialization.Encoding.DER)
+        # The BasicConstraints extension: OID 2.5.29.19 (06 03 55 1d 13)
+        # followed by its value, the empty SEQUENCE wrapped in an OCTET
+        # STRING (04 02 30 00). Assert the pattern is unambiguous so a
+        # future encoding change fails loudly here instead of silently
+        # patching the wrong bytes.
+        marker = bytes.fromhex("0603551d13") + bytes.fromhex("04023000")
+        assert der.count(marker) == 1
+        target_off = der.index(marker) + 5  # the OCTET STRING tag byte
+        # Explicitly-encoded DEFAULT: SEQUENCE { BOOLEAN FALSE }
+        new_tlv = bytes.fromhex("0405" "30030101" "00")
+        return cls._rebuild_der_with_patch(der, target_off, new_tlv)
+
+    def test_get_cert_info_recovers_san_from_encoded_default_basic_constraints(
+        self,
+    ) -> None:
+        """End-to-end pin of a real-world divergence (no mocks): a
+        certificate whose BasicConstraints explicitly encodes the
+        DEFAULT ``cA FALSE`` is rejected by ``cryptography``'s strict
+        parser (``EncodedDefault``) but parsed fine by OpenSSL, so
+        ``get_cert_info()`` must recover the SAN through the openssl
+        CLI fallback and keep the pubkey block complete.
+        """
+        from ivre import utils
+
+        if not utils.USE_PYOPENSSL:
+            self.skipTest("pyOpenSSL bindings unavailable in this build")
+        der = self._build_cert_with_encoded_default_basic_constraints()
+        # Assert the divergence actually exists in the installed
+        # cryptography/pyOpenSSL pair: if this stops raising, the
+        # strict parser accepts EncodedDefault and this test's premise
+        # must be re-examined.
+        data = _cert_osslc.load_certificate(_cert_osslc.FILETYPE_ASN1, der)
+        with self.assertRaises(ValueError):
+            data.to_cryptography().extensions.get_extension_for_class(
+                _cert_x509.SubjectAlternativeName
+            )
+        info = utils.get_cert_info(der)
+        self.assertEqual(
+            info.get("san"), ["DNS:bc.example.com", "DNS:www.bc.example.com"]
+        )
+        self.assertEqual(info["subject_text"], "commonName=bc.example.com")
+        self.assertIn("pubkey", info)
+        self.assertIn("exponent", info["pubkey"])
+        self.assertIn("modulus", info["pubkey"])
+        self.assertIn("sha256", info["pubkey"])
 
     @staticmethod
     def _build_ec_cert() -> bytes:
