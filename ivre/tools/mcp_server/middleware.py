@@ -17,15 +17,15 @@
 """ASGI middleware for the IVRE MCP HTTP transport.
 
 This module exposes :class:`PublicUrlRewriteMiddleware`, which rewrites
-the OAuth-discovery URLs that FastMCP / Starlette emit on behalf of the
-MCP server so they reflect the public origin the client actually used,
-rather than a value frozen at server-startup time.
+the OAuth-discovery URLs that the MCP SDK / Starlette emit on behalf of
+the MCP server so they reflect the public origin the client actually
+used, rather than a value frozen at server-startup time.
 
 Rationale
 ---------
 
 ``mcp.server.auth.settings.AuthSettings.resource_server_url`` is captured
-once when the FastMCP application is built. FastMCP then bakes the
+once when the MCP Starlette application is built. The SDK then bakes the
 configured URL into:
 
 * the ``WWW-Authenticate: Bearer ..., resource_metadata="..."`` header

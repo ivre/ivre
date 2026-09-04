@@ -46,12 +46,12 @@ from ivre.web.utils import get_init_flt_for, parse_filter
 from .schemas import SCHEMAS
 
 
-class _McpErrorFallback(Exception):
+class _MCPErrorFallback(Exception):
     """Placeholder used when the optional ``mcp`` dependency is missing.
 
-    The real ``mcp.shared.exceptions.McpError`` is only available when IVRE
+    The real ``mcp.shared.exceptions.MCPError`` is only available when IVRE
     is installed with the ``[mcp]`` extra. We expose a distinct subclass of
-    :class:`Exception` here so that code paths catching ``McpError`` remain
+    :class:`Exception` here so that code paths catching ``MCPError`` remain
     structurally valid without the optional package.
     """
 
@@ -62,17 +62,16 @@ try:
         ClientRegistrationOptions,
         RevocationOptions,
     )
-    from mcp.server.fastmcp import FastMCP
-    from mcp.shared.exceptions import McpError
-    from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ErrorData
+    from mcp.server.mcpserver import MCPServer
+    from mcp.shared.exceptions import MCPError
+    from mcp.types import INTERNAL_ERROR, INVALID_PARAMS
 except ImportError as exc:  # pragma: no cover - optional dependency
     _MCP_IMPORT_ERROR: ImportError | None = exc
-    FastMCP = None
+    MCPServer = None
     AuthSettings = None
     ClientRegistrationOptions = None
     RevocationOptions = None
-    McpError = _McpErrorFallback
-    ErrorData = None
+    MCPError = _MCPErrorFallback
     INVALID_PARAMS = 0
     INTERNAL_ERROR = 0
 else:
@@ -101,12 +100,10 @@ def _unseal(token: str) -> dict[str, Any] | list[Any]:
             zlib.decompress(base64.urlsafe_b64decode(token.encode() + b"=="))
         )
     except Exception as exc:
-        raise McpError(
-            ErrorData(code=INVALID_PARAMS, message="Invalid filter")
-        ) from exc
+        raise MCPError(INVALID_PARAMS, "Invalid filter") from exc
     if isinstance(decoded, (dict, list)):
         return decoded
-    raise McpError(ErrorData(code=INVALID_PARAMS, message="Invalid filter"))
+    raise MCPError(INVALID_PARAMS, "Invalid filter")
 
 
 _INSTRUCTIONS = (
@@ -129,14 +126,16 @@ _INSTRUCTIONS = (
 )
 
 
-def _build_server(**fastmcp_kwargs: Any) -> Any:
-    """Build a :class:`FastMCP` instance with the IVRE tools registered.
+def _build_server(**mcpserver_kwargs: Any) -> Any:
+    """Build a :class:`MCPServer` instance with the IVRE tools registered.
 
-    Extra keyword arguments are forwarded to :class:`FastMCP` (e.g. to
-    enable HTTP auth or to configure the Streamable-HTTP transport).
+    Extra keyword arguments are forwarded to :class:`MCPServer` (e.g. to
+    enable HTTP auth). Transport configuration (bind address, port,
+    endpoint path) is passed to ``run()`` / ``streamable_http_app()``,
+    not here.
     """
     global mcp  # noqa: PLW0603
-    mcp = FastMCP("ivre", instructions=_INSTRUCTIONS, **fastmcp_kwargs)
+    mcp = MCPServer("ivre", instructions=_INSTRUCTIONS, **mcpserver_kwargs)
     _register_tools()
     load_plugins("ivre.plugins.mcp_server", globals())
     return mcp
@@ -168,9 +167,7 @@ def _parse(purpose: str, flt: FilterType | None) -> Any:
     # Enforce authentication when WEB_AUTH_ENABLED is set and the call
     # arrives over an HTTP transport (i.e. auth context is expected).
     if config.WEB_AUTH_ENABLED and _HTTP_AUTH_REQUIRED and user is None:
-        raise McpError(
-            ErrorData(code=INVALID_PARAMS, message="Authentication required")
-        )
+        raise MCPError(INVALID_PARAMS, "Authentication required")
     base_flt = get_init_flt_for(user, real)
     if flt is None:
         return base_flt
@@ -178,7 +175,7 @@ def _parse(purpose: str, flt: FilterType | None) -> Any:
     try:
         return real.flt_and(base_flt, parse_filter(real, raw))
     except ValueError as exc:
-        raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+        raise MCPError(INVALID_PARAMS, str(exc)) from exc
 
 
 def _parse_sort(sort_list: list[str] | None) -> list[tuple[str, int]] | None:
@@ -194,7 +191,7 @@ def _parse_sort(sort_list: list[str] | None) -> list[tuple[str, int]] | None:
 
 
 def _require_notes_backend() -> None:
-    """Raise :class:`McpError` when the configured backend does
+    """Raise :class:`MCPError` when the configured backend does
     not implement the notes purpose.
 
     Every notes MCP tool (``note_query`` / ``note_set`` /
@@ -212,15 +209,13 @@ def _require_notes_backend() -> None:
     ``db.auth is None`` guard in :mod:`ivre.tools.authcli`.
     """
     if db.notes is None:
-        raise McpError(
-            ErrorData(
-                code=INTERNAL_ERROR,
-                message=(
-                    "Notes backend not available. The notes purpose "
-                    "is implemented on MongoDB only at v1; set "
-                    "DB_NOTES (or DB) to a mongodb:// URL to enable it."
-                ),
-            )
+        raise MCPError(
+            INTERNAL_ERROR,
+            (
+                "Notes backend not available. The notes purpose "
+                "is implemented on MongoDB only at v1; set "
+                "DB_NOTES (or DB) to a mongodb:// URL to enable it."
+            ),
         )
 
 
@@ -379,18 +374,14 @@ def _register_tools() -> None:
             kwargs["output"] = str2regexp(output)
         if values is not None:
             if name is None:
-                raise McpError(
-                    ErrorData(
-                        code=INVALID_PARAMS,
-                        message="'name' must be set when 'values' is used",
-                    )
+                raise MCPError(
+                    INVALID_PARAMS,
+                    "'name' must be set when 'values' is used",
                 )
             if isinstance(kwargs["name"], re.Pattern):
-                raise McpError(
-                    ErrorData(
-                        code=INVALID_PARAMS,
-                        message="'name' cannot be a regular expression when 'values' is used",
-                    )
+                raise MCPError(
+                    INVALID_PARAMS,
+                    "'name' cannot be a regular expression when 'values' is used",
                 )
             kwargs["values"] = values
         return seal(HTTP_DB[purpose].searchscript(**kwargs))
@@ -490,10 +481,10 @@ def _register_tools() -> None:
         """Count records matching a filter."""
         try:
             return int(REAL_DB[purpose].count(_parse(purpose, flt)))
-        except McpError:
+        except MCPError:
             raise
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def get(
@@ -519,10 +510,10 @@ def _register_tools() -> None:
                 )
             ]
             return json.dumps(records, default=serialize)
-        except McpError:
+        except MCPError:
             raise
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def topvalues(
@@ -566,10 +557,10 @@ def _register_tools() -> None:
                 {"value": entry["_id"], "count": entry["count"]} for entry in raw
             ]
             return json.dumps(results, default=serialize)
-        except McpError:
+        except MCPError:
             raise
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def distinct(
@@ -593,10 +584,10 @@ def _register_tools() -> None:
             parsed_flt = _parse(purpose, flt)
             values = list(REAL_DB[purpose].distinct(field, flt=parsed_flt, limit=limit))
             return json.dumps(values, default=serialize)
-        except McpError:
+        except MCPError:
             raise
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def describe_schema(purpose: AllPurpose) -> str:
@@ -630,7 +621,7 @@ def _register_tools() -> None:
         try:
             cache = _get_nmap_service_values()
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
         if field == "service_name":
             return json.dumps(sorted(cache.get("service_names", set())))
@@ -659,7 +650,7 @@ def _register_tools() -> None:
         try:
             rec = db.rir.get_best(addr)
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
         if rec is None:
             return json.dumps(None)
         rec.pop("_id", None)
@@ -697,7 +688,7 @@ def _register_tools() -> None:
                 records.append(rec)
             return json.dumps(records, default=serialize)
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def rir_count(
@@ -711,7 +702,7 @@ def _register_tools() -> None:
         try:
             return int(db.rir.count(_rir_filter(query, country)))
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     # --- IP range enumeration (MaxMind / APNIC selectors) ---
 
@@ -760,26 +751,20 @@ def _register_tools() -> None:
             iprange_tool.OUTPUT_CIDRS,
             iprange_tool.OUTPUT_ADDRS,
         ):
-            raise McpError(
-                ErrorData(
-                    code=INVALID_PARAMS,
-                    message=(
-                        f"invalid output mode {output!r}; expected one of "
-                        "count / ranges / cidrs / addrs"
-                    ),
-                )
+            raise MCPError(
+                INVALID_PARAMS,
+                (
+                    f"invalid output mode {output!r}; expected one of "
+                    "count / ranges / cidrs / addrs"
+                ),
             )
         if (range_start is None) != (range_stop is None):
-            raise McpError(
-                ErrorData(
-                    code=INVALID_PARAMS,
-                    message="range_start and range_stop must both be set",
-                )
+            raise MCPError(
+                INVALID_PARAMS,
+                "range_start and range_stop must both be set",
             )
         if limit < 0:
-            raise McpError(
-                ErrorData(code=INVALID_PARAMS, message="limit must be non-negative"),
-            )
+            raise MCPError(INVALID_PARAMS, "limit must be non-negative")
         address_range = (range_start, range_stop) if range_start else None
         try:
             ranges = iprange_tool.select_ipranges(
@@ -799,13 +784,9 @@ def _register_tools() -> None:
                 addrs_cap=10_000,
             )
         except iprange_tool.IPRangeError as exc:
-            raise McpError(
-                ErrorData(code=INVALID_PARAMS, message=str(exc)),
-            ) from exc
+            raise MCPError(INVALID_PARAMS, str(exc)) from exc
         except Exception as exc:
-            raise McpError(
-                ErrorData(code=INTERNAL_ERROR, message=str(exc)),
-            ) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
         payload: dict[str, Any] = {"count": result["count"]}
         if output != iprange_tool.OUTPUT_COUNT:
             payload[output] = result["value"]
@@ -834,9 +815,7 @@ def _register_tools() -> None:
         _require_notes_backend()
         user = current_user_email()
         if config.WEB_AUTH_ENABLED and _HTTP_AUTH_REQUIRED and user is None:
-            raise McpError(
-                ErrorData(code=INVALID_PARAMS, message="Authentication required")
-            )
+            raise MCPError(INVALID_PARAMS, "Authentication required")
         return user or "mcp-client"
 
     @mcp.tool()
@@ -878,7 +857,7 @@ def _register_tools() -> None:
         limit = max(1, min(limit, 1000))
         # Clamp ``skip`` to non-negative: pymongo raises
         # ``OperationFailure`` on negative ``skip`` and the
-        # ``McpError`` we would surface ("INTERNAL_ERROR")
+        # ``MCPError`` we would surface ("INTERNAL_ERROR")
         # would obscure the parameter issue.  Mirrors the
         # existing ``limit`` clamp pattern on the generic
         # ``get`` MCP tool.
@@ -886,11 +865,9 @@ def _register_tools() -> None:
         try:
             if entity_key is not None:
                 if entity_type is None:
-                    raise McpError(
-                        ErrorData(
-                            code=INVALID_PARAMS,
-                            message="entity_type is required when entity_key is set",
-                        )
+                    raise MCPError(
+                        INVALID_PARAMS,
+                        "entity_type is required when entity_key is set",
                     )
                 note = db.notes.get_note(entity_type, entity_key)
                 return json.dumps([note] if note is not None else [], default=serialize)
@@ -902,12 +879,12 @@ def _register_tools() -> None:
                 skip=skip,
             )
             return json.dumps(notes, default=serialize)
-        except McpError:
+        except MCPError:
             raise
         except ValueError as exc:
-            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+            raise MCPError(INVALID_PARAMS, str(exc)) from exc
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def note_set(
@@ -969,14 +946,12 @@ def _register_tools() -> None:
             # calling LLM can distinguish them.  HTTP routes
             # (see ``ivre/web/app.py``) map the same
             # exceptions to specific status codes.
-            raise McpError(
-                ErrorData(
-                    code=INVALID_PARAMS,
-                    message=f"{type(exc).__name__}: {exc}",
-                )
+            raise MCPError(
+                INVALID_PARAMS,
+                f"{type(exc).__name__}: {exc}",
             ) from exc
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
         return json.dumps(note, default=serialize)
 
     @mcp.tool()
@@ -990,9 +965,9 @@ def _register_tools() -> None:
         try:
             return bool(db.notes.delete_note(entity_type, entity_key))
         except ValueError as exc:
-            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+            raise MCPError(INVALID_PARAMS, str(exc)) from exc
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
     @mcp.tool()
     def note_revisions_list(entity_type: str, entity_key: str) -> str:
@@ -1007,9 +982,9 @@ def _register_tools() -> None:
         try:
             revisions = db.notes.list_note_revisions(entity_type, entity_key)
         except ValueError as exc:
-            raise McpError(ErrorData(code=INVALID_PARAMS, message=str(exc))) from exc
+            raise MCPError(INVALID_PARAMS, str(exc)) from exc
         except Exception as exc:
-            raise McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from exc
+            raise MCPError(INTERNAL_ERROR, str(exc)) from exc
         return json.dumps(revisions, default=serialize)
 
     # The audit-log purpose is intentionally *not* exposed via
@@ -1280,11 +1255,10 @@ def _run_http(args: argparse.Namespace) -> None:
             "access to the database.",
         )
 
-    fastmcp_kwargs: dict[str, Any] = {
-        "host": args.bind,
-        "port": args.port,
-        "streamable_http_path": args.path,
-    }
+    # Since mcp 2.x, transport configuration (bind address, port,
+    # endpoint path) is passed to ``run()`` / ``streamable_http_app()``
+    # below; the constructor only receives identity and auth settings.
+    mcpserver_kwargs: dict[str, Any] = {}
 
     if use_auth:
         from .auth import (  # pylint: disable=import-outside-toplevel
@@ -1323,8 +1297,8 @@ def _run_http(args: argparse.Namespace) -> None:
                 or config.WEB_AUTH_BASE_URL
                 or sentinel_origin
             )
-            fastmcp_kwargs["auth_server_provider"] = IvreOAuthProvider(public_base)
-            fastmcp_kwargs["auth"] = AuthSettings(
+            mcpserver_kwargs["auth_server_provider"] = IvreOAuthProvider(public_base)
+            mcpserver_kwargs["auth"] = AuthSettings(
                 issuer_url=sentinel_origin,
                 resource_server_url=f"{sentinel_origin}{args.path}",
                 client_registration_options=ClientRegistrationOptions(
@@ -1338,8 +1312,8 @@ def _run_http(args: argparse.Namespace) -> None:
                 public_base,
             )
         else:
-            fastmcp_kwargs["token_verifier"] = IvreTokenVerifier()
-            fastmcp_kwargs["auth"] = AuthSettings(
+            mcpserver_kwargs["token_verifier"] = IvreTokenVerifier()
+            mcpserver_kwargs["auth"] = AuthSettings(
                 issuer_url=sentinel_origin,
                 resource_server_url=f"{sentinel_origin}{args.path}",
             )
@@ -1356,7 +1330,7 @@ def _run_http(args: argparse.Namespace) -> None:
             args.path,
         )
 
-    _build_server(**fastmcp_kwargs)
+    _build_server(**mcpserver_kwargs)
     if use_auth:
         # pylint: disable=import-outside-toplevel
         import asyncio
@@ -1365,7 +1339,14 @@ def _run_http(args: argparse.Namespace) -> None:
 
         from .middleware import PublicUrlRewriteMiddleware
 
-        app = mcp.streamable_http_app()
+        # ``host`` on the app factory does not bind anything (uvicorn
+        # does, below); it only decides whether the SDK's DNS-rebinding
+        # protection auto-enables (loopback binds only), matching what
+        # the mcp 1.x constructor parameter did.
+        app = mcp.streamable_http_app(
+            host=args.bind,
+            streamable_http_path=args.path,
+        )
         app.add_middleware(PublicUrlRewriteMiddleware)
         uvicorn_config = uvicorn.Config(
             app,
@@ -1375,4 +1356,9 @@ def _run_http(args: argparse.Namespace) -> None:
         )
         asyncio.run(uvicorn.Server(uvicorn_config).serve())
     else:
-        mcp.run(transport="streamable-http")
+        mcp.run(
+            transport="streamable-http",
+            host=args.bind,
+            port=args.port,
+            streamable_http_path=args.path,
+        )

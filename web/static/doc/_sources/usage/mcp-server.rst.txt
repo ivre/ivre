@@ -282,7 +282,7 @@ Reverse proxy (nginx)
 ---------------------
 
 For production deployments, terminate TLS in nginx and reverse-proxy
-to the MCP HTTP server. FastMCP registers the endpoint at exactly
+to the MCP HTTP server. The MCP SDK registers the endpoint at exactly
 ``/mcp`` (no trailing slash), so use an exact-match location: a
 prefix ``location /mcp/`` block would trigger nginx's automatic
 trailing-slash 301 and Starlette's ``/mcp/`` -> ``/mcp`` redirect,

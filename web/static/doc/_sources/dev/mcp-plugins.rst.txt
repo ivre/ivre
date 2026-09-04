@@ -24,9 +24,9 @@ argument, the ``scope`` dictionary, which is the module globals of
 ``ivre.tools.mcp_server``. The useful entries in ``scope`` are:
 
 - ``scope["mcp"]`` -- the
-  :class:`mcp.server.fastmcp.FastMCP` instance the tool is running. Use
-  its ``@mcp.tool()`` / ``@mcp.resource(...)`` decorators to register
-  tools and resources.
+  :class:`mcp.server.mcpserver.MCPServer` instance the tool is running.
+  Use its ``@mcp.tool()`` / ``@mcp.resource(...)`` decorators to
+  register tools and resources.
 - ``scope["seal"]`` -- callable ``(dict | list) -> str`` that turns an
   IVRE filter (as produced by ``HTTP_DB[purpose].searchX(...)``) into
   the opaque token the MCP client exchanges with the server. Every
@@ -37,7 +37,7 @@ argument, the ``scope`` dictionary, which is the module globals of
   queries (``count``, ``get``, ``topvalues``, ``distinct``, ...).
 - ``scope["_parse"]`` -- callable ``(purpose: str, flt: str | None)
   -> IVRE filter`` that unseals a user-supplied token against the
-  right backend and raises ``McpError(INVALID_PARAMS)`` on invalid
+  right backend and raises ``MCPError(INVALID_PARAMS)`` on invalid
   input. Every action tool that accepts a ``flt`` argument **must**
   pass it through ``_parse`` before handing it to the backend.
 - ``scope["AllPurpose"]`` / ``scope["ActivePurpose"]`` /
@@ -56,8 +56,8 @@ port)::
     # mypkg/mcp.py
     import re
 
-    from mcp.shared.exceptions import McpError
-    from mcp.types import INTERNAL_ERROR, ErrorData
+    from mcp.shared.exceptions import MCPError
+    from mcp.types import INTERNAL_ERROR
 
 
     def install(scope: dict) -> None:
@@ -82,12 +82,10 @@ port)::
                 real = REAL_DB[purpose]
                 narrowed = real.flt_and(parsed, real.searchopenport())
                 return int(real.count(narrowed))
-            except McpError:
+            except MCPError:
                 raise
             except Exception as exc:
-                raise McpError(
-                    ErrorData(code=INTERNAL_ERROR, message=str(exc))
-                ) from exc
+                raise MCPError(INTERNAL_ERROR, str(exc)) from exc
 
 The matching ``pyproject.toml`` entry::
 
@@ -103,10 +101,10 @@ Conventions
 - **Pick the narrowest purpose type.** ``PassivePurpose`` if a tool
   only makes sense against passive data, ``ActivePurpose`` for
   nmap/view-only tools, otherwise ``AllPurpose``.
-- **Error handling.** Wrap action-tool bodies with ``except McpError:
+- **Error handling.** Wrap action-tool bodies with ``except MCPError:
   raise`` first, then ``except Exception as exc: raise
-  McpError(ErrorData(code=INTERNAL_ERROR, message=str(exc))) from
-  exc`` -- without this pattern, raw tracebacks leak through MCP.
+  MCPError(INTERNAL_ERROR, str(exc)) from exc`` -- without this
+  pattern, raw tracebacks leak through MCP.
 - **Strip ``_id`` from record payloads** before returning them, matching
   the built-in ``get`` tool. The MongoDB ``_id`` is an internal
   identifier and serializes poorly to JSON.

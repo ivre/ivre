@@ -123,9 +123,9 @@ argument, the <code class="docutils literal notranslate"><span class="pre">scope
 <code class="docutils literal notranslate"><span class="pre">ivre.tools.mcp_server</span></code>. The useful entries in <code class="docutils literal notranslate"><span class="pre">scope</span></code> are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;mcp&quot;]</span></code> – the
-<code class="xref py py-class docutils literal notranslate"><span class="pre">mcp.server.fastmcp.FastMCP</span></code> instance the tool is running. Use
-its <code class="docutils literal notranslate"><span class="pre">&#64;mcp.tool()</span></code> / <code class="docutils literal notranslate"><span class="pre">&#64;mcp.resource(...)</span></code> decorators to register
-tools and resources.</p></li>
+<code class="xref py py-class docutils literal notranslate"><span class="pre">mcp.server.mcpserver.MCPServer</span></code> instance the tool is running.
+Use its <code class="docutils literal notranslate"><span class="pre">&#64;mcp.tool()</span></code> / <code class="docutils literal notranslate"><span class="pre">&#64;mcp.resource(...)</span></code> decorators to
+register tools and resources.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;seal&quot;]</span></code> – callable <code class="docutils literal notranslate"><span class="pre">(dict</span> <span class="pre">|</span> <span class="pre">list)</span> <span class="pre">-&gt;</span> <span class="pre">str</span></code> that turns an
 IVRE filter (as produced by <code class="docutils literal notranslate"><span class="pre">HTTP_DB[purpose].searchX(...)</span></code>) into
 the opaque token the MCP client exchanges with the server. Every
@@ -136,7 +136,7 @@ to build filters; keyed by <code class="docutils literal notranslate"><span clas
 queries (<code class="docutils literal notranslate"><span class="pre">count</span></code>, <code class="docutils literal notranslate"><span class="pre">get</span></code>, <code class="docutils literal notranslate"><span class="pre">topvalues</span></code>, <code class="docutils literal notranslate"><span class="pre">distinct</span></code>, …).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;_parse&quot;]</span></code> – callable <code class="docutils literal notranslate"><span class="pre">(purpose:</span> <span class="pre">str,</span> <span class="pre">flt:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None)</span>
 <span class="pre">-&gt;</span> <span class="pre">IVRE</span> <span class="pre">filter</span></code> that unseals a user-supplied token against the
-right backend and raises <code class="docutils literal notranslate"><span class="pre">McpError(INVALID_PARAMS)</span></code> on invalid
+right backend and raises <code class="docutils literal notranslate"><span class="pre">MCPError(INVALID_PARAMS)</span></code> on invalid
 input. Every action tool that accepts a <code class="docutils literal notranslate"><span class="pre">flt</span></code> argument <strong>must</strong>
 pass it through <code class="docutils literal notranslate"><span class="pre">_parse</span></code> before handing it to the backend.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">scope[&quot;AllPurpose&quot;]</span></code> / <code class="docutils literal notranslate"><span class="pre">scope[&quot;ActivePurpose&quot;]</span></code> /
@@ -154,8 +154,8 @@ port):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># mypkg/mcp.py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.shared.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">McpError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">ErrorData</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.shared.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">INTERNAL_ERROR</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">install</span><span class="p">(</span><span class="n">scope</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -180,12 +180,10 @@ port):</p>
             <span class="n">real</span> <span class="o">=</span> <span class="n">REAL_DB</span><span class="p">[</span><span class="n">purpose</span><span class="p">]</span>
             <span class="n">narrowed</span> <span class="o">=</span> <span class="n">real</span><span class="o">.</span><span class="n">flt_and</span><span class="p">(</span><span class="n">parsed</span><span class="p">,</span> <span class="n">real</span><span class="o">.</span><span class="n">searchopenport</span><span class="p">())</span>
             <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">real</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">narrowed</span><span class="p">))</span>
-        <span class="k">except</span> <span class="n">McpError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">MCPError</span><span class="p">:</span>
             <span class="k">raise</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">McpError</span><span class="p">(</span>
-                <span class="n">ErrorData</span><span class="p">(</span><span class="n">code</span><span class="o">=</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+            <span class="k">raise</span> <span class="n">MCPError</span><span class="p">(</span><span class="n">INTERNAL_ERROR</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 </pre></div>
 </div>
 <p>The matching <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> entry:</p>
@@ -203,10 +201,10 @@ manually; always go through <code class="docutils literal notranslate"><span cla
 <li><p><strong>Pick the narrowest purpose type.</strong> <code class="docutils literal notranslate"><span class="pre">PassivePurpose</span></code> if a tool
 only makes sense against passive data, <code class="docutils literal notranslate"><span class="pre">ActivePurpose</span></code> for
 nmap/view-only tools, otherwise <code class="docutils literal notranslate"><span class="pre">AllPurpose</span></code>.</p></li>
-<li><p><strong>Error handling.</strong> Wrap action-tool bodies with <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">McpError:</span>
+<li><p><strong>Error handling.</strong> Wrap action-tool bodies with <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">MCPError:</span>
 <span class="pre">raise</span></code> first, then <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">Exception</span> <span class="pre">as</span> <span class="pre">exc:</span> <span class="pre">raise</span>
-<span class="pre">McpError(ErrorData(code=INTERNAL_ERROR,</span> <span class="pre">message=str(exc)))</span> <span class="pre">from</span>
-<span class="pre">exc</span></code> – without this pattern, raw tracebacks leak through MCP.</p></li>
+<span class="pre">MCPError(INTERNAL_ERROR,</span> <span class="pre">str(exc))</span> <span class="pre">from</span> <span class="pre">exc</span></code> – without this
+pattern, raw tracebacks leak through MCP.</p></li>
 <li><p><strong>Strip ``_id`` from record payloads</strong> before returning them, matching
 the built-in <code class="docutils literal notranslate"><span class="pre">get</span></code> tool. The MongoDB <code class="docutils literal notranslate"><span class="pre">_id</span></code> is an internal
 identifier and serializes poorly to JSON.</p></li>

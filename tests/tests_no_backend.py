@@ -1061,7 +1061,7 @@ class RirMcpToolsTests(unittest.TestCase):
     def setUpClass(cls):
         from ivre.tools import mcp_server
 
-        if mcp_server.FastMCP is None:
+        if mcp_server.MCPServer is None:
             raise unittest.SkipTest("mcp dependency not installed")
         cls.mcp = mcp_server._build_server()
 
@@ -1083,8 +1083,8 @@ class RirMcpToolsTests(unittest.TestCase):
 
         tools = asyncio.run(self.mcp.list_tools())
         spec = next(t for t in tools if t.name == "rir_lookup")
-        # FastMCP exposes JSON-Schema-shaped inputSchema.
-        props = spec.inputSchema.get("properties", {})
+        # MCPServer exposes a JSON-Schema-shaped input_schema.
+        props = spec.input_schema.get("properties", {})
         self.assertIn("addr", props)
 
     def test_rir_search_signature(self):
@@ -1093,7 +1093,7 @@ class RirMcpToolsTests(unittest.TestCase):
 
         tools = asyncio.run(self.mcp.list_tools())
         spec = next(t for t in tools if t.name == "rir_search")
-        props = spec.inputSchema.get("properties", {})
+        props = spec.input_schema.get("properties", {})
         for key in ("query", "country", "limit"):
             self.assertIn(key, props)
 
@@ -1115,7 +1115,7 @@ class SearchscriptMcpToolsTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         from ivre.tools import mcp_server  # noqa: PLC0415
 
-        if mcp_server.FastMCP is None:
+        if mcp_server.MCPServer is None:
             raise unittest.SkipTest("mcp dependency not installed")
         cls.srv = mcp_server._build_server()
         # Wrap in staticmethod so accessing via self. does not bind self as
@@ -1130,26 +1130,26 @@ class SearchscriptMcpToolsTests(unittest.TestCase):
 
         tools = asyncio.run(self.srv.list_tools())
         spec = next(t for t in tools if t.name == "searchscript")
-        props = spec.inputSchema.get("properties", {})
+        props = spec.input_schema.get("properties", {})
         self.assertIn("values", props)
 
     def test_values_requires_name(self) -> None:
         """``values`` without ``name`` raises INVALID_PARAMS."""
-        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+        from mcp.shared.exceptions import MCPError  # noqa: PLC0415
 
-        with self.assertRaises(McpError) as ctx:
+        with self.assertRaises(MCPError) as ctx:
             self.searchscript(purpose="nmap", values={"fingerprint": "abc"})
-        self.assertIn("name", ctx.exception.error.message)
+        self.assertIn("name", ctx.exception.message)
 
     def test_values_rejects_regex_name(self) -> None:
         """Regex ``name`` combined with ``values`` raises INVALID_PARAMS."""
-        from mcp.shared.exceptions import McpError  # noqa: PLC0415
+        from mcp.shared.exceptions import MCPError  # noqa: PLC0415
 
-        with self.assertRaises(McpError) as ctx:
+        with self.assertRaises(MCPError) as ctx:
             self.searchscript(
                 purpose="nmap", name="/ssh-.*/", values={"fingerprint": "abc"}
             )
-        self.assertIn("regular expression", ctx.exception.error.message)
+        self.assertIn("regular expression", ctx.exception.message)
 
     def test_values_happy_path(self) -> None:
         """Exact ``name`` + ``values`` returns a non-empty sealed filter token."""
@@ -1182,7 +1182,7 @@ class AuditMcpToolsTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         from ivre.tools import mcp_server  # noqa: PLC0415
 
-        if mcp_server.FastMCP is None:
+        if mcp_server.MCPServer is None:
             raise unittest.SkipTest("mcp dependency not installed")
         cls.srv = mcp_server._build_server()
 
@@ -18027,17 +18027,17 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         # The MCP notes tools' first line is
         # ``_require_notes_backend()``; on a backend that
         # does not implement the notes purpose (any non-Mongo
-        # at v1) that helper raises a friendly ``McpError``
+        # at v1) that helper raises a friendly ``MCPError``
         # with ``INTERNAL_ERROR`` so the LLM sees a
         # configuration message rather than the cryptic
         # ``AttributeError: 'NoneType' object has no
         # attribute '<method>'`` the catch-all handler would
         # otherwise produce.  Pin the helper directly --
-        # exercising the tools through FastMCP would require
+        # exercising the tools through MCPServer would require
         # the full server harness, while the helper carries
         # the contract on its own.
         try:
-            from mcp.shared.exceptions import McpError as _McpError  # noqa: PLC0415
+            from mcp.shared.exceptions import MCPError as _MCPError  # noqa: PLC0415
         except ImportError:
             self.skipTest("mcp package not installed")
 
@@ -18047,11 +18047,11 @@ class MongoDBNotesIndexTests(unittest.TestCase):
         stub_db = mock.Mock()
         stub_db.notes = None
         with mock.patch.object(sys.modules["ivre.tools.mcp_server"], "db", stub_db):
-            with self.assertRaises(_McpError) as ctx:
+            with self.assertRaises(_MCPError) as ctx:
                 _require_notes_backend()
         # The message names the supported backend and the
         # config knob so operators see the fix path.
-        msg = ctx.exception.error.message
+        msg = ctx.exception.message
         self.assertIn("Notes backend not available", msg)
         self.assertIn("mongodb://", msg)
         # ``mcp_db`` is the real module-level ``db`` -- not

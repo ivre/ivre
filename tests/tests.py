@@ -5499,7 +5499,7 @@ class IvreTests(unittest.TestCase):
 
     def test_mcp_middleware(self):
         """Exercise PublicUrlRewriteMiddleware against a stub Starlette
-        app that mimics what FastMCP emits when ``AuthSettings`` is
+        app that mimics what the MCP SDK emits when ``AuthSettings`` is
         configured with the sentinel URL. The middleware is the
         component that translates the sentinel into the request-derived
         public origin (Host: + X-Forwarded-Proto:).
@@ -5508,7 +5508,10 @@ class IvreTests(unittest.TestCase):
             import asyncio  # noqa: PLC0415
             import json as _json  # noqa: PLC0415
 
-            import httpx  # noqa: PLC0415
+            # httpx2 rather than httpx: it is the HTTP client the mcp
+            # package (2.x) depends on, so it is present whenever the
+            # [mcp] extra is installed; the API is the same.
+            import httpx2  # noqa: PLC0415
             from starlette.applications import Starlette  # noqa: PLC0415
             from starlette.responses import JSONResponse, Response  # noqa: PLC0415
             from starlette.routing import Route  # noqa: PLC0415
@@ -5558,8 +5561,8 @@ class IvreTests(unittest.TestCase):
         app.add_middleware(PublicUrlRewriteMiddleware)
 
         async def _run():  # type: ignore[no-untyped-def]
-            transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(
+            transport = httpx2.ASGITransport(app=app)
+            async with httpx2.AsyncClient(
                 transport=transport, base_url="http://testserver"
             ) as client:
                 # 1. WWW-Authenticate rewrite using Host:/X-Forwarded-Proto:

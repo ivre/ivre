@@ -495,7 +495,7 @@ single-user local development.</p></li>
 <section id="reverse-proxy-nginx">
 <h3>Reverse proxy (nginx)<a class="headerlink" href="#reverse-proxy-nginx" title="Link to this heading"></a></h3>
 <p>For production deployments, terminate TLS in nginx and reverse-proxy
-to the MCP HTTP server. FastMCP registers the endpoint at exactly
+to the MCP HTTP server. The MCP SDK registers the endpoint at exactly
 <code class="docutils literal notranslate"><span class="pre">/mcp</span></code> (no trailing slash), so use an exact-match location: a
 prefix <code class="docutils literal notranslate"><span class="pre">location</span> <span class="pre">/mcp/</span></code> block would trigger nginx’s automatic
 trailing-slash 301 and Starlette’s <code class="docutils literal notranslate"><span class="pre">/mcp/</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">/mcp</span></code> redirect,
