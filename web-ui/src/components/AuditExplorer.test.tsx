@@ -108,14 +108,22 @@ function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
   };
 }
 
-let currentSearch = "";
+// Render-pure location probe: the current search string is emitted
+// into the DOM (hidden) and read back through ``currentSearch()``,
+// instead of reassigning a module-level variable during render.
 function LocationProbe() {
-  currentSearch = useLocation().search;
-  return null;
+  return (
+    <output hidden data-testid="location-search">
+      {useLocation().search}
+    </output>
+  );
+}
+
+function currentSearch(): string {
+  return screen.getByTestId("location-search").textContent ?? "";
 }
 
 function renderExplorer(initialUrl = "/audit/explorer") {
-  currentSearch = "";
   return render(
     <MemoryRouter initialEntries={[initialUrl]}>
       <Routes>
@@ -229,7 +237,7 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     fireEvent.change(screen.getByTestId("audit-explorer-type-select"), {
       target: { value: "oversize_query" },
     });
-    expect(currentSearch).toContain("type=oversize_query");
+    expect(currentSearch()).toContain("type=oversize_query");
   });
 
   it("offers the auth event type with a human label and writes ?type=auth", () => {
@@ -241,7 +249,7 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     expect(authOption).toBeDefined();
     expect(authOption?.textContent).toBe("Authentication");
     fireEvent.change(select, { target: { value: "auth" } });
-    expect(currentSearch).toContain("type=auth");
+    expect(currentSearch()).toContain("type=auth");
   });
 
   it("removes ?type= when reset to 'all'", () => {
@@ -249,7 +257,7 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     fireEvent.change(screen.getByTestId("audit-explorer-type-select"), {
       target: { value: "all" },
     });
-    expect(currentSearch).not.toContain("type=");
+    expect(currentSearch()).not.toContain("type=");
   });
 
   it("stores since as a canonical UTC ISO (Z) string in the URL", () => {
@@ -259,7 +267,7 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     });
     // URL-encoded ':' is %3A; assert the decoded form carries a
     // Z-suffixed ISO instant equal to the typed local time.
-    const params = new URLSearchParams(currentSearch);
+    const params = new URLSearchParams(currentSearch());
     const since = params.get("since");
     expect(since).toBeTruthy();
     expect(since).toMatch(/Z$/);
@@ -275,13 +283,13 @@ describe("AuditExplorer filter <-> URL wiring", () => {
       target: { value: "carol@example.org" },
     });
     // Nothing committed before the debounce elapses.
-    expect(currentSearch).not.toContain("user=");
+    expect(currentSearch()).not.toContain("user=");
     // Flush the debounce timer *and* the React re-render it
     // schedules (the setSearchParams in the timeout callback).
     act(() => {
       vi.advanceTimersByTime(350);
     });
-    expect(currentSearch).toContain("user=carol%40example.org");
+    expect(currentSearch()).toContain("user=carol%40example.org");
   });
 
   it("Clear removes every filter param", () => {
@@ -290,9 +298,9 @@ describe("AuditExplorer filter <-> URL wiring", () => {
         "&since=2026-05-01T00:00:00.000Z",
     );
     fireEvent.click(screen.getByTestId("audit-explorer-clear"));
-    expect(currentSearch).not.toContain("type=");
-    expect(currentSearch).not.toContain("user=");
-    expect(currentSearch).not.toContain("since=");
+    expect(currentSearch()).not.toContain("type=");
+    expect(currentSearch()).not.toContain("user=");
+    expect(currentSearch()).not.toContain("since=");
   });
 
   it("a pending user-email debounce does not clobber a later filter change", () => {
@@ -311,13 +319,13 @@ describe("AuditExplorer filter <-> URL wiring", () => {
     fireEvent.change(screen.getByTestId("audit-explorer-type-select"), {
       target: { value: "upload" },
     });
-    expect(currentSearch).toContain("type=upload");
+    expect(currentSearch()).toContain("type=upload");
 
     act(() => {
       vi.advanceTimersByTime(350);
     });
 
-    const params = new URLSearchParams(currentSearch);
+    const params = new URLSearchParams(currentSearch());
     expect(params.get("type")).toBe("upload"); // not clobbered
     expect(params.get("user")).toBe("carol@example.org");
   });
@@ -359,7 +367,7 @@ describe("AuditExplorer detail sheet", () => {
     ) as HTMLElement;
     fireEvent.click(row);
 
-    expect(currentSearch).toContain(`event=${"a".repeat(32)}`);
+    expect(currentSearch()).toContain(`event=${"a".repeat(32)}`);
     await waitFor(() =>
       expect(
         screen.getByTestId("audit-event-detail-sheet"),
@@ -425,11 +433,11 @@ describe("AuditExplorer detail sheet", () => {
         `[data-event-id="${"b".repeat(32)}"]`,
       ) as HTMLElement,
     );
-    expect(currentSearch).toContain("event=");
+    expect(currentSearch()).toContain("event=");
 
     // Radix Dialog close button carries an accessible name.
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
-    await waitFor(() => expect(currentSearch).not.toContain("event="));
+    await waitFor(() => expect(currentSearch()).not.toContain("event="));
   });
 
   it("keeps the sheet closed for an empty ?event= (no blank sheet)", () => {

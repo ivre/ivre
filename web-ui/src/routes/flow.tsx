@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { FlowDetailSheet } from "@/components/FlowDetailSheet";
@@ -60,16 +60,17 @@ function FlowRouteInner() {
   // the URL so reloads / shared links land on a consistent
   // form. Diverges from ``applied`` while the user is
   // typing; flushed on Apply.
-  const [draft, setDraft] = useState<FlowQuery>(() => decodeQuery(
-    searchParams.get("q"),
-  ));
+  const rawQuery = searchParams.get("q");
+  const [draft, setDraft] = useState<FlowQuery>(() => decodeQuery(rawQuery));
 
   // Re-sync the draft when the URL changes from outside this
-  // route (e.g. browser back/forward).
-  useEffect(() => {
-    setDraft(decodeQuery(searchParams.get("q")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.get("q")]);
+  // route (e.g. browser back/forward); adjust-during-render, the
+  // documented alternative to a state-syncing effect.
+  const [prevRawQuery, setPrevRawQuery] = useState(rawQuery);
+  if (rawQuery !== prevRawQuery) {
+    setPrevRawQuery(rawQuery);
+    setDraft(decodeQuery(rawQuery));
+  }
 
   const apply = useCallback(() => {
     const params = new URLSearchParams(searchParams);

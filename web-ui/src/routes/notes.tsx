@@ -89,10 +89,13 @@ export function NotesRoute() {
   // Keep the input synced when the URL changes externally
   // (browser back / link click).  The ``searchInput === q``
   // bailout above prevents the debounce from looping when the
-  // URL change came from the input itself.
-  useEffect(() => {
+  // URL change came from the input itself. Adjust-during-render,
+  // the documented alternative to a state-syncing effect.
+  const [prevQ, setPrevQ] = useState(q);
+  if (q !== prevQ) {
+    setPrevQ(q);
     setSearchInput(q);
-  }, [q]);
+  }
 
   const setEntityType = (next: string) => {
     const params = new URLSearchParams(searchParams);

@@ -165,9 +165,14 @@ export function AuditExplorer() {
     }, 300);
     return () => clearTimeout(timer);
   }, [userInput, userEmail, setSearchParams]);
-  useEffect(() => {
+  // Keep the draft input synced when the URL-driven value changes
+  // (adjust-during-render, the documented alternative to a
+  // state-syncing effect).
+  const [prevUserEmail, setPrevUserEmail] = useState(userEmail);
+  if (userEmail !== prevUserEmail) {
+    setPrevUserEmail(userEmail);
     setUserInput(userEmail);
-  }, [userEmail]);
+  }
 
   const anyFilterActive =
     eventType !== undefined || !!userEmail || !!since || !!until;

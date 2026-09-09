@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { FacetGroup } from "@/components/FacetGroup";
 import type { Filter, HighlightMap } from "@/lib/filter";
@@ -71,9 +71,15 @@ export function FacetSidebar({
   // the case the SECTIONS table is extended with a section that
   // happens to share ``topEndpoint`` with another (also
   // uncommon, but not currently prevented by the type system).
-  useEffect(() => {
+  // The reset is applied during render (the documented
+  // alternative to a state-syncing effect); NUL is a safe joiner
+  // since it cannot appear in any of the three components.
+  const cycleKey = `${query}\u0000${section.id}\u0000${section.topEndpoint ?? ""}`;
+  const [prevCycleKey, setPrevCycleKey] = useState(cycleKey);
+  if (cycleKey !== prevCycleKey) {
+    setPrevCycleKey(cycleKey);
     setLoadedCount(0);
-  }, [query, section.id, section.topEndpoint]);
+  }
 
   const handleLoaded = useCallback((index: number) => {
     // ``Math.max`` here makes the callback idempotent: a facet

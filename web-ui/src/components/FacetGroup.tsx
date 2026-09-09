@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { type TopValue, useTop } from "@/lib/api";
@@ -84,27 +84,13 @@ export function FacetGroup({
   // parents like :class:`FacetSidebar` pass an inline
   // ``() => handleLoaded(index)`` that has a fresh identity on
   // every render, and we don't want each render to count as a
-  // new cycle. We route the call through a ref so the latest
-  // callback is always invoked even though the effect's closure
-  // never mentions it.
-  //
-  // The ref is synced during render rather than in a
-  // companion ``useEffect``: writing a ref during render is
-  // safe for the sync-prop-into-ref pattern (we never *read*
-  // the ref during render — only inside the post-commit
-  // effect below), and it avoids a no-deps effect that would
-  // otherwise re-run after every commit just to copy the
-  // latest ``onLoaded`` over. Under Strict Mode's double-
-  // render the assignment runs twice with the same value;
-  // idempotent.
-  //
-  // The canonical fix for "I want a callback but its identity
-  // shouldn't define the effect cycle" is React's
-  // ``useEffectEvent``, but it's still experimental in 19.2 and
-  // not exported from the stable ``react`` package — we'll
-  // collapse this to ``useEffectEvent(onLoaded)`` once that ships.
-  const onLoadedRef = useRef(onLoaded);
-  onLoadedRef.current = onLoaded;
+  // new cycle. ``useEffectEvent`` (stable since React 19.2) gives
+  // the effect a stable handle that always calls the latest
+  // callback without the callback's identity defining the effect
+  // cycle.
+  const notifyLoaded = useEffectEvent(() => {
+    onLoaded?.();
+  });
   // ``isAbort`` is derived at render time so the post-commit
   // effect below depends on a stable boolean instead of the
   // ``error`` instance.  React Query memoises ``error`` while a
@@ -123,7 +109,7 @@ export function FacetGroup({
   useEffect(() => {
     if (!enabled) return;
     if (isSuccess) {
-      onLoadedRef.current?.();
+      notifyLoaded();
       return;
     }
     // A cancellation propagated from the queryFn's
@@ -133,7 +119,7 @@ export function FacetGroup({
     // advance in that case — the next cycle has already reset
     // the counter and a stale notify would mis-release one of
     // its facets.
-    if (isError && !isAbort) onLoadedRef.current?.();
+    if (isError && !isAbort) notifyLoaded();
   }, [enabled, isSuccess, isError, isAbort, query, limit, field, topEndpoint]);
 
   const items: readonly TopValue[] = data ?? [];

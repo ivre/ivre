@@ -1,5 +1,5 @@
 import { Plus, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -41,19 +41,23 @@ export function EditUserDialog({
   onOpenChange,
 }: EditUserDialogProps) {
   const updateMut = useUpdateAdminUser();
-  const [displayName, setDisplayName] = useState("");
-  const [groups, setGroups] = useState<string[]>([]);
+  const [displayName, setDisplayName] = useState(user?.display_name ?? "");
+  const [groups, setGroups] = useState<string[]>(user?.groups ?? []);
   const [groupDraft, setGroupDraft] = useState("");
 
   // Reset the dialog state whenever a new user is opened so the
-  // form does not show the previous user's pending edits.
-  useEffect(() => {
+  // form does not show the previous user's pending edits
+  // (adjust-during-render, the documented alternative to a
+  // state-syncing effect).
+  const [prevUser, setPrevUser] = useState(user);
+  if (user !== prevUser) {
+    setPrevUser(user);
     if (user) {
       setDisplayName(user.display_name ?? "");
       setGroups(user.groups ?? []);
       setGroupDraft("");
     }
-  }, [user]);
+  }
 
   const initialDisplayName = user?.display_name ?? "";
   const initialGroups = useMemo(() => user?.groups ?? [], [user]);
