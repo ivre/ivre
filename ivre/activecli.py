@@ -436,10 +436,10 @@ def _display_gnmap_host(host: NmapHost, out: TextIO = sys.stdout) -> None:
     for osmatch in host.get("os", {}).get("osmatch", []):
         info.append(f"OS: {osmatch['name']}")
         break
-    # TODO: data from tcpsequence and ipidsequence is currently
-    # missing
-    if info:
-        out.write("Host: %s %s\n" % (name, "\t".join(info)))
+    if "tcpsequence" in host:
+        info.append(f"TCP Sequence: {host['tcpsequence'].get('class', '')}")
+    if "ipidsequence" in host:
+        info.append(f"IP ID Sequence: {host['ipidsequence'].get('class', '')}")
 
 
 def displayfunction_honeyd(cur: Iterable[NmapHost]) -> None:
