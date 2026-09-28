@@ -22443,19 +22443,37 @@ class SearchScriptIndexUsageTests(unittest.TestCase):
         self.assertEqual(values[1], "ssl-cert")
 
     def test_script_name_conversion_keeps_alias_lookup_working(self) -> None:
-        """``name`` must stay a ``str``/``re.Pattern`` for the
-        ALIASES_TABLE_ELEMS lookups: ``bson.Regex`` defines ``__eq__``
-        without ``__hash__``, so converting it before those lookups makes
-        them raise ``unhashable type: 'Regex'``.
+        """``name`` must stay as given for the ALIASES_TABLE_ELEMS lookups:
+        ``bson.Regex`` defines ``__eq__`` without ``__hash__``, so it cannot
+        be used as a dict key.
         """
-        pattern = re.compile("^ssl-")
-        # must not raise
-        flt = self._mongo().searchscript(name=[pattern, pattern], values={"md5": "x"})
-        self.assertIn("ports.scripts", flt)
+        # a list whose names alias to one key still resolves
+        flt = self._mongo().searchscript(
+            name=["ssl-cacert", "ssl-cert"], values={"md5": "x"}
+        )
+        self.assertIn("ports.scripts.ssl-cert.md5", flt)
+        self.assertEqual(
+            flt["ports.scripts"]["$elemMatch"]["id"],
+            {"$in": ["ssl-cacert", "ssl-cert"]},
+        )
 
-        # the aliased str case keeps resolving through ALIASES_TABLE_ELEMS
         flt = self._mongo().searchscript(name="ssl-cert", values={"md5": "x"})
         self.assertIn("ports.scripts.ssl-cert.md5", flt)
+
+    def test_regexp_script_name_with_values_is_rejected(self) -> None:
+        """A regexp cannot name the structured key to look under. Without a
+        guard it is interpolated into the field path
+        (``ports.scripts.re.compile('^ssl-').md5``), which matches nothing
+        and reports no error.
+        """
+        pattern = re.compile("^ssl-")
+        for name in (pattern, [pattern, pattern], [pattern, "ssl-cert"]):
+            with self.assertRaises(TypeError):
+                self._mongo().searchscript(name=name, values={"md5": "x"})
+
+        # without `values` a regexp name remains perfectly valid
+        flt = self._mongo().searchscript(name=pattern)
+        self.assertIn("ports.scripts.id", flt)
 
 
 def _parse_args() -> None:

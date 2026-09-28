@@ -2907,11 +2907,10 @@ class MongoDBActive(MongoDB, DBActive):
         req = {}
         probe = None
         # ``name`` is converted here, where it is written to the query, rather
-        # than with ``output`` and ``values`` above: ``bson.Regex`` defines
-        # ``__eq__`` without ``__hash__``, so it cannot be used as a dict key,
-        # and the ``values`` branch below looks ``name`` up in
-        # ALIASES_TABLE_ELEMS. Keeping the original object for those lookups
-        # leaves them working on ``str``/``re.Pattern`` as before.
+        # than with ``output`` and ``values`` above: the ``values`` branch
+        # below looks ``name`` up in ALIASES_TABLE_ELEMS, and ``bson.Regex``
+        # defines ``__eq__`` without ``__hash__``, so it cannot be used as a
+        # dict key. Those lookups want the script names as given anyway.
         if isinstance(name, list):
             req["id"] = {"$in": _fix_regexp(name)}
         elif name is not None:
@@ -2920,6 +2919,15 @@ class MongoDBActive(MongoDB, DBActive):
             req["output"] = output
         if values:
             if isinstance(name, list):
+                # The scalar branch below rejects a non-``str`` `name`; do the
+                # same per element here. A regexp cannot name the structured
+                # key to look under, and without this it is interpolated into
+                # the field path -- ``ports.scripts.re.compile('^ssl-').md5``
+                # -- which matches nothing and reports no error.
+                if not all(isinstance(n, str) for n in name):
+                    raise TypeError(
+                        ".searchscript() needs `str` `name` values when using a `values` arg"
+                    )
                 all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
                 if len(all_keys) != 1:
                     raise TypeError(
