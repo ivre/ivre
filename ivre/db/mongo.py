@@ -2906,10 +2906,16 @@ class MongoDBActive(MongoDB, DBActive):
         values = _fix_regexp(values)
         req = {}
         probe = None
+        # ``name`` is converted here, where it is written to the query, rather
+        # than with ``output`` and ``values`` above: ``bson.Regex`` defines
+        # ``__eq__`` without ``__hash__``, so it cannot be used as a dict key,
+        # and the ``values`` branch below looks ``name`` up in
+        # ALIASES_TABLE_ELEMS. Keeping the original object for those lookups
+        # leaves them working on ``str``/``re.Pattern`` as before.
         if isinstance(name, list):
-            req["id"] = {"$in": name}
+            req["id"] = {"$in": _fix_regexp(name)}
         elif name is not None:
-            req["id"] = name
+            req["id"] = _fix_regexp(name)
         if output is not None:
             req["output"] = output
         if values:

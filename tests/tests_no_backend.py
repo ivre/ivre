@@ -22418,6 +22418,45 @@ class SearchScriptIndexUsageTests(unittest.TestCase):
 
         self.assertIsInstance(flt["ports.scripts"]["$elemMatch"]["output"], bson.Regex)
 
+    def test_script_name_regexp_is_converted_too(self) -> None:
+        """``ports.scripts.id`` is the indexed key this whole change pivots
+        on, and the web UI reaches it with a regexp: ``script=/^http-/``
+        arrives as ``str2regexp()`` output. An unconverted pattern carries the
+        ``u`` flag and loses the anchored prefix bounds.
+        """
+        import bson
+
+        flt = self._mongo().searchscript(name=re.compile("^http-"))
+        value = flt["ports.scripts.id"]
+        self.assertIsInstance(value, bson.Regex)
+        self.assertEqual(value.flags, 0)
+
+        # flags that change matching still survive, as elsewhere
+        flt = self._mongo().searchscript(name=re.compile("^http-", re.I))
+        self.assertEqual(flt["ports.scripts.id"].flags, re.IGNORECASE)
+
+        # and the list form, which becomes an $in
+        flt = self._mongo().searchscript(name=[re.compile("^ssl-"), "ssl-cert"])
+        values = flt["ports.scripts.id"]["$in"]
+        self.assertIsInstance(values[0], bson.Regex)
+        self.assertEqual(values[0].flags, 0)
+        self.assertEqual(values[1], "ssl-cert")
+
+    def test_script_name_conversion_keeps_alias_lookup_working(self) -> None:
+        """``name`` must stay a ``str``/``re.Pattern`` for the
+        ALIASES_TABLE_ELEMS lookups: ``bson.Regex`` defines ``__eq__``
+        without ``__hash__``, so converting it before those lookups makes
+        them raise ``unhashable type: 'Regex'``.
+        """
+        pattern = re.compile("^ssl-")
+        # must not raise
+        flt = self._mongo().searchscript(name=[pattern, pattern], values={"md5": "x"})
+        self.assertIn("ports.scripts", flt)
+
+        # the aliased str case keeps resolving through ALIASES_TABLE_ELEMS
+        flt = self._mongo().searchscript(name="ssl-cert", values={"md5": "x"})
+        self.assertIn("ports.scripts.ssl-cert.md5", flt)
+
 
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
