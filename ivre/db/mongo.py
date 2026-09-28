@@ -885,6 +885,45 @@ class MongoDB(DB):
         return {"$text": {"$search": text}}
 
 
+def _fix_regexp(value):
+    """Convert Python regexps to BSON ones, dropping the implicit ``u`` flag.
+
+    Python sets :data:`re.UNICODE` on every ``str`` pattern, so
+    ``re.compile("^ADM_").flags`` includes it and pymongo encodes it as the
+    BSON regex option ``u``. MongoDB accepts the option but its planner then
+    refuses to turn an anchored regexp into an index prefix range: the bounds
+    degrade from ``["ADM_", "ADM`")`` to ``["", {})``, which turns a seek into
+    a full index scan.
+
+    ``u`` has no matching semantics for MongoDB -- its regexp options are
+    ``i``, ``m``, ``x`` and ``s``, and its engine already runs in UTF-8 mode --
+    so dropping it is safe. Verified identical results for ASCII, accented and
+    CJK subjects, with and without ``i``.
+
+    Containers are walked so that ``values`` dicts and lists of patterns are
+    handled too. Anything else is returned untouched.
+    """
+    if isinstance(value, bson.Regex):
+        return value
+    if isinstance(value, re.Pattern):
+        flags = "".join(
+            flag
+            for bit, flag in (
+                (re.IGNORECASE, "i"),
+                (re.MULTILINE, "m"),
+                (re.DOTALL, "s"),
+                (re.VERBOSE, "x"),
+            )
+            if value.flags & bit
+        )
+        return bson.Regex(value.pattern, flags)
+    if isinstance(value, dict):
+        return {key: _fix_regexp(val) for key, val in value.items()}
+    if isinstance(value, list):
+        return [_fix_regexp(val) for val in value]
+    return value
+
+
 def _normalize_mac(mac):
     """Normalise a MAC-address ``searchmac`` argument for the
     shared :meth:`MongoDB._search_field` dispatch.
@@ -2863,15 +2902,32 @@ class MongoDBActive(MongoDB, DBActive):
     @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results."""
+        output = _fix_regexp(output)
+        values = _fix_regexp(values)
         req = {}
+        probe = None
+        # ``name`` is converted here, where it is written to the query, rather
+        # than with ``output`` and ``values`` above: the ``values`` branch
+        # below looks ``name`` up in ALIASES_TABLE_ELEMS, and ``bson.Regex``
+        # defines ``__eq__`` without ``__hash__``, so it cannot be used as a
+        # dict key. Those lookups want the script names as given anyway.
         if isinstance(name, list):
-            req["id"] = {"$in": name}
+            req["id"] = {"$in": _fix_regexp(name)}
         elif name is not None:
-            req["id"] = name
+            req["id"] = _fix_regexp(name)
         if output is not None:
             req["output"] = output
         if values:
             if isinstance(name, list):
+                # The scalar branch below rejects a non-``str`` `name`; do the
+                # same per element here. A regexp cannot name the structured
+                # key to look under, and without this it is interpolated into
+                # the field path -- ``ports.scripts.re.compile('^ssl-').md5``
+                # -- which matches nothing and reports no error.
+                if not all(isinstance(n, str) for n in name):
+                    raise TypeError(
+                        ".searchscript() needs `str` `name` values when using a `values` arg"
+                    )
                 all_keys = set(ALIASES_TABLE_ELEMS.get(n, n) for n in name)
                 if len(all_keys) != 1:
                     raise TypeError(
@@ -2884,14 +2940,43 @@ class MongoDBActive(MongoDB, DBActive):
                 )
             else:
                 key = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, (str, re.Pattern)):
+            if isinstance(values, (str, re.Pattern, bson.Regex)):
                 req[key] = values
             else:
                 if len(values) >= 2 and f"ports.scripts.{key}" in cls.list_fields:
                     req[key] = {"$elemMatch": values}
+                    # Probe on the dotted path, AND'd with the $elemMatch
+                    # below rather than replacing it.
+                    #
+                    # The $elemMatch on ``ports.scripts`` is what ties ``id``
+                    # and the structured match to the *same* element, and it
+                    # has to stay: several scripts may share a key
+                    # (ALIASES_TABLE_ELEMS -- nuclei, ssl-cert, vulns, ls,
+                    # ntlm-info), so ``ports.scripts.<key>`` alone does not
+                    # imply the element's ``id``. But it also hides the
+                    # structured fields from the planner, which is then left
+                    # with ``ports.scripts.id`` -- no selectivity at all for a
+                    # script as common as http-headers.
+                    #
+                    # The probe is implied by the $elemMatch, so it changes no
+                    # result; it exists only to expose
+                    # ``ports.scripts.<key>.<field>`` to the planner, which
+                    # then seeks the compound index where one is declared (see
+                    # :data:`MongoDBActive.indexes`) and falls back to
+                    # ``ports.scripts.id`` where none is. Same idiom as
+                    # :meth:`searchhostname`'s positive branch.
+                    probe = {f"ports.scripts.{key}": {"$elemMatch": values}}
                 else:
                     for field, value in values.items():
                         req[f"{key}.{field}"] = value
+                    # Same reasoning for dict-valued structured output, which
+                    # is how the heavily-indexed ssl-cert subfields are
+                    # stored.
+                    probe = {
+                        f"ports.scripts.{key}.{field}": value
+                        for field, value in values.items()
+                    }
+
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
@@ -2900,7 +2985,12 @@ class MongoDBActive(MongoDB, DBActive):
                 return {f"ports.scripts.{field}": {"$ne": value}}
             return {f"ports.scripts.{field}": value}
         if neg:
+            # A negation cannot seek an index anyway, and the probe is only
+            # an optimisation, so leave it out rather than reason about
+            # negating it.
             return {"ports.scripts": {"$not": {"$elemMatch": req}}}
+        if probe is not None:
+            return cls.flt_and(probe, {"ports.scripts": {"$elemMatch": req}})
         return {"ports.scripts": {"$elemMatch": req}}
 
     @staticmethod
