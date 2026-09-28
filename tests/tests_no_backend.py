@@ -22294,6 +22294,131 @@ class CliParserTests(unittest.TestCase):
         self.assertIn("--sensor", recon_opts)
 
 
+class SearchScriptIndexUsageTests(unittest.TestCase):
+    """Regression tests for the query shapes emitted by
+    ``MongoDBActive.searchscript()``.
+
+    Both behaviours tested here exist so the MongoDB planner can use the
+    ``ports.scripts.<key>.<field>`` compound indexes declared in
+    :data:`ivre.db.mongo.MongoDBActive.indexes`. Measured on a 20k-document
+    fixture, a filter on ``http-headers`` went from 20003 index keys and
+    20003 documents examined to 3 keys and 1 document, for identical
+    results.
+    """
+
+    @staticmethod
+    def _mongo():
+        # Imported lazily: this module must stay importable without a
+        # configured backend, and ivre.db.mongo only needs pymongo.
+        from ivre.db.mongo import MongoDBActive
+
+        return MongoDBActive
+
+    def test_structured_values_add_a_dotted_probe(self) -> None:
+        """The $elemMatch is kept and a dotted probe is AND'd alongside it.
+
+        The nested $elemMatch is what ties ``id`` and the structured match
+        to the same array element, so it stays; but it hides the structured
+        fields from the planner. The probe re-exposes them without changing
+        any result.
+        """
+        flt = self._mongo().searchscript(
+            name="http-headers",
+            values={"name": "set-cookie", "value": re.compile("^ADM_")},
+        )
+        self.assertEqual(set(flt), {"ports.scripts.http-headers", "ports.scripts"})
+        probe = flt["ports.scripts.http-headers"]["$elemMatch"]
+        self.assertEqual(probe["name"], "set-cookie")
+        nested = flt["ports.scripts"]["$elemMatch"]
+        self.assertEqual(nested["id"], "http-headers")
+        self.assertEqual(nested["http-headers"]["$elemMatch"], probe)
+
+    def test_aliased_key_also_gets_a_probe(self) -> None:
+        """Shared keys benefit too, and stay correct.
+
+        ``ALIASES_TABLE_ELEMS`` maps 72 ``*-vuln-*`` scripts onto ``vulns``,
+        so ``ports.scripts.vulns`` does not imply the element's ``id``.
+        Because the nested $elemMatch is retained, a host carrying the
+        searched id in one script and the searched vuln in another does not
+        match -- while the probe still lets the ``ports.scripts.vulns.*``
+        index be used.
+        """
+        flt = self._mongo().searchscript(
+            name="http-vuln-cve2017-5638",
+            values={"id": "CVE-2017-5638", "state": "VULNERABLE"},
+        )
+        self.assertEqual(set(flt), {"ports.scripts.vulns", "ports.scripts"})
+        self.assertEqual(
+            flt["ports.scripts"]["$elemMatch"]["id"], "http-vuln-cve2017-5638"
+        )
+        self.assertEqual(
+            flt["ports.scripts.vulns"]["$elemMatch"],
+            {"id": "CVE-2017-5638", "state": "VULNERABLE"},
+        )
+
+    def test_dict_valued_structured_output_gets_a_probe(self) -> None:
+        """Not just list-valued keys: this is how ssl-cert subfields, which
+        carry most of the declared script indexes, are stored."""
+        flt = self._mongo().searchscript(
+            name="http-citrix-netscaler-triage", values={"version": "13.1-59.22"}
+        )
+        self.assertIn("ports.scripts.http-citrix-netscaler-triage.version", flt)
+        self.assertIn("ports.scripts", flt)
+
+    def test_aliased_and_target_names_stay_distinct(self) -> None:
+        """``nuclei`` and ``http-nuclei`` share a key but not an id."""
+        mongo = self._mongo()
+        values = {"template": "citrix-netscaler", "severity": "high"}
+        bare = mongo.searchscript(name="nuclei", values=values)
+        http = mongo.searchscript(name="http-nuclei", values=values)
+        self.assertNotEqual(bare, http)
+        self.assertEqual(bare["ports.scripts"]["$elemMatch"]["id"], "nuclei")
+        self.assertEqual(http["ports.scripts"]["$elemMatch"]["id"], "http-nuclei")
+
+    def test_negated_search_keeps_the_nested_shape(self) -> None:
+        """The dotted shortcut is a positive-branch optimisation only."""
+        flt = self._mongo().searchscript(
+            name="http-headers",
+            values={"name": "set-cookie", "value": re.compile("^ADM_")},
+            neg=True,
+        )
+        self.assertEqual(set(flt), {"ports.scripts"})
+        self.assertIn("$not", flt["ports.scripts"])
+
+    def test_python_regexps_are_converted_without_the_u_flag(self) -> None:
+        """Python sets re.UNICODE on every str pattern and pymongo encodes it
+        as the BSON option ``u``; MongoDB then refuses to build an index
+        prefix range from an anchored regexp.
+        """
+        import bson
+
+        flt = self._mongo().searchscript(
+            name="http-headers",
+            values={"name": "set-cookie", "value": re.compile("^ADM_")},
+        )
+        value = flt["ports.scripts.http-headers"]["$elemMatch"]["value"]
+        self.assertIsInstance(value, bson.Regex)
+        self.assertEqual(value.flags, 0)
+
+    def test_regexp_flags_that_matter_are_preserved(self) -> None:
+        """Only ``u`` is dropped: i/m/s/x change matching and must survive."""
+        import bson
+
+        flt = self._mongo().searchscript(
+            name="http-headers",
+            values={"name": "via", "value": re.compile("^NS-CACHE", re.I)},
+        )
+        value = flt["ports.scripts.http-headers"]["$elemMatch"]["value"]
+        self.assertIsInstance(value, bson.Regex)
+        self.assertEqual(value.flags, re.IGNORECASE)
+
+    def test_output_regexp_is_converted_too(self) -> None:
+        flt = self._mongo().searchscript(name="http-headers", output=re.compile("ADM_"))
+        import bson
+
+        self.assertIsInstance(flt["ports.scripts"]["$elemMatch"]["output"], bson.Regex)
+
+
 def _parse_args() -> None:
     """Parse the optional ``--samples`` and ``--coverage`` flags when
     this module is invoked as a script. Mirrors ``tests/tests.py``."""
