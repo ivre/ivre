@@ -410,6 +410,12 @@ class DB:
             db_type = "mongodb"
         elif db_type == "elastics":
             db_type = "elastic"
+        elif "+" in db_type:
+            # SQLAlchemy URLs may name the DBAPI driver after the
+            # dialect (``postgresql+psycopg2://``); the backend is
+            # selected by the dialect, and the driver is passed
+            # through to SQLAlchemy untouched.
+            db_type = db_type.split("+", 1)[0]
         try:
             modulename, classname = cls.backends[db_type]
         except (KeyError, TypeError):

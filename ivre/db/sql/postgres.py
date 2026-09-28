@@ -120,6 +120,29 @@ def _decode_portlist(value: Any) -> list[tuple[str, int]]:
 
 
 class PostgresDB(SQLDB):
+    #: Driver pinned into the URL by :meth:`__init__`; see the note there.
+    default_driver = "psycopg2"
+
+    def __init__(self, url):
+        super().__init__(url)
+        # SQLAlchemy 2.1 changed the driver a bare ``postgresql://`` URL
+        # resolves to, from psycopg2 to psycopg (v3). IVRE's PostgreSQL
+        # backend is written against psycopg2 -- :meth:`copy_from` below
+        # drives its ``cursor.copy_from`` COPY protocol, which psycopg 3
+        # replaced outright -- so pin the dialect instead of letting the
+        # SQLAlchemy version silently pick the driver for users whose
+        # configured URL carries no ``+driver`` part.
+        #
+        # Only a bare ``postgresql://`` is rewritten: an explicit
+        # ``postgresql+psycopg2://`` is already right, and the DuckDB
+        # backend -- whose classes subclass this one -- keeps its own
+        # ``duckdb://`` scheme untouched.
+        scheme = "postgresql://"
+        if self.dburl.startswith(scheme):
+            self.dburl = (
+                f"postgresql+{self.default_driver}://{self.dburl[len(scheme):]}"
+            )
+
     @staticmethod
     def ip2internal(addr):
         return utils.force_int2ip(addr)
@@ -534,7 +557,17 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         if flt is None:
             flt = self.flt_empty
-        base = flt.query(select(self.tables.scan.id).select_from(flt.select_from))
+        # ``base_select`` is kept alongside its subquery form: SQLAlchemy 2.1
+        # removed ``SelectBase.c``, which used to coerce a SELECT to a
+        # subquery implicitly, so the ``base.c.id`` references below need an
+        # explicit ``.subquery()``. ``portlist:*`` still wants the bare SELECT
+        # for its ``IN (...)`` -- passing the subquery there nests it one
+        # level deeper, and the comment in that branch weighs the cost of
+        # that filtering strategy.
+        base_select = flt.query(
+            select(self.tables.scan.id).select_from(flt.select_from)
+        )
+        base = base_select.subquery()
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
@@ -651,7 +684,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         .where(
                             and_(
                                 self.tables.port.state == info,
-                                self.tables.port.scan.in_(base),
+                                self.tables.port.scan.in_(base_select),
                                 # exists(select(1)\
                                 #        .select_from(base)\
                                 #        .where(

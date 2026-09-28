@@ -8348,6 +8348,111 @@ except ImportError:
 
 
 @unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` or ``duckdb`` extras)",
+)
+class SQLAlchemy21CompatTests(unittest.TestCase):
+    """Pins for the two SQLAlchemy 2.1 incompatibilities.
+
+    ``sqlalchemy>=2,<3`` floats, so 2.1 arrives without a code change:
+
+    * ``SelectBase.c`` -- deprecated since 1.4, removed in 2.1 -- used to
+      coerce a SELECT to a subquery implicitly. ``topvalues()`` relied on
+      it for every ``base.c.id`` correlation and raised
+      ``AttributeError: 'Select' object has no attribute 'c'``.
+    * a bare ``postgresql://`` URL resolves to psycopg (v3) rather than
+      psycopg2, which IVRE's COPY path is written against.
+    """
+
+    @staticmethod
+    def _compile_pg(stmt):
+        return str(
+            stmt.compile(
+                dialect=_sqlalchemy_postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+
+    @classmethod
+    def _capture_topvalues_sql(cls, db, field):
+        captured = []
+
+        def _fake(stmt):
+            captured.append(stmt)
+            return iter([])
+
+        # pylint: disable=protected-access
+        original = db._read_iter
+        db._read_iter = _fake
+        try:
+            list(db.topvalues(field))
+        finally:
+            db._read_iter = original
+        assert captured, "topvalues did not call _read_iter"
+        return cls._compile_pg(captured[-1])
+
+    @staticmethod
+    def _view():
+        from ivre.db import DBView
+
+        return DBView.from_url("postgresql://x@localhost/x")
+
+    def test_topvalues_does_not_use_removed_selectbase_c(self):
+        """Exercises the ``base.c.id`` correlations on every FROM base."""
+        db = self._view()
+        for field in (
+            "port",
+            "category",
+            "hop",
+            "tag.value",
+            "domains",
+            "script:http-title",
+        ):
+            with self.subTest(field=field):
+                # the AttributeError this pins would be raised here
+                sql = self._capture_topvalues_sql(db, field)
+                self.assertIn("SELECT", sql)
+
+    def test_portlist_keeps_its_unnested_in_subquery(self):
+        """``portlist:*`` filters with ``IN (SELECT ...)`` rather than
+        ``base.c``; it must keep the bare SELECT, since wrapping the
+        subquery adds a nesting level the branch's own comment weighs the
+        cost of.
+        """
+        sql = self._capture_topvalues_sql(self._view(), "portlist:open")
+        self.assertIn("IN (SELECT v_scan.id \nFROM v_scan)", sql)
+
+    def test_bare_postgresql_url_pins_psycopg2(self):
+        """SQLAlchemy 2.1 would otherwise pick psycopg (v3)."""
+        self.assertEqual(self._view().dburl, "postgresql+psycopg2://x@localhost/x")
+
+    def test_explicit_driver_is_preserved_and_routed(self):
+        from ivre.db import DBView
+        from ivre.db.sql.postgres import PostgresDBView
+
+        for url in (
+            "postgresql+psycopg2://x@localhost/x",
+            "postgresql+psycopg://x@localhost/x",
+        ):
+            with self.subTest(url=url):
+                inst = DBView.from_url(url)
+                # the ``+driver`` suffix still routes on the dialect ...
+                self.assertIsInstance(inst, PostgresDBView)
+                # ... and is passed through to SQLAlchemy untouched
+                self.assertEqual(inst.dburl, url)
+
+    def test_non_postgresql_urls_are_untouched(self):
+        from ivre.db import DBView
+
+        for url in ("duckdb:///:memory:", "duckdb:///tmp/x.db"):
+            with self.subTest(url=url):
+                inst = DBView.from_url(url)
+                if inst is None:
+                    self.skipTest("duckdb-engine is not installed")
+                self.assertEqual(inst.dburl, url)
+
+
+@unittest.skipUnless(
     _HAVE_SQLDB_FLOW,
     "SQLAlchemy is required for SQLDBFlowSchemaTests",
 )
