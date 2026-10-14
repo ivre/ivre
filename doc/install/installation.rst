@@ -149,6 +149,18 @@ The installation of IVRE itself can be done:
   <https://pypi.org/project/ivre>`_ and its Python dependencies from
   PyPI, the Python Package Index).
 
+- Using `OTinstaller <https://github.com/OSINTVerseHQ/OTinstaller>`_
+  (Linux only), a third-party tool manager that installs the PyPI
+  release into its own virtualenv. It is not maintained by IVRE's
+  developers, so please report problems with it `on the OTinstaller
+  tracker <https://github.com/OSINTVerseHQ/OTinstaller/issues>`_. You
+  still need the database server described above::
+
+     $ pipx install otinstaller
+     $ otinstaller init
+     $ otinstaller install ivre
+     $ otinstaller run --verbose ivre -- version   # runs "ivre version"
+
 - From the source code, using ``pip install .``.
 
 - Using :ref:`install/docker:docker` (in this case you do not need to
