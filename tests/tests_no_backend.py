@@ -13243,6 +13243,40 @@ class CertParsingCallerGuardTests(unittest.TestCase):
         self.assertEqual(port.get("service_tunnel"), "ssl")
 
 
+class ZgrabHttpProtocolTests(unittest.TestCase):
+    """zgrab2 changed the HTTP response "protocol" field from an
+    object to a string in zmap/zgrab2#581; both must be parsed.
+    """
+
+    def test_zgrap_parser_http_protocol_shapes(self) -> None:
+        from ivre import zgrabout
+
+        for protocol in [
+            {"name": "HTTP/1.1", "major": 1, "minor": 1},
+            "HTTP/1.1",
+        ]:
+            with self.subTest(protocol=protocol):
+                data = {
+                    "response": {
+                        "status_code": 200,
+                        "status_line": "200 OK",
+                        "protocol": protocol,
+                        "headers": {"server": ["nginx"]},
+                        "request": {
+                            "url": {
+                                "scheme": "http",
+                                "host": "192.0.2.1",
+                                "path": "/",
+                            },
+                            "method": "GET",
+                        },
+                    }
+                }
+                port = zgrabout.zgrap_parser_http(data, {"addr": "192.0.2.1"})
+                (script,) = [s for s in port["scripts"] if s["id"] == "http-headers"]
+                self.assertTrue(script["output"].startswith("HTTP/1.1 200 OK\n"))
+
+
 # ---------------------------------------------------------------------
 # PassiveDatetimeCoercionTests -- the ``/cgi/passive`` route's
 # datetime-to-timestamp helper must accept the three concrete
