@@ -266,6 +266,26 @@ def _register_tools() -> None:
         """Filter records whose hostname belongs to a domain (exact or "/regex/")."""
         return seal(HTTP_DB[purpose].searchdomain(str2regexp(domain)))
 
+    @mcp.tool()
+    def searchtext(purpose: AllPurpose, text: str) -> FilterType:
+        """Full-text search across all indexed scan data (the web UI's free-text
+        search, backed by the MongoDB ``$text`` index).
+
+        This is INDEXED and fast, unlike ``searchscript(output="/regex/")`` which
+        scans every script output. Use it to pre-filter before a slow or
+        timing-out regex: combine it with ``flt_and`` so the text index narrows
+        the candidate set first, then the regex runs only on the matches. E.g.
+        to find the Dixell/Emerson XWEB controllers without a full-collection
+        regex scan::
+
+            flt_and(searchtext("xweb"),
+                    searchscript("http-nuclei", output="/emerson-xweb-evo/"))
+
+        The search is token-based (whole words, hyphen-split), so pass a bare
+        term like ``xweb``, ``pcoweb`` or ``storeview`` rather than a regex.
+        """
+        return seal(HTTP_DB[purpose].searchtext(text))
+
     # --- Filter construction: Port / Service ---
 
     @mcp.tool()

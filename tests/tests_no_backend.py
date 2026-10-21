@@ -1006,6 +1006,81 @@ class RirBackendTests(unittest.TestCase):
         self.assertEqual(decoded["f"], "and")
 
 
+class HttpDBGetTruncationTests(unittest.TestCase):
+    """`HttpDB._get` must turn a truncated / unparsable ``200`` body
+    into an explicit, actionable error rather than letting a bare
+    ``json.JSONDecodeError`` surface.
+
+    The ``/scans`` & ``/view`` routes stream a JSON array (``"[\\n"``
+    then the records): a server-side failure after the status line is
+    on the wire (e.g. a MongoDB ``maxTimeMS`` cursor timeout) leaves
+    the array opened and never closed, and a buffering reverse proxy
+    can forward those first bytes as a clean, fixed-length ``200``.
+    The backend cannot tell that from success by status alone -- only
+    the body does -- so it must raise a clear error naming the likely
+    cause.
+    """
+
+    class _FakeFetcher:
+        """Minimal stand-in for `HttpFetcher`: returns a fixed body
+        from `open()` without any network access."""
+
+        baseurl = "http://upstream.example"
+
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def open(self, url):
+            import io
+
+            return io.BytesIO(self._body)
+
+    def _make_backend(self, body: bytes):
+        from urllib.parse import urlparse
+
+        from ivre.db.http import HttpDBNmap
+
+        hdb = HttpDBNmap(urlparse("http://upstream.example"))
+        hdb.db = self._FakeFetcher(body)
+        return hdb
+
+    def test_truncated_array_raises_clear_value_error(self):
+        # The exact body the ticket observed: an opened-but-never-
+        # closed array (``b"[\n"``, two bytes).
+        hdb = self._make_backend(b"[\n")
+        gen = hdb._get({})
+        with self.assertRaises(ValueError) as ctx:
+            next(gen)
+        msg = str(ctx.exception)
+        self.assertIn("Truncated", msg)
+        self.assertIn("2 bytes", msg)
+        # The cause chain keeps the underlying decode error for
+        # debugging.
+        self.assertIsInstance(ctx.exception.__cause__, json.JSONDecodeError)
+
+    def test_empty_body_raises_clear_value_error(self):
+        # A connection reset before any byte is sent is the same class
+        # of failure and must also be reported, not swallowed.
+        hdb = self._make_backend(b"")
+        gen = hdb._get({})
+        with self.assertRaises(ValueError) as ctx:
+            next(gen)
+        self.assertIn("0 bytes", str(ctx.exception))
+
+    def test_valid_empty_array_stops_cleanly(self):
+        # A well-formed empty page (``[]``) is the legitimate "no more
+        # records" signal and must still terminate the generator
+        # without raising.
+        hdb = self._make_backend(b"[]\n")
+        self.assertEqual(list(hdb._get({})), [])
+
+    def test_valid_page_is_yielded(self):
+        hdb = self._make_backend(b'[{"addr": "1.2.3.4"}]')
+        # ``limit`` set so ``_get`` stops after the single page instead
+        # of requesting the next (``skip`` += 1) window from the fake.
+        self.assertEqual(list(hdb._get({}, limit=1)), [{"addr": "1.2.3.4"}])
+
+
 class RirWebRoutesTests(unittest.TestCase):
     """Regression tests for the `/rir` Bottle web routes."""
 
@@ -17413,6 +17488,61 @@ class WebBadInputTests(unittest.TestCase):
         self.assertEqual(next(guarded), "chunk1")
         guarded.close()
         self.assertEqual(closed, [True])
+
+    def test_guard_stream_logs_mid_stream_non_bad_input_failure(self) -> None:
+        # A non-bad-input failure firing after the first chunk (e.g.
+        # a DB cursor timeout while records are being streamed) cannot
+        # be turned into a 5xx -- the status line is already on the
+        # wire. The guard must still re-raise (so the stream aborts)
+        # *and* log the cause, because a buffering reverse proxy can
+        # forward the already-sent bytes as a clean 200 that names no
+        # reason. This pins that the log line is emitted.
+        import bottle
+
+        from ivre.web import base as web_base
+
+        bottle.request.bind({"PATH_INFO": "/scans"})
+
+        def stream():
+            yield "[\n"
+            raise RuntimeError("cursor timed out")
+
+        guarded = web_base._guard_stream(stream())
+        self.assertEqual(next(guarded), "[\n")
+        with self.assertLogs("ivre", level="ERROR") as logs:
+            with self.assertRaises(RuntimeError):
+                list(guarded)
+        self.assertTrue(
+            any(
+                "/scans" in msg and "aborted after the status line" in msg
+                for msg in logs.output
+            ),
+            logs.output,
+        )
+
+    def test_guard_stream_pre_stream_non_bad_input_not_logged_as_abort(self) -> None:
+        # A non-bad-input failure *before* the first chunk is a plain
+        # server bug: the status line is not yet on the wire, so Bottle
+        # will turn it into a 500. The guard re-raises it unchanged and
+        # does not emit the mid-stream "aborted after the status line"
+        # log line (that message would be misleading -- nothing was
+        # sent).
+        import logging
+
+        import bottle
+
+        from ivre.web import base as web_base
+
+        bottle.request.bind({"PATH_INFO": "/scans"})
+
+        def stream():
+            raise RuntimeError("bug before first yield")
+            yield "never"  # makes this function a generator
+
+        guarded = web_base._guard_stream(stream())
+        with self.assertRaises(RuntimeError):
+            with self.assertNoLogs("ivre", level=logging.ERROR):
+                next(guarded)
 
 
 # ---------------------------------------------------------------------
