@@ -138,7 +138,7 @@ on the domain `ivre.rocks`.
 
 ### Research ###
 
-If you are using IVRE in you research, please cite it as follows:
+If you are using IVRE in your research, please cite it as follows:
 
 IVRE contributors. *IVRE, a network recon framework*.
 [https://github.com/ivre/ivre](https://github.com/ivre/ivre),
