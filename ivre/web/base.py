@@ -83,6 +83,29 @@ def _bad_input_response(exc: BaseException) -> HTTPResponse:
     )
 
 
+def _log_stream_abort(exc: BaseException) -> None:
+    """Log a streaming route failing *after* its first chunk.
+
+    By the time this fires the status line and the opening ``[`` of
+    the JSON array are already on the wire, so HTTP offers no way to
+    turn the failure into a 5xx: the client can only observe a
+    truncated body (an unterminated JSON array, or a short read).
+    Emitting an explicit, greppable server-side log line -- naming
+    the route and the cause -- is therefore the only place the
+    reason survives: it lets an operator diagnose what a client sees
+    as an unexplained truncation (for instance a MongoDB
+    ``maxTimeMS`` cursor timeout tripping while the matching records
+    are being streamed). The stream still aborts; every caller
+    re-raises after this returns.
+    """
+    utils.LOGGER.error(
+        "Streaming response on %s aborted after the status line was sent [%s]",
+        request.path,
+        exc,
+        exc_info=True,
+    )
+
+
 def _guard_stream(stream: Generator[Any, None, None]) -> Iterator[Any]:
     """Convert bad-input exceptions from a streaming route into
     HTTP 400 while that is still possible.
@@ -96,6 +119,14 @@ def _guard_stream(stream: Generator[Any, None, None]) -> Iterator[Any]:
     has been yielded the status line is already on the wire, so the
     exception is re-raised unchanged and the stream aborts -- the
     best HTTP can do mid-response.
+
+    A mid-stream failure (after the first chunk) is additionally
+    logged via :func:`_log_stream_abort` before being re-raised,
+    whatever its type: a client fronted by a buffering reverse proxy
+    may receive the already-sent bytes as a clean, fixed-length
+    ``200`` body (e.g. ``"[\\n"`` for the active/view routes) with no
+    trace of the cause, so the server log is the only record of why
+    the array was never terminated.
 
     The ``finally`` clause forwards closure to the wrapped
     generator: a ``for`` loop does not proxy ``close()``, so
@@ -115,11 +146,23 @@ def _guard_stream(stream: Generator[Any, None, None]) -> Iterator[Any]:
             yield chunk
     except _BAD_INPUT_EXCEPTIONS as exc:
         if started:
+            _log_stream_abort(exc)
             raise
         utils.LOGGER.warning(
             "Invalid user input on %s [%s]", request.path, exc, exc_info=True
         )
         raise _bad_input_response(exc) from exc
+    except Exception as exc:
+        # Any non-bad-input failure that escapes here can only have
+        # fired while iterating the route generator. If it fired
+        # before the first chunk (``started`` is False) the status
+        # line is not yet on the wire, so re-raising lets Bottle turn
+        # it into a normal 500; if it fired mid-stream, log the cause
+        # first (the client cannot be told) and then re-raise to
+        # abort the stream.
+        if started:
+            _log_stream_abort(exc)
+        raise
     finally:
         stream.close()
 

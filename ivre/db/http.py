@@ -246,7 +246,31 @@ class HttpDB(DB):
             else:
                 cururl += f"%20limit:{RESULTS_COUNT}"
             req = self.db.open(cururl)
-            data = json.loads(req.read().decode())
+            body = req.read()
+            try:
+                data = json.loads(body.decode())
+            except json.JSONDecodeError as exc:
+                # A ``200`` whose body does not parse is almost always
+                # a truncated stream: the ``/scans`` & ``/view`` routes
+                # send ``"[\n"`` and then stream the records, so a
+                # server-side failure after the status line is on the
+                # wire (e.g. a MongoDB ``maxTimeMS`` cursor timeout)
+                # leaves the JSON array opened and never closed. A
+                # buffering reverse proxy can forward those first bytes
+                # as a clean, fixed-length ``200``, so the status alone
+                # cannot tell this from success -- only the unparsable
+                # body can. Raise an explicit, actionable error instead
+                # of letting the bare ``JSONDecodeError`` surface.
+                raise ValueError(
+                    f"Truncated or malformed JSON response from {cururl} "
+                    f"({len(body)} byte{'s' if len(body) != 1 else ''}, "
+                    f"starting with {body[:64]!r}). The server most "
+                    "likely aborted the query after it had started "
+                    "streaming the response (e.g. a server-side "
+                    "timeout); the HTTP status is already 200 and "
+                    "cannot change mid-stream. Retry with a smaller "
+                    "limit, a shallower skip or a narrower filter."
+                ) from exc
             if not data:
                 break
             if limit is None:
