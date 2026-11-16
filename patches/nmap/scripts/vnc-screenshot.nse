@@ -16,6 +16,7 @@
 
 local match = require "match"
 local math = require "math"
+local nmap = require "nmap"
 local shortport = require "shortport"
 local stdnse = require "stdnse"
 
