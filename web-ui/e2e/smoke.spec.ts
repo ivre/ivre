@@ -1130,10 +1130,9 @@ test("DNS section forwards user-typed filters to /cgi/dns", async ({
   });
 
   await page.goto("/#/dns?q=hostname%3Aexample.com");
-  await page.waitForLoadState("networkidle");
-
-  expect(dnsQueries.length).toBeGreaterThan(0);
-  expect(dnsQueries[dnsQueries.length - 1]).toBe("hostname:example.com");
+  await expect
+    .poll(() => dnsQueries[dnsQueries.length - 1])
+    .toBe("hostname:example.com");
 });
 
 test("RIR section renders inet[6]num and aut-num records", async ({
@@ -1226,10 +1225,7 @@ test("RIR section forwards user-typed filters to /cgi/rir", async ({
   });
 
   await page.goto("/#/rir?q=country%3AFR");
-  await page.waitForLoadState("networkidle");
-
-  expect(queries.length).toBeGreaterThan(0);
-  expect(queries[queries.length - 1]).toBe("country:FR");
+  await expect.poll(() => queries[queries.length - 1]).toBe("country:FR");
 });
 
 test("WEB_MODULES allowlist hides disabled sections from the nav", async ({
@@ -1402,8 +1398,7 @@ test("Flow section renders the graph + counts and forwards filters as JSON q=", 
     .getByRole("textbox", { name: /node filters/i })
     .fill("addr =~ 10.0.0.0/24");
   await aside.getByRole("button", { name: /^Apply$/ }).click();
-  await page.waitForLoadState("networkidle");
-  expect(captured.length).toBeGreaterThan(before);
+  await expect.poll(() => captured.length).toBeGreaterThan(before);
   const latest = JSON.parse(captured[captured.length - 1].q) as {
     nodes?: string[];
   };

@@ -64,6 +64,7 @@ import subprocess  # nosec B404  # required to drive the `ivre` CLI in UtilsTest
 import sys
 import tempfile
 import unittest
+import warnings
 from ast import literal_eval
 from datetime import datetime, timedelta, timezone
 from functools import reduce
@@ -4499,6 +4500,41 @@ class ElasticDBTopValuesTier2Tests(unittest.TestCase):
     def _terms_script_source(self, field):
         return self._walk_to_terms(self._capture_body(field))["script"]["source"]
 
+    def test_topvalues_ja3_server_optional_filters(self) -> None:
+        server_hash = "a" * 32
+        client_hash = "b" * 32
+        server_filter = {"match": {"ports.scripts.ssl-ja3-server.md5": server_hash}}
+        client_filter = {
+            "match": {"ports.scripts.ssl-ja3-server.client.md5": client_hash}
+        }
+        cases = [
+            ("ja3-server", []),
+            ("ja3-server::", []),
+            (f"ja3-server:{server_hash}", [server_filter]),
+            (f"ja3-server:{server_hash}:", [server_filter]),
+            (f"ja3-server::{client_hash}", [client_filter]),
+            (
+                f"ja3-server:{server_hash}:{client_hash}",
+                [client_filter, server_filter],
+            ),
+            (
+                "ja3-server:/^foo$/:/^bar$/",
+                [
+                    {"regexp": {"ports.scripts.ssl-ja3-server.client.raw": "bar"}},
+                    {"regexp": {"ports.scripts.ssl-ja3-server.raw": "foo"}},
+                ],
+            ),
+        ]
+        for field, expected in cases:
+            with self.subTest(field=field):
+                current = self._capture_body(field)["aggs"]["patterns"]
+                filters = []
+                while "aggs" in current:
+                    if "filter" in current:
+                        filters.append(current["filter"])
+                    current = current["aggs"]["patterns"]
+                self.assertEqual(filters, expected)
+
     # -- ntlm ---------------------------------------------------------
 
     def test_topvalues_ntlm_friendly_aliases(self):
@@ -4693,9 +4729,7 @@ class ElasticDBTopValuesTier2Tests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
-# PostgresExplainTests -- defence-in-depth check that values
-# inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
-# per-type literal binding, not Python ``repr``.
+# PostgreSQL driver selection and EXPLAIN literal binding.
 # ---------------------------------------------------------------------
 
 
@@ -4708,6 +4742,131 @@ try:
     _HAVE_SQLALCHEMY = True
 except ImportError:
     _HAVE_SQLALCHEMY = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBDriverTests(unittest.TestCase):
+    def test_unqualified_postgresql_uses_psycopg2(self) -> None:
+        try:
+            import psycopg2
+        except ImportError:
+            self.skipTest("psycopg2 is required (install with the postgres extras)")
+
+        from ivre.db import DBAudit, DBAuth, DBFlow, DBPassive, DBRir, DBView
+
+        raw = "postgresql://ivre:password@localhost/ivre?application_name=ivre-test"
+        for cls in (DBNmap, DBView, DBPassive, DBFlow, DBRir, DBAuth, DBAudit):
+            with self.subTest(purpose=cls.__name__):
+                db = cls.from_url(raw)
+                self.assertEqual(db.dburl, raw)
+                engine = db.db
+                try:
+                    self.assertEqual(engine.url.drivername, "postgresql+psycopg2")
+                    self.assertIs(engine.dialect.dbapi, psycopg2)
+                    self.assertEqual(engine.url.username, "ivre")
+                    self.assertEqual(engine.url.password, "password")
+                    self.assertEqual(engine.url.host, "localhost")
+                    self.assertEqual(engine.url.database, "ivre")
+                    self.assertEqual(engine.url.query["application_name"], "ivre-test")
+                    self.assertIs(db.db, engine)
+                finally:
+                    engine.dispose()
+
+    def test_explicit_driver_and_other_backends_are_preserved(self) -> None:
+        from urllib.parse import urlparse
+
+        from ivre.db.sql import SQLDB
+
+        for raw in (
+            "postgresql+psycopg2://ivre@localhost/ivre",
+            "postgresql+psycopg://ivre@localhost/ivre",
+            "duckdb:///:memory:",
+            "duckdb:////tmp/ivre.duckdb",
+        ):
+            with self.subTest(url=raw):
+                with mock.patch("ivre.db.sql.create_engine") as create_engine:
+                    db = SQLDB(urlparse(raw))
+                    self.assertIs(db.db, create_engine.return_value)
+                    create_engine.assert_called_once_with(
+                        _sqlalchemy.engine.make_url(raw), echo=ivre.config.DEBUG_DB
+                    )
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBQueryWarningTests(unittest.TestCase):
+    def test_portlist_uses_explicit_select_without_warnings(self) -> None:
+        from ivre.db import DBView
+
+        for cls in (DBNmap, DBView):
+            for state in ("open", "closed", "filtered"):
+                with self.subTest(purpose=cls.__name__, state=state):
+                    db = cls.from_url("postgresql://x@localhost/x")
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", _sqlalchemy.exc.SAWarning)
+                        with mock.patch.object(
+                            db, "_read_iter", return_value=[]
+                        ) as read:
+                            self.assertEqual(
+                                list(
+                                    db.topvalues(
+                                        f"portlist:{state}",
+                                        flt=db.searchnet("192.0.2.0/24"),
+                                    )
+                                ),
+                                [],
+                            )
+                            sql = str(
+                                read.call_args.args[0].compile(
+                                    dialect=_sqlalchemy_postgresql.dialect(),
+                                    compile_kwargs={"literal_binds": True},
+                                )
+                            )
+                    self.assertIn("scan IN (SELECT", sql)
+                    self.assertIn(f"state = '{state}'", sql)
+                    self.assertIn("192.0.2.0", sql)
+
+    def test_distinct_uses_statement_level_distinct_without_warnings(self) -> None:
+        from ivre.db import DBPassive, DBView
+
+        for cls, fields in (
+            (DBPassive, ("addr", "port")),
+            (DBNmap, ("addr", "ports.port", "ports.service_name")),
+            (DBView, ("addr", "ports.port", "ports.service_name")),
+        ):
+            for field in fields:
+                with self.subTest(purpose=cls.__name__, field=field):
+                    db = cls.from_url("postgresql://x@localhost/x")
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", _sqlalchemy.exc.SAWarning)
+                        with mock.patch.object(
+                            db, "_read_iter", return_value=[]
+                        ) as read:
+                            self.assertEqual(
+                                list(
+                                    db.distinct(
+                                        field,
+                                        flt=db.searchhost("192.0.2.1"),
+                                        limit=5,
+                                        skip=1,
+                                    )
+                                ),
+                                [],
+                            )
+                            sql = str(
+                                read.call_args.args[0].compile(
+                                    dialect=_sqlalchemy_postgresql.dialect(),
+                                    compile_kwargs={"literal_binds": True},
+                                )
+                            )
+                    self.assertTrue(sql.startswith("SELECT DISTINCT "))
+                    self.assertIn("192.0.2.1", sql)
+                    self.assertIn("LIMIT 5 OFFSET 1", sql)
 
 
 @unittest.skipUnless(

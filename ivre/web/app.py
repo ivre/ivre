@@ -64,7 +64,7 @@ def get_config():
 
     :status 200: no error
     :status 400: invalid referer
-    :>json object config: the configuration values
+    :resjson object config: the configuration values
 
     """
     response.set_header("Content-Type", "application/javascript")
@@ -203,7 +203,7 @@ def get_nmap_action(subdb, action):
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
-    :>jsonarr object: results
+    :resjsonarr object: results
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -372,7 +372,7 @@ def get_nmap_count(subdb):
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
-    :>json int: count
+    :resjson int: count
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -401,8 +401,8 @@ def get_top(subdb, field):
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
-    :>jsonarr str label: field value
-    :>jsonarr int value: count for this value
+    :resjsonarr str label: field value
+    :resjsonarr int value: count for this value
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -470,8 +470,8 @@ def get_distinct(subdb, field):
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
-    :>jsonarr str label: field value
-    :>jsonarr int value: count for this value
+    :resjsonarr str label: field value
+    :resjsonarr int value: count for this value
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -570,7 +570,7 @@ def get_nmap(subdb):
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: module is not exposed by this server
-    :>jsonarr object: results
+    :resjsonarr object: results
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -799,7 +799,7 @@ def post_nmap(subdb):
     :status 400: invalid referer, source or username missing
     :status 403: uploads disabled (``WEB_UPLOAD_OK`` is ``False``)
     :status 404: module is not exposed by this server
-    :>json int count: number of inserted results
+    :resjson int count: number of inserted results
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
@@ -867,7 +867,7 @@ def get_flow():
     :status 400: invalid referer or malformed query
     :status 404: module is not exposed by this server, or
                  ``action=details`` and the entity does not exist
-    :>json object: results
+    :resjson object: results
 
     """
     require_module("flow")
@@ -1015,7 +1015,7 @@ def post_flow():
     :status 400: invalid referer or malformed body
     :status 403: uploads disabled (``WEB_UPLOAD_OK`` is ``False``)
     :status 404: module is not exposed by this server
-    :>json int count: number of records ingested
+    :resjson int count: number of records ingested
     """
     require_module("flow")
     response.set_header("Content-Type", "application/json")
@@ -1089,7 +1089,7 @@ def get_ipdata(addr):
     :param str addr: IP address to query
     :status 200: no error
     :status 400: invalid referer or malformed address
-    :>json object: the result values
+    :resjson object: the result values
 
     """
     response.set_header("Content-Type", "application/json")
@@ -1141,10 +1141,10 @@ def get_iprange():
     :query limit: cap the number of returned entries
     :status 200: no error
     :status 400: invalid selector, output or input combination
-    :>json int count: total number of IP addresses matched
-    :>json array cidrs: list of CIDRs (``output=cidrs``)
-    :>json array ranges: list of ``[start, stop]`` pairs (``output=ranges``)
-    :>json array addrs: list of IP strings (``output=addrs``, capped)
+    :resjson int count: total number of IP addresses matched
+    :resjson array cidrs: list of CIDRs (``output=cidrs``)
+    :resjson array ranges: list of ``[start, stop]`` pairs (``output=ranges``)
+    :resjson array addrs: list of IP strings (``output=addrs``, capped)
 
     """
     response.set_header("Content-Type", "application/json")
@@ -1256,7 +1256,7 @@ def get_passivedns(query):
     :status 200: no error
     :status 400: invalid referer or malformed query
     :status 404: passive module is not exposed by this server
-    :>json object: the result values (JSONL format: one JSON result per line)
+    :resjson object: the result values (JSONL format: one JSON result per line)
 
     """
     require_module("passive")
@@ -1317,7 +1317,7 @@ def get_passive():
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: passive module is not exposed by this server
-    :>jsonarr object: results
+    :resjsonarr object: results
 
     """
     require_module("passive")
@@ -1379,7 +1379,7 @@ def get_passive_count():
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: passive module is not exposed by this server
-    :>json int: count
+    :resjson int: count
 
     """
     require_module("passive")
@@ -1453,7 +1453,7 @@ def get_dns():
     :status 200: no error
     :status 400: invalid referer or malformed query
     :status 404: dns module is not exposed by this server
-    :>jsonarr object: pseudo-records as ``{name, addr, count, firstseen, lastseen, types, sources}``
+    :resjsonarr object: pseudo-records as ``{name, addr, count, firstseen, lastseen, types, sources}``
     """
     require_module("dns")
     raw_query = webutils.query_from_params(request.params)
@@ -1551,7 +1551,7 @@ def get_rir():
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: rir module is not exposed by this server
-    :>jsonarr object: results
+    :resjsonarr object: results
 
     """
     require_module("rir")
@@ -1601,7 +1601,7 @@ def get_rir_count():
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
     :status 404: rir module is not exposed by this server
-    :>json int: count
+    :resjson int: count
 
     """
     require_module("rir")

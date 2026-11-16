@@ -26,8 +26,8 @@ import re
 from urllib.parse import unquote
 
 from elasticsearch import Elasticsearch, RequestError, helpers
-from elasticsearch_dsl import Q  # pylint: disable=no-name-in-module
-from elasticsearch_dsl.query import Query  # pylint: disable=no-name-in-module
+from elasticsearch_dsl import Q
+from elasticsearch_dsl.query import Query
 
 from ivre import utils
 from ivre.active.nmap import ALIASES_TABLE_ELEMS
@@ -76,7 +76,7 @@ class ElasticDB(DB):
         """Initializes the mappings."""
         for idxnum, mapping in enumerate(self.mappings):
             idxname = self.indexes[idxnum]
-            self.db_client.indices.delete(  # pylint: disable=unexpected-keyword-arg
+            self.db_client.indices.delete(
                 index=idxname,
                 ignore=[400, 404],
             )
@@ -1610,6 +1610,8 @@ return result;
             def outputproc(value):
                 return tuple(value.split("/"))
 
+            filter_value1 = None
+            filter_value2 = None
             if ":" in field:
                 field, values = field.split(":", 1)
                 if ":" in values:
@@ -1690,16 +1692,14 @@ return result;
                     },
                 ),
             }
-            if value1 is not None:
+            if filter_value1 is not None:
                 base = {
-                    # filter_value1 exists when value1 is not None
-                    "filter": filter_value1,  # pylint: disable=used-before-assignment
+                    "filter": filter_value1,
                     "aggs": {"patterns": base},
                 }
-            if value2 is not None:
+            if filter_value2 is not None:
                 base = {
-                    # filter_value2 exists when value2 is not None
-                    "filter": filter_value2,  # pylint: disable=used-before-assignment
+                    "filter": filter_value2,
                     "aggs": {"patterns": base},
                 }
             flt = self.flt_and(
