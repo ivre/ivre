@@ -64,6 +64,7 @@ import subprocess  # nosec B404  # required to drive the `ivre` CLI in UtilsTest
 import sys
 import tempfile
 import unittest
+import warnings
 from ast import literal_eval
 from datetime import datetime, timedelta, timezone
 from functools import reduce
@@ -4792,6 +4793,80 @@ class SQLDBDriverTests(unittest.TestCase):
                     create_engine.assert_called_once_with(
                         _sqlalchemy.engine.make_url(raw), echo=ivre.config.DEBUG_DB
                     )
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBQueryWarningTests(unittest.TestCase):
+    def test_portlist_uses_explicit_select_without_warnings(self) -> None:
+        from ivre.db import DBView
+
+        for cls in (DBNmap, DBView):
+            for state in ("open", "closed", "filtered"):
+                with self.subTest(purpose=cls.__name__, state=state):
+                    db = cls.from_url("postgresql://x@localhost/x")
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", _sqlalchemy.exc.SAWarning)
+                        with mock.patch.object(
+                            db, "_read_iter", return_value=[]
+                        ) as read:
+                            self.assertEqual(
+                                list(
+                                    db.topvalues(
+                                        f"portlist:{state}",
+                                        flt=db.searchnet("192.0.2.0/24"),
+                                    )
+                                ),
+                                [],
+                            )
+                            sql = str(
+                                read.call_args.args[0].compile(
+                                    dialect=_sqlalchemy_postgresql.dialect(),
+                                    compile_kwargs={"literal_binds": True},
+                                )
+                            )
+                    self.assertIn("scan IN (SELECT", sql)
+                    self.assertIn(f"state = '{state}'", sql)
+                    self.assertIn("192.0.2.0", sql)
+
+    def test_distinct_uses_statement_level_distinct_without_warnings(self) -> None:
+        from ivre.db import DBPassive, DBView
+
+        for cls, fields in (
+            (DBPassive, ("addr", "port")),
+            (DBNmap, ("addr", "ports.port", "ports.service_name")),
+            (DBView, ("addr", "ports.port", "ports.service_name")),
+        ):
+            for field in fields:
+                with self.subTest(purpose=cls.__name__, field=field):
+                    db = cls.from_url("postgresql://x@localhost/x")
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error", _sqlalchemy.exc.SAWarning)
+                        with mock.patch.object(
+                            db, "_read_iter", return_value=[]
+                        ) as read:
+                            self.assertEqual(
+                                list(
+                                    db.distinct(
+                                        field,
+                                        flt=db.searchhost("192.0.2.1"),
+                                        limit=5,
+                                        skip=1,
+                                    )
+                                ),
+                                [],
+                            )
+                            sql = str(
+                                read.call_args.args[0].compile(
+                                    dialect=_sqlalchemy_postgresql.dialect(),
+                                    compile_kwargs={"literal_binds": True},
+                                )
+                            )
+                    self.assertTrue(sql.startswith("SELECT DISTINCT "))
+                    self.assertIn("192.0.2.1", sql)
+                    self.assertIn("LIMIT 5 OFFSET 1", sql)
 
 
 @unittest.skipUnless(

@@ -653,7 +653,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                         .where(
                             and_(
                                 self.tables.port.state == info,
-                                self.tables.port.scan.in_(base),
+                                self.tables.port.scan.in_(select(base.c.id)),
                                 # exists(select(1)\
                                 #        .select_from(base)\
                                 #        .where(

@@ -667,7 +667,7 @@ class SQLDB(DB):
 
     @staticmethod
     def _distinct_req(field, flt):
-        return flt.query(select(field.distinct()).select_from(flt.select_from))
+        return flt.query(select(field).distinct().select_from(flt.select_from))
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None, **kargs):
         """This method produces a generator of distinct values for a given
@@ -3009,7 +3009,7 @@ class SQLDBActive(SQLDB, DBActive):
     def _distinct_req(field, flt):
         flt = flt.copy()
         return flt.query(
-            select(field.distinct()).select_from(flt.select_from_base(field.parent))
+            select(field).distinct().select_from(flt.select_from_base(field.parent))
         )
 
     def _get_open_port_count(self, flt, limit=None, skip=None):
