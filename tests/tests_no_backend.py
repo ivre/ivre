@@ -4728,9 +4728,7 @@ class ElasticDBTopValuesTier2Tests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------
-# PostgresExplainTests -- defence-in-depth check that values
-# inlined into the ``EXPLAIN`` statement go through SQLAlchemy's
-# per-type literal binding, not Python ``repr``.
+# PostgreSQL driver selection and EXPLAIN literal binding.
 # ---------------------------------------------------------------------
 
 
@@ -4743,6 +4741,57 @@ try:
     _HAVE_SQLALCHEMY = True
 except ImportError:
     _HAVE_SQLALCHEMY = False
+
+
+@unittest.skipUnless(
+    _HAVE_SQLALCHEMY,
+    "sqlalchemy is required (install with the ``postgres`` extras)",
+)
+class SQLDBDriverTests(unittest.TestCase):
+    def test_unqualified_postgresql_uses_psycopg2(self) -> None:
+        try:
+            import psycopg2
+        except ImportError:
+            self.skipTest("psycopg2 is required (install with the postgres extras)")
+
+        from ivre.db import DBAudit, DBAuth, DBFlow, DBPassive, DBRir, DBView
+
+        raw = "postgresql://ivre:password@localhost/ivre?application_name=ivre-test"
+        for cls in (DBNmap, DBView, DBPassive, DBFlow, DBRir, DBAuth, DBAudit):
+            with self.subTest(purpose=cls.__name__):
+                db = cls.from_url(raw)
+                self.assertEqual(db.dburl, raw)
+                engine = db.db
+                try:
+                    self.assertEqual(engine.url.drivername, "postgresql+psycopg2")
+                    self.assertIs(engine.dialect.dbapi, psycopg2)
+                    self.assertEqual(engine.url.username, "ivre")
+                    self.assertEqual(engine.url.password, "password")
+                    self.assertEqual(engine.url.host, "localhost")
+                    self.assertEqual(engine.url.database, "ivre")
+                    self.assertEqual(engine.url.query["application_name"], "ivre-test")
+                    self.assertIs(db.db, engine)
+                finally:
+                    engine.dispose()
+
+    def test_explicit_driver_and_other_backends_are_preserved(self) -> None:
+        from urllib.parse import urlparse
+
+        from ivre.db.sql import SQLDB
+
+        for raw in (
+            "postgresql+psycopg2://ivre@localhost/ivre",
+            "postgresql+psycopg://ivre@localhost/ivre",
+            "duckdb:///:memory:",
+            "duckdb:////tmp/ivre.duckdb",
+        ):
+            with self.subTest(url=raw):
+                with mock.patch("ivre.db.sql.create_engine") as create_engine:
+                    db = SQLDB(urlparse(raw))
+                    self.assertIs(db.db, create_engine.return_value)
+                    create_engine.assert_called_once_with(
+                        _sqlalchemy.engine.make_url(raw), echo=ivre.config.DEBUG_DB
+                    )
 
 
 @unittest.skipUnless(

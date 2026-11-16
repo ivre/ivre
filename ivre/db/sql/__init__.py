@@ -57,6 +57,7 @@ from sqlalchemy import text as sa_text
 from sqlalchemy import true, update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
 
@@ -394,8 +395,13 @@ class SQLDB(DB):
         try:
             return self._db
         except AttributeError:
+            url = make_url(self.dburl)
+            if url.drivername == "postgresql":
+                # SQLAlchemy 2.1 defaults to psycopg 3, but the PostgreSQL
+                # backend uses psycopg2's COPY API and installs that driver.
+                url = url.set(drivername="postgresql+psycopg2")
             # echo on debug disabled for tests
-            self._db = create_engine(self.dburl, echo=config.DEBUG_DB)
+            self._db = create_engine(url, echo=config.DEBUG_DB)
             return self._db
 
     @_ClassOrInstanceProperty
