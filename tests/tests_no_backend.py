@@ -4499,6 +4499,41 @@ class ElasticDBTopValuesTier2Tests(unittest.TestCase):
     def _terms_script_source(self, field):
         return self._walk_to_terms(self._capture_body(field))["script"]["source"]
 
+    def test_topvalues_ja3_server_optional_filters(self) -> None:
+        server_hash = "a" * 32
+        client_hash = "b" * 32
+        server_filter = {"match": {"ports.scripts.ssl-ja3-server.md5": server_hash}}
+        client_filter = {
+            "match": {"ports.scripts.ssl-ja3-server.client.md5": client_hash}
+        }
+        cases = [
+            ("ja3-server", []),
+            ("ja3-server::", []),
+            (f"ja3-server:{server_hash}", [server_filter]),
+            (f"ja3-server:{server_hash}:", [server_filter]),
+            (f"ja3-server::{client_hash}", [client_filter]),
+            (
+                f"ja3-server:{server_hash}:{client_hash}",
+                [client_filter, server_filter],
+            ),
+            (
+                "ja3-server:/^foo$/:/^bar$/",
+                [
+                    {"regexp": {"ports.scripts.ssl-ja3-server.client.raw": "bar"}},
+                    {"regexp": {"ports.scripts.ssl-ja3-server.raw": "foo"}},
+                ],
+            ),
+        ]
+        for field, expected in cases:
+            with self.subTest(field=field):
+                current = self._capture_body(field)["aggs"]["patterns"]
+                filters = []
+                while "aggs" in current:
+                    if "filter" in current:
+                        filters.append(current["filter"])
+                    current = current["aggs"]["patterns"]
+                self.assertEqual(filters, expected)
+
     # -- ntlm ---------------------------------------------------------
 
     def test_topvalues_ntlm_friendly_aliases(self):

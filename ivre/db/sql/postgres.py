@@ -534,7 +534,9 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         if flt is None:
             flt = self.flt_empty
-        base = flt.query(select(self.tables.scan.id).select_from(flt.select_from))
+        base = flt.query(
+            select(self.tables.scan.id).select_from(flt.select_from)
+        ).subquery()
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
