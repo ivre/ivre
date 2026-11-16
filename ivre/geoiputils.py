@@ -25,13 +25,15 @@ from __future__ import annotations  # needed for flake8
 
 import csv
 import os.path
+import stat
 import sys
 import tarfile
+import tempfile
 import time
 import zipfile
 from collections.abc import Callable, Generator, Iterable
 from shutil import copyfileobj
-from typing import Any
+from typing import IO, Any
 from urllib.error import HTTPError
 from urllib.request import build_opener
 
@@ -74,6 +76,30 @@ def bgp_raw_to_csv(fname: str, outname: str) -> None:
             out.write(f"{cur[0]},{cur[1]}\n")
 
 
+def _copyfileobj_atomic(
+    rdesc: IO[bytes], outfile: str, expected_size: int | None = None
+) -> None:
+    # A temporary directory on the destination filesystem permits atomic
+    # replacement while open() retains the usual umask for newly created files.
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(outfile)) as tmpdir:
+        tmpname = os.path.join(tmpdir, os.path.basename(outfile))
+        with open(tmpname, "wb") as wdesc:
+            copyfileobj(rdesc, wdesc)
+            size = wdesc.tell()
+            if expected_size is not None and size != expected_size:
+                raise OSError(
+                    f"Incomplete download for {outfile}: "
+                    f"expected {expected_size} bytes, received {size}"
+                )
+        try:
+            mode = os.stat(outfile).st_mode
+        except FileNotFoundError:
+            pass
+        else:
+            os.chmod(tmpname, stat.S_IMODE(mode))
+        os.replace(tmpname, outfile)
+
+
 def unzip_all(
     fname: str,
     cond: Callable[[zipfile.ZipInfo], bool] | None = None,
@@ -83,27 +109,21 @@ def unzip_all(
         for filedesc in zdesc.infolist():
             if cond and not cond(filedesc):
                 continue
-            with (
-                zdesc.open(filedesc) as rdesc,
-                open(
+            with zdesc.open(filedesc) as rdesc:
+                _copyfileobj_atomic(
+                    rdesc,
                     os.path.join(
                         config.GEOIP_PATH, os.path.basename(filedesc.filename)
                     ),
-                    "wb",
-                ) as wdesc,
-            ):
-                copyfileobj(rdesc, wdesc)
+                )
 
 
 def gunzip(fname: str) -> None:
     if not fname.endswith(".gz"):
         raise Exception('filename should end with ".gz"')
     assert config.GEOIP_PATH is not None
-    with (
-        utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp,
-        open(os.path.join(config.GEOIP_PATH, fname[:-3]), "wb") as outp,
-    ):
-        copyfileobj(inp, outp)
+    with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp:
+        _copyfileobj_atomic(inp, os.path.join(config.GEOIP_PATH, fname[:-3]))
 
 
 def untar_all(
@@ -116,11 +136,11 @@ def untar_all(
             if cond and not cond(filedesc):
                 continue
             target = os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name))
-            with open(target, "wb") as wdesc:
-                rdesc = tdesc.extractfile(filedesc)
-                if rdesc is None:
-                    continue
-                copyfileobj(rdesc, wdesc)
+            rdesc = tdesc.extractfile(filedesc)
+            if rdesc is None:
+                continue
+            with rdesc:
+                _copyfileobj_atomic(rdesc, target)
             os.utime(target, (filedesc.mtime, filedesc.mtime))
 
 
@@ -221,10 +241,19 @@ def download_all(verbose: bool = False) -> None:
             sys.stdout.write(f"Downloading {url} to {outfile}: ")
             sys.stdout.flush()
         try:
-            with opener.open(url) as udesc, open(outfile, "wb") as wdesc:
-                copyfileobj(udesc, wdesc)
+            with opener.open(url) as udesc:
+                content_length = udesc.headers.get("Content-Length")
+                # Transfer-Encoding takes precedence over Content-Length.
+                expected_size = (
+                    int(content_length)
+                    if content_length is not None
+                    and not udesc.headers.get("Transfer-Encoding")
+                    else None
+                )
+                _copyfileobj_atomic(udesc, outfile, expected_size)
         except HTTPError as exc:
             if exc.status == 304:
+                exc.close()
                 if verbose:
                     sys.stdout.write("already downloaded.\n")
                 continue
@@ -248,6 +277,7 @@ def download_all(verbose: bool = False) -> None:
                     ", ".join(f"{k}={v!r}" for k, v in kargs.items()),
                     exc_info=True,
                 )
+                break
     if verbose:
         sys.stdout.write("done.\n")
 

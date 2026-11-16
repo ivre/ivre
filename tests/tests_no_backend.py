@@ -53,6 +53,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import gzip
 import inspect
 import io
 import json
@@ -60,16 +61,23 @@ import os
 import random
 import re
 import shutil
+import socketserver
 import subprocess  # nosec B404  # required to drive the `ivre` CLI in UtilsTests
 import sys
+import tarfile
 import tempfile
+import threading
 import unittest
 import warnings
+import zipfile
 from ast import literal_eval
 from datetime import datetime, timedelta, timezone
 from functools import reduce
+from http.client import IncompleteRead
 from typing import Any
 from unittest import mock
+from urllib.error import HTTPError
+from urllib.request import ProxyHandler, build_opener
 from xml.sax.handler import (  # nosec B406  # used only as a no-op SAX event sink against the defusedxml-hardened parser
     ContentHandler,
 )
@@ -83,6 +91,7 @@ from defusedxml.common import (  # type: ignore[import-untyped]
 
 import ivre.analyzer.ntlm
 import ivre.config
+import ivre.geoiputils
 import ivre.mathutils
 import ivre.parser.iptables
 import ivre.parser.zeek
@@ -527,6 +536,336 @@ class _StubNmapHandler(xmlnmap.NmapHandler):
 
     def _to_binary(self, data: bytes) -> bytes:
         return data
+
+
+class GeoIPDownloadTests(unittest.TestCase):
+    """Downloads and extracted files must not publish partial data."""
+
+    def setUp(self) -> None:
+        self.directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.enterContext(mock.patch.object(ivre.config, "GEOIP_PATH", self.directory))
+        self.urls: dict[str, str] = {}
+        self.enterContext(mock.patch.object(ivre.config, "IPDATA_URLS", self.urls))
+        self.parser = mock.Mock()
+        self.enterContext(
+            mock.patch.object(
+                ivre.geoiputils, "PARSERS", {"download.dat": [(self.parser, [], {})]}
+            )
+        )
+        # Keep local-server tests independent of proxy environment variables.
+        self.enterContext(
+            mock.patch.object(
+                ivre.geoiputils,
+                "build_opener",
+                return_value=build_opener(ProxyHandler({})),
+            )
+        )
+        self.requests: list[list[bytes]] = []
+
+    def _write(self, name: str, data: bytes) -> None:
+        with open(os.path.join(self.directory, name), "wb") as fdesc:
+            fdesc.write(data)
+
+    def _read(self, name: str) -> bytes:
+        with open(os.path.join(self.directory, name), "rb") as fdesc:
+            return fdesc.read()
+
+    def _serve(
+        self,
+        payload: bytes,
+        content_length: int | None = None,
+        status: int = 200,
+        headers: bytes = b"",
+    ) -> None:
+        response = f"HTTP/1.1 {status} Test\r\nConnection: close\r\n".encode() + headers
+        if content_length is not None:
+            response += f"Content-Length: {content_length}\r\n".encode()
+        response += b"\r\n" + payload
+        requests = self.requests
+
+        class Handler(socketserver.BaseRequestHandler):
+            def handle(self) -> None:
+                self.request.settimeout(5)
+                lines = []
+                with self.request.makefile("rb") as rdesc:
+                    while line := rdesc.readline():
+                        if line == b"\r\n":
+                            break
+                        lines.append(line)
+                requests.append(lines)
+                self.request.sendall(response)
+
+        server = self.enterContext(socketserver.TCPServer(("127.0.0.1", 0), Handler))
+        thread = threading.Thread(
+            target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+        )
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.shutdown)
+        self.urls["download.dat"] = f"http://127.0.0.1:{server.server_address[1]}/data"
+
+    def test_truncated_download_preserves_existing_file(self) -> None:
+        self._write("download.dat", b"previous download")
+        path = os.path.join(self.directory, "download.dat")
+        before = os.stat(path)
+        self._serve(b"x" * 300_000, content_length=1_000_000)
+        with self.assertRaisesRegex(OSError, "expected 1000000 bytes, received 300000"):
+            ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        after = os.stat(path)
+        self.assertEqual(
+            (before.st_ino, before.st_mtime_ns, before.st_mode),
+            (after.st_ino, after.st_mtime_ns, after.st_mode),
+        )
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_not_called()
+        self.assertEqual(len(self.requests), 1)
+
+    def test_truncated_download_does_not_create_destination(self) -> None:
+        self._serve(b"x" * 300_000, content_length=1_000_000)
+        with self.assertRaises(OSError):
+            ivre.geoiputils.download_all()
+        self.assertEqual(os.listdir(self.directory), [])
+        self.parser.assert_not_called()
+
+    def test_successful_download_replaces_only_after_copy(self) -> None:
+        self._write("download.dat", b"previous download")
+        path = os.path.join(self.directory, "download.dat")
+        os.chmod(path, 0o640)
+        payload = b"new download" * 100_000
+        self._serve(payload, content_length=len(payload))
+        replace = os.replace
+        replaced = []
+
+        def check_replace(src: str, dst: str) -> None:
+            self.assertEqual(dst, path)
+            self.assertEqual(self._read("download.dat"), b"previous download")
+            # The temporary directory is created on the destination filesystem.
+            self.assertEqual(os.path.dirname(os.path.dirname(src)), self.directory)
+            with open(src, "rb") as fdesc:
+                self.assertEqual(fdesc.read(), payload)
+            replaced.append(dst)
+            replace(src, dst)
+
+        with mock.patch.object(
+            ivre.geoiputils.os, "replace", side_effect=check_replace
+        ):
+            ivre.geoiputils.download_all()
+        self.assertEqual(replaced, [path])
+        self.assertEqual(self._read("download.dat"), payload)
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o640)
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_called_once_with()
+
+    def test_successful_download_creates_destination(self) -> None:
+        self._write("reference.dat", b"")
+        reference = os.path.join(self.directory, "reference.dat")
+        expected_mode = os.stat(reference).st_mode & 0o777
+        os.unlink(reference)
+        self._serve(b"new download", content_length=12)
+        ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"new download")
+        self.assertEqual(
+            os.stat(os.path.join(self.directory, "download.dat")).st_mode & 0o777,
+            expected_mode,
+        )
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_called_once_with()
+
+    def test_download_without_content_length(self) -> None:
+        self._serve(b"close-delimited download")
+        ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"close-delimited download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_called_once_with()
+
+    def test_chunked_download(self) -> None:
+        self._serve(
+            b"5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n",
+            content_length=999,
+            headers=b"Transfer-Encoding: chunked\r\n",
+        )
+        ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"hello world")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_called_once_with()
+
+    def test_interrupted_chunked_download(self) -> None:
+        self._write("download.dat", b"previous download")
+        self._serve(b"5\r\nhello\r\n6\r\nwo", headers=b"Transfer-Encoding: chunked\r\n")
+        with self.assertRaises(IncompleteRead):
+            ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_not_called()
+
+    def test_not_modified_preserves_file(self) -> None:
+        self._write("download.dat", b"previous download")
+        self._serve(b"", status=304)
+        ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.assertTrue(
+            any(line.startswith(b"If-Modified-Since:") for line in self.requests[0])
+        )
+        self.parser.assert_not_called()
+
+    def test_http_error_preserves_file(self) -> None:
+        self._write("download.dat", b"previous download")
+        self._serve(b"", status=500)
+        with self.assertRaises(HTTPError) as raised:
+            ivre.geoiputils.download_all()
+        raised.exception.close()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_not_called()
+
+    def test_copy_error_cleans_up_temporary_file(self) -> None:
+        self._write("download.dat", b"previous download")
+        self._serve(b"new download", content_length=12)
+
+        def fail_copy(rdesc, wdesc) -> None:
+            wdesc.write(rdesc.read(3))
+            raise OSError("write failed")
+
+        with (
+            mock.patch.object(ivre.geoiputils, "copyfileobj", side_effect=fail_copy),
+            self.assertRaisesRegex(OSError, "write failed"),
+        ):
+            ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_not_called()
+
+    def test_replace_error_cleans_up_temporary_file(self) -> None:
+        self._write("download.dat", b"previous download")
+        self._serve(b"new download", content_length=12)
+        with (
+            mock.patch.object(
+                ivre.geoiputils.os, "replace", side_effect=OSError("replace failed")
+            ),
+            self.assertRaisesRegex(OSError, "replace failed"),
+        ):
+            ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download.dat"), b"previous download")
+        self.assertEqual(os.listdir(self.directory), ["download.dat"])
+        self.parser.assert_not_called()
+
+    def test_truncated_gzip_preserves_output(self) -> None:
+        payload = b"uncompressed data" * 100_000
+        # Keep enough data to write several copy buffers before EOF is detected.
+        self._write("data.gz", gzip.compress(payload)[:-8])
+        self._write("data", b"previous output")
+        with self.assertRaises(EOFError):
+            ivre.geoiputils.gunzip("data.gz")
+        self.assertEqual(self._read("data"), b"previous output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data", "data.gz"])
+
+    def test_truncated_gzip_does_not_create_output(self) -> None:
+        self._write("data.gz", gzip.compress(b"uncompressed data" * 100_000)[:-8])
+        with self.assertRaises(EOFError):
+            ivre.geoiputils.gunzip("data.gz")
+        self.assertEqual(os.listdir(self.directory), ["data.gz"])
+
+    def test_gzip_crc_error_preserves_output(self) -> None:
+        compressed = bytearray(gzip.compress(b"uncompressed data" * 100_000))
+        compressed[-8] ^= 0xFF
+        self._write("data.gz", bytes(compressed))
+        self._write("data", b"previous output")
+        with self.assertRaises(gzip.BadGzipFile):
+            ivre.geoiputils.gunzip("data.gz")
+        self.assertEqual(self._read("data"), b"previous output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data", "data.gz"])
+
+    def test_successful_gzip_replaces_output(self) -> None:
+        self._write("data.gz", gzip.compress(b"new output"))
+        self._write("data", b"previous output")
+        ivre.geoiputils.gunzip("data.gz")
+        self.assertEqual(self._read("data"), b"new output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data", "data.gz"])
+
+    def test_truncated_tar_preserves_output(self) -> None:
+        payload = b"archive member" * 100_000
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w") as tdesc:
+            member = tarfile.TarInfo("nested/data.mmdb")
+            member.size = len(payload)
+            tdesc.addfile(member, io.BytesIO(payload))
+        self._write("data.tar", archive.getvalue()[: 512 + 300_000])
+        self._write("data.mmdb", b"previous output")
+        with self.assertRaises(tarfile.ReadError):
+            ivre.geoiputils.untar_all("data.tar")
+        self.assertEqual(self._read("data.mmdb"), b"previous output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data.mmdb", "data.tar"])
+
+    def test_successful_tar_replaces_output(self) -> None:
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w") as tdesc:
+            member = tarfile.TarInfo("nested/data.mmdb")
+            member.size = len(b"new output")
+            member.mtime = 1234567890
+            tdesc.addfile(member, io.BytesIO(b"new output"))
+        self._write("data.tar", archive.getvalue())
+        self._write("data.mmdb", b"previous output")
+        ivre.geoiputils.untar_all("data.tar")
+        self.assertEqual(self._read("data.mmdb"), b"new output")
+        self.assertEqual(
+            os.stat(os.path.join(self.directory, "data.mmdb")).st_mtime, 1234567890
+        )
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data.mmdb", "data.tar"])
+
+    def test_zip_crc_error_preserves_output(self) -> None:
+        payload = b"archive member" * 100_000
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as zdesc:
+            zdesc.writestr("nested/data.csv", payload)
+        corrupted = archive.getvalue().replace(payload, b"x" + payload[1:], 1)
+        self._write("data.zip", corrupted)
+        self._write("data.csv", b"previous output")
+        with self.assertRaises(zipfile.BadZipFile):
+            ivre.geoiputils.unzip_all("data.zip")
+        self.assertEqual(self._read("data.csv"), b"previous output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data.csv", "data.zip"])
+
+    def test_successful_zip_replaces_output(self) -> None:
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w") as zdesc:
+            zdesc.writestr("nested/data.csv", b"new output")
+        self._write("data.zip", archive.getvalue())
+        self._write("data.csv", b"previous output")
+        ivre.geoiputils.unzip_all("data.zip")
+        self.assertEqual(self._read("data.csv"), b"new output")
+        self.assertEqual(sorted(os.listdir(self.directory)), ["data.csv", "data.zip"])
+
+    def test_failed_decompression_stops_archive_pipeline(self) -> None:
+        self._serve(gzip.compress(b"new output" * 100_000)[:-8])
+        self.urls["download.gz"] = self.urls.pop("download.dat")
+        self._write("download", b"previous intermediate output")
+        extract = mock.Mock()
+        other_parser = mock.Mock()
+        self._write("other.dat", b"unrelated archive")
+        self.urls["other.dat"] = "file://" + os.path.join(self.directory, "other.dat")
+        with (
+            mock.patch.object(
+                ivre.geoiputils,
+                "PARSERS",
+                {
+                    "download.gz": [
+                        (ivre.geoiputils.gunzip, ["download.gz"], {}),
+                        (extract, [], {}),
+                    ],
+                    "other.dat": [(other_parser, [], {})],
+                },
+            ),
+            self.assertLogs(ivre.utils.LOGGER, level="WARNING"),
+        ):
+            ivre.geoiputils.download_all()
+        self.assertEqual(self._read("download"), b"previous intermediate output")
+        extract.assert_not_called()
+        other_parser.assert_called_once_with()
+        self.assertEqual(
+            sorted(os.listdir(self.directory)), ["download", "download.gz", "other.dat"]
+        )
 
 
 class ScreenshotContainmentTests(unittest.TestCase):
