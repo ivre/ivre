@@ -370,13 +370,17 @@ def zgrap_parser_http(
                 has_raw_value = True
         if not has_raw_value:  # no headers_raw or decoding failed
             # The order will be incorrect!
+            proto = resp["protocol"]
+            # zgrab2 >= zmap/zgrab2#581 uses a string instead of
+            # {"name": ..., "major": ..., "minor": ...}
+            proto_name = proto["name"] if isinstance(proto, dict) else proto
             banner = (
-                utils.nmap_decode_data(resp["protocol"]["name"])
+                utils.nmap_decode_data(proto_name)
                 + b" "
                 + utils.nmap_decode_data(resp["status_line"])
                 + b"\r\n"
             )
-            line = f"{resp['protocol']['name']} {resp['status_line']}"
+            line = f"{proto_name} {resp['status_line']}"
             http_hdrs = [{"name": "_status", "value": line}]
             output_list = [line]
             for unk in headers.pop("unknown", []):
