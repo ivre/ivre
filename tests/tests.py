@@ -1895,6 +1895,236 @@ class IvreTests(unittest.TestCase):
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
 
+    def test_35_searchscript_same_element(self):
+        """searchscript(values=...) must not match across scripts.
+
+        The filter carries two clauses: a probe on
+        ``ports.scripts.<key>`` so the planner can use the
+        ``ports.scripts.<key>.<field>`` indexes, and an $elemMatch on
+        ``ports.scripts`` that ties ``id`` and the structured match to the
+        *same* array element. Only the second is load-bearing for
+        correctness, and this checks it still is -- dropping it, or
+        replacing it with a flat ``ports.scripts.id`` test, makes all four
+        decoys below match.
+
+        Mongo-only: it needs a scratch collection with hand-built
+        documents, which the shared corpus cannot express.
+        """
+        # Intentional DATABASE branch -- this exercises the query shape
+        # emitted by the Mongo backend against real MongoDB $elemMatch
+        # semantics. There is nothing dialect-neutral to assert.
+        if DATABASE != "mongo":
+            self.skipTest("MongoDB-specific query shape")
+
+        name = "http-vuln-cve2017-5638"
+        values = {"id": "CVE-2017-5638", "state": "VULNERABLE"}
+
+        def script(script_id, vuln_id, state):
+            return {
+                "id": script_id,
+                "output": "x",
+                "vulns": [{"id": vuln_id, "state": state}],
+            }
+
+        docs = [
+            # the only host that must match: correct id and correct values
+            # carried by one and the same script
+            {
+                "addr": "10.0.0.1",
+                "ports": [
+                    {
+                        "port": 443,
+                        "scripts": [script(name, "CVE-2017-5638", "VULNERABLE")],
+                    }
+                ],
+            },
+            # two scripts on the SAME port: correct id on one, correct
+            # key+values on another that shares the ``vulns`` key
+            {
+                "addr": "10.0.0.2",
+                "ports": [
+                    {
+                        "port": 443,
+                        "scripts": [
+                            script(name, "CVE-2017-5638", "NOT VULNERABLE"),
+                            script("ssl-heartbleed", "CVE-2017-5638", "VULNERABLE"),
+                        ],
+                    }
+                ],
+            },
+            # same split, but ACROSS PORTS
+            {
+                "addr": "10.0.0.3",
+                "ports": [
+                    {
+                        "port": 80,
+                        "scripts": [script(name, "CVE-2017-5638", "NOT VULNERABLE")],
+                    },
+                    {
+                        "port": 443,
+                        "scripts": [
+                            script("ssl-heartbleed", "CVE-2017-5638", "VULNERABLE")
+                        ],
+                    },
+                ],
+            },
+            # across ports, with the id-bearing script carrying no vulns
+            {
+                "addr": "10.0.0.4",
+                "ports": [
+                    {"port": 80, "scripts": [{"id": name, "output": "x"}]},
+                    {
+                        "port": 443,
+                        "scripts": [
+                            script("ssl-heartbleed", "CVE-2017-5638", "VULNERABLE")
+                        ],
+                    },
+                ],
+            },
+        ]
+
+        col = ivre.db.db.nmap.db["test_searchscript_same_element"]
+        col.drop()
+        try:
+            col.insert_many(docs)
+            col.create_index([("ports.scripts.id", 1)])
+            col.create_index(
+                [
+                    ("ports.scripts.vulns.id", 1),
+                    ("ports.scripts.vulns.state", 1),
+                ],
+                sparse=True,
+            )
+            flt = ivre.db.db.nmap.searchscript(name=name, values=values)
+            self.assertEqual(
+                sorted(doc["addr"] for doc in col.find(flt, {"addr": 1})),
+                ["10.0.0.1"],
+            )
+            # and the probe alone -- the clause that makes the index usable
+            # -- is indeed too broad on its own, which is why it may never
+            # replace the $elemMatch
+            probe = {"ports.scripts.vulns": {"$elemMatch": values}}
+            self.assertEqual(
+                sorted(doc["addr"] for doc in col.find(probe, {"addr": 1})),
+                ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4"],
+            )
+        finally:
+            col.drop()
+
+        self._test_searchscript_negative_field_predicates()
+        self._test_searchscript_mixed_field_predicates()
+
+    def _test_searchscript_negative_field_predicates(self):
+        """Script-local exclusions must not become document-wide ones."""
+        docs = []
+        for label, cert in (
+            ("other", {"id": "ssl-cert", "ssl-cert": [{"md5": "other"}]}),
+            ("missing", {"id": "ssl-cert"}),
+            ("null", {"id": "ssl-cert", "ssl-cert": [{"md5": None}]}),
+            ("target", {"id": "ssl-cert", "ssl-cert": [{"md5": "target"}]}),
+            ("absent", {"id": "http-title", "output": "Welcome"}),
+        ):
+            for across_ports in (False, True):
+                ca = {"id": "ssl-cacert", "ssl-cert": [{"md5": "target"}]}
+                ports = (
+                    [{"scripts": [cert]}, {"scripts": [ca]}]
+                    if across_ports
+                    else [{"scripts": [cert, ca]}]
+                )
+                docs.append({"_id": f"{label}-{across_ports}", "ports": ports})
+
+        col = ivre.db.db.nmap.db["test_searchscript_negative_field_predicates"]
+        col.drop()
+        try:
+            col.insert_many(docs)
+            col.create_index([("ports.scripts.id", 1)])
+            col.create_index([("ports.scripts.ssl-cert.md5", 1)], sparse=True)
+            all_ids = {doc["_id"] for doc in docs}
+            for predicate, labels in (
+                ({"$ne": "target"}, ("other", "missing", "null")),
+                ({"$nin": ["target"]}, ("other", "missing", "null")),
+                ({"$not": re.compile("^target")}, ("other", "missing", "null")),
+                ({"$exists": False}, ("missing",)),
+                ({"$exists": 0}, ("missing",)),
+                ({"$exists": None}, ("missing",)),
+                ({"$ne": "target", "$exists": True}, ("other", "null")),
+            ):
+                matching_ids = {
+                    f"{label}-{across_ports}"
+                    for label in labels
+                    for across_ports in (False, True)
+                }
+                for neg in (False, True):
+                    with self.subTest(predicate=predicate, neg=neg):
+                        flt = ivre.db.db.nmap.searchscript(
+                            name="ssl-cert", values={"md5": predicate}, neg=neg
+                        )
+                        self.assertEqual(
+                            {doc["_id"] for doc in col.find(flt, {"_id": 1})},
+                            all_ids - matching_ids if neg else matching_ids,
+                        )
+        finally:
+            col.drop()
+
+    def _test_searchscript_mixed_field_predicates(self):
+        """Safe probes must preserve the scope of the remaining predicates."""
+
+        def script(os_name, computer_name):
+            return {
+                "id": "smb-os-discovery",
+                "smb-os-discovery": {
+                    "os": os_name,
+                    "computer_name": computer_name,
+                },
+            }
+
+        col = ivre.db.db.nmap.db["test_searchscript_mixed_field_predicates"]
+        col.drop()
+        try:
+            col.insert_many(
+                [
+                    {
+                        "_id": "same-port",
+                        "ports": [
+                            {
+                                "scripts": [
+                                    script("Linux", "other"),
+                                    script("Windows", "target"),
+                                ]
+                            }
+                        ],
+                    },
+                    {
+                        "_id": "different-ports",
+                        "ports": [
+                            {"scripts": [script("Linux", "other")]},
+                            {"scripts": [script("Windows", "target")]},
+                        ],
+                    },
+                    {
+                        "_id": "split-match",
+                        "ports": [
+                            {
+                                "scripts": [
+                                    script("Linux", "target"),
+                                    script("Windows", "other"),
+                                ]
+                            }
+                        ],
+                    },
+                ]
+            )
+            flt = ivre.db.db.nmap.searchscript(
+                name="smb-os-discovery",
+                values={"os": "Linux", "computer_name": {"$ne": "target"}},
+            )
+            self.assertEqual(
+                {doc["_id"] for doc in col.find(flt, {"_id": 1})},
+                {"same-port", "different-ports"},
+            )
+        finally:
+            col.drop()
+
     def test_53_nmap_delete(self):
         # Remove
         addr = next(
