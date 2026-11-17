@@ -2969,12 +2969,22 @@ class MongoDBActive(MongoDB, DBActive):
                 else:
                     for field, value in values.items():
                         req[f"{key}.{field}"] = value
-                    # Same reasoning for dict-valued structured output, which
-                    # is how the heavily-indexed ssl-cert subfields are
-                    # stored.
+                    # Flatten only predicates implied by the script-local
+                    # match. Exclusions and absence tests may hold for this
+                    # script while another script or port carries a value
+                    # they reject. Moving those outside the $elemMatch would
+                    # incorrectly exclude the whole host. Keep any remaining
+                    # positive predicates available for index selection.
                     probe = {
                         f"ports.scripts.{key}.{field}": value
                         for field, value in values.items()
+                        if not (
+                            isinstance(value, dict)
+                            and (
+                                any(op in value for op in ("$ne", "$nin", "$not"))
+                                or value.get("$exists", True) is not True
+                            )
+                        )
                     }
 
         if not req:
@@ -2989,7 +2999,7 @@ class MongoDBActive(MongoDB, DBActive):
             # an optimisation, so leave it out rather than reason about
             # negating it.
             return {"ports.scripts": {"$not": {"$elemMatch": req}}}
-        if probe is not None:
+        if probe:
             return cls.flt_and(probe, {"ports.scripts": {"$elemMatch": req}})
         return {"ports.scripts": {"$elemMatch": req}}
 

@@ -2011,6 +2011,120 @@ class IvreTests(unittest.TestCase):
         finally:
             col.drop()
 
+        self._test_searchscript_negative_field_predicates()
+        self._test_searchscript_mixed_field_predicates()
+
+    def _test_searchscript_negative_field_predicates(self):
+        """Script-local exclusions must not become document-wide ones."""
+        docs = []
+        for label, cert in (
+            ("other", {"id": "ssl-cert", "ssl-cert": [{"md5": "other"}]}),
+            ("missing", {"id": "ssl-cert"}),
+            ("null", {"id": "ssl-cert", "ssl-cert": [{"md5": None}]}),
+            ("target", {"id": "ssl-cert", "ssl-cert": [{"md5": "target"}]}),
+            ("absent", {"id": "http-title", "output": "Welcome"}),
+        ):
+            for across_ports in (False, True):
+                ca = {"id": "ssl-cacert", "ssl-cert": [{"md5": "target"}]}
+                ports = (
+                    [{"scripts": [cert]}, {"scripts": [ca]}]
+                    if across_ports
+                    else [{"scripts": [cert, ca]}]
+                )
+                docs.append({"_id": f"{label}-{across_ports}", "ports": ports})
+
+        col = ivre.db.db.nmap.db["test_searchscript_negative_field_predicates"]
+        col.drop()
+        try:
+            col.insert_many(docs)
+            col.create_index([("ports.scripts.id", 1)])
+            col.create_index([("ports.scripts.ssl-cert.md5", 1)], sparse=True)
+            all_ids = {doc["_id"] for doc in docs}
+            for predicate, labels in (
+                ({"$ne": "target"}, ("other", "missing", "null")),
+                ({"$nin": ["target"]}, ("other", "missing", "null")),
+                ({"$not": re.compile("^target")}, ("other", "missing", "null")),
+                ({"$exists": False}, ("missing",)),
+                ({"$exists": 0}, ("missing",)),
+                ({"$exists": None}, ("missing",)),
+                ({"$ne": "target", "$exists": True}, ("other", "null")),
+            ):
+                matching_ids = {
+                    f"{label}-{across_ports}"
+                    for label in labels
+                    for across_ports in (False, True)
+                }
+                for neg in (False, True):
+                    with self.subTest(predicate=predicate, neg=neg):
+                        flt = ivre.db.db.nmap.searchscript(
+                            name="ssl-cert", values={"md5": predicate}, neg=neg
+                        )
+                        self.assertEqual(
+                            {doc["_id"] for doc in col.find(flt, {"_id": 1})},
+                            all_ids - matching_ids if neg else matching_ids,
+                        )
+        finally:
+            col.drop()
+
+    def _test_searchscript_mixed_field_predicates(self):
+        """Safe probes must preserve the scope of the remaining predicates."""
+
+        def script(os_name, computer_name):
+            return {
+                "id": "smb-os-discovery",
+                "smb-os-discovery": {
+                    "os": os_name,
+                    "computer_name": computer_name,
+                },
+            }
+
+        col = ivre.db.db.nmap.db["test_searchscript_mixed_field_predicates"]
+        col.drop()
+        try:
+            col.insert_many(
+                [
+                    {
+                        "_id": "same-port",
+                        "ports": [
+                            {
+                                "scripts": [
+                                    script("Linux", "other"),
+                                    script("Windows", "target"),
+                                ]
+                            }
+                        ],
+                    },
+                    {
+                        "_id": "different-ports",
+                        "ports": [
+                            {"scripts": [script("Linux", "other")]},
+                            {"scripts": [script("Windows", "target")]},
+                        ],
+                    },
+                    {
+                        "_id": "split-match",
+                        "ports": [
+                            {
+                                "scripts": [
+                                    script("Linux", "target"),
+                                    script("Windows", "other"),
+                                ]
+                            }
+                        ],
+                    },
+                ]
+            )
+            flt = ivre.db.db.nmap.searchscript(
+                name="smb-os-discovery",
+                values={"os": "Linux", "computer_name": {"$ne": "target"}},
+            )
+            self.assertEqual(
+                {doc["_id"] for doc in col.find(flt, {"_id": 1})},
+                {"same-port", "different-ports"},
+            )
+        finally:
+            col.drop()
+
     def test_53_nmap_delete(self):
         # Remove
         addr = next(

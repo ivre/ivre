@@ -23314,6 +23314,75 @@ class SearchScriptIndexUsageTests(unittest.TestCase):
         self.assertEqual(bare["ports.scripts"]["$elemMatch"]["id"], "nuclei")
         self.assertEqual(http["ports.scripts"]["$elemMatch"]["id"], "http-nuclei")
 
+    def test_negative_field_predicates_do_not_get_flattened_probes(self) -> None:
+        """A script-local exclusion need not hold across all scripts."""
+        for predicate in (
+            {"$ne": "target"},
+            {"$nin": ["target"]},
+            {"$not": {"$regex": "^target"}},
+            {"$exists": False},
+            {"$exists": 0},
+            {"$exists": None},
+            {"$ne": "target", "$exists": True},
+        ):
+            for neg in (False, True):
+                with self.subTest(predicate=predicate, neg=neg):
+                    flt = self._mongo().searchscript(
+                        name="ssl-cert", values={"md5": predicate}, neg=neg
+                    )
+                    nested = {
+                        "$elemMatch": {"id": "ssl-cert", "ssl-cert.md5": predicate}
+                    }
+                    self.assertEqual(
+                        flt,
+                        {"ports.scripts": {"$not": nested} if neg else nested},
+                    )
+
+    def test_positive_field_operators_keep_flattened_probes(self) -> None:
+        for predicate in (
+            {"$exists": True},
+            {"$eq": "target"},
+            {"$in": ["target"]},
+            {"$gt": "a", "$lt": "z"},
+        ):
+            with self.subTest(predicate=predicate):
+                flt = self._mongo().searchscript(
+                    name="ssl-cert", values={"md5": predicate}
+                )
+                self.assertEqual(flt["ports.scripts.ssl-cert.md5"], predicate)
+                self.assertEqual(
+                    flt["ports.scripts"]["$elemMatch"],
+                    {"id": "ssl-cert", "ssl-cert.md5": predicate},
+                )
+
+    def test_mixed_fields_keep_only_safe_flattened_probes(self) -> None:
+        flt = self._mongo().searchscript(
+            name="smb-os-discovery",
+            values={"os": "Linux", "computer_name": {"$ne": "target"}},
+        )
+        self.assertEqual(
+            flt,
+            {
+                "ports.scripts.smb-os-discovery.os": "Linux",
+                "ports.scripts": {
+                    "$elemMatch": {
+                        "id": "smb-os-discovery",
+                        "smb-os-discovery.os": "Linux",
+                        "smb-os-discovery.computer_name": {"$ne": "target"},
+                    }
+                },
+            },
+        )
+
+    def test_array_probe_keeps_element_scoped_negative_predicates(self) -> None:
+        values = {"name": "set-cookie", "value": {"$ne": "target"}}
+        flt = self._mongo().searchscript(name="http-headers", values=values)
+        self.assertEqual(flt["ports.scripts.http-headers"], {"$elemMatch": values})
+        self.assertEqual(
+            flt["ports.scripts"]["$elemMatch"],
+            {"id": "http-headers", "http-headers": {"$elemMatch": values}},
+        )
+
     def test_negated_search_keeps_the_nested_shape(self) -> None:
         """The dotted shortcut is a positive-branch optimisation only."""
         flt = self._mongo().searchscript(
