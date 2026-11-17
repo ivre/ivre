@@ -23239,10 +23239,7 @@ class SearchScriptIndexUsageTests(unittest.TestCase):
 
     Both behaviours tested here exist so the MongoDB planner can use the
     ``ports.scripts.<key>.<field>`` compound indexes declared in
-    :data:`ivre.db.mongo.MongoDBActive.indexes`. Measured on a 20k-document
-    fixture, a filter on ``http-headers`` went from 20003 index keys and
-    20003 documents examined to 3 keys and 1 document, for identical
-    results.
+    :data:`ivre.db.mongo.MongoDBActive.indexes`.
     """
 
     @staticmethod
