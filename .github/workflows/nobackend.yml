@@ -49,6 +49,11 @@ jobs:
 
     - run: pip install '.[elasticsearch,mcp]'
 
+    - name: Install nginx for web proxy regression tests
+      run: |
+        sudo apt-get -q update
+        sudo apt-get -qy --no-install-recommends install nginx
+
     - name: Install IVRE
       uses: ./.github/actions/install
 

@@ -61,19 +61,22 @@ import os
 import random
 import re
 import shutil
+import socket
 import socketserver
 import subprocess  # nosec B404  # required to drive the `ivre` CLI in UtilsTests
 import sys
 import tarfile
 import tempfile
 import threading
+import time
 import unittest
 import warnings
 import zipfile
 from ast import literal_eval
 from datetime import datetime, timedelta, timezone
 from functools import reduce
-from http.client import IncompleteRead
+from http.client import HTTPResponse, IncompleteRead
+from pathlib import Path
 from typing import Any
 from unittest import mock
 from urllib.error import HTTPError
@@ -22622,6 +22625,280 @@ class QuotaConfigValidationTests(unittest.TestCase):
         self.assertIn("WEB_API_KEY_RATE_MAX", msg)
         self.assertIn("str", msg)
         self.assertIn("'not-an-int'", msg)
+
+
+# ---------------------------------------------------------------------
+# DockerWebAuthorityTests -- preserve the external request authority
+# through nginx without weakening Referer validation.
+# ---------------------------------------------------------------------
+
+
+@unittest.skipUnless(shutil.which("nginx"), "nginx is required for proxy tests")
+class DockerWebAuthorityTests(unittest.TestCase):
+    """Exercise the shipped nginx configuration and the resulting Bottle origin.
+
+    Unix sockets stand in for Docker networking and a small uWSGI peer captures
+    the actual parameters. No database, privileged port, or container is needed.
+    """
+
+    def setUp(self) -> None:
+        from bottle import request, response
+
+        from ivre.web import base
+
+        self._request = request
+        self._response = response
+        self._base = base
+        saved_env = dict(request.environ)
+        saved_status = response.status
+        self.addCleanup(request.bind, saved_env)
+        self.addCleanup(setattr, response, "status", saved_status)
+
+        directory = tempfile.TemporaryDirectory(prefix="ivre-nginx-")
+        self.addCleanup(directory.cleanup)
+        self._directory = Path(directory.name)
+        self._http_socket = str(self._directory / "http.sock")
+        self._upstream = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(self._upstream.close)
+        self._upstream.settimeout(5)
+        uwsgi_socket = str(self._directory / "uwsgi.sock")
+        self._upstream.bind(uwsgi_socket)
+        self._upstream.listen(1)
+
+        web = Path(__file__).resolve().parent.parent / "docker" / "web"
+        site = (web / "nginx-default-site").read_text(encoding="utf-8")
+        site = site.replace(
+            "listen 80 default_server;",
+            f"listen unix:{self._http_socket} default_server;",
+        )
+        site = site.replace(
+            "uwsgi_pass ivreuwsgi:3031;", f"uwsgi_pass unix:{uwsgi_socket};"
+        )
+        site = site.replace(
+            "include ivre_uwsgi_params;", f'include "{web / "uwsgi_params"}";'
+        )
+        # These unrelated upstreams must resolve at nginx startup, but are not
+        # contacted. The auth_request test rejects access before FastCGI runs.
+        site = site.replace("ivremcp:9100", "127.0.0.1:9")
+        site = site.replace("ivredoku:8000", "127.0.0.1:9")
+        (self._directory / "fastcgi.conf").touch()
+        conf = self._directory / "nginx.conf"
+        # -p does not override absolute paths compiled into distribution
+        # packages (for example /run/nginx.pid). Keep every runtime file local.
+        conf.write_text(
+            "daemon off;\nmaster_process off;\nerror_log stderr;\n"
+            "pid nginx.pid;\nevents {}\nhttp {\naccess_log off;\n"
+            "client_body_temp_path client_body_temp;\n"
+            "proxy_temp_path proxy_temp;\n"
+            "fastcgi_temp_path fastcgi_temp;\n"
+            "uwsgi_temp_path uwsgi_temp;\n"
+            "scgi_temp_path scgi_temp;\n" + site + "\n}\n",
+            encoding="utf-8",
+        )
+        self._nginx = run_iter(
+            [
+                "nginx",
+                "-e",
+                "stderr",
+                "-p",
+                str(self._directory) + "/",
+                "-c",
+                str(conf),
+            ]
+        )
+        self.addCleanup(self._stop_nginx)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                try:
+                    client.connect(self._http_socket)
+                except (FileNotFoundError, ConnectionRefusedError):
+                    if self._nginx.poll() is not None:
+                        _, err = self._nginx.communicate()
+                        self.fail(f"nginx failed to start: {err.decode()}")
+                    time.sleep(0.01)
+                else:
+                    break
+        else:
+            self.fail("nginx did not start listening")
+
+    def _stop_nginx(self) -> None:
+        self._nginx.terminate()
+        try:
+            self._nginx.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            self._nginx.kill()
+            self._nginx.communicate()
+
+    def _forward(
+        self,
+        host: str,
+        referer: str,
+        target: str = "/cgi/view/count",
+        auth_subrequest: bool = False,
+    ) -> dict[str, str]:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(5)
+            client.connect(self._http_socket)
+            client.sendall(
+                (
+                    f"GET {target} HTTP/1.1\r\nHost: {host}\r\n"
+                    f"Referer: {referer}\r\nConnection: close\r\n\r\n"
+                ).encode("ascii")
+            )
+            upstream, _ = self._upstream.accept()
+            with upstream, upstream.makefile("rb") as stream:
+                upstream.settimeout(5)
+                header = stream.read(4)
+                self.assertEqual(len(header), 4)
+                packet = stream.read(int.from_bytes(header[1:3], "little"))
+                fields: list[tuple[str, str]] = []
+                offset = 0
+                while offset < len(packet):
+                    pair = []
+                    for _ in range(2):
+                        size = int.from_bytes(packet[offset : offset + 2], "little")
+                        offset += 2
+                        pair.append(packet[offset : offset + size].decode("latin-1"))
+                        offset += size
+                    fields.append((pair[0], pair[1]))
+                status = "401 Unauthorized" if auth_subrequest else "200 OK"
+                upstream.sendall(
+                    (
+                        f"HTTP/1.1 {status}\r\nContent-Length: 0\r\n"
+                        "Connection: close\r\n\r\n"
+                    ).encode("ascii")
+                )
+            with HTTPResponse(client) as reply:
+                reply.begin()
+                reply.read()
+                self.assertEqual(reply.status, 302 if auth_subrequest else 200)
+        # Duplicate HTTP_HOST parameters can hide a broken override depending
+        # on which value the uWSGI implementation keeps.
+        self.assertEqual(sum(key == "HTTP_HOST" for key, _ in fields), 1)
+        return dict(fields)
+
+    def _check_origin(self, env: dict[str, str], expected: str | None) -> None:
+        with mock.patch.object(ivre.config, "WEB_SECRET", "proxy-test-secret"):
+            from ivre.web.auth import _get_base_url
+
+        # Match the /cgi mount performed by the container's uWSGI server.
+        self._request.bind(
+            {
+                **env,
+                "SCRIPT_NAME": "/cgi",
+                "PATH_INFO": env["PATH_INFO"].removeprefix("/cgi"),
+                "wsgi.url_scheme": env["REQUEST_SCHEME"],
+            }
+        )
+        self._response.bind()
+        with (
+            mock.patch.object(ivre.config, "WEB_ALLOWED_REFERERS", None),
+            mock.patch.object(ivre.config, "WEB_AUTH_BASE_URL", None),
+        ):
+            result = self._base.check_referer(_get_base_url)()
+        if expected is None:
+            self.assertEqual(self._response.status_code, 400)
+            self.assertIn("Invalid Referer header", result)
+        else:
+            self.assertEqual(self._response.status_code, 200)
+            self.assertEqual(result, expected)
+
+    def test_runtime_paths_are_isolated(self) -> None:
+        self._forward("ivre.example:8090", "http://ivre.example:8090/ui/")
+        self.assertEqual(
+            (self._directory / "nginx.pid").read_text(encoding="utf-8").strip(),
+            str(self._nginx.pid),
+        )
+        for name in (
+            "client_body_temp",
+            "proxy_temp",
+            "fastcgi_temp",
+            "uwsgi_temp",
+            "scgi_temp",
+        ):
+            with self.subTest(path=name):
+                self.assertTrue((self._directory / name).is_dir())
+
+    def test_same_origin_and_oauth_base(self) -> None:
+        for authority in (
+            "ivre.example",
+            "ivre.example:8090",
+            "127.0.0.1:8443",
+            "[::1]",
+            "[::1]:8090",
+        ):
+            with self.subTest(authority=authority):
+                env = self._forward(authority, f"http://{authority}/ui/")
+                self.assertEqual(env["HTTP_HOST"], authority)
+                self._check_origin(env, f"http://{authority}/cgi")
+
+    def test_foreign_origins_remain_rejected(self) -> None:
+        for referer in (
+            "http://evil.example/ui/",
+            "http://ivre.example/ui/",
+            "http://ivre.example:8091/ui/",
+            "https://ivre.example:8090/ui/",
+            "http://ivre.example:8090.evil.example/ui/",
+            "http://ivre.example:8090@evil.example/ui/",
+        ):
+            with self.subTest(referer=referer):
+                env = self._forward("ivre.example:8090", referer)
+                self._check_origin(env, None)
+
+    def test_ipv6_wrong_port_is_rejected(self) -> None:
+        env = self._forward("[::1]:8090", "http://[::1]:8091/ui/")
+        self._check_origin(env, None)
+
+    def test_hostname_is_normalized(self) -> None:
+        env = self._forward("IVRE.EXAMPLE.:8090", "http://ivre.example:8090/ui/")
+        self.assertEqual(env["HTTP_HOST"], "ivre.example:8090")
+        self._check_origin(env, "http://ivre.example:8090/cgi")
+
+    def test_absolute_form_uses_request_target_authority(self) -> None:
+        for authority in ("ivre.example", "ivre.example:8090", "[::1]:8090"):
+            for scheme in ("http", "HTTPS", "custom+scheme"):
+                for suffix in ("", "?q=test"):
+                    with self.subTest(
+                        authority=authority, scheme=scheme, suffix=suffix
+                    ):
+                        env = self._forward(
+                            "evil.example:9090",
+                            f"http://{authority}/ui/",
+                            f"{scheme}://{authority}/cgi/view/count{suffix}",
+                        )
+                        self.assertEqual(env["HTTP_HOST"], authority)
+                        self._check_origin(env, f"http://{authority}/cgi")
+
+    def test_absolute_form_does_not_trust_host_header(self) -> None:
+        for referer in (
+            "http://evil.example:9090/ui/",
+            "http://ivre.example:9090/ui/",
+        ):
+            with self.subTest(referer=referer):
+                env = self._forward(
+                    "evil.example:9090",
+                    referer,
+                    "http://ivre.example:8090/cgi/view/count",
+                )
+                self.assertEqual(env["HTTP_HOST"], "ivre.example:8090")
+                self._check_origin(env, None)
+
+    def test_auth_subrequest_preserves_authority(self) -> None:
+        for host, target in (
+            ("ivre.example:8090", "/dokuwiki/"),
+            ("evil.example:9090", "http://ivre.example:8090/dokuwiki/"),
+        ):
+            with self.subTest(host=host, target=target):
+                env = self._forward(
+                    host,
+                    "http://ivre.example:8090/ui/",
+                    target,
+                    auth_subrequest=True,
+                )
+                self.assertEqual(env["PATH_INFO"], "/cgi/auth/check")
+                self.assertEqual(env["HTTP_HOST"], "ivre.example:8090")
+                self._check_origin(env, "http://ivre.example:8090/cgi")
 
 
 # ---------------------------------------------------------------------

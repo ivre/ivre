@@ -24,6 +24,7 @@ RUN apt-get -q update && \
     apt-get -qy --no-install-recommends install nginx && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY nginx-default-site /etc/nginx/sites-available/default
+COPY uwsgi_params /etc/nginx/ivre_uwsgi_params
 
 COPY --from=base /usr/local/share/ivre/web/static /usr/local/share/ivre/web/static
 
