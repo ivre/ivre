@@ -59,10 +59,6 @@ vi.mock("@/components/HostCardList", () => ({
   ),
 }));
 
-vi.mock("@/components/HostDetailSheet", () => ({
-  HostDetailSheet: () => null,
-}));
-
 vi.mock("@/components/Timeline", () => ({
   Timeline: () => <div data-testid="timeline" />,
 }));

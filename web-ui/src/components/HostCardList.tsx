@@ -1,4 +1,5 @@
 import { HostCard } from "@/components/HostCard";
+import type { LinkProps } from "react-router-dom";
 import type { HostRecord } from "@/lib/api";
 import type { Filter, HighlightMap } from "@/lib/filter";
 
@@ -9,6 +10,11 @@ export interface HostCardListProps {
   highlights?: HighlightMap;
   onAddFilter?: (filter: Filter) => void;
   onSelect?: (host: HostRecord) => void;
+  getDetailsLink?: (
+    host: HostRecord,
+    index: number,
+  ) => Pick<LinkProps, "to" | "state"> | undefined;
+  showDates?: boolean;
   /** Index of the currently-hovered host (synced with the
    *  section's ``<Timeline>``). ``null`` means "no hover". */
   hoveredIndex?: number | null;
@@ -29,6 +35,8 @@ export function HostCardList({
   highlights,
   onAddFilter,
   onSelect,
+  getDetailsLink,
+  showDates,
   hoveredIndex = null,
   onHover,
   registerCardRef,
@@ -50,11 +58,13 @@ export function HostCardList({
     <div className="space-y-3">
       {hosts.map((host, idx) => (
         <HostCard
-          key={host.addr}
+          key={`${host.addr}-${idx}`}
           host={host}
           highlights={highlights}
           onAddFilter={onAddFilter}
           onSelect={onSelect}
+          detailsLink={getDetailsLink?.(host, idx)}
+          showDates={showDates}
           highlighted={hoveredIndex === idx}
           onHover={onHover ? () => onHover(idx) : undefined}
           onLeave={onHover ? () => onHover(null) : undefined}

@@ -1423,6 +1423,229 @@ class HttpDBGetTruncationTests(unittest.TestCase):
         self.assertEqual(list(hdb._get({}, limit=1)), [{"addr": "1.2.3.4"}])
 
 
+class ScanRecordIdentityTests(unittest.TestCase):
+    """Active scan identifiers are opt-in API metadata, not content hashes."""
+
+    def setUp(self) -> None:
+        import bottle
+
+        self._request_environ = dict(bottle.request.environ)
+
+    def tearDown(self) -> None:
+        import bottle
+
+        bottle.request.bind(self._request_environ)
+
+    def _request(
+        self,
+        records: list[dict[str, Any]],
+        params: dict[str, str],
+        path: str = "/scans",
+        init_query: str | None = None,
+    ) -> tuple[str, list[dict[str, Any]] | dict[str, Any], Any]:
+        from urllib.parse import urlencode
+
+        from ivre.web import app, modules
+
+        dbase = mock.MagicMock()
+        dbase.flt_empty = {}
+        dbase.flt_and.side_effect = lambda *filters: {"and": list(filters)}
+        dbase.searchhost.side_effect = lambda value, **_kwargs: {"addr": value}
+        dbase.searchsource.side_effect = lambda value, **_kwargs: {"source": value}
+        dbase.searchid.side_effect = lambda value: {"_id": value}
+        dbase.getid.side_effect = lambda record: record["_id"]
+        dbase.datetime_fields = []
+        dbase.cmp_schema_version_host.return_value = 0
+
+        def matches(record: dict[str, Any], flt: dict[str, Any]) -> bool:
+            if "and" in flt:
+                return all(matches(record, item) for item in flt["and"])
+            return all(str(record.get(key)) == str(value) for key, value in flt.items())
+
+        def get(flt: dict[str, Any], **kwargs: Any) -> Any:
+            selected = [dict(record) for record in records if matches(record, flt)]
+            return iter(selected[kwargs.get("skip", 0) :])
+
+        dbase.get.side_effect = get
+        db_stub = mock.MagicMock(nmap=dbase, view=dbase)
+        env = {
+            "REQUEST_METHOD": "GET",
+            "SERVER_NAME": "localhost",
+            "SERVER_PORT": "80",
+            "HTTP_HOST": "localhost",
+            "HTTP_REFERER": "http://localhost/",
+            "wsgi.url_scheme": "http",
+            "PATH_INFO": path,
+            "QUERY_STRING": urlencode(params),
+            "wsgi.input": io.BytesIO(b""),
+            "wsgi.errors": io.StringIO(),
+            "CONTENT_LENGTH": "0",
+        }
+        status: list[str] = []
+
+        def start_response(value: str, _headers: Any, _exc: Any = None) -> None:
+            status.append(value)
+
+        with (
+            mock.patch.object(app, "db", db_stub),
+            mock.patch.object(modules, "db", db_stub),
+            mock.patch.object(app.audit_hook, "record_oversize_query"),
+            mock.patch.multiple(
+                ivre.config,
+                WEB_AUTH_ENABLED=False,
+                WEB_MODULES=["active", "view"],
+                WEB_DEFAULT_INIT_QUERY=init_query,
+                WEB_INIT_QUERIES={},
+            ),
+        ):
+            body = b"".join(app.application(env, start_response))
+        self.assertFalse(status[0].startswith("500"), env["wsgi.errors"].getvalue())
+        return status[0], json.loads(body), dbase
+
+    def test_identifiers_are_omitted_by_default(self) -> None:
+        for params in ({}, {"include_id": "0"}):
+            with self.subTest(params=params):
+                status, body, _ = self._request(
+                    [{"_id": 42, "addr": "192.0.2.42"}], params
+                )
+                self.assertTrue(status.startswith("200"), status)
+                self.assertEqual(body, [{"addr": "192.0.2.42"}])
+
+    def test_identifiers_are_strings_in_json_and_ndjson(self) -> None:
+        from bson import ObjectId
+
+        for native_id in (0, 9007199254740993, ObjectId("507f1f77bcf86cd799439011")):
+            for fmt in ("json", "ndjson"):
+                with self.subTest(native_id=native_id, fmt=fmt):
+                    status, body, _ = self._request(
+                        [{"_id": native_id, "addr": "192.0.2.42"}],
+                        {"include_id": "1", "format": fmt},
+                    )
+                    self.assertTrue(status.startswith("200"), status)
+                    record = body[0] if isinstance(body, list) else body
+                    self.assertEqual(record["_id"], str(native_id))
+
+    def test_lookup_is_by_id_and_address_not_the_first_ip_page(self) -> None:
+        records = [
+            {"_id": index, "addr": "192.0.2.42", "source": "new"}
+            for index in range(1, 51)
+        ] + [{"_id": 9007199254740993, "addr": "192.0.2.42", "source": "old"}]
+        status, body, dbase = self._request(
+            records,
+            {
+                "q": "host:192.0.2.42 limit:1",
+                "record": "9007199254740993",
+                "include_id": "1",
+            },
+        )
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(
+            body,
+            [{"_id": "9007199254740993", "addr": "192.0.2.42", "source": "old"}],
+        )
+        dbase.searchid.assert_called_once_with("9007199254740993")
+
+    def test_lookup_does_not_split_opaque_identifiers(self) -> None:
+        record_id = "opaque-id/with,delimiters"
+        status, body, dbase = self._request(
+            [{"_id": record_id, "addr": "192.0.2.42"}],
+            {"record": record_id, "include_id": "1"},
+        )
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(body, [{"_id": record_id, "addr": "192.0.2.42"}])
+        dbase.searchid.assert_called_once_with(record_id)
+
+    def test_other_ip_or_deleted_record_is_not_substituted(self) -> None:
+        for records in (
+            [{"_id": "wanted", "addr": "192.0.2.99"}],
+            [{"_id": "other", "addr": "192.0.2.42"}],
+        ):
+            with self.subTest(records=records):
+                status, body, _ = self._request(
+                    records, {"q": "host:192.0.2.42", "record": "wanted"}
+                )
+                self.assertTrue(status.startswith("200"), status)
+                self.assertEqual(body, [])
+
+    def test_lookup_preserves_access_filters(self) -> None:
+        status, body, _ = self._request(
+            [{"_id": "wanted", "addr": "192.0.2.42", "source": "private"}],
+            {"record": "wanted", "include_id": "1"},
+            init_query="source:allowed",
+        )
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(body, [])
+
+    def test_missing_backend_identity_is_not_synthesized(self) -> None:
+        status, body, dbase = self._request(
+            [{"addr": "192.0.2.42"}], {"include_id": "1"}
+        )
+        self.assertTrue(status.startswith("200"), status)
+        self.assertEqual(body, [{"addr": "192.0.2.42"}])
+        dbase.getid.assert_not_called()
+
+    def test_empty_record_or_view_record_lookup_is_rejected(self) -> None:
+        for path, record_id in (("/scans", ""), ("/view", "wanted")):
+            with self.subTest(path=path, record_id=record_id):
+                status, body, dbase = self._request(
+                    [], {"record": record_id}, path=path
+                )
+                self.assertTrue(status.startswith("400"), status)
+                self.assertIn("error", body)
+                dbase.get.assert_not_called()
+
+    def test_malformed_mongodb_id_is_a_bad_input_error(self) -> None:
+        try:
+            from ivre.db.mongo import MongoDBNmap
+        except ImportError:
+            self.skipTest("MongoDB dependencies are not installed")
+        with self.assertRaisesRegex(ValueError, "Invalid record identifier"):
+            MongoDBNmap.searchid("not-an-object-id")
+
+
+class HttpScanRecordIdentityTests(unittest.TestCase):
+    """HTTP active backends preserve upstream identity without changing other APIs."""
+
+    def test_active_backends_request_and_preserve_ids(self) -> None:
+        from urllib.parse import parse_qs, urlparse
+
+        from ivre.db.http import HttpDBNmap, HttpDBView
+
+        for backend in (HttpDBNmap, HttpDBView):
+            with self.subTest(backend=backend.__name__):
+                hdb = backend(urlparse("http://upstream.example"))
+                hdb.db = mock.Mock(baseurl="http://upstream.example")
+                hdb.db.open.return_value = io.BytesIO(
+                    b'[{"_id":"507f1f77bcf86cd799439011","addr":"192.0.2.42"}]'
+                )
+                flt = hdb.flt_and(
+                    hdb.searchhost("192.0.2.42"),
+                    hdb.searchid("507f1f77bcf86cd799439011"),
+                )
+                records = list(hdb.get(flt, limit=1))
+                self.assertEqual(hdb.getid(records[0]), "507f1f77bcf86cd799439011")
+                url = hdb.db.open.call_args.args[0]
+                params = parse_qs(urlparse(url).query)
+                self.assertEqual(params["include_id"], ["1"])
+                wire_filter = json.loads(params["f"][0])
+                self.assertEqual(
+                    wire_filter["a"][1],
+                    {"f": "id", "a": ["507f1f77bcf86cd799439011"]},
+                )
+
+    def test_passive_backend_requests_are_unchanged(self) -> None:
+        from urllib.parse import parse_qs, urlparse
+
+        from ivre.db.http import HttpDBPassive
+
+        hdb = HttpDBPassive(urlparse("http://upstream.example"))
+        hdb.db = mock.Mock(baseurl="http://upstream.example")
+        hdb.db.open.return_value = io.BytesIO(b'[{"addr":"192.0.2.42"}]')
+        self.assertEqual(list(hdb._get({}, limit=1)), [{"addr": "192.0.2.42"}])
+        params = parse_qs(urlparse(hdb.db.open.call_args.args[0]).query)
+        self.assertNotIn("include_id", params)
+
+
 class RirWebRoutesTests(unittest.TestCase):
     """Regression tests for the `/rir` Bottle web routes."""
 

@@ -175,6 +175,26 @@ describe("fetchCount", () => {
 });
 
 describe("fetchHosts and fetchTop AbortSignal forwarding", () => {
+  it("requests opaque IDs and sends an exact record lookup independently of q", async () => {
+    const record = "opaque/id-with,delimiters";
+    const spy = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({ addr: "192.0.2.42", _id: record }) + "\n",
+        ),
+    );
+    mockFetch(spy);
+    const results = await fetchHosts("/scans", {
+      q: "host:192.0.2.42 limit:1",
+      includeId: true,
+      record,
+    });
+    const url = new URL(spy.mock.calls[0][0] as string, "http://localhost");
+    expect(url.searchParams.get("include_id")).toBe("1");
+    expect(url.searchParams.get("record")).toBe(record);
+    expect(url.searchParams.get("q")).toBe("host:192.0.2.42 limit:1");
+    expect(results[0]._id).toBe(record);
+  });
   // ``fetchHosts`` and ``fetchTop`` are the two read endpoints hit
   // from the host-list route on the hot path of a query change.
   // Make sure their ``AbortSignal`` plumbing matches the contract,
@@ -253,9 +273,7 @@ describe("fetchHostNote", () => {
   });
 
   it("URL-encodes the address so IPv6 colons round-trip safely", async () => {
-    const spy = vi.fn(
-      async () => new Response("{}", { status: 404 }),
-    );
+    const spy = vi.fn(async () => new Response("{}", { status: 404 }));
     mockFetch(spy);
 
     await fetchHostNote("2001:db8::1");
@@ -269,7 +287,8 @@ describe("fetchHostNote", () => {
   it("returns ``absent`` when the route returns 404", async () => {
     mockFetch(
       vi.fn(
-        async () => new Response("no note for host/192.0.2.10", { status: 404 }),
+        async () =>
+          new Response("no note for host/192.0.2.10", { status: 404 }),
       ),
     );
 
@@ -350,8 +369,7 @@ describe("saveHostNote", () => {
 
   it("sends If-None-Match: * for create mode", async () => {
     const spy = vi.fn(
-      async () =>
-        new Response(JSON.stringify(persistedNote), { status: 200 }),
+      async () => new Response(JSON.stringify(persistedNote), { status: 200 }),
     );
     mockFetch(spy);
 
@@ -399,7 +417,9 @@ describe("saveHostNote", () => {
 
   it("returns unauthorized on 401", async () => {
     mockFetch(
-      vi.fn(async () => new Response("Authentication required", { status: 401 })),
+      vi.fn(
+        async () => new Response("Authentication required", { status: 401 }),
+      ),
     );
 
     await expect(
@@ -418,9 +438,7 @@ describe("saveHostNote", () => {
   });
 
   it("returns not_found on 404 (update-after-delete race)", async () => {
-    mockFetch(
-      vi.fn(async () => new Response("no note", { status: 404 })),
-    );
+    mockFetch(vi.fn(async () => new Response("no note", { status: 404 })));
 
     await expect(
       saveHostNote("192.0.2.10", "...", {
@@ -455,9 +473,7 @@ describe("deleteHostNote", () => {
   });
 
   it("returns false on 404 (no note to delete; idempotent)", async () => {
-    mockFetch(
-      vi.fn(async () => new Response("no note", { status: 404 })),
-    );
+    mockFetch(vi.fn(async () => new Response("no note", { status: 404 })));
 
     await expect(deleteHostNote("192.0.2.10")).resolves.toBe(false);
   });
@@ -563,7 +579,8 @@ describe("useSaveHostNote invalidation", () => {
     };
     mockFetch(
       vi.fn(
-        async () => new Response(JSON.stringify(persistedNote), { status: 200 }),
+        async () =>
+          new Response(JSON.stringify(persistedNote), { status: 200 }),
       ),
     );
     const { client, wrapper } = withQueryClient();
@@ -590,19 +607,12 @@ describe("useSaveHostNote invalidation", () => {
     // the app-wide ``staleTime`` window).
     const calls = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(calls).toContainEqual(["notes", "host", "192.0.2.10"]);
-    expect(calls).toContainEqual([
-      "notes",
-      "host",
-      "192.0.2.10",
-      "revisions",
-    ]);
+    expect(calls).toContainEqual(["notes", "host", "192.0.2.10", "revisions"]);
     expect(calls).toContainEqual(["notes", "list"]);
   });
 
   it("does NOT invalidate on conflict / unauthorized / too_large / not_found outcomes", async () => {
-    mockFetch(
-      vi.fn(async () => new Response("conflict", { status: 409 })),
-    );
+    mockFetch(vi.fn(async () => new Response("conflict", { status: 409 })));
     const { client, wrapper } = withQueryClient();
     const invalidateSpy = vi.spyOn(client, "invalidateQueries");
 
@@ -708,12 +718,7 @@ describe("useDeleteHostNote invalidation", () => {
     await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
     const calls = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(calls).toContainEqual(["notes", "host", "192.0.2.10"]);
-    expect(calls).toContainEqual([
-      "notes",
-      "host",
-      "192.0.2.10",
-      "revisions",
-    ]);
+    expect(calls).toContainEqual(["notes", "host", "192.0.2.10", "revisions"]);
     // The Notes Explorer listing is invalidated too so it
     // refreshes within the app-wide ``staleTime`` window.
     expect(calls).toContainEqual(["notes", "list"]);
@@ -729,9 +734,7 @@ describe("useDeleteHostNote invalidation", () => {
     // Unconditional invalidation keeps the local cache and
     // the authoritative server state in sync regardless of
     // which side won the race.
-    mockFetch(
-      vi.fn(async () => new Response("no note", { status: 404 })),
-    );
+    mockFetch(vi.fn(async () => new Response("no note", { status: 404 })));
     const { client, wrapper } = withQueryClient();
     const invalidateSpy = vi.spyOn(client, "invalidateQueries");
 
@@ -746,12 +749,7 @@ describe("useDeleteHostNote invalidation", () => {
     await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
     const calls = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(calls).toContainEqual(["notes", "host", "192.0.2.10"]);
-    expect(calls).toContainEqual([
-      "notes",
-      "host",
-      "192.0.2.10",
-      "revisions",
-    ]);
+    expect(calls).toContainEqual(["notes", "host", "192.0.2.10", "revisions"]);
     expect(calls).toContainEqual(["notes", "list"]);
   });
 });

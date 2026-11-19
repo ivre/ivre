@@ -16,6 +16,7 @@ import { AuditRoute } from "./audit";
 import { AuditExplorerRoute } from "./audit-explorer";
 import { DnsRoute } from "./dns";
 import { FlowRoute } from "./flow";
+import { HostReportRoute } from "./host-report";
 import { NotesRoute } from "./notes";
 import { PassiveRoute } from "./passive-list";
 import { RirRoute } from "./rir";
@@ -60,16 +61,15 @@ const router = createHashRouter([
       // filtered server-aware in ``AppShell``; this is the
       // matching gate for bookmarked / shared URLs.
       { path: "view", element: gateModule("view", <ViewRoute />) },
-      // Per-host deep link. The same component renders both
-      // ``/<sectionId>`` (no detail open) and
-      // ``/<sectionId>/host/<addr>`` (sheet pre-opened with that
-      // host). View and Active share the same ``HostListRoute``;
-      // only the section config differs.
-      { path: "view/host/:addr", element: gateModule("view", <ViewRoute />) },
+      // Keep existing per-host URLs while rendering a dedicated report.
+      {
+        path: "view/host/:addr",
+        element: gateModule("view", <HostReportRoute sectionId="view" />),
+      },
       { path: "active", element: gateModule("active", <ActiveRoute />) },
       {
         path: "active/host/:addr",
-        element: gateModule("active", <ActiveRoute />),
+        element: gateModule("active", <HostReportRoute sectionId="active" />),
       },
       { path: "passive", element: gateModule("passive", <PassiveRoute />) },
       // DNS has its own ``/cgi/dns`` endpoint that merges

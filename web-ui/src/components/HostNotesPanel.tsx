@@ -35,12 +35,13 @@ export interface HostNotesPanelProps {
   /** Caller-facing host address (printable IP string) used as the
    *  ``entity_key`` against ``/cgi/notes/host/<addr>``. */
   addr: string;
+  showUnavailable?: boolean;
 }
 
 /**
  * Editable display of the markdown note attached to a host.
  *
- * Drops into the host detail sheet as a self-contained section --
+ * Drops into a host report as a self-contained section --
  * the component renders its own ``<section>`` wrapper + heading
  * so it can ``return null`` entirely when the server reports the
  * notes backend is unavailable (HTTP 501).
@@ -76,15 +77,20 @@ export interface HostNotesPanelProps {
  * :func:`NoteMarkdownBody` -- the shared renderer reused by
  * every read-only notes consumer in the SPA.
  */
-export function HostNotesPanel({ addr }: HostNotesPanelProps) {
+export function HostNotesPanel({
+  addr,
+  showUnavailable = false,
+}: HostNotesPanelProps) {
   const query = useHostNote(addr);
 
-  // Hide the whole section when the backend has no notes
-  // implementation (HTTP 501).  Deployments that intentionally
-  // have no notes backend (Postgres, etc.) get a clean detail
-  // sheet with no permanent warning chrome.
+  // Embedded callers may omit unsupported notes (HTTP 501). A dedicated
+  // Notes tab requests an explanation instead of rendering an empty page.
   if (query.data?.kind === "unavailable") {
-    return null;
+    return showUnavailable ? (
+      <p className="py-8 text-muted-foreground">
+        Notes are unavailable on this backend.
+      </p>
+    ) : null;
   }
 
   return (
@@ -131,10 +137,7 @@ function HostNotesBody({
 
   if (query.isError) {
     return (
-      <p
-        className="text-sm text-destructive"
-        data-testid="host-notes-error"
-      >
+      <p className="text-sm text-destructive" data-testid="host-notes-error">
         Failed to load note: {formatQueryError(query.error)}
       </p>
     );
@@ -153,8 +156,7 @@ function HostNotesBody({
     // ``draft`` reinitialises from the new ``existingNote.body``.
     // Without this, ``draft`` is local state that would survive
     // the refetch and keep the operator's stale text.
-    const existingNote =
-      result?.kind === "found" ? result.note : null;
+    const existingNote = result?.kind === "found" ? result.note : null;
     return (
       <NoteEditor
         key={existingNote?.revision ?? "new"}
@@ -169,10 +171,7 @@ function HostNotesBody({
 
   if (!result || result.kind === "absent") {
     return (
-      <EmptyState
-        canEdit={canEdit}
-        onAddClick={() => setIsEditing(true)}
-      />
+      <EmptyState canEdit={canEdit} onAddClick={() => setIsEditing(true)} />
     );
   }
 
@@ -277,9 +276,8 @@ function NoteDisplay({
       <NoteMarkdownBody body={note.body} />
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Last updated by{" "}
-          <span className="font-medium">{note.updated_by}</span> on{" "}
-          {formatTimestamp(note.updated_at)} (rev {note.revision})
+          Last updated by <span className="font-medium">{note.updated_by}</span>{" "}
+          on {formatTimestamp(note.updated_at)} (rev {note.revision})
         </p>
         {canEdit ? (
           <div className="flex shrink-0 gap-1">
@@ -351,11 +349,7 @@ function RevisionsExpander({
   });
   const revisionCount = revisionsQuery.data?.length ?? currentRevision;
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={onOpenChange}
-      className="mt-2"
-    >
+    <Collapsible open={open} onOpenChange={onOpenChange} className="mt-2">
       <CollapsibleTrigger asChild>
         <Button
           variant="ghost"
@@ -382,10 +376,7 @@ function RevisionsList({
 }) {
   if (query.isLoading) {
     return (
-      <p
-        className="mt-2 text-xs italic text-muted-foreground"
-        role="status"
-      >
+      <p className="mt-2 text-xs italic text-muted-foreground" role="status">
         Loading revisions…
       </p>
     );
@@ -432,8 +423,7 @@ function RevisionItem({ revision }: { revision: NoteRevision }) {
               rev {revision.revision}
             </span>
             <span className="ml-2 text-muted-foreground">
-              by {revision.created_by} on{" "}
-              {formatTimestamp(revision.created_at)}
+              by {revision.created_by} on {formatTimestamp(revision.created_at)}
             </span>
           </Button>
         </CollapsibleTrigger>
@@ -493,9 +483,7 @@ function NoteEditor({
       {
         onSuccess: (result: SaveHostNoteResult) => {
           if (result.kind === "saved") {
-            toast.success(
-              existingNote ? "Note updated" : "Note created",
-            );
+            toast.success(existingNote ? "Note updated" : "Note created");
             onSaved();
             return;
           }
@@ -590,9 +578,7 @@ function NoteEditor({
     // latest body; they just lose their unsaved draft.
     try {
       await navigator.clipboard.writeText(pendingBody);
-      toast.info(
-        "Your edits were copied to the clipboard; paste to merge.",
-      );
+      toast.info("Your edits were copied to the clipboard; paste to merge.");
     } catch {
       toast.warning(
         "Could not access clipboard; your in-editor draft will be lost on reload.",
@@ -680,14 +666,16 @@ function ConflictDialog({
   onReload: () => void;
 }) {
   return (
-    <Dialog open={conflict !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={conflict !== null}
+      onOpenChange={(open) => !open && onClose()}
+    >
       <DialogContent data-testid="host-notes-conflict-dialog">
         <DialogHeader>
           <DialogTitle>Note was modified elsewhere</DialogTitle>
           <DialogDescription>
-            Another user or tab modified this note while you were
-            editing.  The server rejected the save to prevent an
-            accidental overwrite.
+            Another user or tab modified this note while you were editing. The
+            server rejected the save to prevent an accidental overwrite.
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
@@ -700,13 +688,9 @@ function ConflictDialog({
           <Button variant="outline" onClick={onClose}>
             Keep editing
           </Button>
-          <Button onClick={onReload}>
-            Reload latest version
-          </Button>
+          <Button onClick={onReload}>Reload latest version</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
-

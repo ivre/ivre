@@ -29,15 +29,15 @@ export function AppShell() {
   const showUpload = isUploadOk() && isModuleEnabled("view");
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 print:hidden">
         <div className="flex h-14 w-full items-center gap-4 px-6">
           <Brand />
-          <nav className="flex flex-1 items-center justify-center gap-1">
+          <nav className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto lg:justify-center">
             {visibleSections.map((section) => (
               <SectionLink key={section.id} section={section} />
             ))}
           </nav>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {showUpload ? <UploadNavLink /> : null}
             <UserMenu />
             <ThemeToggle />
@@ -55,7 +55,7 @@ function Brand() {
   return (
     <NavLink
       to="/view"
-      className="flex items-center gap-2 font-semibold"
+      className="flex shrink-0 items-center gap-2 font-semibold"
       aria-label="IVRE home"
     >
       <img src="favicon.png" alt="" className="h-6 w-6" />

@@ -1,5 +1,6 @@
 import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link, type LinkProps } from "react-router-dom";
 
 import { DomainTree } from "@/components/DomainTree";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
   getPortColor,
   getTagColor,
   sortTagsByImportance,
+  formatTimestamp,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +30,10 @@ export interface HostCardProps {
   host: HostRecord;
   /** Add a filter when the user clicks a chip on this card. */
   onAddFilter?: (filter: Filter) => void;
-  /** Open the host detail panel for this host. */
+  /** Open host details when no navigable link is supplied. */
   onSelect?: (host: HostRecord) => void;
+  detailsLink?: Pick<LinkProps, "to" | "state">;
+  showDates?: boolean;
   /** Map of currently-active typed filters used for highlighting. */
   highlights?: HighlightMap;
   /** ``true`` when the corresponding row in the section's
@@ -51,6 +55,8 @@ export function HostCard({
   host,
   onAddFilter,
   onSelect,
+  detailsLink,
+  showDates = false,
   highlights,
   highlighted,
   onHover,
@@ -132,16 +138,32 @@ export function HostCard({
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-4">
           <h3 className="font-mono text-lg font-semibold">{host.addr}</h3>
-          <Button
-            variant="link"
-            size="sm"
-            className="-mr-2"
-            onClick={() => onSelect?.(host)}
-          >
-            Details <ArrowRight className="size-4" />
-          </Button>
+          {detailsLink ? (
+            <Button variant="link" size="sm" className="-mr-2" asChild>
+              <Link {...detailsLink}>
+                Details <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="link"
+              size="sm"
+              className="-mr-2"
+              disabled={!onSelect}
+              title={!onSelect ? "Record details are unavailable." : undefined}
+              onClick={() => onSelect?.(host)}
+            >
+              Details <ArrowRight className="size-4" />
+            </Button>
+          )}
         </div>
 
+        {showDates ? (
+          <p className="text-xs text-muted-foreground">
+            Observed: {formatTimestamp(host.starttime) || "unknown"} →{" "}
+            {formatTimestamp(host.endtime ?? host.starttime) || "unknown"} · UTC
+          </p>
+        ) : null}
         {/* Country / AS / Source */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {country ? (
@@ -152,9 +174,7 @@ export function HostCard({
                 countryHL?.has(country.toLowerCase()) &&
                   "bg-highlight text-highlight-foreground",
               )}
-              onClick={() =>
-                onAddFilter?.({ type: "country", value: country })
-              }
+              onClick={() => onAddFilter?.({ type: "country", value: country })}
             >
               <span aria-hidden>{getCountryFlag(country)}</span> {countryName}
             </button>
@@ -206,16 +226,13 @@ export function HostCard({
         ) : null}
 
         {/* Categories + tags chips */}
-        {(host.categories?.length ?? 0) > 0 ||
-        (host.tags?.length ?? 0) > 0 ? (
+        {(host.categories?.length ?? 0) > 0 || (host.tags?.length ?? 0) > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {host.categories?.map((cat) => (
               <button
                 type="button"
                 key={`cat-${cat}`}
-                onClick={() =>
-                  onAddFilter?.({ type: "category", value: cat })
-                }
+                onClick={() => onAddFilter?.({ type: "category", value: cat })}
               >
                 <Badge
                   variant="outline"
@@ -232,9 +249,7 @@ export function HostCard({
               <button
                 type="button"
                 key={`tag-${tag.value}`}
-                onClick={() =>
-                  onAddFilter?.({ type: "tag", value: tag.value })
-                }
+                onClick={() => onAddFilter?.({ type: "tag", value: tag.value })}
                 title={tag.info?.join("\n")}
               >
                 <Badge
@@ -293,8 +308,7 @@ export function HostCard({
                     p.service_name &&
                     serviceHL?.has(p.service_name.toLowerCase());
                   const portMatch = portHL?.has(token);
-                  const highlighted =
-                    portMatch || productMatch || serviceMatch;
+                  const highlighted = portMatch || productMatch || serviceMatch;
                   return isOpen ? (
                     <button
                       type="button"
@@ -305,7 +319,8 @@ export function HostCard({
                         className={cn(
                           "border-none font-mono",
                           getPortColor(p.state_state),
-                          highlighted && "ring-2 ring-yellow-500 dark:ring-orange-400",
+                          highlighted &&
+                            "ring-2 ring-yellow-500 dark:ring-orange-400",
                         )}
                       >
                         {token}
@@ -331,9 +346,7 @@ export function HostCard({
         {host.ports && host.ports.length > 0 ? (
           <div className="text-xs text-muted-foreground">
             <span className="font-semibold">Services:</span>{" "}
-            {formatServices(host.ports) || (
-              <span className="italic">none</span>
-            )}
+            {formatServices(host.ports) || <span className="italic">none</span>}
           </div>
         ) : null}
       </CardContent>

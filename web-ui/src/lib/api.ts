@@ -35,8 +35,7 @@ function qs(params: Record<string, string | number | undefined>): string {
     "?" +
     entries
       .map(
-        ([k, v]) =>
-          `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
+        ([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
       )
       .join("&")
   );
@@ -46,8 +45,44 @@ function qs(params: Record<string, string | number | undefined>): string {
 /* Types                                                              */
 /* ------------------------------------------------------------------ */
 
+export interface HostScript {
+  id: string;
+  output?: string;
+  [k: string]: unknown;
+}
+
+export interface HostPort {
+  protocol: string;
+  port: number;
+  state_state?: string;
+  state_reason?: string;
+  service_name?: string;
+  service_product?: string;
+  service_version?: string;
+  service_extrainfo?: string;
+  service_hostname?: string;
+  service_ostype?: string;
+  service_devicetype?: string;
+  service_tunnel?: string;
+  screenshot?: string;
+  screendata?: string;
+  screenwords?: string[];
+  scripts?: HostScript[];
+  [k: string]: unknown;
+}
+
+export interface HostOSClass {
+  type?: string;
+  vendor?: string;
+  osfamily?: string;
+  osgen?: string;
+  accuracy?: string | number;
+}
+
 export interface HostRecord {
   addr: string;
+  /** Opaque database identifier, returned only with include_id=1. */
+  _id?: string;
   status?: string;
   /** Provenance string. Active scan documents (``db.nmap``)
    *  store it as a single string; the view (``db.view``)
@@ -74,15 +109,38 @@ export interface HostRecord {
     type?: string;
     info?: string[];
   }>;
-  ports?: Array<{
-    protocol: string;
-    port: number;
-    state_state?: string;
-    service_name?: string;
-    service_product?: string;
-    service_version?: string;
-    scripts?: Array<{ id: string; output?: string; [k: string]: unknown }>;
-    [k: string]: unknown;
+  ports?: HostPort[];
+  scripts?: HostScript[];
+  addresses?: { mac?: Array<{ addr: string; manuf?: string }> };
+  extraports?: Record<
+    string,
+    { total?: number; reasons?: Record<string, number> }
+  >;
+  traces?: Array<{
+    protocol?: string;
+    port?: number;
+    hops?: Array<{
+      ttl: number;
+      ipaddr?: string;
+      host?: string;
+      rtt?: number | string;
+    }>;
+  }>;
+  os?: {
+    osclass?: HostOSClass[];
+    osmatch?: Array<{
+      name?: string;
+      accuracy?: string | number;
+      osclass?: HostOSClass[];
+    }>;
+  };
+  /** Decomposed CPE fields. Version may also contain update/edition suffixes. */
+  cpes?: Array<{
+    type?: string;
+    vendor?: string;
+    product?: string;
+    version?: string;
+    origins?: string[];
   }>;
   [k: string]: unknown;
 }
@@ -156,6 +214,8 @@ export interface ListParams {
   skip?: number;
   ipsasnumbers?: boolean;
   datesasstrings?: boolean;
+  includeId?: boolean;
+  record?: string;
 }
 
 /** Parse a streamed NDJSON body into an array of records. Tolerates
@@ -171,11 +231,19 @@ async function parseNdjson(response: Response): Promise<HostRecord[]> {
   return out;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(response: Response, label: string) {
+    super(`${label} failed: ${response.status} ${response.statusText}`);
+    this.name = "ApiError";
+    this.status = response.status;
+  }
+}
+
 async function ensureOk(response: Response, label: string): Promise<void> {
   if (!response.ok) {
-    throw new Error(
-      `${label} failed: ${response.status} ${response.statusText}`,
-    );
+    throw new ApiError(response, label);
   }
 }
 
@@ -203,6 +271,8 @@ export async function fetchHosts(
       skip: params.skip,
       ipsasnumbers: params.ipsasnumbers ? 1 : undefined,
       datesasstrings: params.datesasstrings ? 1 : undefined,
+      include_id: params.includeId ? 1 : undefined,
+      record: params.record,
       format: "ndjson",
     });
   const response = await fetch(url, { credentials: "same-origin", signal });
@@ -301,8 +371,7 @@ export async function fetchCoordinates(
   params: { q?: string } = {},
   signal?: AbortSignal,
 ): Promise<CoordinatesResponse> {
-  const url =
-    CGI_ROOT + mapEndpoint + qs({ q: params.q, ipsasnumbers: 1 });
+  const url = CGI_ROOT + mapEndpoint + qs({ q: params.q, ipsasnumbers: 1 });
   const response = await fetch(url, { credentials: "same-origin", signal });
   await ensureOk(response, `GET ${url}`);
   return (await response.json()) as CoordinatesResponse;
@@ -630,8 +699,7 @@ export function useHosts(
 ): UseQueryResult<HostRecord[]> {
   return useQuery<HostRecord[]>({
     queryKey: ["hosts", listEndpoint, params],
-    queryFn: ({ signal }) =>
-      fetchHosts(listEndpoint as string, params, signal),
+    queryFn: ({ signal }) => fetchHosts(listEndpoint as string, params, signal),
     ...options,
     enabled: gatedEnabled(Boolean(listEndpoint), options),
   });
@@ -784,9 +852,7 @@ export interface Note {
  * and reach the caller via React Query's ``isError`` path.
  */
 export type HostNoteResult =
-  | { kind: "found"; note: Note }
-  | { kind: "absent" }
-  | { kind: "unavailable" };
+  { kind: "found"; note: Note } | { kind: "absent" } | { kind: "unavailable" };
 
 /** Fetch the note for a host (caller-facing IP string). Returns a
  *  discriminated union so the four UI states (found / absent /
@@ -846,8 +912,7 @@ export interface NoteRevision {
  *   between.
  */
 export type SaveHostNoteMode =
-  | { kind: "create" }
-  | { kind: "update"; expectedRevision: number };
+  { kind: "create" } | { kind: "update"; expectedRevision: number };
 
 /** Discriminated outcome of :func:`saveHostNote`.
  *
