@@ -24,7 +24,9 @@ test("app shell loads and lands on View", async ({ page }) => {
   );
 
   // Filter input is present.
-  await expect(page.getByRole("textbox", { name: /filter query/i })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /filter query/i }),
+  ).toBeVisible();
 
   // Theme toggle is present.
   await expect(
@@ -127,12 +129,8 @@ test("Active section renders the scan timeline next to the host list", async ({
   // Both hosts render as cards. Match the headings specifically
   // so we don't accidentally pick up the SVG ``<title>`` tooltip
   // text on the corresponding timeline element.
-  await expect(
-    page.getByRole("heading", { name: "10.0.0.1" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "10.0.0.2" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "10.0.0.1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "10.0.0.2" })).toBeVisible();
 
   // The timeline widget is present in the left rail with the
   // expected accessible label. ``itemLabel`` on the Timeline
@@ -142,11 +140,15 @@ test("Active section renders the scan timeline next to the host list", async ({
   // Both forms of the ``source`` field render: the card
   // surfaces them as click-to-filter chips, regardless of
   // whether the wire shape was a string or an array.
-  await expect(page.getByRole("button", { name: /scan-2024-Q1/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /scan-2024-Q2/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /scan-2024-Q1/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /scan-2024-Q2/ }),
+  ).toBeVisible();
 });
 
-test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
+test("direct navigation to /view/host/<addr> opens the full-page report", async ({
   page,
 }) => {
   // Mock the single-host fetch so the route renders something.
@@ -158,7 +160,12 @@ test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
     addr: "1.2.3.4",
     infos: { country_code: "FR", country_name: "France" },
     ports: [
-      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+      {
+        protocol: "tcp",
+        port: 443,
+        state_state: "open",
+        service_name: "https",
+      },
     ],
   };
   await page.route("**/cgi/**", (route) => {
@@ -178,15 +185,17 @@ test("direct navigation to /view/host/<addr> opens the detail sheet", async ({
   });
 
   await page.goto("/#/view/host/1.2.3.4");
-  await expect(
-    page.getByRole("heading", { name: "1.2.3.4" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "1.2.3.4" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /copy permalink/i }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Report sections" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("Host detail sheet renders the Notes section with markdown body", async ({
+test("Host report renders the Notes tab with markdown body", async ({
   page,
 }) => {
   // Mock the single-host fetch + the per-host note fetch.  The
@@ -196,7 +205,12 @@ test("Host detail sheet renders the Notes section with markdown body", async ({
     addr: "1.2.3.4",
     infos: { country_code: "FR", country_name: "France" },
     ports: [
-      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+      {
+        protocol: "tcp",
+        port: 443,
+        state_state: "open",
+        service_name: "https",
+      },
     ],
   };
   const note = {
@@ -233,16 +247,16 @@ test("Host detail sheet renders the Notes section with markdown body", async ({
   });
 
   await page.goto("/#/view/host/1.2.3.4");
-  // Host card heading appears (proves the detail sheet rendered).
-  await expect(
-    page.getByRole("heading", { name: "1.2.3.4" }),
-  ).toBeVisible();
+  // The report header remains visible when changing evidence sources.
+  await expect(page.getByRole("heading", { name: "1.2.3.4" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Host evidence sources" })
+    .getByRole("link", { name: "Notes" })
+    .click();
   // Notes section heading is the affordance entry point.  Pin to
   // its case-sensitive form so it doesn't collide with a future
   // "notes:" filter chip.
-  await expect(
-    page.getByRole("heading", { name: /^Notes$/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Notes$/ })).toBeVisible();
   // Markdown body was rendered.  ``react-markdown`` produces
   // real DOM elements; assert on the rendered heading + the
   // bold text.  ``## Investigation`` lands on ``<h5>`` (not
@@ -260,10 +274,10 @@ test("Host detail sheet renders the Notes section with markdown body", async ({
   await expect(page.getByText(/rev 3/)).toBeVisible();
 });
 
-test("Host detail sheet edit flow: open editor, save, see updated note", async ({
+test("Host report note edit flow: open editor, save, see updated note", async ({
   page,
 }) => {
-  // Full round-trip: open the host detail sheet, click Edit on
+  // Full round-trip: open the report's Notes tab, click Edit on
   // the existing note, type new content, hit Save, observe the
   // updated note + revision-bumped footer.  ``ivre httpd`` is
   // not running in CI dev mode so all backend routes are
@@ -273,7 +287,12 @@ test("Host detail sheet edit flow: open editor, save, see updated note", async (
     addr: "1.2.3.4",
     infos: { country_code: "FR", country_name: "France" },
     ports: [
-      { protocol: "tcp", port: 443, state_state: "open", service_name: "https" },
+      {
+        protocol: "tcp",
+        port: 443,
+        state_state: "open",
+        service_name: "https",
+      },
     ],
   };
   let currentNote = {
@@ -356,6 +375,10 @@ test("Host detail sheet edit flow: open editor, save, see updated note", async (
   });
 
   await page.goto("/#/view/host/1.2.3.4");
+  await page
+    .getByRole("navigation", { name: "Host evidence sources" })
+    .getByRole("link", { name: "Notes" })
+    .click();
   // Original note rendered.
   await expect(page.getByText("Original body.")).toBeVisible();
   await expect(page.getByText(/rev 3/)).toBeVisible();
@@ -384,19 +407,16 @@ test("Host detail sheet edit flow: open editor, save, see updated note", async (
   const content = page.getByTestId("host-notes-content");
   await expect(content.getByText("Updated body content")).toBeVisible();
   await expect(content.getByText(/rev 4/)).toBeVisible();
-  await expect(
-    content.getByText(/alice@example\.org/),
-  ).toBeVisible();
+  await expect(content.getByText(/alice@example\.org/)).toBeVisible();
 });
 
-test("Host detail sheet hides the Notes section when backend returns 501", async ({
+test("Host report explains unavailable Notes when backend returns 501", async ({
   page,
 }) => {
   // A deployment whose backend does not implement the notes
   // purpose (any non-MongoDB at v1) returns HTTP 501 from
-  // ``/cgi/notes/...``.  The panel must hide the entire section
-  // -- no permanent "feature missing" notice for every viewer on
-  // an intentionally notes-less deployment.
+  // ``/cgi/notes/...``. The dedicated Notes tab explains the
+  // unavailable backend rather than showing a blank page.
   const sample = {
     addr: "5.6.7.8",
     infos: { country_code: "DE", country_name: "Germany" },
@@ -426,13 +446,15 @@ test("Host detail sheet hides the Notes section when backend returns 501", async
   });
 
   await page.goto("/#/view/host/5.6.7.8");
+  await expect(page.getByRole("heading", { name: "5.6.7.8" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Host evidence sources" })
+    .getByRole("link", { name: "Notes" })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "5.6.7.8" }),
+    page.getByText("Notes are unavailable on this backend."),
   ).toBeVisible();
-  // No Notes heading anywhere in the rendered tree.
-  await expect(
-    page.getByRole("heading", { name: /^Notes$/ }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^Notes$/ })).toHaveCount(0);
 });
 
 test("UserMenu is hidden when auth is disabled", async ({ page }) => {
@@ -456,9 +478,9 @@ test("UserMenu is hidden when auth is disabled", async ({ page }) => {
   await page.route("**/cgi/**", (route) => route.fulfill({ status: 204 }));
   await page.goto("/");
   await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: /account menu/i }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /account menu/i })).toHaveCount(
+    0,
+  );
   // Give react-query a tick in case it would have fired an
   // eager request (it should not — the queries are gated).
   await page.waitForLoadState("networkidle");
@@ -576,15 +598,9 @@ test("UserMenu shows the user identity when authenticated", async ({
   // user), an Admin shortcut (because is_admin), and a Sign out
   // item.
   await expect(page.getByText("alice@example.com")).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: /api keys/i }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: /admin/i }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: /sign out/i }),
-  ).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /api keys/i })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /admin/i })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
 
   // Account / admin pages must NOT appear in the section nav.
   // The nav lives in a top-level <nav>; assert no link with the
@@ -635,13 +651,9 @@ test("Non-admin user sees API keys in the menu but no Admin shortcut", async ({
   await page.getByRole("button", { name: /account menu/i }).click();
 
   // API keys is always available to authenticated users …
-  await expect(
-    page.getByRole("menuitem", { name: /api keys/i }),
-  ).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /api keys/i })).toBeVisible();
   // … but Admin requires ``is_admin`` and must be absent here.
-  await expect(
-    page.getByRole("menuitem", { name: /admin/i }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: /admin/i })).toHaveCount(0);
 });
 
 test("Passive section renders the timeline + record list", async ({ page }) => {
@@ -886,9 +898,7 @@ test("Admin section gates non-admin users with a placeholder", async ({
   });
 
   await page.goto("/#/admin");
-  await expect(
-    page.getByText(/does not have admin privileges/i),
-  ).toBeVisible();
+  await expect(page.getByText(/does not have admin privileges/i)).toBeVisible();
   // The admin endpoints must not have been hit.
   // (No assertion on requests because ``page.route`` would 204
   // them anyway — but the placeholder confirms the gate is
@@ -1094,15 +1104,11 @@ test("DNS section renders merged pseudo-records from /cgi/dns", async ({
 
   // Type and source badges from the merge are visible.
   await expect(page.getByText("A", { exact: true }).first()).toBeVisible();
-  await expect(
-    page.getByText("user", { exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByText("user", { exact: true }).first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: /scan-2024-Q1/ }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /sensor1/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /sensor1/ })).toBeVisible();
 
   // Merged count.
   await expect(page.getByText("×122")).toBeVisible();
@@ -1135,9 +1141,7 @@ test("DNS section forwards user-typed filters to /cgi/dns", async ({
     .toBe("hostname:example.com");
 });
 
-test("RIR section renders inet[6]num and aut-num records", async ({
-  page,
-}) => {
+test("RIR section renders inet[6]num and aut-num records", async ({ page }) => {
   // One inet[6]num record (a /24 — should collapse to its CIDR
   // form in the headline) and one aut-num record. The card
   // exposes a "Show more" toggle revealing the RPSL key/value
@@ -1454,9 +1458,7 @@ test("Notes section lists notes, filters by q=, and opens the detail sheet on ro
   await page.goto("/#/notes");
 
   // Header + toolbar visible.
-  await expect(
-    page.getByRole("heading", { name: /^Notes$/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Notes$/ })).toBeVisible();
   await expect(page.getByTestId("notes-explorer-toolbar")).toBeVisible();
 
   // Both rows rendered.
@@ -1823,7 +1825,9 @@ test("Upload page shows disabled gate when uploadok is false", async ({
   });
 
   await page.goto("/#/upload");
-  await expect(page.getByRole("heading", { name: /uploads are disabled/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /uploads are disabled/i }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /^Upload$/ })).toHaveCount(0);
 });
 
@@ -1852,9 +1856,7 @@ test("Upload nav link and form render when uploadok is true", async ({
   await expect(page.getByLabel(/^Source/)).toBeVisible();
 });
 
-test("Upload form submits to /cgi/view and shows success", async ({
-  page,
-}) => {
+test("Upload form submits to /cgi/view and shows success", async ({ page }) => {
   let uploadPosts = 0;
   await page.route("**/cgi/**", (route) => {
     const url = new URL(route.request().url());

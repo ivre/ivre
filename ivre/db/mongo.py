@@ -701,10 +701,13 @@ class MongoDB(DB):
         <objid>}}`` on the negative one; lists with more
         than one element become ``$in`` / ``$nin``.
         """
-        if isinstance(oid, (str, bytes, bson.objectid.ObjectId)):
-            oid = bson.objectid.ObjectId(oid)
-        else:
-            oid = [bson.objectid.ObjectId(elt) for elt in oid]
+        try:
+            if isinstance(oid, (str, bytes, bson.objectid.ObjectId)):
+                oid = bson.objectid.ObjectId(oid)
+            else:
+                oid = [bson.objectid.ObjectId(elt) for elt in oid]
+        except bson.errors.InvalidId as exc:
+            raise ValueError("Invalid record identifier") from exc
         return cls._search_field("_id", oid, neg=neg)
 
     @staticmethod

@@ -218,6 +218,7 @@ if HAS_CURL:
 class HttpDB(DB):
     flt_empty = {}
     no_limit = None
+    request_record_ids = False
 
     def __init__(self, url):
         super().__init__()
@@ -230,7 +231,10 @@ class HttpDB(DB):
         )
 
     def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        url_l = [f"{self.db.baseurl}/{self.route}?f={self._output_filter(spec)}&q="]
+        identity = "&include_id=1" if self.request_record_ids else ""
+        url_l = [
+            f"{self.db.baseurl}/{self.route}?f={self._output_filter(spec)}{identity}&q="
+        ]
         for s_field, direction in sort or []:
             url_l.append(f"{'-' if direction < 0 else ''}sortby:{s_field}%20")
         if fields is not None:
@@ -437,6 +441,7 @@ class HttpDB(DB):
 
 class HttpDBActive(HttpDB, DBActive):
     reference = MongoDBActive
+    request_record_ids = True
 
     @staticmethod
     def fix_rec(rec):

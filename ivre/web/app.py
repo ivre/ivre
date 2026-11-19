@@ -566,6 +566,10 @@ def get_nmap(subdb):
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
                                timestamps
+    :query bool include_id: set to 1 to include the opaque database record
+                           identifier as a string in ``_id`` (omitted by default)
+    :query str record: select one active scan by its database identifier;
+                       supported for ``scans`` only, combined with other filters
     :query str format: "json" (the default) or "ndjson"
     :status 200: no error
     :status 400: invalid referer or malformed query / filter
@@ -574,9 +578,17 @@ def get_nmap(subdb):
 
     """
     require_module(_SUBDB_TO_MODULE[subdb])
+    record_id = request.params.get("record")
+    if record_id is not None and (subdb != "scans" or not record_id):
+        raise ValueError("Record lookup requires a non-empty active scan identifier")
+    include_id = request.params.get("include_id") == "1"
     subdb_tool = "view" if subdb == "view" else "scancli"
     subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_base(subdb)
+    if record_id is not None:
+        flt_params = flt_params._replace(
+            flt=subdb.flt_and(flt_params.flt, subdb.searchid(record_id))
+        )
     audit_hook.record_oversize_query(subdb, flt_params.flt, route=request.route.rule)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
@@ -604,10 +616,10 @@ def get_nmap(subdb):
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
-        try:
-            del rec["_id"]
-        except KeyError:
-            pass
+        if include_id and "_id" in rec:
+            rec["_id"] = str(subdb.getid(rec))
+        else:
+            rec.pop("_id", None)
         if flt_params.ipsasnumbers:
             rec["addr"] = utils.force_ip2int(rec["addr"])
         if not flt_params.datesasstrings:

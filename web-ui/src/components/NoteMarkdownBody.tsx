@@ -19,7 +19,7 @@ function stripHastNode<T extends { node?: unknown }>(
 }
 
 /** Single source of truth for the markdown renderer used by
- *  every read-only note display in the SPA (host detail panel
+ *  every read-only note display in the SPA (host report
  *  + Notes Explorer detail sheet, today; future per-entity
  *  panels reuse this).  Centralising the renderer means a
  *  future hardening fix (banning a new dangerous tag, tweaking

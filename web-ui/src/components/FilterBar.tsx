@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+import { LockKeyhole, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 export interface FilterBarProps {
   filters: readonly Filter[];
   onFiltersChange: (filters: Filter[]) => void;
+  fixedFilters?: readonly Filter[];
 }
 
 /**
@@ -35,7 +36,11 @@ export interface FilterBarProps {
  * Active filters are rendered as chips that the user can remove by
  * clicking the trailing X.
  */
-export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
+export function FilterBar({
+  filters,
+  onFiltersChange,
+  fixedFilters = [],
+}: FilterBarProps) {
   const [draft, setDraft] = useState("");
 
   const suggestions = useMemo(() => {
@@ -94,8 +99,20 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
           </div>
         ) : null}
       </div>
-      {filters.length > 0 ? (
+      {filters.length > 0 || fixedFilters.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
+          {fixedFilters.map((filter, index) => (
+            <Badge
+              key={`fixed-${index}`}
+              variant="outline"
+              className="max-w-full gap-1.5 whitespace-normal break-all font-mono text-xs"
+              title="Fixed IP scope"
+            >
+              <LockKeyhole className="size-3 shrink-0" aria-hidden />
+              <span>{renderFilter(filter)}</span>
+              <span className="sr-only"> (fixed)</span>
+            </Badge>
+          ))}
           {filters.map((f, i) => (
             <FilterChip
               key={`${i}-${renderFilter(f)}`}
@@ -130,7 +147,8 @@ function FilterChip({
       variant="secondary"
       className={cn(
         "gap-1 pl-2 pr-1 font-mono text-xs",
-        filter.neg && "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
+        filter.neg &&
+          "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
       )}
     >
       {renderFilter(filter)}
@@ -169,9 +187,10 @@ export function filtersFromHashSearch(search: string): Filter[] {
 /** A noop hook that synchronises the document title with the
  *  current filter (placeholder for future SEO or accessibility
  *  improvements). */
-export function useFilterTitle(filters: readonly Filter[]) {
+export function useFilterTitle(filters: readonly Filter[], enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
     const q = buildQueryFromFilters(filters);
     document.title = q ? `IVRE — ${q}` : "IVRE";
-  }, [filters]);
+  }, [filters, enabled]);
 }

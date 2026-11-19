@@ -5,147 +5,126 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { FacetSidebar } from "@/components/FacetSidebar";
 import { FilterBar, useFilterTitle } from "@/components/FilterBar";
 import { HostCardList } from "@/components/HostCardList";
-import { HostDetailSheet } from "@/components/HostDetailSheet";
+import { ReportPagination } from "@/components/ReportPagination";
+import { ReportStatus } from "@/components/ReportStatus";
 import { Timeline } from "@/components/Timeline";
 import { Button } from "@/components/ui/button";
 import { WorldMap } from "@/components/WorldMap";
-import {
-  useCoordinates,
-  useCount,
-  useHosts,
-  type HostRecord,
-} from "@/lib/api";
+import { useCoordinates, useCount, useHosts, type HostRecord } from "@/lib/api";
 import { getConfig, isSequentialLoading } from "@/lib/config";
-import {
-  buildHighlightMap,
-  buildQueryFromFilters,
-  parseFiltersFromQuery,
-  quoteValue,
-  stripMetaFilters,
-  type Filter,
-} from "@/lib/filter";
+import { buildQueryFromFilters } from "@/lib/filter";
 import { formatResultsCount } from "@/lib/format";
+import {
+  hostRecordId,
+  hostReportUrl,
+  readHostNavigation,
+  type HostNavigation,
+} from "@/lib/host-report";
 import { buildPagedQuery, computePagination, parseUrlInt } from "@/lib/paging";
 import { getSection, type SectionId } from "@/lib/sections";
 import { formatTimelineRange, type TimelineRecord } from "@/lib/timeline";
+import { usePageScroll } from "@/lib/use-page-scroll";
+import { useReportPaging } from "@/lib/use-report-paging";
+import { useBrowseFilters } from "@/lib/use-browse-filters";
+import { cn } from "@/lib/utils";
 
 export interface HostListRouteProps {
   /** Section to render. Drives the API endpoints, the facet list,
    *  and the URL prefix used for per-host deep links
    *  (``/<sectionId>`` and ``/<sectionId>/host/<addr>``). */
   sectionId: Extract<SectionId, "view" | "active">;
+  scopeAddr?: string;
 }
 
 /**
  * Generic host-record list page used by both the View and Active
  * sections. Composes the filter bar, facet sidebar, optional world
- * map, host card list, and host detail sheet.
+ * map and host card list. Details open a separate, full-page report.
  *
  * Filter state lives in the URL search params (``?q=…``) so the
- * page is shareable / bookmarkable. The currently-displayed host
- * (when a sheet is open) lives in the path itself
- * (``/<sectionId>/host/<addr>``).
+ * page is shareable / bookmarkable.
  *
  * Sections that do not declare a ``mapEndpoint`` skip the world map
  * widget entirely; this is the case for Active, where raw nmap
  * records are typically not GeoIP-enriched and the map would be
  * empty most of the time.
  */
-export function HostListRoute({ sectionId }: HostListRouteProps) {
+export function HostListRoute({ sectionId, scopeAddr }: HostListRouteProps) {
   const section = getSection(sectionId);
   if (!section) {
-    return <div className="p-8">Section &quot;{sectionId}&quot; not configured.</div>;
+    return (
+      <div className="p-8">Section &quot;{sectionId}&quot; not configured.</div>
+    );
   }
-  return <HostListRouteInner sectionId={sectionId} />;
+  return <HostListRouteInner sectionId={sectionId} scopeAddr={scopeAddr} />;
 }
 
-function HostListRouteInner({ sectionId }: HostListRouteProps) {
+function HostListRouteInner({ sectionId, scopeAddr }: HostListRouteProps) {
   const section = getSection(sectionId)!;
   const config = getConfig();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  // ``addr`` is set when the route is ``/<sectionId>/host/<addr>``
-  // and ``undefined`` for the bare ``/<sectionId>``. Filter state is
-  // preserved across both via the URL search params (which
-  // react-router keeps when navigating between sibling routes).
-  const { addr: routeAddr } = useParams<{ addr?: string }>();
+  const {
+    filters,
+    fixedFilters,
+    query,
+    highlights,
+    setFilters,
+    addFilter,
+    searchParams,
+    setSearchParams,
+    location,
+  } = useBrowseFilters(sectionId, scopeAddr);
+  const restoreScrollY = location.state?.restoreScrollY;
 
-  // Strip pagination meta-tokens (``skip:`` / ``limit:``) that may
-  // ride inside ``q=`` from a legacy/shared URL, but only for the
-  // paginated section (View): there, paging is owned by the
-  // ``?skip=`` / ``?limit=`` params, so such a token must not become
-  // a filter chip or leak into the fetched query (which would offset
-  // the result window out of sync with the UI's page state). Active
-  // has no pagination UI and keeps honouring legacy
-  // ``q=…skip:N limit:N`` URLs unchanged.
-  const filters: Filter[] = useMemo(() => {
-    const parsed = parseFiltersFromQuery(searchParams.get("q") ?? "");
-    return sectionId === "view" ? stripMetaFilters(parsed) : parsed;
-  }, [searchParams, sectionId]);
-  const query = useMemo(() => buildQueryFromFilters(filters), [filters]);
-  const highlights = useMemo(() => buildHighlightMap(filters), [filters]);
-
-  useFilterTitle(filters);
-
-  const searchSuffix = useMemo(() => {
-    const s = searchParams.toString();
-    return s ? `?${s}` : "";
-  }, [searchParams]);
-
-  const setFilters = useCallback(
-    (next: Filter[]) => {
-      const nextQ = buildQueryFromFilters(next);
-      const params = new URLSearchParams(searchParams);
-      if (nextQ) params.set("q", nextQ);
-      else params.delete("q");
-      if (sectionId === "view") params.delete("skip");
-      setSearchParams(params, { replace: false });
-    },
-    [searchParams, sectionId, setSearchParams],
-  );
-
-  const addFilter = useCallback(
-    (filter: Filter) => {
-      // Skip duplicates (same type + same value).
-      const exists = filters.some(
-        (f) => f.type === filter.type && f.value === filter.value,
-      );
-      if (exists) return;
-      setFilters([...filters, filter]);
-    },
-    [filters, setFilters],
-  );
+  useFilterTitle(filters, !scopeAddr);
 
   // ``limit`` (min 1): any non-positive / non-numeric value
   // (``?limit=0``, ``?limit=-10``, ``?limit=abc``) falls back to the
   // default page size -- a negative would otherwise be truthy and
   // corrupt both the ``limit:N`` meta-token and the pagination math.
-  const limit = parseUrlInt(searchParams, "limit", {
-    min: 1,
-    fallback: config.dflt_limit || 50,
-  });
-  const paginationEnabled = sectionId === "view";
+  const limit = scopeAddr
+    ? Math.min(50, Math.max(1, config.dflt_limit || 25))
+    : parseUrlInt(searchParams, "limit", {
+        min: 1,
+        fallback: config.dflt_limit || 50,
+      });
+  const paginationEnabled = sectionId === "view" || Boolean(scopeAddr);
+  const skipKey = scopeAddr ? "recordsSkip" : "skip";
   // ``skip`` (min 0): a negative / non-numeric offset clamps to 0.
   const skip = paginationEnabled
-    ? parseUrlInt(searchParams, "skip", { fallback: 0 })
+    ? parseUrlInt(searchParams, skipKey, { fallback: 0 })
     : 0;
+  const { previousSkip, stateForSkip } = useReportPaging(
+    sectionId,
+    query,
+    limit,
+    skip,
+  );
 
   const sequential = isSequentialLoading();
   const pagedQuery = paginationEnabled
-    ? buildPagedQuery(query, limit, skip)
+    ? buildPagedQuery(
+        scopeAddr ? `${query} -sortby:endtime -sortby:starttime` : query,
+        limit,
+        skip,
+      )
     : query;
 
-  const hostsQuery = useHosts(section.listEndpoint, {
+  const listParams = {
     q: pagedQuery,
     limit: paginationEnabled ? undefined : limit,
     skip: paginationEnabled ? undefined : skip,
-  });
+    includeId: sectionId === "active" ? true : undefined,
+  };
+  const hostsQuery = useHosts(section.listEndpoint, listParams);
   const { data: hosts = [], isLoading, error } = hostsQuery;
+  usePageScroll(
+    !isLoading,
+    typeof restoreScrollY === "number" ? restoreScrollY : 0,
+  );
   // Total number of records matching ``q=`` — used to render the
   // ``loaded / total`` headline alongside the page-of-results
   // count. Fires in parallel with the hosts query (cheap server
@@ -160,11 +139,13 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     (nextSkip: number) => {
       const params = new URLSearchParams(searchParams);
       const normalized = Math.max(0, nextSkip);
-      if (normalized === 0) params.delete("skip");
-      else params.set("skip", String(normalized));
-      setSearchParams(params, { replace: false });
+      if (normalized === 0) params.delete(skipKey);
+      else params.set(skipKey, String(normalized));
+      setSearchParams(params, {
+        state: scopeAddr ? stateForSkip(normalized) : undefined,
+      });
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, skipKey, scopeAddr, stateForSkip],
   );
   const showPagination =
     paginationEnabled && !isLoading && !error && (hosts.length > 0 || skip > 0);
@@ -207,43 +188,51 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     !section.mapEndpoint || coordsQuery.isSuccess || coordsQuery.isError;
   const facetsEnabled = !sequential || (resultsDone && mapDone);
 
-  // Host detail. ``routeAddr`` (from ``/<sectionId>/host/<addr>``)
-  // is the single source of truth for "which host is currently
-  // displayed in the sheet"; selecting a host or pressing prev/next
-  // is just a ``navigate()`` call, and closing the sheet navigates
-  // back to ``/<sectionId>`` (preserving the search params).
-  const selectedIndex = useMemo(
-    () => (routeAddr ? hosts.findIndex((h) => h.addr === routeAddr) : -1),
-    [routeAddr, hosts],
+  const navigationEntries = useMemo(
+    () =>
+      hosts.map((host) => ({
+        addr: host.addr,
+        record: sectionId === "active" ? hostRecordId(host) : undefined,
+      })),
+    [hosts, sectionId],
   );
-  // For direct navigation to ``/<sectionId>/host/<addr>`` (refresh,
-  // share link), the addr usually isn't in the in-memory results
-  // yet — fetch it as a one-host query.
-  const directHostQuery = useMemo(() => {
-    if (!routeAddr) return undefined;
-    if (selectedIndex >= 0) return undefined;
-    return `host:${quoteValue(routeAddr)}`;
-  }, [routeAddr, selectedIndex]);
-  const { data: directHostList = [] } = useHosts(
-    directHostQuery ? section.listEndpoint : undefined,
-    { q: directHostQuery, limit: 1, skip: 0 },
-  );
-  const selectedHost: HostRecord | null =
-    selectedIndex >= 0
-      ? hosts[selectedIndex]
-      : routeAddr && directHostList[0]
-        ? directHostList[0]
-        : null;
-
-  const goToHost = useCallback(
-    (a: string) => {
-      navigate(`/${sectionId}/host/${encodeURIComponent(a)}${searchSuffix}`);
-    },
-    [navigate, sectionId, searchSuffix],
-  );
-  const closeDetail = useCallback(() => {
-    navigate(`/${sectionId}${searchSuffix}`);
-  }, [navigate, sectionId, searchSuffix]);
+  const getDetailsLink = (host: HostRecord, index: number) => {
+    const params = new URLSearchParams(searchParams);
+    const returnParams = new URLSearchParams(searchParams);
+    if (sectionId === "active") {
+      const recordId = navigationEntries[index].record;
+      if (!recordId) return undefined;
+      params.set("record", recordId);
+      params.set("tab", "active");
+      if (scopeAddr) {
+        const extraQuery = buildQueryFromFilters(filters);
+        params.set("activeQ", extraQuery);
+        returnParams.set("activeQ", extraQuery);
+        returnParams.set("tab", "active");
+        returnParams.delete("record");
+        returnParams.delete("section");
+      }
+    }
+    const hostNavigation: HostNavigation = {
+      returnTo: scopeAddr
+        ? `${location.pathname}?${returnParams.toString()}`
+        : location.pathname + location.search,
+      returnScrollY: window.scrollY,
+      returnKey: location.key,
+      entries: navigationEntries,
+      currentIndex: index,
+    };
+    return {
+      to: hostReportUrl(sectionId, host.addr, params),
+      state: {
+        reportPaging: location.state?.reportPaging,
+        hostNavigation,
+        reportNavigation: scopeAddr
+          ? readHostNavigation(location.state)
+          : undefined,
+      },
+    };
+  };
 
   // Timeline ↔ card cross-highlight wiring. Active hosts have a
   // ``starttime`` / ``endtime`` pair (ISO string or epoch); we
@@ -307,7 +296,11 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
     // Outer flex: tight ``py-2`` so the top/bottom margin matches
     // the visual weight of ``px-6`` on the sides. Sidebar on the
     // left, results horizontally centred in whatever space is left.
-    <div className="flex w-full gap-6 px-6 py-2">
+    <div
+      className={cn("flex w-full min-w-0 gap-6 py-2", !scopeAddr && "px-6")}
+      role={scopeAddr ? "region" : undefined}
+      aria-label={scopeAddr ? "Active scans for this IP" : undefined}
+    >
       {/*
         Left rail: optional map + filter bar + facet sidebar. The
         whole rail sticks below the header (h-14 = 3.5rem) and
@@ -315,11 +308,14 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
         ``w-[28rem]`` matches the prototype's sidebar width, which
         is wide enough for the map widget and long facet labels.
        */}
-      <aside className="hidden w-[28rem] shrink-0 lg:block">
+      <aside
+        className={cn(
+          "hidden shrink-0 lg:block",
+          scopeAddr ? "w-[21rem]" : "w-[28rem]",
+        )}
+      >
         <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] space-y-6 overflow-y-auto pr-2 pt-2">
-          {section.mapEndpoint ? (
-            <WorldMap data={coordsQuery.data} />
-          ) : null}
+          {section.mapEndpoint ? <WorldMap data={coordsQuery.data} /> : null}
           {showTimeline ? (
             <Timeline
               records={timelineRecords}
@@ -332,7 +328,11 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
               titleId="active-timeline-title"
             />
           ) : null}
-          <FilterBar filters={filters} onFiltersChange={setFilters} />
+          <FilterBar
+            filters={filters}
+            fixedFilters={fixedFilters}
+            onFiltersChange={setFilters}
+          />
           <FacetSidebar
             section={section}
             query={query}
@@ -350,11 +350,11 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
         empty space on both sides of the cards, matching the
         prototype's visual rhythm.
        */}
-      <div className="flex flex-1 justify-center">
-        <div className="w-full max-w-4xl space-y-4">
+      <div className="flex min-w-0 flex-1 justify-center">
+        <div className="w-full min-w-0 max-w-4xl space-y-4">
           <div className="flex items-baseline justify-between">
             <h2 className="text-xl font-semibold">
-              Results
+              {scopeAddr ? "Active scans" : "Results"}
               {!isLoading && !error ? (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({formatResultsCount(hosts.length, totalCount)})
@@ -362,21 +362,58 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
               ) : null}
             </h2>
           </div>
-          <div className="lg:hidden">
-            <FilterBar filters={filters} onFiltersChange={setFilters} />
+          <div className="space-y-4 lg:hidden">
+            <FilterBar
+              filters={filters}
+              fixedFilters={fixedFilters}
+              onFiltersChange={setFilters}
+            />
+            {scopeAddr && showTimeline ? (
+              <Timeline
+                records={timelineRecords}
+                hoveredIndex={hoveredIndex}
+                onHover={setHoveredIndex}
+                onSelect={scrollToCard}
+                getTitle={hostTimelineTitle}
+                itemLabel={{ singular: "scan", plural: "scans" }}
+                emptyLabel="No scans to plot."
+                titleId="host-active-mobile-timeline-title"
+              />
+            ) : null}
           </div>
-          <HostCardList
-            hosts={hosts}
-            loading={isLoading}
-            error={error as Error | null}
-            highlights={highlights}
-            onAddFilter={addFilter}
-            onSelect={(h) => goToHost(h.addr)}
-            hoveredIndex={showTimeline ? hoveredIndex : null}
-            onHover={showTimeline ? setHoveredIndex : undefined}
-            registerCardRef={showTimeline ? registerCardRef : undefined}
-          />
-          {showPagination ? (
+          {sectionId === "active" &&
+          hosts.some((host) => !hostRecordId(host)) ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Database identifiers are missing for some scan records; their
+              Details links are unavailable. Check that the server supports
+              include_id=1.
+            </p>
+          ) : null}
+          {scopeAddr && error ? (
+            <ReportStatus error={error} />
+          ) : (
+            <HostCardList
+              hosts={hosts}
+              loading={isLoading}
+              error={error as Error | null}
+              highlights={highlights}
+              onAddFilter={addFilter}
+              getDetailsLink={getDetailsLink}
+              showDates={sectionId === "active"}
+              hoveredIndex={showTimeline ? hoveredIndex : null}
+              onHover={showTimeline ? setHoveredIndex : undefined}
+              registerCardRef={showTimeline ? registerCardRef : undefined}
+            />
+          )}
+          {showPagination && scopeAddr ? (
+            <ReportPagination
+              loaded={hosts.length}
+              total={totalCount}
+              skip={skip}
+              previousSkip={previousSkip}
+              onSkipChange={setSkip}
+            />
+          ) : showPagination ? (
             <HostPagination
               loaded={hosts.length}
               limit={limit}
@@ -387,28 +424,6 @@ function HostListRouteInner({ sectionId }: HostListRouteProps) {
           ) : null}
         </div>
       </div>
-
-      <HostDetailSheet
-        host={selectedHost}
-        open={Boolean(routeAddr) && selectedHost !== null}
-        onOpenChange={(open) => {
-          if (!open) closeDetail();
-        }}
-        hasPrev={selectedIndex > 0}
-        hasNext={selectedIndex >= 0 && selectedIndex < hosts.length - 1}
-        onPrev={() => {
-          if (selectedIndex > 0) {
-            goToHost(hosts[selectedIndex - 1].addr);
-          }
-        }}
-        onNext={() => {
-          if (selectedIndex >= 0 && selectedIndex < hosts.length - 1) {
-            goToHost(hosts[selectedIndex + 1].addr);
-          }
-        }}
-        onAddFilter={addFilter}
-        highlights={highlights}
-      />
     </div>
   );
 }
