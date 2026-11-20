@@ -121,10 +121,16 @@ const SPECIAL_MAPPERS: Record<string, FieldMapper> = {
   // ``"http"``. We filter by service name only.
   service: (label) => ({ type: "service", value: firstString(label) }),
 
-  // ``product`` returns ``["http", "nginx"]`` (service, product) or
-  // ``["nginx"]``. We want the product name, which is the second
-  // element when the array has 2+ items.
+  // ``product`` returns ``["http", "nginx"]`` (service, product).
+  // Keep both slots for the backend's ``product:service:product``
+  // filter; the renderer handles quoting the compound value.
   product: (label) => {
+    if (Array.isArray(label) && label.length >= 2) {
+      return {
+        type: "product",
+        value: `${label[0] || "-"}:${label[1] || "-"}`,
+      };
+    }
     if (Array.isArray(label)) {
       return { type: "product", value: String(label[label.length - 1] ?? "") };
     }
