@@ -177,6 +177,37 @@ describe("buildHighlightMap", () => {
     expect(map.get("port")).toEqual(new Set(["tcp/443", "udp/53"]));
   });
 
+  it("indexes compound products by the full value, service, and product", () => {
+    const map = buildHighlightMap([
+      { type: "service", value: "SSH" },
+      { type: "product", value: "HTTP:Apache httpd" },
+      { type: "product", value: "http:nginx" },
+    ]);
+    expect(map.get("service")).toEqual(new Set(["ssh", "http"]));
+    expect(map.get("product")).toEqual(
+      new Set(["http:apache httpd", "apache httpd", "http:nginx", "nginx"]),
+    );
+  });
+
+  it("does not treat an optional product port as part of the product name", () => {
+    const map = buildHighlightMap([{ type: "product", value: "http:nginx:80" }]);
+    expect(map.get("service")).toEqual(new Set(["http"]));
+    expect(map.get("product")).toEqual(new Set(["http:nginx:80", "nginx"]));
+  });
+
+  it.each([
+    { value: "http:-", service: ["http"], product: ["http:-"] },
+    { value: "-:nginx", service: undefined, product: ["-:nginx", "nginx"] },
+    { value: "-:-", service: undefined, product: ["-:-"] },
+    { value: "http:", service: ["http"], product: ["http:"] },
+    { value: ":nginx", service: undefined, product: [":nginx", "nginx"] },
+    { value: "nginx", service: undefined, product: ["nginx"] },
+  ])("handles missing product components: $value", ({ value, service, product }) => {
+    const map = buildHighlightMap([{ type: "product", value }]);
+    expect(map.get("service")).toEqual(service ? new Set(service) : undefined);
+    expect(map.get("product")).toEqual(new Set(product));
+  });
+
   it("ignores anonymous filters that don't look like port tokens", () => {
     const map = buildHighlightMap([
       { value: "1.2.3.4" },
@@ -189,6 +220,7 @@ describe("buildHighlightMap", () => {
   it("ignores negated filters", () => {
     const map = buildHighlightMap([
       { type: "country", value: "FR", neg: true },
+      { type: "product", value: "http:nginx", neg: true },
     ]);
     expect(map.size).toBe(0);
   });

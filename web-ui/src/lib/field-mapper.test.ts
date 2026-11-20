@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createFilter, displayLabel } from "./field-mapper";
+import { parseFiltersFromQuery, renderFilter } from "./filter";
 
 describe("createFilter — simple fields", () => {
   it("country (string label)", () => {
@@ -90,12 +91,56 @@ describe("createFilter — service / product / version", () => {
     });
   });
 
-  it("product tuple keeps last element", () => {
+  it("product tuple keeps both service and product", () => {
     expect(createFilter("product", ["http", "nginx"])).toEqual({
       type: "product",
-      value: "nginx",
+      value: "http:nginx",
     });
   });
+
+  it("product tuple with a limit suffix keeps both slots", () => {
+    expect(createFilter("product:15", ["ssh", "OpenSSH"])).toEqual({
+      type: "product",
+      value: "ssh:OpenSSH",
+    });
+  });
+
+  it.each([
+    { label: ["http", ""], value: "http:-" },
+    { label: ["", "nginx"], value: "-:nginx" },
+    { label: ["http", null as unknown as string], value: "http:-" },
+    { label: [null as unknown as string, null as unknown as string], value: "-:-" },
+  ])("uses the backend's missing-field marker: $value", ({ label, value }) => {
+    expect(createFilter("product", label)).toEqual({ type: "product", value });
+  });
+
+  it.each(["nginx", "Apache httpd", 'Server "Community"', `Server's "Edition"`])(
+    "product tuple round-trips through query quoting: %s",
+    (product) => {
+      const filter = createFilter("product", ["http", product]);
+      expect(filter).toEqual({ type: "product", value: `http:${product}` });
+      if (!filter) throw new Error("Expected a product filter");
+      expect(parseFiltersFromQuery(renderFilter(filter))).toEqual([
+        { type: "product", value: `http:${product}`, neg: false },
+      ]);
+    },
+  );
+
+  it("quotes the compound product value in the query", () => {
+    const filter = createFilter("product", ["http", "Apache httpd"]);
+    if (!filter) throw new Error("Expected a product filter");
+    expect(renderFilter(filter)).toBe('product:"http:Apache httpd"');
+  });
+
+  it.each(["nginx", ["nginx"]])(
+    "preserves product labels without a service: %s",
+    (label) => {
+      expect(createFilter("product", label)).toEqual({
+        type: "product",
+        value: "nginx",
+      });
+    },
+  );
 
   it("version tuple keeps last element", () => {
     expect(createFilter("version", ["http", "nginx", "1.18"])).toEqual({

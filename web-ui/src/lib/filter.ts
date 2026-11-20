@@ -167,6 +167,8 @@ export function stripMetaFilters(filters: readonly Filter[]): Filter[] {
 /**
  * Highlight map keyed by filter type. Each value is the lowercased
  * raw value so a case-insensitive comparison works at render time.
+ * Compound product filters also index their service and product
+ * components for highlighting individual fields.
  *
  * Components ask ``map.country?.has("fr")`` to decide whether to add
  * a ``bg-highlight`` highlight on the matching chip.
@@ -205,6 +207,15 @@ const PORT_TOKEN_RE = /^[A-Za-z]+\/\d+$/;
 
 export function buildHighlightMap(filters: readonly Filter[]): HighlightMap {
   const out: HighlightMap = new Map();
+  function addHighlight(key: string, value: string) {
+    let set = out.get(key);
+    if (!set) {
+      set = new Set();
+      out.set(key, set);
+    }
+    set.add(value.toLowerCase());
+  }
+
   for (const f of filters) {
     if (f.neg) continue;
     let key: string | undefined = f.type;
@@ -218,12 +229,16 @@ export function buildHighlightMap(filters: readonly Filter[]): HighlightMap {
       }
     }
     if (!HIGHLIGHT_TYPES.has(key)) continue;
-    let set = out.get(key);
-    if (!set) {
-      set = new Set();
-      out.set(key, set);
+    addHighlight(key, f.value);
+    if (key === "product") {
+      const [service, product] = f.value.split(":");
+      if (product !== undefined) {
+        // Keep the compound value above for facet rows, and omit
+        // the backend's missing-field marker from component highlights.
+        if (service && service !== "-") addHighlight("service", service);
+        if (product && product !== "-") addHighlight("product", product);
+      }
     }
-    set.add(f.value.toLowerCase());
   }
   return out;
 }
